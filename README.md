@@ -156,4 +156,12 @@ I gruppi RDM vengono mantenuti come gruppi PCM.
 
 ---
 
+## 💰 Donazioni
+
+Se apprezzi questo progetto e vuoi supportare il suo sviluppo, considera una donazione via PayPal:
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
+
+---
+
 Sviluppato con ♥ per la community Linux.
