@@ -21,7 +21,7 @@ Moduli:
 Requisiti:
   PyQt6, paramiko, xterm, sshpass (opzionale), xdotool (opzionale)
 
-Autore: lavoro scolastico - clone MobaXterm per Linux
+Autore: Andres Zanzani - azanzani@gmail.com
 """
 
 import sys
