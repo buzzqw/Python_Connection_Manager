@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>PCM — Guida completa</title>
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --blue-deep:   #0f2744;
+    --blue-mid:    #1a4a8a;
+    --blue-acc:    #2f7dd6;
+    --blue-light:  #4e9ef5;
+    --blue-pale:   #ddeeff;
+    --green:       #1a7a4a;
+    --green-pale:  #e2f5eb;
+    --amber:       #b05800;
+    --amber-pale:  #fff3e0;
+    --red:         #c0271a;
+    --red-pale:    #fdecea;
+    --teal:        #0d7a6e;
+    --teal-pale:   #e0f5f3;
+    --fg:          #1a1f2e;
+    --fg-muted:    #4a5368;
+    --border:      #d0d9ea;
+    --bg:          #f6f8fc;
+    --bg-card:     #ffffff;
+    --mono:        'JetBrains Mono', 'Fira Code', 'DejaVu Sans Mono', 'Courier New', monospace;
+    --sans:        'Liberation Sans', 'FreeSans', 'DejaVu Sans', 'Noto Sans', Arial, sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: var(--fg);
+    background: var(--bg);
+    margin: 0;
+    padding: 0;
+    line-height: 1.65;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────────── */
+  .header {
+    background: linear-gradient(135deg, var(--blue-deep) 0%, var(--blue-mid) 60%, #1d5ea8 100%);
+    color: #fff;
+    padding: 36px 48px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .header h1 {
+    margin: 0 0 6px;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header .sub   { margin: 0; font-size: 13px; opacity: 0.75; }
+  .header .meta  { margin-top: 10px; font-size: 11px; opacity: 0.5; font-family: var(--mono); }
+
+  /* ── NAVIGAZIONE ─────────────────────────────────────────────────── */
+  .toc {
+    background: #e8eef8;
+    border-bottom: 2px solid var(--border);
+    padding: 0 48px;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .toc a {
+    color: var(--blue-mid);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 10px 15px;
+    display: inline-block;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .toc a:hover { background: #d0dcf4; }
+  .toc a.new::after {
+    content: 'NEW';
+    font-size: 9px;
+    background: var(--blue-acc);
+    color: #fff;
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+
+  /* ── LAYOUT CONTENUTO ────────────────────────────────────────────── */
+  .content { padding: 12px 48px 60px; max-width: 980px; }
+
+  /* ── TITOLI ──────────────────────────────────────────────────────── */
+  h2 {
+    color: var(--blue-deep);
+    font-size: 19px;
+    font-weight: 700;
+    border-bottom: 3px solid var(--blue-acc);
+    padding-bottom: 7px;
+    margin: 44px 0 18px;
+  }
+  h2 .new-badge {
+    display: inline-block;
+    background: var(--blue-acc);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: 10px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
+  }
+  h3 {
+    color: var(--blue-mid);
+    font-size: 14.5px;
+    font-weight: 700;
+    margin: 26px 0 10px;
+    padding-left: 12px;
+    border-left: 3px solid var(--blue-acc);
+  }
+  h4 {
+    color: #2c4a7a;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 18px 0 7px;
+  }
+
+  p  { margin: 8px 0 12px; }
+  ul, ol { margin: 6px 0 13px 22px; }
+  li { margin-bottom: 5px; }
+  ul ul { margin-top: 4px; margin-bottom: 4px; }
+
+  /* ── CODICE ──────────────────────────────────────────────────────── */
+  code {
+    background: #e4eaf7;
+    border: 1px solid #c2cedf;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #1a3870;
+  }
+  pre {
+    background: #111827;
+    color: #c8d8f8;
+    border-radius: 7px;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin: 12px 0 18px;
+    overflow-x: auto;
+    line-height: 1.75;
+    border: 1px solid #1e2e48;
+  }
+  pre .cm  { color: #6a8eb0; }
+  pre .kw  { color: #82d3f8; }
+  pre .str { color: #a8d8a8; }
+  pre .var { color: #ffd08a; }
+
+  /* ── TASTO TASTIERA ──────────────────────────────────────────────── */
+  kbd {
+    display: inline-block;
+    background: #edf0f7;
+    border: 1px solid #b8c4d8;
+    border-bottom: 2.5px solid #94a8c4;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #1a3060;
+    white-space: nowrap;
+  }
+
+  /* ── BADGE PROTOCOLLI ────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    margin-right: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+  }
+  .b-ssh  { background: #1a9e8a; }
+  .b-sftp { background: #2a8a5a; }
+  .b-ftp  { background: #b06a00; }
+  .b-rdp  { background: #0060b0; }
+  .b-vnc  { background: #c08000; }
+  .b-tel  { background: #8a8020; }
+  .b-tun  { background: #7050a0; }
+  .b-mosh { background: #1a8888; }
+  .b-ser  { background: #606060; }
+
+  /* ── TABELLE ─────────────────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0 20px;
+    font-size: 12.5px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th {
+    background: var(--blue-mid);
+    color: #fff;
+    text-align: left;
+    padding: 10px 15px;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+  td { padding: 8px 15px; border-bottom: 1px solid #e4eaf0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f3f6fc; }
+  tr:hover td { background: #e8f0fc; }
+
+  /* ── CALLOUT BOXES ───────────────────────────────────────────────── */
+  .info, .tip, .warn, .danger, .new-feature {
+    border-radius: 0 6px 6px 0;
+    padding: 13px 17px;
+    margin: 15px 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .info        { background: #e8f2fe; border-left: 4px solid var(--blue-acc); }
+  .tip         { background: var(--green-pale); border-left: 4px solid var(--green); }
+  .warn        { background: var(--amber-pale); border-left: 4px solid var(--amber); }
+  .danger      { background: var(--red-pale); border-left: 4px solid var(--red); }
+  .new-feature { background: #eef4ff; border-left: 4px solid var(--blue-light); border: 1px solid #c8deff; border-left-width: 4px; border-radius: 0 6px 6px 0; }
+  .new-feature .nf-title {
+    font-weight: 700;
+    color: var(--blue-mid);
+    font-size: 13px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .new-feature .nf-title::before {
+    content: '✦ NOVITÀ';
+    background: var(--blue-acc);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── STEP NUMERATI ───────────────────────────────────────────────── */
+  .step { display: flex; align-items: flex-start; margin: 10px 0; gap: 13px; }
+  .step-num {
+    background: var(--blue-acc);
+    color: #fff;
+    border-radius: 50%;
+    width: 25px; height: 25px; min-width: 25px;
+    text-align: center;
+    line-height: 25px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .step-text { line-height: 1.7; flex: 1; padding-top: 2px; }
+
+  /* ── CARD GRIGLIA ────────────────────────────────────────────────── */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 15px 17px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .card h4 { margin-top: 0; color: var(--blue-mid); }
+
+  /* ── BLOCCHI PROTOCOLLO ──────────────────────────────────────────── */
+  .proto-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--blue-acc);
+    border-radius: 0 7px 7px 0;
+    padding: 15px 20px;
+    margin: 15px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .proto-block.ssh   { border-left-color: #1a9e8a; }
+  .proto-block.sftp  { border-left-color: #2a8a5a; }
+  .proto-block.ftp   { border-left-color: #b06a00; }
+  .proto-block.rdp   { border-left-color: #0060b0; }
+  .proto-block.vnc   { border-left-color: #c08000; }
+  .proto-block.tel   { border-left-color: #8a8020; }
+  .proto-block.tun   { border-left-color: #7050a0; }
+  .proto-block.mosh  { border-left-color: #1a8888; }
+  .proto-block.ser   { border-left-color: #606060; }
+  .proto-title { font-size: 14.5px; font-weight: 700; margin: 0 0 8px; }
+  .proto-desc  { color: var(--fg-muted); font-size: 12.5px; margin: 3px 0 11px; }
+
+  /* ── UI BOX (ASCII diagram) ──────────────────────────────────────── */
+  .screenshot-label {
+    background: var(--blue-mid);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 4px 4px 0 0;
+    display: inline-block;
+    margin-bottom: -1px;
+    font-family: var(--mono);
+  }
+  .ui-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 6px 6px 6px;
+    padding: 14px 18px;
+    margin: 0 0 18px;
+    font-size: 11.5px;
+    font-family: var(--mono);
+    line-height: 1.85;
+    color: #1a2a4a;
+  }
+
+  /* ── MENU PATH ───────────────────────────────────────────────────── */
+  .menu-path {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eef2fb;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--blue-mid);
+  }
+  .menu-path span { color: #8fa0bc; font-weight: 400; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  .footer {
+    background: var(--blue-deep);
+    color: #7090b8;
+    padding: 16px 48px;
+    font-size: 11px;
+    text-align: center;
+    font-family: var(--mono);
+  }
+  .footer a { color: #6ab4f0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════ HEADER -->
+<div class="header">
+  <h1>🚀 PCM — Python Connection Manager</h1>
+  <p class="sub">Guida completa &nbsp;·&nbsp; Gestore sessioni remote multi-protocollo per Linux</p>
+  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · SSH Tunnel · Mosh · Seriale</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ INDICE -->
+<div class="toc">
+  <a href="#interfaccia">🖥 Interfaccia</a>
+  <a href="#sessioni">📋 Sessioni</a>
+  <a href="#protocolli">🔌 Protocolli</a>
+  <a href="#autenticazione">🔑 Autenticazione</a>
+  <a href="#import">📥 Import</a>
+  <a href="#terminale">⌨ Terminale</a>
+  <a href="#sftp">📁 SFTP/FTP</a>
+  <a href="#tunnel">🔀 Tunnel</a>
+  <a href="#avanzate">⚙ Avanzate</a>
+  <a href="#nuove">✦ Nuove funzioni</a>
+  <a href="#tasti">⌨ Tasti</a>
+  <a href="#impostazioni">🛠 Impostazioni</a>
+  <a href="#faq">❓ FAQ</a>
+</div>
+
+<div class="content">
+
+<!-- ══════════════════════════════════════════════════ INTERFACCIA -->
+<h2 id="interfaccia">🖥 Interfaccia principale</h2>
+
+<p>PCM organizza l'interfaccia in aree ben distinte e personalizzabili:</p>
+
+<div class="screenshot-label">Layout PCM</div>
+<div class="ui-box">
+┌─────────────────────────────────────────────────────────────────┐
+│  File  Visualizza  Strumenti  ?                     [menu bar]  │
+├─────────────────────────────────────────────────────────────────┤
+│  [Sessione] [Locale] │ [Tunnel] │ [Impostazioni] │ [Split ▼]   │
+├─────────────────────────────────────────────────────────────────┤
+│  Quick Connect: [SSH ▼]  [utente@host:porta..............] [▶] │
+├──────────────┬──────────────────────────────────────────────────┤
+│  Sessioni    │  🏠 Benvenuto  │  SSH: server1  │  SFTP: nas    │
+│  ─────────── │                                                   │
+│  📂 Casa     │   (area terminale / contenuto scheda attiva)     │
+│   ● server1  │                                                   │
+│   ● nas      │                                                   │
+│  📂 Lavoro   │                                                   │
+│   ● webserver│                                                   │
+│   ● dbserver │                                                   │
+│  ─────────── │                                                   │
+│  4 sessioni  │                                                   │
+├──────────────┴──────────────────────────────────────────────────┤
+│  Stato: 2 sessioni attive                          [status bar] │
+└─────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>Barra dei menu</h3>
+<ul>
+  <li><b>File</b> — nuova sessione, terminale locale, importa/esporta sessioni JSON, impostazioni, esci</li>
+  <li><b>Visualizza</b> — mostra/nascondi sidebar, modalità split</li>
+  <li><b>Strumenti</b> — tunnel SSH, multi-exec, variabili globali, server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze</li>
+  <li><b>?</b> — questa guida (<kbd>F1</kbd>), informazioni su PCM</li>
+</ul>
+
+<h3>Toolbar</h3>
+<ul>
+  <li><b>Sessione</b> — nuova sessione remota</li>
+  <li><b>Locale</b> — terminale bash locale in una nuova scheda</li>
+  <li><b>Tunnel</b> — gestore tunnel SSH grafici</li>
+  <li><b>Impostazioni</b> — preferenze globali</li>
+  <li><b>Split ▼</b> — menu per la modalità di divisione dei pannelli</li>
+</ul>
+
+<h3>Quick Connect</h3>
+<p>Connessioni istantanee senza salvare un profilo:</p>
+<ol>
+  <li>Scegli il protocollo (SSH, Telnet, SFTP, FTP, RDP, VNC)</li>
+  <li>Digita la destinazione: <code>utente@host:porta</code> oppure solo <code>host</code></li>
+  <li>Premi <kbd>Invio</kbd> o clicca <b>▶ Connetti</b></li>
+</ol>
+<div class="tip">
+  💡 La Quick Connect chiede le credenziali al volo se non specificate. Il formato <code>utente@host:2222</code> imposta utente e porta in un colpo solo.
+</div>
+
+<h3>Sidebar sessioni</h3>
+<ul>
+  <li>Sessioni raggruppate per gruppo, ordinate alfabeticamente</li>
+  <li>Ogni riga mostra icona protocollo, nome e <code>utente@host:porta</code></li>
+  <li>Campo ricerca live — filtra per nome, host e utente</li>
+  <li>Pulsanti ▼/▲ per espandere/comprimere tutti i gruppi, ↺ per ricaricare</li>
+</ul>
+
+<h3>Area schede (tab)</h3>
+<p>Ogni connessione apre una scheda. Puoi avere quante schede vuoi in parallelo.</p>
+<ul>
+  <li>Riordina le schede trascinandole con il mouse</li>
+  <li><b>Tasto destro sul tab</b> — menu contestuale con: sposta nell'altro pannello, esporta apri-connessione.sh, esporta comandi.sh, chiudi</li>
+  <li>In modalità Split, le schede si distribuiscono tra i due pannelli</li>
+</ul>
+
+<h3>System Tray</h3>
+<p>Con sessioni attive, chiudere la finestra minimizza PCM nel tray invece di terminare le connessioni.</p>
+<ul>
+  <li><b>Doppio clic</b> sull'icona — riapre la finestra principale</li>
+  <li><b>Tasto destro</b> sull'icona — menu con accesso rapido alle ultime sessioni usate e opzione Esci</li>
+  <li>Il menu del tray mostra prima le <b>ultime 8 sessioni usate</b>, poi le restanti in ordine alfabetico</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════════════════ SESSIONI -->
+<h2 id="sessioni">📋 Gestione Sessioni</h2>
+
+<h3>Creare una nuova sessione</h3>
+
+<div class="step"><div class="step-num">1</div><div class="step-text">
+  Clicca <b>➕</b> nella sidebar, oppure <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>.
+</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">
+  Assegna un <b>Nome</b> descrittivo (es. <i>Server produzione</i>) e un <b>Gruppo</b> opzionale (es. <i>Lavoro</i>).
+</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">
+  Scegli il <b>Protocollo</b> — il dialog si adatta mostrando solo i campi rilevanti.
+</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">
+  Tab <b>Connessione</b>: Host, Porta, Utente, e le opzioni specifiche del protocollo.
+</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">
+  Tab <b>Autenticazione</b>: password o chiave privata SSH. Puoi lasciare vuoto — PCM chiederà al momento della connessione.
+</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-text">
+  Tab <b>Terminale</b>: tema colori, font, dimensione, <b>comando avvio remoto</b>, <b>comando pre-connessione locale</b>, log output.
+</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-text">
+  Tab <b>⚙ Avanzate</b>: keepalive, X11 forwarding, compressione, jump host, modalità di apertura, selettore terminale esterno.
+</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-text">
+  Tab <b>⚡ Macro</b>: definisci comandi rapidi inviabili con un clic dal pannello sessioni.
+</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-text">
+  Tab <b>📝 Note</b>: campo testo libero per annotazioni, procedure, link utili.
+</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-text">
+  Clicca <b>OK</b> — la sessione viene salvata e la connessione si apre immediatamente.
+</div></div>
+
+<h3>Menu contestuale sessione (tasto destro)</h3>
+<ul>
+  <li><b>▶ Connetti</b> — apre la connessione in una nuova scheda</li>
+  <li><b>✏ Modifica</b> — riapre il dialog con i dati precompilati</li>
+  <li><b>📋 Duplica</b> — crea una copia con suffisso "(copia)"</li>
+  <li><b>📋 Copia comando</b> — copia il comando shell equivalente negli appunti</li>
+  <li><b>📄 Esporta apri-connessione.sh…</b> — genera uno script bash standalone per aprire la connessione</li>
+  <li><b>🌐 Verifica raggiungibilità…</b> — testa ping, porta TCP e DNS sull'host</li>
+  <li><b>⚡ Macro</b> — sottomenu con le macro definite per questa sessione</li>
+  <li><b>🗑 Elimina</b> — richiede conferma</li>
+</ul>
+
+<h3>Importare ed esportare sessioni</h3>
+<p>Da <b>File → Esporta sessioni</b> salvi tutte le sessioni in un file JSON portabile.
+Da <b>File → Importa sessioni</b> carichi un file JSON precedentemente esportato.
+Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM — modificabile con qualsiasi editor.</p>
+
+
+<!-- ══════════════════════════════════════════════════ PROTOCOLLI -->
+<h2 id="protocolli">🔌 Protocolli supportati</h2>
+
+<div class="proto-block ssh">
+  <p class="proto-title"><span class="badge b-ssh">SSH</span> Secure Shell</p>
+  <p class="proto-desc">Connessione cifrata a terminale remoto. Il protocollo standard per l'amministrazione di server Linux/Unix.</p>
+  <ul>
+    <li><b>Autenticazione</b> — password oppure chiave privata (consigliata)</li>
+    <li><b>Jump host</b> — server intermedio (bastion) per host non raggiungibili direttamente</li>
+    <li><b>X11 Forwarding</b> — esegui applicazioni grafiche remote sul display locale</li>
+    <li><b>Keepalive</b> — pacchetti periodici per mantenere viva la connessione su link instabili</li>
+    <li><b>Compressione</b> — riduce il traffico, utile su connessioni lente</li>
+    <li><b>Comando avvio</b> — eseguito subito dopo la connessione (es. <code>tmux attach</code>)</li>
+    <li><b>Pre-connessione locale</b> — comando eseguito sul tuo PC prima di connettersi (es. attiva VPN)</li>
+    <li><b>Compatibilità legacy</b> — opzioni per server datati (KEX, cipher, host key, MAC obsoleti)</li>
+    <li><b>Modalità apertura</b> — terminale interno embedded oppure terminale esterno</li>
+  </ul>
+  <div class="tip">💡 Con l'opzione "Apri browser SFTP laterale" attiva, il pannello SFTP si popola automaticamente dopo la connessione.</div>
+</div>
+
+<div class="proto-block sftp">
+  <p class="proto-title"><span class="badge b-sftp">SFTP</span> SSH File Transfer Protocol</p>
+  <p class="proto-desc">Trasferimento file sicuro su canale SSH. Non è FTP — usa una connessione SSH cifrata.</p>
+  <ul>
+    <li>Stessi parametri di SSH (host, porta, utente, chiave/password)</li>
+    <li>Browser grafico integrato stile WinSCP: navigazione, upload, download, rinomina, eliminazione</li>
+    <li>Visualizzazione permessi, dimensioni, date di modifica</li>
+    <li><b>Modalità apertura</b> — browser interno, terminale SFTP CLI, file manager di sistema</li>
+  </ul>
+</div>
+
+<div class="proto-block ftp">
+  <p class="proto-title"><span class="badge b-ftp">FTP / FTPS</span> File Transfer Protocol</p>
+  <p class="proto-desc">Trasferimento file non cifrato (FTP) o con TLS esplicito (FTPS). Preferisci SFTP quando disponibile.</p>
+  <ul>
+    <li><b>FTPS</b> — TLS esplicito (AUTH TLS): cifra credenziali e dati</li>
+    <li><b>Modalità passiva (PASV)</b> — consigliata dietro NAT o firewall</li>
+    <li>Browser grafico integrato con upload, download, navigazione</li>
+    <li><b>Modalità apertura</b> — browser interno, terminale lftp, file manager di sistema</li>
+  </ul>
+  <div class="warn">⚠️ FTP plain trasmette credenziali e dati in chiaro. Usa FTPS o SFTP quando possibile.</div>
+</div>
+
+<div class="proto-block rdp">
+  <p class="proto-title"><span class="badge b-rdp">RDP</span> Remote Desktop Protocol</p>
+  <p class="proto-desc">Desktop remoto Windows — mostra l'intero desktop della macchina remota.</p>
+  <ul>
+    <li><b>Client RDP</b> — xfreerdp3 (raccomandato), xfreerdp, rdesktop</li>
+    <li><b>Schermo intero</b> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Invio</kbd> per uscire</li>
+    <li>Condivisione clipboard e cartelle locali</li>
+    <li>Si apre come finestra esterna indipendente</li>
+  </ul>
+  <div class="info">ℹ️ xfreerdp3 offre la migliore compatibilità con Windows 10/11 e Windows Server 2019+.</div>
+</div>
+
+<div class="proto-block vnc">
+  <p class="proto-title"><span class="badge b-vnc">VNC</span> Virtual Network Computing</p>
+  <p class="proto-desc">Desktop remoto multipiattaforma (Linux, Windows, macOS) tramite protocollo RFB.</p>
+  <ul>
+    <li><b>VNC integrato in scheda</b> — usa noVNC per mostrare il desktop direttamente in una scheda PCM (richiede PyQt6-WebEngine)</li>
+    <li><b>Client esterno</b> — vncviewer, realvnc-viewer, tigervnc, remmina, krdc</li>
+    <li>Porta default 5900; display :1 = porta 5901, :2 = 5902…</li>
+    <li>Password VNC separata dalla password di sistema</li>
+  </ul>
+</div>
+
+<div class="proto-block tel">
+  <p class="proto-title"><span class="badge b-tel">Telnet</span></p>
+  <p class="proto-desc">Terminale legacy non cifrato. Solo per reti locali sicure o dispositivi che non supportano SSH.</p>
+  <div class="danger">🚫 Non usare Telnet su reti pubbliche — le credenziali sono visibili in chiaro sul traffico di rete.</div>
+</div>
+
+<div class="proto-block tun">
+  <p class="proto-title"><span class="badge b-tun">SSH Tunnel</span> Port Forwarding</p>
+  <p class="proto-desc">Crea tunnel cifrati SSH per raggiungere servizi altrimenti inaccessibili.</p>
+  <ul>
+    <li><b>Proxy SOCKS (-D)</b> — proxy SOCKS5 sulla porta locale; configura browser o app per usare <code>127.0.0.1:porta</code></li>
+    <li><b>Tunnel locale (-L)</b> — <code>porta-locale → host-remoto:porta-remota</code> (es. accesso DB remoto come locale)</li>
+    <li><b>Tunnel remoto (-R)</b> — <code>porta-remota → localhost:porta-locale</code> (espone servizio locale sul server)</li>
+  </ul>
+</div>
+
+<div class="proto-block mosh">
+  <p class="proto-title"><span class="badge b-mosh">Mosh</span> Mobile Shell</p>
+  <p class="proto-desc">Alternativa a SSH per connessioni instabili, roaming e alta latenza.</p>
+  <ul>
+    <li>Sopravvive a disconnessioni e cambi di rete (WiFi → 4G)</li>
+    <li>Richiede <code>mosh</code> installato sia sul client che sul server</li>
+    <li>Usa UDP per il traffico dati, SSH solo per l'autenticazione iniziale</li>
+  </ul>
+</div>
+
+<div class="proto-block ser">
+  <p class="proto-title"><span class="badge b-ser">Seriale</span> Console seriale</p>
+  <p class="proto-desc">Connessione diretta a dispositivi tramite porta RS-232: router, switch, server, Raspberry Pi, Arduino.</p>
+  <ul>
+    <li><b>Dispositivo</b> — es. <code>/dev/ttyUSB0</code>, <code>/dev/ttyACM0</code>, <code>/dev/ttyS0</code></li>
+    <li><b>Baud rate</b> — valori comuni: 9600, 115200 (controlla la documentazione del dispositivo)</li>
+    <li>Se il dispositivo non risponde: <code>sudo usermod -a -G dialout $USER</code> (poi rilogin)</li>
+  </ul>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ AUTENTICAZIONE -->
+<h2 id="autenticazione">🔑 Autenticazione</h2>
+
+<h3>Password</h3>
+<p>Puoi salvare la password nel profilo o lasciarla vuota — PCM la chiederà con un dialog dedicato a ogni connessione.</p>
+<div class="warn">
+  ⚠️ Le password salvate in <code>connections.json</code> sono in chiaro. Per macchine di produzione o condivise, preferisci le chiavi SSH.
+</div>
+
+<h3>Chiave privata SSH (consigliata)</h3>
+
+<div class="step"><div class="step-num">1</div><div class="step-text">
+  Vai al tab <b>Autenticazione</b> nel dialog sessione. Nella sezione "Gestione chiavi SSH" puoi vedere le chiavi già presenti in <code>~/.ssh/</code>.
+</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">
+  <b>Genera nuova chiave</b>: scegli il tipo (ed25519 consigliato), inserisci un commento, clicca <b>⚙ Genera</b>. La coppia viene salvata in <code>~/.ssh/</code>.
+</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">
+  <b>Copia sul server</b>: clicca <b>📤 Copia chiave pubblica sul server</b> — PCM lancia <code>ssh-copy-id</code> in un xterm visibile dove puoi digitare la password del server (una sola volta).
+</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">
+  Seleziona la chiave dal combo "Chiavi in ~/.ssh:" — il campo "Chiave privata" si compila automaticamente.
+</div></div>
+
+<div class="tip">
+  💡 Per non digitare la passphrase ad ogni connessione, usa <code>ssh-agent</code>:<br>
+  <code>eval $(ssh-agent) &amp;&amp; ssh-add ~/.ssh/id_ed25519</code>
+</div>
+
+<h3>Jump Host (Bastion Host)</h3>
+<p>Per raggiungere server non accessibili direttamente (DMZ, reti private):</p>
+<ul>
+  <li>Tab <b>Autenticazione</b> → sezione <b>Jump Host (Bastion)</b></li>
+  <li><b>Jump host</b> — indirizzo del server intermedio</li>
+  <li><b>Utente jump</b> — utente sul bastion (può differire dall'utente finale)</li>
+  <li><b>Porta jump</b> — porta SSH del bastion (default 22)</li>
+</ul>
+<p>Il risultato è equivalente a <code>ssh -J utente@bastion:porta utente@host-finale</code>, gestito in modo trasparente.</p>
+<div class="info">ℹ️ Il Jump Host è disponibile per SSH, SFTP e Mosh.</div>
+
+
+<!-- ══════════════════════════════════════════════════ IMPORT -->
+<h2 id="import">📥 Import da altre applicazioni</h2>
+
+<p>Da <b>Strumenti → Importa da applicazione esterna</b> importi le connessioni da Remmina o Remote Desktop Manager senza reinserirle manualmente.</p>
+
+<h3>Importa da Remmina</h3>
+<ol>
+  <li>Vai su <b>Strumenti → Importa da applicazione esterna → 🖥 Remmina…</b></li>
+  <li>PCM legge la cartella <code>~/.local/share/remmina/</code> oppure puoi selezionare una cartella diversa</li>
+  <li>Verificata l'anteprima (protocollo, host, numero connessioni), conferma l'importazione</li>
+</ol>
+<p>Protocolli importati: SSH, SFTP, RDP, VNC, Telnet. I gruppi Remmina diventano gruppi PCM.</p>
+
+<h3>Importa da Remote Desktop Manager (XML o JSON)</h3>
+<ol>
+  <li>In RDM: <b>File → Esporta</b> → scegli formato XML (.rdm) o JSON</li>
+  <li>In PCM: <b>Strumenti → Importa → Remote Desktop Manager (XML)…</b> oppure (JSON)…</li>
+  <li>Seleziona il file, verifica l'anteprima, conferma</li>
+</ol>
+<div class="info">ℹ️ Le password non vengono importate — RDM le cifra con una chiave legata all'account. PCM chiederà le credenziali alla prima connessione.</div>
+
+
+<!-- ══════════════════════════════════════════════════ TERMINALE -->
+<h2 id="terminale">⌨ Terminale integrato</h2>
+
+<p>PCM usa <b>xterm</b> come motore del terminale, embedded direttamente nelle schede. È uno dei terminali più veloci e compatibili su Linux.</p>
+
+<h3>Copia e incolla</h3>
+<ul>
+  <li><b>Copia</b> — seleziona il testo con il mouse (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> per la clipboard)</li>
+  <li><b>Incolla</b> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> oppure tasto centrale del mouse</li>
+</ul>
+
+<h3>Temi colore disponibili</h3>
+<table>
+  <tr><th>Tema</th><th>Sfondo</th><th>Note</th></tr>
+  <tr><td>Scuro (Default)</td><td><code>#1e1e1e</code></td><td>Uso generale, riduce l'affaticamento visivo</td></tr>
+  <tr><td>Chiaro (B/W)</td><td><code>#ffffff</code></td><td>Ambienti luminosi, presentazioni</td></tr>
+  <tr><td>Dracula</td><td><code>#282a36</code></td><td>Tema popolare con colori vividi</td></tr>
+  <tr><td>Nord</td><td><code>#2e3440</code></td><td>Toni freddi, occhi sensibili</td></tr>
+  <tr><td>Monokai</td><td><code>#272822</code></td><td>Classico da Sublime Text</td></tr>
+  <tr><td>Solarized Dark / Light</td><td><code>#002b36</code></td><td>Alta leggibilità scientificamente calibrata</td></tr>
+  <tr><td>Gruvbox Dark / Light</td><td><code>#282828</code></td><td>Toni caldi, molto apprezzato dai developer</td></tr>
+  <tr><td>One Dark</td><td><code>#282c34</code></td><td>Tema di Atom / VS Code</td></tr>
+  <tr><td>Matrix (Verde)</td><td><code>#000000</code></td><td>Stile retrò, massimo contrasto</td></tr>
+  <tr><td>Cobalt</td><td><code>#002240</code></td><td>Toni blu profondi</td></tr>
+  <tr><td>Zenburn</td><td><code>#3f3f3f</code></td><td>Colori smorzati, ottimo per sessioni lunghe</td></tr>
+</table>
+
+<h3>Log output del terminale</h3>
+<p>Abilitando <b>"Registra output su file"</b> nel tab Terminale del profilo, xterm salva
+automaticamente tutto l'output in un file <code>pcm_YYYYMMDD_HHMMSS.log</code> nella cartella configurata.</p>
+<div class="tip">
+  💡 Il log è indispensabile per la funzione <b>Esporta comandi.sh</b>: senza log attivo,
+  PCM può tracciare solo i comandi inviati tramite macro e multi-exec, non quelli digitati direttamente in console.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ SFTP/FTP -->
+<h2 id="sftp">📁 Browser SFTP e FTP</h2>
+
+<h3>Browser SFTP integrato</h3>
+<p>Si apre automaticamente dopo una connessione SSH (se l'opzione è attiva) oppure aprendo una sessione con protocollo SFTP dedicato. Appare nel tab <b>SFTP</b> della sidebar sinistra.</p>
+<ul>
+  <li>Navigazione cartelle con doppio clic</li>
+  <li>Upload, download, creazione cartelle, rinomina, eliminazione</li>
+  <li>Visualizzazione permessi, dimensioni e date di modifica</li>
+  <li>Cronologia di navigazione (avanti/indietro)</li>
+</ul>
+
+<h3>Browser FTP/FTPS integrato</h3>
+<p>Stesso comportamento del browser SFTP, ma usa FTP o FTPS:</p>
+<ul>
+  <li>FTP plain (porta 21) o FTPS con TLS esplicito</li>
+  <li>Modalità passiva (PASV) per NAT/firewall</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════════════════ TUNNEL -->
+<h2 id="tunnel">🔀 Gestione Tunnel SSH</h2>
+
+<p>Da <b>Toolbar → Tunnel</b> gestisci tutti i tunnel SSH da un'unica interfaccia grafica.</p>
+
+<h3>Creare un tunnel SOCKS (proxy)</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Crea una sessione con protocollo <b>SSH Tunnel</b>, tipo <b>Proxy SOCKS (-D)</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Porta locale: es. <code>1080</code></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Connetti — il tunnel rimane attivo in background</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Configura il browser: Proxy → SOCKS5 → <code>127.0.0.1:1080</code></div></div>
+
+<h3>Tunnel locale (port forward)</h3>
+<p>Esempio: accedere a un database MySQL remoto come se fosse locale:</p>
+<pre>
+Tipo:          Locale (-L)
+Host SSH:      server.example.com   <span class="cm"># server con accesso al DB</span>
+Porta locale:  13306                <span class="cm"># porta libera sul tuo PC</span>
+Host remoto:   db-interno           <span class="cm"># hostname del DB visto dal server SSH</span>
+Porta remota:  3306                 <span class="cm"># porta MySQL standard</span>
+
+<span class="cm"># Poi connettiti con:</span>
+mysql -h 127.0.0.1 -P 13306 -u root
+</pre>
+
+
+<!-- ══════════════════════════════════════════════════ AVANZATE -->
+<h2 id="avanzate">⚙ Funzioni avanzate</h2>
+
+<h3>Modalità Split</h3>
+<p>Dividi l'area di lavoro per vedere più sessioni contemporaneamente:</p>
+<ul>
+  <li><b>Vista singola</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd></li>
+  <li><b>Split verticale</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>2</kbd> — due pannelli affiancati</li>
+  <li><b>Split orizzontale</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>3</kbd> — due pannelli sovrapposti</li>
+</ul>
+<p>Trascina le schede tra i pannelli con il mouse, oppure usa tasto destro sul tab → "Sposta nell'altro pannello".</p>
+
+<h3>Multi-exec — Invia comandi a più sessioni</h3>
+<p>Da <b>Strumenti → Multi-exec</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>):</p>
+<ul>
+  <li>Vengono mostrate tutte le sessioni terminale attualmente attive</li>
+  <li>Seleziona le sessioni destinatarie</li>
+  <li>Scrivi il comando e scegli se inviare automaticamente <kbd>Invio</kbd></li>
+  <li>Clicca <b>⚡ Invia</b></li>
+</ul>
+<div class="tip">
+  💡 Esempi d'uso: <code>df -h</code> su tutti i server, <code>sudo systemctl restart nginx</code> su un cluster, <code>apt upgrade -y</code> su tutto il parco macchine.
+</div>
+
+<h3>Variabili globali</h3>
+<p>Da <b>Strumenti → Variabili globali</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>). Definisci coppie <code>NOME = valore</code> e usale con la sintassi <code>{NOME}</code> nei comandi delle sessioni:</p>
+<pre>
+<span class="cm"># Variabile globale:</span>
+DEPLOY_PATH = /var/www/html/app
+
+<span class="cm"># Campo "Comando avvio" della sessione:</span>
+cd {DEPLOY_PATH} &amp;&amp; git pull &amp;&amp; npm run build
+</pre>
+
+<h3>Modalità protetta</h3>
+<p>Da <b>Strumenti → Modalità protetta</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>).
+Quando attiva, le password visibili nell'interfaccia vengono sostituite con <code>****</code>.
+Utile durante screen sharing o presentazioni. Non modifica i dati salvati.</p>
+
+<h3>Server FTP locale</h3>
+<p>Da <b>Strumenti → Server FTP locale</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>).
+Avvia un server FTP sulla tua macchina per condividere file con altri dispositivi o server remoti.
+Richiede <code>pyftpdlib</code>.</p>
+
+<h3>Verifica dipendenze</h3>
+<p>Da <b>Strumenti → Verifica dipendenze</b> — controlla quali strumenti esterni sono installati.
+Utile per diagnosticare perché un protocollo non funziona.</p>
+
+
+<!-- ══════════════════════════════════════════════════ NUOVE FUNZIONI -->
+<h2 id="nuove">✦ Nuove funzioni <span class="new-badge">AGGIORNAMENTO</span></h2>
+
+<p>Le seguenti funzionalità sono state aggiunte nelle ultime versioni di PCM.</p>
+
+<hr>
+
+<!-- ── WAKE-ON-LAN ── -->
+<div class="new-feature">
+  <div class="nf-title">Wake-on-LAN</div>
+  <p>PCM può svegliare una macchina spenta prima di connettersi, inviando un <b>magic packet UDP</b> all'indirizzo MAC configurato. La funzione è disponibile per SSH, Mosh, RDP, VNC e Telnet.</p>
+</div>
+
+<h3>Configurazione Wake-on-LAN</h3>
+<p>Nel dialog di modifica sessione, tab <b>Connessione</b>, sezione <b>Wake-on-LAN</b>:</p>
+<ul>
+  <li><b>Attiva WoL</b> — spunta per abilitare l'invio automatico del magic packet prima di ogni connessione</li>
+  <li><b>Indirizzo MAC</b> — indirizzo MAC fisico della scheda di rete della macchina remota (formato <code>AA:BB:CC:DD:EE:FF</code>)</li>
+  <li><b>Attesa risposta</b> — secondi massimi di attesa prima che PCM tenti la connessione (default 20 s)</li>
+</ul>
+
+<h3>Come funziona</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">
+  All'apertura della sessione, PCM costruisce il magic packet (6 byte <code>FF</code> + 16 ripetizioni del MAC) e lo invia in broadcast UDP sulla porta 9.
+</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">
+  Appare una finestra di progresso che mostra il contatore in tempo reale mentre PCM esegue ping ripetuti verso l'host.
+</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">
+  Appena l'host risponde al ping, la finestra si chiude e la connessione parte automaticamente.
+</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">
+  Se il timeout scade senza risposta, PCM chiede se tentare comunque la connessione o annullare.
+</div></div>
+
+<div class="warn">
+  ⚠️ Wake-on-LAN funziona solo sulla <b>rete locale</b> o tramite broadcast diretto. Per host su reti diverse potrebbe richiedere configurazione di router o directed broadcast. Assicurati che la scheda di rete e il BIOS/UEFI della macchina remota abbiano WoL abilitato.
+</div>
+
+<hr>
+
+<!-- ── VERIFICA RAGGIUNGIBILITÀ ── -->
+<div class="new-feature">
+  <div class="nf-title">Verifica raggiungibilità</div>
+  <p>Testa la connettività verso un host prima (o dopo) di tentare la connessione, con tre controlli distinti in sequenza.</p>
+</div>
+
+<h3>Come usarla</h3>
+<p>Tasto destro su qualsiasi sessione nel pannello → <b>🌐 Verifica raggiungibilità…</b></p>
+
+<p>Si apre un dialog con log in stile terminale che esegue automaticamente:</p>
+
+<table>
+  <tr><th>Test</th><th>Cosa verifica</th><th>Risultato</th></tr>
+  <tr>
+    <td><b>1. DNS</b></td>
+    <td>Risolve il nome host in indirizzo IP</td>
+    <td>✅ IP risolto oppure ❌ nome non trovato</td>
+  </tr>
+  <tr>
+    <td><b>2. Ping</b></td>
+    <td>Invia 3 pacchetti ICMP, mostra RTT e perdita</td>
+    <td>✅ Ping OK oppure ⚠ ICMP bloccato (non significa che l'host sia spento)</td>
+  </tr>
+  <tr>
+    <td><b>3. Porta TCP</b></td>
+    <td>Apre una connessione TCP sulla porta del protocollo</td>
+    <td>✅ Porta aperta oppure ❌ timeout / rifiutata</td>
+  </tr>
+</table>
+
+<div class="info">
+  ℹ️ Il ping bloccato (ICMP filtrato dal firewall) non significa che il servizio sia irraggiungibile — il test sulla porta TCP è quello definitivo. Un host può rispondere sulla porta SSH pur non rispondendo al ping.
+</div>
+
+<hr>
+
+<!-- ── MACRO ── -->
+<div class="new-feature">
+  <div class="nf-title">Macro per sessione</div>
+  <p>Comandi rapidi collegati a una specifica sessione, inviabili al terminale con un singolo clic dal pannello sessioni.</p>
+</div>
+
+<h3>Definire le macro</h3>
+<p>Nel dialog di creazione/modifica sessione, tab <b>⚡ Macro</b>:</p>
+<ul>
+  <li><b>Nome</b> — etichetta che appare nel menu (es. <i>Stato servizi</i>)</li>
+  <li><b>Comando</b> — il comando da inviare al terminale (es. <code>systemctl status nginx</code>)</li>
+</ul>
+<p>Usa i pulsanti <b>➕ Aggiungi</b>, <b>✏ Aggiorna</b>, <b>🗑 Elimina</b>, <b>▲ / ▼</b> per gestire l'ordine.</p>
+
+<h3>Usare le macro</h3>
+<p>Tasto destro sulla sessione nel pannello → <b>⚡ Macro</b> → seleziona il comando.</p>
+<p>Il comando viene inviato istantaneamente al terminale attivo della sessione tramite clipboard X11 (nessun ritardo di digitazione). Se la sessione non è aperta, PCM avvisa.</p>
+
+<div class="tip">
+  💡 Le macro sono visibili anche nel tooltip della sessione nel pannello (passaci sopra con il mouse).
+  Usa nomi descrittivi come <i>Tail log nginx</i>, <i>Riavvia Apache</i>, <i>Spazio disco</i> per trovare subito quello che cerchi.
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Esempi di macro utili</h4>
+    <ul>
+      <li><code>df -h</code> — spazio disco</li>
+      <li><code>tail -f /var/log/syslog</code> — log di sistema live</li>
+      <li><code>sudo systemctl restart nginx</code> — riavvio servizio</li>
+      <li><code>uptime &amp;&amp; free -h</code> — stato sistema</li>
+      <li><code>docker ps</code> — container attivi</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Differenza con il Comando avvio</h4>
+    <p>Il <b>Comando avvio</b> (tab Terminale) viene eseguito <i>automaticamente</i> alla connessione. Le <b>macro</b> vengono eseguite <i>manualmente</i> su richiesta, in qualsiasi momento durante la sessione.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── PRE-CONNESSIONE LOCALE ── -->
+<div class="new-feature">
+  <div class="nf-title">Comando pre-connessione locale</div>
+  <p>Esegui un comando shell sul <b>tuo PC</b> prima che PCM apra la connessione remota. Ideale per attivare VPN, montare volumi o qualsiasi operazione locale preparatoria.</p>
+</div>
+
+<h3>Configurazione</h3>
+<p>Nel dialog di modifica sessione, tab <b>Terminale</b>:</p>
+<ul>
+  <li><b>Cmd locale pre-connessione</b> — comando bash da eseguire prima di connettersi</li>
+  <li><b>Timeout pre-cmd</b> — secondi massimi di attesa (0 = nessun timeout, default 15 s)</li>
+</ul>
+
+<h3>Come funziona</h3>
+<p>Il comando viene wrappato con il comando di connessione in un unico processo bash:</p>
+<pre>
+bash -c '<span class="kw">pre-cmd</span> &amp;&amp; <span class="str">echo "Pre-connessione OK. Connetto..."</span> &amp;&amp; <span class="kw">ssh utente@host</span>'
+</pre>
+<p>Il terminale mostra l'output del pre-comando. Se il pre-comando esce con codice diverso da zero (errore), la connessione <b>non parte</b> e viene mostrato il messaggio di errore.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Esempi pratici</h4>
+    <ul>
+      <li><code>wg-quick up vpn0</code> — attiva VPN WireGuard</li>
+      <li><code>openfortivpn --config=/etc/vpn.conf</code> — attiva FortiVPN</li>
+      <li><code>sudo openvpn --config ~/vpn.ovpn &amp;</code> — avvia OpenVPN</li>
+      <li><code>sshuttle -r gateway 10.0.0.0/8 &amp;</code> — tunnel rete</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Nota sul timeout</h4>
+    <p>Imposta il timeout a un valore ragionevole per il tuo pre-comando. Una VPN che impiega 10 s ad attivarsi richiede un timeout di almeno 15–20 s. Con 0 il pre-comando può girare indefinitamente (utile per comandi in background).</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── ESPORTA APRI-CONNESSIONE.SH ── -->
+<div class="new-feature">
+  <div class="nf-title">Esporta apri-connessione.sh</div>
+  <p>Genera uno script bash standalone che apre la connessione senza avere PCM aperto. Utile per condividere o per uso da terminale.</p>
+</div>
+
+<h3>Come usarla</h3>
+<p>Tasto destro sulla sessione nel pannello → <b>📄 Esporta apri-connessione.sh…</b></p>
+
+<p>Si apre un dialog con:</p>
+<ul>
+  <li><b>Anteprima</b> dello script generato (modificabile prima di salvare)</li>
+  <li><b>💾 Salva .sh…</b> — salva con <code>chmod 755</code> automatico, pronto all'uso</li>
+  <li><b>📋 Copia negli appunti</b> — per incollare direttamente in un terminale</li>
+</ul>
+
+<p>Lo script include, se configurati: blocco pre-cmd locale, blocco Wake-on-LAN (con fallback Python puro se <code>wakeonlan</code> non è installato), e il comando di connessione.</p>
+
+<pre>
+<span class="cm">#!/usr/bin/env bash</span>
+<span class="cm"># PCM — Sessione esportata: Server produzione</span>
+<span class="cm"># Protocollo: SSH   Host: 192.168.1.10</span>
+
+set -e
+
+<span class="cm"># Pre-connessione locale</span>
+wg-quick up vpn0
+
+<span class="cm"># Wake-on-LAN</span>
+wakeonlan "AA:BB:CC:DD:EE:FF" 2>/dev/null || true
+echo "WoL inviato, attendo 20s..."
+sleep 20
+
+<span class="cm"># Connessione</span>
+ssh -p 22 -o StrictHostKeyChecking=no admin@192.168.1.10
+</pre>
+
+<hr>
+
+<!-- ── ESPORTA COMANDI.SH ── -->
+<div class="new-feature">
+  <div class="nf-title">Esporta comandi.sh</div>
+  <p>Genera un <b>replay script</b> con tutti i comandi eseguiti durante la sessione. Il replay si connette via SSH e ri-esegue i comandi in sequenza — ideale per automatizzare procedure ripetitive o documentare operazioni di manutenzione.</p>
+</div>
+
+<h3>Come usarla</h3>
+<p>Tasto destro sul <b>tab della sessione attiva</b> (non sul pannello sessioni) → <b>📄 Esporta comandi.sh…</b></p>
+
+<div class="warn">
+  ⚠️ Questa funzione è accessibile dal <b>tab del terminale</b>, non dal pannello sessioni. Il pannello sessioni ha "Esporta apri-connessione.sh" (script di connessione), il tab ha "Esporta comandi.sh" (replay dei comandi).
+</div>
+
+<h3>Log abilitato vs non abilitato</h3>
+
+<p>PCM distingue due scenari in base alla configurazione del log di sessione:</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>🔴 Log non abilitato</h4>
+    <p>Appare un avviso con le istruzioni per abilitare il log. È comunque possibile esportare i comandi inviati tramite <b>macro e multi-exec</b> con il pulsante "Esporta solo comandi PCM".</p>
+  </div>
+  <div class="card">
+    <h4>🟢 Log abilitato</h4>
+    <p>PCM parsa il file di log xterm, estrae i comandi digitati riconoscendo le righe che seguono un prompt bash/zsh, e li unisce ai comandi tracciati internamente.</p>
+  </div>
+</div>
+
+<h3>Abilitare il log per usare l'export completo</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Tasto destro sulla sessione → <b>✏ Modifica</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Tab <b>Terminale</b> → spunta <b>"Registra output su file"</b></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Imposta la <b>Cartella log</b> (default: <code>/tmp/pcm_logs</code>)</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Chiudi e riapri la sessione — da questo momento i comandi vengono registrati</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">Esegui le operazioni che vuoi documentare, poi usa "Esporta comandi.sh"</div></div>
+
+<h3>Il dialog di export</h3>
+<p>Il dialog mostra una <b>tabella</b> con tutti i comandi trovati, ciascuno con:</p>
+<table>
+  <tr><th>Colonna</th><th>Significato</th></tr>
+  <tr><td><b>Timestamp</b></td><td>Orario di esecuzione (ISO 8601)</td></tr>
+  <tr><td><b>Sorgente</b></td><td><code style="color:#2a8a5a">log_xterm</code> (digitati), <code style="color:#2d7a2d">macro</code>, <code style="color:#0057a8">multi_exec</code>, <code style="color:#7a4a00">startup_cmd</code></td></tr>
+  <tr><td><b>Comando</b></td><td>Testo del comando — editabile con doppio clic</td></tr>
+</table>
+
+<p>Puoi <b>modificare</b> i comandi con doppio clic, <b>riordinarli</b> con ▲/▼, <b>eliminare</b> quelli indesiderati. L'anteprima dello script si aggiorna in tempo reale.</p>
+
+<h3>Script generato</h3>
+<p>Per sessioni SSH, lo script usa un <b>heredoc</b> per eseguire tutti i comandi in una sola connessione:</p>
+<pre>
+<span class="cm">#!/usr/bin/env bash</span>
+<span class="cm"># comandi.sh — Server produzione</span>
+<span class="cm"># SSH admin@192.168.1.10:22</span>
+<span class="cm"># 5 comandi</span>
+
+set -e
+
+<span class="kw">ssh</span> -p 22 -o StrictHostKeyChecking=no admin@192.168.1.10 &lt;&lt; '<span class="str">PCMREPLAY</span>'
+df -h
+systemctl status nginx
+tail -n 50 /var/log/nginx/error.log
+docker ps
+journalctl -n 100 --no-pager
+exit
+<span class="str">PCMREPLAY</span>
+</pre>
+
+<div class="tip">
+  💡 Lo script generato è completamente editabile sia nel dialog di anteprima che dopo il salvataggio. Aggiungere commenti, condizioni o loop è un'operazione normale prima di usarlo in produzione.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ TASTI -->
+<h2 id="tasti">⌨ Scorciatoie da tastiera</h2>
+
+<table>
+  <tr><th width="240">Scorciatoia</th><th>Azione</th><th>Note</th></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>Nuova sessione remota</td><td>Apre il dialog di creazione</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Terminale locale</td><td>Apre bash locale in una nuova scheda</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Mostra/Nascondi sidebar</td><td>Toggle pannello sessioni</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Modalità protetta</td><td>Toggle nascondi/mostra password</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Multi-exec</td><td>Richiede almeno una sessione SSH attiva</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></td><td>Variabili globali</td><td>Gestione variabili <code>{NOME}</code></td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Server FTP locale</td><td>Avvia/ferma il server FTP</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd></td><td>Vista singola</td><td>Un solo pannello terminali</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>2</kbd></td><td>Split verticale</td><td>Due pannelli affiancati</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>3</kbd></td><td>Split orizzontale</td><td>Due pannelli sovrapposti</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd></td><td>Chiudi tab corrente</td><td>Chiede conferma se sessione attiva</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>←</kbd></td><td>Tab precedente</td><td>Scorrimento ciclico</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd></td><td>Tab successivo</td><td>Scorrimento ciclico</td></tr>
+  <tr><td><kbd>F11</kbd></td><td>Schermo intero</td><td>Toggle fullscreen finestra PCM</td></tr>
+  <tr><td><kbd>F1</kbd></td><td>Apri questa guida</td><td>Si apre in una scheda dedicata</td></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>F4</kbd></td><td>Esci da PCM</td><td>Chiede conferma se sessioni attive</td></tr>
+</table>
+
+<div class="info">
+  ℹ️ Tutte le scorciatoie sono personalizzabili da <b>Impostazioni → Scorciatoie</b>. Le modifiche hanno effetto al riavvio dell'applicazione.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ IMPOSTAZIONI -->
+<h2 id="impostazioni">🛠 Impostazioni globali</h2>
+
+<p>Da <b>Toolbar → Impostazioni</b> (o <b>File → Impostazioni</b>) — quattro tab:</p>
+
+<h3>Tab Generale</h3>
+<ul>
+  <li><b>Home directory</b> — cartella di partenza per i file dialog</li>
+  <li><b>Editor di testo</b> — usato per aprire file di configurazione (nano, vim, gedit, code…)</li>
+  <li><b>Conferma alla chiusura</b> — chiede cosa fare quando ci sono sessioni attive</li>
+</ul>
+
+<h3>Tab Terminale</h3>
+<ul>
+  <li><b>Tema predefinito</b> — schema colori per tutte le nuove sessioni (sovrascrivibile per singola sessione)</li>
+  <li><b>Font predefinito</b> e <b>Dimensione font</b></li>
+  <li><b>Righe scrollback</b> — quante righe mantenere in memoria (100–100.000)</li>
+  <li><b>Incolla con tasto destro</b></li>
+  <li><b>Conferma chiusura tab</b> — avvisa prima di chiudere un tab con processo attivo</li>
+  <li><b>Avviso paste multiriga</b> — evita esecuzioni accidentali</li>
+  <li><b>Registra output su file</b> + <b>Cartella log</b> — globale per tutte le sessioni che non hanno un log specifico</li>
+</ul>
+
+<h3>Tab SSH</h3>
+<ul>
+  <li><b>Keepalive interval</b> — secondi tra i pacchetti keepalive (0 = disabilitato)</li>
+  <li><b>StrictHostKeyChecking</b> — verifica impronta del server SSH</li>
+  <li><b>Apri browser SFTP automaticamente</b> — popola il tab SFTP della sidebar a ogni connessione SSH</li>
+</ul>
+
+<h3>Tab Scorciatoie</h3>
+<p>Personalizza tutte le scorciatoie. Formato: <code>Ctrl+Shift+X</code>, <code>F5</code>, ecc. Le modifiche hanno effetto al prossimo avvio.</p>
+
+
+<!-- ══════════════════════════════════════════════════ FAQ -->
+<h2 id="faq">❓ Domande frequenti</h2>
+
+<h4>Le icone non appaiono — vedo solo pallini colorati</h4>
+<p>Le icone PNG devono essere presenti nella cartella <code>icons/</code> accanto a <code>PCM.py</code>. Verifica i file <code>.png</code>. Se hai solo <code>.svg</code>, esegui <code>bash convert_icons.sh</code> dalla cartella di PCM.</p>
+
+<h4>La connessione SSH fallisce con "Host key verification failed"</h4>
+<p>Il server SSH ha cambiato la sua impronta. Rimuovi la vecchia voce:</p>
+<pre>ssh-keygen -R hostname</pre>
+<p>Oppure disabilita StrictHostKeyChecking nel profilo (tab Avanzate) o nelle impostazioni globali.</p>
+
+<h4>xterm non si apre / errore "cannot open display"</h4>
+<p>xterm richiede un display X11. Verifica di essere in una sessione grafica. Controlla che xterm sia installato: <code>which xterm</code>.</p>
+
+<h4>RDP si apre ma lo schermo è nero</h4>
+<p>Prova a cambiare client da xfreerdp3 a xfreerdp nel profilo. Su alcune versioni di Windows Server potrebbe servire aggiungere <code>/sec:rdp</code> tra le opzioni avanzate.</p>
+
+<h4>Il browser SFTP non si connette</h4>
+<p>Il browser SFTP usa <code>paramiko</code>. Verifica l'installazione:<br>
+<code>.venv/bin/python -c "import paramiko"</code><br>
+Se manca: <code>uv pip install --python .venv/bin/python paramiko</code></p>
+
+<h4>Le macro sono lente / arrivano con ritardo</h4>
+<p>PCM invia le macro tramite clipboard X11 (<code>xclip</code> o <code>xsel</code>) invece di simulare la tastiera tasto per tasto — è istantaneo indipendentemente dalla lunghezza del comando. Se riscontri ritardi, verifica che <code>xclip</code> sia installato: <code>which xclip</code>. Se manca: <code>sudo apt install xclip</code>.</p>
+
+<h4>"Esporta comandi.sh" non trova comandi</h4>
+<p>I comandi digitati direttamente in xterm vengono catturati solo attraverso il <b>log xterm</b>. Assicurati che nel profilo della sessione sia attivo "Registra output su file" e che la sessione sia stata riconnessa dopo aver abilitato il log. I comandi inviati tramite macro e multi-exec sono sempre tracciati indipendentemente dal log.</p>
+
+<h4>Wake-on-LAN non sveglia la macchina</h4>
+<p>Verifica: (1) WoL abilitato nel BIOS/UEFI della macchina remota; (2) WoL abilitato sulla scheda di rete — <code>ethtool eth0 | grep Wake</code>; (3) la macchina è sulla stessa rete locale o il router permette il broadcast diretto; (4) l'indirizzo MAC è corretto.</p>
+
+<h4>Come faccio a connettere a un server con porta SSH non standard?</h4>
+<p>Specifica la porta nel campo "Porta" del dialog sessione oppure usa il formato <code>utente@host:2222</code> direttamente nella barra Quick Connect.</p>
+
+<h4>Posso avere PCM su più macchine con le stesse sessioni?</h4>
+<p>Sì — il file <code>connections.json</code> è portabile. Sincronizzalo con Dropbox, Nextcloud, Git o copialo manualmente. Usa <b>File → Esporta sessioni</b> per backup e trasferimenti.</p>
+
+<h4>I tunnel SSH si chiudono quando chiudo PCM?</h4>
+<p>Se minimizzi nel system tray i tunnel rimangono attivi. Se esci definitivamente, tutti i processi SSH vengono terminati. Per tunnel permanenti, usa un systemd user service o screen/tmux sul server.</p>
+
+<h4>Dove sono salvate le impostazioni?</h4>
+<ul>
+  <li><code>connections.json</code> — tutte le sessioni (in chiaro, JSON modificabile)</li>
+  <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, sessioni recenti</li>
+  <li><code>/tmp/pcm_logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
+</ul>
+<p>Tutto nella cartella di PCM — semplice da fare backup, sincronizzare o spostare.</p>
+
+</div><!-- /content -->
+
+<div class="footer">
+  PCM — Python Connection Manager &nbsp;·&nbsp; Guida utente &nbsp;·&nbsp;
+  <a href="#">GitHub</a> &nbsp;·&nbsp;
+  Protocolli: SSH · SFTP · FTP · RDP · VNC · Telnet · Tunnel · Mosh · Seriale
+</div>
+
+</body>
+</html>
