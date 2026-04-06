@@ -24,6 +24,7 @@ per gestire connessioni remote multi-protocollo, trasferimenti file e terminali 
 - **Modalità protetta:** nasconde le password dall'interfaccia (`****`)
 - **System tray:** minimizza in background, sessioni accessibili dal tray
 - **Tema chiaro** con icone PNG dedicate per ogni protocollo
+- **Backup RAPIDO** le connessioni vengono salvate in un file json in chiaro! Basta backupare questo file per salvare tutte le sessioni
 
 ---
 
