@@ -11,6 +11,7 @@ from datetime import datetime
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QApplication, QMessageBox
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from translations import t
 
 
 class TerminalWidget(QWidget):
@@ -107,8 +108,7 @@ class TerminalWidget(QWidget):
         QApplication.processEvents()
 
         if not shutil.which("xterm"):
-            self._mostra_errore("xterm non trovato",
-                                "Installa xterm: sudo apt install xterm")
+            self._mostra_errore(t("terminal.xterm_missing"), t("terminal.xterm_install"))
             return
 
         w = max(self.container.width(), 400)
@@ -221,8 +221,8 @@ class TerminalWidget(QWidget):
         self._registra_comando(testo, sorgente=sorgente)
         if not shutil.which("xdotool") or not shutil.which("xwininfo"):
             self._mostra_errore(
-                "Dipendenze mancanti",
-                "Installa xwininfo e xdotool per usare questa funzione."
+                t("terminal.deps_missing"),
+                t("terminal.install_xdotool")
             )
             return
 
@@ -266,8 +266,8 @@ class TerminalWidget(QWidget):
 
         if not clipboard_ok:
             self._mostra_errore(
-                "Clipboard non disponibile",
-                "Installa xclip o xsel: sudo apt install xclip"
+                t("terminal.clipboard_unavail"),
+                t("terminal.install_xclip")
             )
             return
 
@@ -300,7 +300,7 @@ class TerminalWidget(QWidget):
                 "font-family:monospace; font-size:11px; "
                 "border:none; border-bottom:1px solid #aa3333; padding:0 6px;"
             )
-            self.barra_info.setText("  ✖  Sessione terminata — clicca 'Riconnetti' o chiudi il tab")
+            self.barra_info.setText(t("terminal.session_ended"))
             self._process = None
             self.processo_terminato.emit()
             return

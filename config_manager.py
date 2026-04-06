@@ -148,6 +148,7 @@ DEFAULT_SETTINGS = {
         "home_dir": os.path.expanduser("~"),
         "default_editor": "nano",
         "confirm_on_exit": True,
+        "language": "it",
     },
     "terminal": {
         "default_theme": "Scuro (Default)",

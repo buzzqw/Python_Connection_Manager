@@ -18,6 +18,7 @@ from PyQt6.QtGui import QFont, QIcon, QColor, QPalette
 from PyQt6.QtWidgets import QScrollArea
 
 from themes import TERMINAL_THEMES
+from translations import t
 
 # ---------------------------------------------------------------------------
 # Percorso assoluto cartella icons (risolve il problema CWD)
@@ -76,7 +77,7 @@ class SessionDialog(QDialog):
         self._nome_originale = nome
         self._dati_originali = dati or {}
 
-        self.setWindowTitle("Nuova sessione" if not nome else f"Modifica: {nome}")
+        self.setWindowTitle(t("sd.new_title") if not nome else t("sd.edit_title", name=nome))
         self.setMinimumSize(720, 600)
         self.resize(770, 660)
         self.setModal(True)
@@ -142,16 +143,16 @@ class SessionDialog(QDialog):
         top.setSpacing(8)
 
         self.edit_nome = QLineEdit()
-        self.edit_nome.setPlaceholderText("es. Server produzione")
-        lbl_nome = QLabel("Nome sessione:")
-        lbl_nome.setMinimumWidth(115)  # <-- Forza la larghezza
+        self.edit_nome.setPlaceholderText(t("sd.session_name_ph"))
+        lbl_nome = QLabel(t("sd.session_name"))
+        lbl_nome.setMinimumWidth(115)
         top.addRow(lbl_nome, self.edit_nome)
 
         self.combo_gruppo = QComboBox()
         self.combo_gruppo.setEditable(True)
-        self.combo_gruppo.setPlaceholderText("es. Lavoro, Casa (vuoto = radice)")
+        self.combo_gruppo.setPlaceholderText(t("sd.group_ph"))
         self._carica_gruppi_esistenti()
-        lbl_gruppo = QLabel("Gruppo:")
+        lbl_gruppo = QLabel(t("sd.group"))
         lbl_gruppo.setMinimumWidth(115)
         top.addRow(lbl_gruppo, self.combo_gruppo)
 
@@ -160,8 +161,8 @@ class SessionDialog(QDialog):
         for k, v in PROTO_LABEL.items():
             self.combo_proto.addItem(_icon(PROTO_ICON.get(k, "terminal.png")), v, k)
         self.combo_proto.currentIndexChanged.connect(self._aggiorna_tab)
-        lbl_proto = QLabel("Protocollo:")
-        lbl_proto.setMinimumWidth(115) # <-- Forza la larghezza
+        lbl_proto = QLabel(t("sd.protocol"))
+        lbl_proto.setMinimumWidth(115)
         top.addRow(lbl_proto, self.combo_proto)
 
         root.addLayout(top)
@@ -182,32 +183,27 @@ class SessionDialog(QDialog):
         self._scroll_conn.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.tab_conn = QWidget()
         self._scroll_conn.setWidget(self.tab_conn)
-        self.tabs.addTab(self._scroll_conn, _icon("connection.png"), "Connessione")
+        self.tabs.addTab(self._scroll_conn, _icon("connection.png"), t("sd.tab.connection"))
         self._build_tab_connessione()
 
-        # Tab: Autenticazione
         self.tab_auth = QWidget()
-        self.tabs.addTab(self.tab_auth, _icon("key.png"), "Autenticazione")
+        self.tabs.addTab(self.tab_auth, _icon("key.png"), t("sd.tab.auth"))
         self._build_tab_autenticazione()
 
-        # Tab: Terminale
         self.tab_term = QWidget()
-        self.tabs.addTab(self.tab_term, _icon("terminal.png"), "Terminale")
+        self.tabs.addTab(self.tab_term, _icon("terminal.png"), t("sd.tab.terminal"))
         self._build_tab_terminale()
 
-        # Tab: Avanzate
         self.tab_adv = QWidget()
-        self.tabs.addTab(self.tab_adv, _icon("settings.png"), "⚙ Avanzate")
+        self.tabs.addTab(self.tab_adv, _icon("settings.png"), t("sd.tab.advanced"))
         self._build_tab_avanzate()
 
-        # Tab: Note
         self.tab_note = QWidget()
-        self.tabs.addTab(self.tab_note, _icon("notes.png"), "📝 Note")
+        self.tabs.addTab(self.tab_note, _icon("notes.png"), t("sd.tab.notes"))
         self._build_tab_note()
 
-        # Tab: Macro
         self.tab_macro = QWidget()
-        self.tabs.addTab(self.tab_macro, _icon("flash.png"), "⚡ Macro")
+        self.tabs.addTab(self.tab_macro, _icon("flash.png"), t("sd.tab.macros"))
         self._build_tab_macro()
 
         # --- Pulsanti OK / Annulla ---
@@ -249,74 +245,63 @@ class SessionDialog(QDialog):
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.edit_host = QLineEdit()
-        self.edit_host.setPlaceholderText("hostname o IP")
-        lbl_host = QLabel("Host:")
-        lbl_host.setMinimumWidth(115) # <-- Stessa larghezza fissa di sopra
+        self.edit_host.setPlaceholderText(t("sd.host_ph"))
+        lbl_host = QLabel(t("sd.host"))
+        lbl_host.setMinimumWidth(115)
         layout.addRow(lbl_host, self.edit_host)
 
         self.edit_port = QLineEdit()
         self.edit_port.setMaximumWidth(80)
-        lbl_port = QLabel("Porta:")
+        lbl_port = QLabel(t("sd.port"))
         lbl_port.setMinimumWidth(115)
         layout.addRow(lbl_port, self.edit_port)
 
         self.edit_user = QLineEdit()
-        self.edit_user.setPlaceholderText("nome utente")
-        lbl_user = QLabel("Utente:")
+        self.edit_user.setPlaceholderText(t("sd.user_ph"))
+        lbl_user = QLabel(t("sd.user"))
         lbl_user.setMinimumWidth(115)
         layout.addRow(lbl_user, self.edit_user)
 
-        # --- Campi specifici RDP ---
-        self.grp_rdp = QGroupBox("Opzioni RDP")
+        self.grp_rdp = QGroupBox(t("sd.grp.rdp"))
         rdp_layout = QFormLayout(self.grp_rdp)
         self.combo_rdp_client = QComboBox()
         self.combo_rdp_client.addItems(["xfreerdp3", "xfreerdp", "rdesktop"])
-        rdp_layout.addRow("Client RDP:", self.combo_rdp_client)
-        self.chk_rdp_fs = QCheckBox("Schermo intero")
+        rdp_layout.addRow(t("sd.rdp.client"), self.combo_rdp_client)
+        self.chk_rdp_fs = QCheckBox(t("sd.rdp.fullscreen"))
         self.chk_rdp_fs.setChecked(True)
         rdp_layout.addRow("", self.chk_rdp_fs)
-        self.chk_rdp_clip = QCheckBox("Condividi clipboard")
+        self.chk_rdp_clip = QCheckBox(t("sd.rdp.clipboard"))
         self.chk_rdp_clip.setChecked(True)
         rdp_layout.addRow("", self.chk_rdp_clip)
-        self.chk_rdp_drives = QCheckBox("Condividi cartelle locali")
+        self.chk_rdp_drives = QCheckBox(t("sd.rdp.drives"))
         rdp_layout.addRow("", self.chk_rdp_drives)
         layout.addRow(self.grp_rdp)
 
-        # --- Campi specifici VNC ---
-        self.grp_vnc = QGroupBox("Opzioni VNC")
+        self.grp_vnc = QGroupBox(t("sd.grp.vnc"))
         vnc_layout = QFormLayout(self.grp_vnc)
-        
-        # AGGIUNTA OPZIONE VNC INTEGRATO
-        self.chk_vnc_internal = QCheckBox("Integra VNC in una scheda di PCM")
+        self.chk_vnc_internal = QCheckBox(t("sd.vnc.integrated"))
         self.chk_vnc_internal.setChecked(True)
         vnc_layout.addRow("", self.chk_vnc_internal)
-
         self.combo_vnc_client = QComboBox()
         self.combo_vnc_client.addItems(["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"])
-        vnc_layout.addRow("Client VNC esterno:", self.combo_vnc_client)
+        vnc_layout.addRow(t("sd.vnc.client"), self.combo_vnc_client)
         self.combo_vnc_color = QComboBox()
         self.combo_vnc_color.addItems(["Truecolor (32 bpp)", "Highcolor (16 bpp)", "256 colori"])
-        vnc_layout.addRow("Profondità colore:", self.combo_vnc_color)
+        vnc_layout.addRow(t("sd.vnc.color"), self.combo_vnc_color)
         self.combo_vnc_quality = QComboBox()
         self.combo_vnc_quality.addItems(["Auto", "Alta", "Buona", "Bassa"])
-        vnc_layout.addRow("Qualità:", self.combo_vnc_quality)
+        vnc_layout.addRow(t("sd.vnc.quality"), self.combo_vnc_quality)
         layout.addRow(self.grp_vnc)
 
-        # --- Campi specifici FTP ---
-        self.grp_ftp = QGroupBox("Opzioni FTP / FTPS")
+        self.grp_ftp = QGroupBox(t("sd.grp.ftp"))
         ftp_layout = QFormLayout(self.grp_ftp)
-
-        self.chk_ftp_tls = QCheckBox("Usa FTPS (TLS esplicito — porta 21, AUTH TLS)")
+        self.chk_ftp_tls = QCheckBox(t("sd.ftp.tls"))
         self.chk_ftp_tls.toggled.connect(self._aggiorna_porta_ftp)
         ftp_layout.addRow("", self.chk_ftp_tls)
-        self.chk_ftp_passive = QCheckBox("Modalità passiva (PASV) — consigliata dietro NAT/firewall")
+        self.chk_ftp_passive = QCheckBox(t("sd.ftp.passive"))
         self.chk_ftp_passive.setChecked(True)
         ftp_layout.addRow("", self.chk_ftp_passive)
-        lbl_ftp_note = QLabel(
-            "<b>FTP plain</b>: porta 21, nessuna cifratura (dati in chiaro).<br>"
-            "<b>FTPS</b>: TLS esplicito sulla porta 21 — diverso da SFTP (che usa SSH).<br>"
-            "La modalità di apertura si configura nel tab <b>Avanzate</b>."
-        )
+        lbl_ftp_note = QLabel(t("sd.ftp.note"))
         lbl_ftp_note.setWordWrap(True)
         lbl_ftp_note.setStyleSheet(
             "background:#fef9e7; border:1px solid #f0c050; border-radius:4px; "
@@ -325,66 +310,60 @@ class SessionDialog(QDialog):
         ftp_layout.addRow(lbl_ftp_note)
         layout.addRow(self.grp_ftp)
 
-        # --- Campi specifici Tunnel ---
-        self.grp_tunnel = QGroupBox("Configurazione Tunnel SSH")
+        self.grp_tunnel = QGroupBox(t("sd.grp.tunnel"))
         t_layout = QFormLayout(self.grp_tunnel)
         self.combo_tunnel_type = QComboBox()
         self.combo_tunnel_type.addItems(["Proxy SOCKS (-D)", "Locale (-L)", "Remoto (-R)"])
         self.combo_tunnel_type.currentTextChanged.connect(self._aggiorna_tunnel_fields)
-        t_layout.addRow("Tipo:", self.combo_tunnel_type)
+        t_layout.addRow(t("sd.tunnel.type"), self.combo_tunnel_type)
         self.edit_tunnel_lport = QLineEdit("1080")
         self.edit_tunnel_lport.setMaximumWidth(80)
-        t_layout.addRow("Porta locale:", self.edit_tunnel_lport)
+        t_layout.addRow(t("sd.tunnel.lport"), self.edit_tunnel_lport)
         self.edit_tunnel_rhost = QLineEdit()
-        self.edit_tunnel_rhost.setPlaceholderText("host destinazione (per -L/-R)")
-        t_layout.addRow("Host remoto:", self.edit_tunnel_rhost)
+        self.edit_tunnel_rhost.setPlaceholderText(t("sd.tunnel.rhost_ph"))
+        t_layout.addRow(t("sd.tunnel.rhost"), self.edit_tunnel_rhost)
         self.edit_tunnel_rport = QLineEdit()
         self.edit_tunnel_rport.setMaximumWidth(80)
-        self.edit_tunnel_rport.setPlaceholderText("porta dest.")
-        t_layout.addRow("Porta remota:", self.edit_tunnel_rport)
+        self.edit_tunnel_rport.setPlaceholderText(t("sd.tunnel.rport_ph"))
+        t_layout.addRow(t("sd.tunnel.rport"), self.edit_tunnel_rport)
         layout.addRow(self.grp_tunnel)
 
-        # --- Campi specifici Seriale ---
-        self.grp_serial = QGroupBox("Configurazione Seriale")
+        self.grp_serial = QGroupBox(t("sd.grp.serial"))
         ser_layout = QFormLayout(self.grp_serial)
         self.edit_serial_dev = QLineEdit("/dev/ttyUSB0")
-        ser_layout.addRow("Dispositivo:", self.edit_serial_dev)
+        ser_layout.addRow(t("sd.serial.device"), self.edit_serial_dev)
         self.combo_baud = QComboBox()
         self.combo_baud.addItems(["9600","19200","38400","57600","115200","230400","460800","921600"])
         self.combo_baud.setCurrentText("115200")
-        ser_layout.addRow("Baud rate:", self.combo_baud)
+        ser_layout.addRow(t("sd.serial.baud"), self.combo_baud)
         self.combo_data_bits = QComboBox()
         self.combo_data_bits.addItems(["5","6","7","8"])
         self.combo_data_bits.setCurrentText("8")
-        ser_layout.addRow("Data bits:", self.combo_data_bits)
+        ser_layout.addRow(t("sd.serial.databits"), self.combo_data_bits)
         self.combo_parity = QComboBox()
         self.combo_parity.addItems(["None","Even","Odd","Mark","Space"])
-        ser_layout.addRow("Parità:", self.combo_parity)
+        ser_layout.addRow(t("sd.serial.parity"), self.combo_parity)
         self.combo_stop_bits = QComboBox()
         self.combo_stop_bits.addItems(["1","2"])
-        ser_layout.addRow("Stop bits:", self.combo_stop_bits)
+        ser_layout.addRow(t("sd.serial.stopbits"), self.combo_stop_bits)
         layout.addRow(self.grp_serial)
 
-        # --- Wake-on-LAN ---
-        self.grp_wol = QGroupBox("Wake-on-LAN")
+        self.grp_wol = QGroupBox(t("sd.grp.wol"))
         wol_layout = QFormLayout(self.grp_wol)
-        self.chk_wol = QCheckBox("Invia magic packet prima di connettersi")
-        self.chk_wol.setToolTip(
-            "Invia un magic packet UDP (porta 9) all'indirizzo MAC indicato\n"
-            "e attende che l'host risponda al ping prima di aprire la sessione."
-        )
+        self.chk_wol = QCheckBox(t("sd.wol.enable"))
+        self.chk_wol.setToolTip(t("sd.wol.enable_tip"))
         wol_layout.addRow("", self.chk_wol)
         self.edit_wol_mac = QLineEdit()
         self.edit_wol_mac.setPlaceholderText("es. AA:BB:CC:DD:EE:FF")
         self.edit_wol_mac.setMaximumWidth(180)
-        wol_layout.addRow("Indirizzo MAC:", self.edit_wol_mac)
+        wol_layout.addRow(t("sd.wol.mac"), self.edit_wol_mac)
         self.spin_wol_wait = QSpinBox()
         self.spin_wol_wait.setRange(1, 120)
         self.spin_wol_wait.setValue(20)
         self.spin_wol_wait.setSuffix(" s")
         self.spin_wol_wait.setMaximumWidth(80)
-        self.spin_wol_wait.setToolTip("Secondi massimi di attesa che l'host risponda al ping dopo il WoL.")
-        wol_layout.addRow("Attesa risposta:", self.spin_wol_wait)
+        self.spin_wol_wait.setToolTip(t("sd.wol.wait_tip"))
+        wol_layout.addRow(t("sd.wol.wait"), self.spin_wol_wait)
         layout.addRow(self.grp_wol)
 
     # ------------------------------------------------------------------
@@ -396,75 +375,63 @@ class SessionDialog(QDialog):
         layout.setSpacing(10)
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # Creiamo il campo di testo per la password
         self.edit_password = QLineEdit()
         self.edit_password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.edit_password.setPlaceholderText("lascia vuoto per chiave privata o prompt")
-        
-        # Creiamo il bottoncino con l'occhietto
+        self.edit_password.setPlaceholderText(t("sd.pwd_ph"))
         self.btn_mostra_pwd = QToolButton()
         self.btn_mostra_pwd.setText("👁")
         self.btn_mostra_pwd.setCheckable(True)
-        self.btn_mostra_pwd.setToolTip("Mostra/Nascondi password")
-        
-        # Logica: se lo clicco, mostra il testo normale, se lo rilascio torna a password
+        self.btn_mostra_pwd.setToolTip(t("sd.pwd_show_tip"))
         self.btn_mostra_pwd.toggled.connect(
             lambda checked: self.edit_password.setEchoMode(
                 QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
             )
         )
-        
-        # Mettiamo il campo di testo e il bottone sulla stessa riga
         pwd_row = QHBoxLayout()
         pwd_row.setContentsMargins(0, 0, 0, 0)
         pwd_row.addWidget(self.edit_password)
         pwd_row.addWidget(self.btn_mostra_pwd)
-        
-        # Aggiungiamo la riga completa al layout
-        layout.addRow("Password:", pwd_row)
+        layout.addRow(t("sd.pwd"), pwd_row)
 
         pkey_row = QHBoxLayout()
         self.edit_pkey = QLineEdit()
-        self.edit_pkey.setPlaceholderText("percorso chiave privata (es. ~/.ssh/id_ed25519)")
+        self.edit_pkey.setPlaceholderText(t("sd.pkey_ph"))
         self.btn_pkey_browse = QPushButton("...")
         self.btn_pkey_browse.setMaximumWidth(30)
         self.btn_pkey_browse.clicked.connect(self._sfoglia_chiave)
         pkey_row.addWidget(self.edit_pkey)
         pkey_row.addWidget(self.btn_pkey_browse)
-        layout.addRow("Chiave privata:", pkey_row)
+        layout.addRow(t("sd.pkey"), pkey_row)
 
-        # Gestione chiavi SSH
-        self.grp_chiavi = QGroupBox("🔑  Gestione chiavi SSH")
+        self.grp_chiavi = QGroupBox(t("sd.grp.keys"))
         chiavi_layout = QVBoxLayout(self.grp_chiavi)
         chiavi_layout.setSpacing(6)
 
-        # Riga 1: chiavi esistenti
         riga_esistenti = QHBoxLayout()
-        lbl_chiavi = QLabel("Chiavi in ~/.ssh:")
+        lbl_chiavi = QLabel(t("sd.keys.existing"))
         lbl_chiavi.setMinimumWidth(110)
         self.combo_chiavi = QComboBox()
-        self.combo_chiavi.setToolTip("Chiavi trovate in ~/.ssh")
+        self.combo_chiavi.setToolTip(t("sd.keys.existing"))
         self.combo_chiavi.currentTextChanged.connect(self._chiave_selezionata)
         btn_ricarica = QPushButton("↺")
         btn_ricarica.setMaximumWidth(28)
-        btn_ricarica.setToolTip("Ricarica lista chiavi")
+        btn_ricarica.setToolTip(t("sd.keys.reload_tip"))
         btn_ricarica.clicked.connect(self._carica_chiavi_esistenti)
         riga_esistenti.addWidget(lbl_chiavi)
         riga_esistenti.addWidget(self.combo_chiavi, 1)
         riga_esistenti.addWidget(btn_ricarica)
         chiavi_layout.addLayout(riga_esistenti)
 
-        # Riga 2: genera nuova chiave
         riga_genera = QHBoxLayout()
-        lbl_tipo = QLabel("Genera nuova:")
+        lbl_tipo = QLabel(t("sd.keys.generate"))
         lbl_tipo.setMinimumWidth(110)
         self.combo_key_type = QComboBox()
         self.combo_key_type.addItems(["ed25519  (consigliata)", "rsa 4096", "ecdsa 521"])
         self.edit_key_comment = QLineEdit()
         self.edit_key_comment.setPlaceholderText("commento (es. andres@debminis)")
         self.edit_key_comment.setText(f"{os.environ.get('USER', 'user')}@{__import__('socket').gethostname()}")
-        btn_genera = QPushButton("⚙  Genera")
-        btn_genera.setToolTip("Genera una nuova coppia di chiavi SSH")
+        btn_genera = QPushButton(t("sd.keys.gen_btn"))
+        btn_genera.setToolTip(t("sd.keys.gen_tip"))
         btn_genera.clicked.connect(self._genera_chiave)
         riga_genera.addWidget(lbl_tipo)
         riga_genera.addWidget(self.combo_key_type, 1)
@@ -472,13 +439,9 @@ class SessionDialog(QDialog):
         riga_genera.addWidget(btn_genera)
         chiavi_layout.addLayout(riga_genera)
 
-        # Riga 3: copia chiave pubblica sul server
         riga_copia = QHBoxLayout()
-        self.btn_copia_server = QPushButton("📤  Copia chiave pubblica sul server")
-        self.btn_copia_server.setToolTip(
-            "Esegue ssh-copy-id per copiare la chiave pubblica sul server remoto\n"
-            "Richiede la password del server (una sola volta)"
-        )
+        self.btn_copia_server = QPushButton(t("sd.keys.copy_server"))
+        self.btn_copia_server.setToolTip(t("sd.keys.copy_tip"))
         self.btn_copia_server.clicked.connect(self._copia_chiave_server)
         self.btn_copia_server.setStyleSheet(
             "QPushButton { background:#2d5a8e; color:#fff; border-radius:3px; padding:4px 12px; }"
@@ -486,9 +449,8 @@ class SessionDialog(QDialog):
         )
         riga_copia.addWidget(self.btn_copia_server)
 
-        # Pulsante mostra chiave pubblica
-        self.btn_mostra_pub = QPushButton("👁  Mostra pubblica")
-        self.btn_mostra_pub.setToolTip("Mostra il contenuto della chiave pubblica (da copiare manualmente)")
+        self.btn_mostra_pub = QPushButton(t("sd.keys.show_pub"))
+        self.btn_mostra_pub.setToolTip(t("sd.keys.show_pub_tip"))
         self.btn_mostra_pub.clicked.connect(self._mostra_chiave_pubblica)
         riga_copia.addWidget(self.btn_mostra_pub)
         chiavi_layout.addLayout(riga_copia)
@@ -496,18 +458,10 @@ class SessionDialog(QDialog):
         layout.addRow(self.grp_chiavi)
         self._carica_chiavi_esistenti()
 
-        # Jump host
-        self.grp_jump = QGroupBox("Jump Host (Bastion)")
+        self.grp_jump = QGroupBox(t("sd.grp.jump"))
         jlayout = QFormLayout(self.grp_jump)
 
-        lbl_jump_info = QLabel(
-            "<b>A cosa serve:</b> un Jump Host (o Bastion) è un server intermedio "
-            "che fa da ponte verso macchine non raggiungibili direttamente.<br>"
-            "Es: <tt>PC → gateway.azienda.it → server-interno</tt><br><br>"
-            "<b>Come funziona:</b> PCM si connette prima al Jump Host, poi da lì "
-            "apre automaticamente la connessione al server finale — tutto in modo "
-            "trasparente con un solo tab. Equivale a <tt>ssh -J gateway host</tt>."
-        )
+        lbl_jump_info = QLabel(t("sd.jump.info"))
         lbl_jump_info.setWordWrap(True)
         lbl_jump_info.setStyleSheet(
             "background:#eef3fa; border:1px solid #b8cfe8; border-radius:4px; "
@@ -516,20 +470,19 @@ class SessionDialog(QDialog):
         jlayout.addRow(lbl_jump_info)
 
         self.edit_jump_host = QLineEdit()
-        self.edit_jump_host.setPlaceholderText("gateway.esempio.it")
-        jlayout.addRow("Jump host:", self.edit_jump_host)
+        self.edit_jump_host.setPlaceholderText(t("sd.jump.host_ph"))
+        jlayout.addRow(t("sd.jump.host"), self.edit_jump_host)
         self.edit_jump_user = QLineEdit()
-        self.edit_jump_user.setPlaceholderText("utente sul gateway (vuoto = stesso utente)")
-        jlayout.addRow("Utente jump:", self.edit_jump_user)
+        self.edit_jump_user.setPlaceholderText(t("sd.jump.user_ph"))
+        jlayout.addRow(t("sd.jump.user"), self.edit_jump_user)
         self.edit_jump_port = QLineEdit("22")
         self.edit_jump_port.setMaximumWidth(80)
-        jlayout.addRow("Porta jump:", self.edit_jump_port)
+        jlayout.addRow(t("sd.jump.port"), self.edit_jump_port)
         layout.addRow(self.grp_jump)
 
     def _carica_chiavi_esistenti(self):
-        """Scansiona ~/.ssh e popola il combo con le chiavi private trovate."""
         self.combo_chiavi.clear()
-        self.combo_chiavi.addItem("(nessuna — usa password)")
+        self.combo_chiavi.addItem(t("sd.keys.none"))
         ssh_dir = os.path.expanduser("~/.ssh")
         if not os.path.isdir(ssh_dir):
             return
@@ -551,11 +504,10 @@ class SessionDialog(QDialog):
             pass
 
     def _chiave_selezionata(self, testo: str):
-        """Quando si seleziona una chiave dal combo, la imposta nel campo chiave privata."""
         path = self.combo_chiavi.currentData()
         if path:
             self.edit_pkey.setText(path)
-        elif testo == "(nessuna — usa password)":
+        elif testo == t("sd.keys.none"):
             self.edit_pkey.clear()
 
     def _genera_chiave(self):
@@ -564,7 +516,7 @@ class SessionDialog(QDialog):
         from PyQt6.QtWidgets import QInputDialog
 
         if not shutil.which("ssh-keygen"):
-            QMessageBox.critical(self, "Errore", "ssh-keygen non trovato nel PATH.")
+            QMessageBox.critical(self, t("error.title"), t("sd.keygen.missing"))
             return
 
         tipo_raw = self.combo_key_type.currentText()
@@ -581,9 +533,7 @@ class SessionDialog(QDialog):
 
         nome_default = f"id_{tipo}_pcm"
         nome, ok = QInputDialog.getText(
-            self, "Nome file chiave",
-            f"Nome del file chiave (in ~/.ssh/):",
-            text=nome_default
+            self, t("sd.keygen.title"), t("sd.keygen.label"), text=nome_default
         )
         if not ok or not nome.strip():
             return
@@ -592,17 +542,16 @@ class SessionDialog(QDialog):
 
         if os.path.exists(percorso):
             risposta = QMessageBox.question(
-                self, "File esistente",
-                f"Il file '{percorso}' esiste già. Sovrascrivere?",
+                self, t("sd.keygen.title"),
+                t("sd.keygen.overwrite", path=percorso),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if risposta != QMessageBox.StandardButton.Yes:
                 return
 
-        # Opzionale: passphrase
         passphrase, ok2 = QInputDialog.getText(
-            self, "Passphrase (opzionale)",
-            "Passphrase per la chiave (lascia vuoto per nessuna):",
+            self, t("sd.keygen.passphrase_title"),
+            t("sd.keygen.passphrase_label"),
             QLineEdit.EchoMode.Password
         )
         if not ok2:
@@ -617,24 +566,20 @@ class SessionDialog(QDialog):
             if result.returncode == 0:
                 self.edit_pkey.setText(percorso)
                 self._carica_chiavi_esistenti()
-                # Seleziona la chiave appena creata
                 for i in range(self.combo_chiavi.count()):
                     if self.combo_chiavi.itemData(i) == percorso:
                         self.combo_chiavi.setCurrentIndex(i)
                         break
                 QMessageBox.information(
-                    self, "Chiave generata",
-                    f"✅ Coppia di chiavi creata:\n\n"
-                    f"  Privata: {percorso}\n"
-                    f"  Pubblica: {percorso}.pub\n\n"
-                    f"Usa 'Copia chiave pubblica sul server' per installarla sul server remoto."
+                    self, t("sd.keygen.done"),
+                    t("sd.keygen.done_msg", priv=percorso, pub=percorso+".pub")
                 )
             else:
-                QMessageBox.critical(self, "Errore ssh-keygen", result.stderr)
+                QMessageBox.critical(self, t("error.title"), result.stderr)
         except subprocess.TimeoutExpired:
-            QMessageBox.critical(self, "Timeout", "ssh-keygen ha impiegato troppo. Riprova.")
+            QMessageBox.critical(self, t("error.title"), t("sd.keygen.timeout"))
         except Exception as e:
-            QMessageBox.critical(self, "Errore", str(e))
+            QMessageBox.critical(self, t("error.title"), str(e))
 
     def _copia_chiave_server(self):
         """Guida l'utente a copiare la chiave pubblica sul server con ssh-copy-id."""
@@ -647,46 +592,34 @@ class SessionDialog(QDialog):
         port = self.edit_port.text().strip() or "22"
 
         if not shutil.which("ssh-copy-id"):
-            QMessageBox.critical(self, "Errore", "ssh-copy-id non trovato nel PATH.")
+            QMessageBox.critical(self, t("error.title"), t("sd.copykey.missing_sshcopyid"))
             return
-
         if not pkey:
-            QMessageBox.warning(self, "Chiave mancante",
-                                "Seleziona o genera prima una chiave privata.")
+            QMessageBox.warning(self, t("sd.grp.keys").strip(), t("sd.copykey.no_key"))
             return
         pub_path = pkey + ".pub"
         if not os.path.exists(pub_path):
-            QMessageBox.warning(self, "Chiave pubblica mancante",
-                                f"Non trovato il file:\n{pub_path}\n\nGenera prima la coppia di chiavi.")
+            QMessageBox.warning(self, t("sd.grp.keys").strip(),
+                                t("sd.copykey.no_pub", path=pub_path))
             return
         if not host:
-            QMessageBox.warning(self, "Host mancante",
-                                "Inserisci l'indirizzo del server nel campo Host.")
+            QMessageBox.warning(self, t("sd.grp.keys").strip(), t("sd.copykey.no_host"))
             return
 
         target = f"{user}@{host}" if user else host
         cmd = f"ssh-copy-id -i '{pub_path}' -p {port} {target}"
 
-        # Dialog di guida
         dlg = QDialog(self)
-        dlg.setWindowTitle("📤 Copia chiave pubblica sul server")
+        dlg.setWindowTitle(t("sd.copykey.title"))
         dlg.setMinimumWidth(560)
         lay = QVBoxLayout(dlg)
 
         from PyQt6.QtWidgets import QLabel as _QLabel
-        info = _QLabel(
-            f"<b>Operazione:</b> copia la chiave pubblica su <tt>{target}:{port}</tt><br><br>"
-            f"<b>Chiave pubblica:</b> <tt>{pub_path}</tt><br><br>"
-            f"Verrà eseguito in un terminale:<br>"
-            f"<tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br>"
-            f"<b>Ti verrà chiesta la password del server una sola volta.</b><br>"
-            f"Dopo, potrai connetterti senza password usando questa chiave."
-        )
+        info = _QLabel(t("sd.copykey.info", target=target, port=port, pub=pub_path, cmd=cmd))
         info.setWordWrap(True)
         info.setStyleSheet("padding:8px;")
         lay.addWidget(info)
 
-        # Mostra il contenuto della chiave pubblica
         try:
             with open(pub_path) as f:
                 pub_content = f.read().strip()
@@ -698,18 +631,17 @@ class SessionDialog(QDialog):
         txt_pub.setPlainText(pub_content)
         txt_pub.setFixedHeight(60)
         txt_pub.setStyleSheet("font-family:monospace; font-size:10px; background:#f8f8f8;")
-        lay.addWidget(_QLabel("Contenuto chiave pubblica (authorized_keys):"))
+        lay.addWidget(_QLabel(t("sd.copykey.content_lbl")))
         lay.addWidget(txt_pub)
 
         bbox = QDialogButtonBox()
-        btn_esegui = bbox.addButton("▶  Esegui ssh-copy-id", QDialogButtonBox.ButtonRole.AcceptRole)
-        btn_manuale = bbox.addButton("📋  Copia testo pubblica", QDialogButtonBox.ButtonRole.ActionRole)
-        btn_annulla = bbox.addButton("Annulla", QDialogButtonBox.ButtonRole.RejectRole)
+        btn_esegui  = bbox.addButton(t("sd.copykey.run"),    QDialogButtonBox.ButtonRole.AcceptRole)
+        btn_manuale = bbox.addButton(t("sd.copykey.manual"), QDialogButtonBox.ButtonRole.ActionRole)
+        btn_annulla = bbox.addButton(t("close.cancel"),      QDialogButtonBox.ButtonRole.RejectRole)
         lay.addWidget(bbox)
 
         def esegui():
             dlg.accept()
-            # Avvia ssh-copy-id in un xterm visibile così l'utente può digitare la password
             import shutil as _sh
             xterm = _sh.which("xterm") or "xterm"
             cmd_xterm = (
@@ -721,9 +653,8 @@ class SessionDialog(QDialog):
         def copia_testo():
             from PyQt6.QtWidgets import QApplication
             QApplication.clipboard().setText(pub_content)
-            QMessageBox.information(dlg, "Copiato",
-                "Chiave pubblica copiata negli appunti.\n\n"
-                "Incollala nel file ~/.ssh/authorized_keys del server remoto.")
+            QMessageBox.information(dlg, t("btn.copied").strip("✅ ").strip("!"),
+                                    t("sd.copykey.copied"))
 
         btn_esegui.clicked.connect(esegui)
         btn_manuale.clicked.connect(copia_testo)
@@ -735,22 +666,22 @@ class SessionDialog(QDialog):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QLabel as _QLabel
         pkey = self.edit_pkey.text().strip()
         if not pkey:
-            QMessageBox.warning(self, "Nessuna chiave", "Seleziona prima una chiave privata.")
+            QMessageBox.warning(self, t("sd.grp.keys").strip(), t("sd.showpub.no_key"))
             return
         pub_path = pkey + ".pub"
         if not os.path.exists(pub_path):
-            QMessageBox.warning(self, "Non trovata",
-                                f"File non trovato:\n{pub_path}")
+            QMessageBox.warning(self, t("sd.grp.keys").strip(),
+                                t("sd.showpub.no_file", path=pub_path))
             return
         try:
             with open(pub_path) as f:
                 contenuto = f.read().strip()
         except Exception as e:
-            QMessageBox.critical(self, "Errore lettura", str(e))
+            QMessageBox.critical(self, t("sd.showpub.read_err"), str(e))
             return
 
         dlg = QDialog(self)
-        dlg.setWindowTitle(f"Chiave pubblica — {os.path.basename(pub_path)}")
+        dlg.setWindowTitle(t("sd.showpub.title", name=os.path.basename(pub_path)))
         dlg.setMinimumWidth(600)
         lay = QVBoxLayout(dlg)
         lay.addWidget(_QLabel(f"<b>{pub_path}</b>"))
@@ -760,11 +691,11 @@ class SessionDialog(QDialog):
         txt.setStyleSheet("font-family:monospace; font-size:11px;")
         lay.addWidget(txt)
         btn_row = QHBoxLayout()
-        btn_copia = QPushButton("📋  Copia negli appunti")
-        btn_ok = QPushButton("Chiudi")
+        btn_copia = QPushButton(t("sd.copykey.manual"))
+        btn_ok = QPushButton(t("close.dialog"))
         btn_copia.clicked.connect(lambda: (
             __import__('PyQt6.QtWidgets', fromlist=['QApplication']).QApplication.clipboard().setText(contenuto),
-            btn_copia.setText("✅  Copiato!")
+            btn_copia.setText("✅  " + t("btn.copied").strip("✅ ").strip("!"))
         ))
         btn_ok.clicked.connect(dlg.accept)
         btn_row.addWidget(btn_copia)
@@ -775,7 +706,7 @@ class SessionDialog(QDialog):
 
     def _sfoglia_chiave(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Seleziona chiave privata",
+            self, t("sd.browse_key"),
             os.path.expanduser("~/.ssh"), "Tutti i file (*)"
         )
         if path:
@@ -791,9 +722,9 @@ class SessionDialog(QDialog):
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.combo_tema = QComboBox()
-        for t in TERMINAL_THEMES.keys():
-            self.combo_tema.addItem(t)
-        layout.addRow("Tema:", self.combo_tema)
+        for tm in TERMINAL_THEMES.keys():
+            self.combo_tema.addItem(tm)
+        layout.addRow(t("sd.term.theme"), self.combo_tema)
 
         self.combo_font = QComboBox()
         self.combo_font.addItems([
@@ -801,46 +732,37 @@ class SessionDialog(QDialog):
             "Fira Code", "Source Code Pro", "Inconsolata", "Terminus",
             "Noto Mono", "Roboto Mono"
         ])
-        layout.addRow("Font:", self.combo_font)
+        layout.addRow(t("sd.term.font"), self.combo_font)
 
         self.spin_font_size = QSpinBox()
         self.spin_font_size.setRange(6, 32)
         self.spin_font_size.setValue(11)
         self.spin_font_size.setMaximumWidth(60)
-        layout.addRow("Dimensione font:", self.spin_font_size)
+        layout.addRow(t("sd.term.font_size"), self.spin_font_size)
 
         self.edit_startup_cmd = QLineEdit()
-        self.edit_startup_cmd.setPlaceholderText("es. cd /var/log && tail -f syslog")
-        layout.addRow("Comando avvio:", self.edit_startup_cmd)
+        self.edit_startup_cmd.setPlaceholderText(t("sd.term.startup_ph"))
+        layout.addRow(t("sd.term.startup_cmd"), self.edit_startup_cmd)
 
         self.edit_pre_cmd = QLineEdit()
-        self.edit_pre_cmd.setPlaceholderText(
-            "es. wg-quick up vpn0  oppure  openfortivpn --config=/etc/vpn.conf"
-        )
-        lbl_pre = QLabel("Cmd locale pre-connessione:")
-        lbl_pre.setToolTip(
-            "Comando shell locale eseguito PRIMA di aprire la connessione remota.\n"
-            "Utile per attivare una VPN, montare un volume, ecc.\n"
-            "La connessione parte solo se il comando esce con codice 0."
-        )
+        self.edit_pre_cmd.setPlaceholderText(t("sd.term.pre_cmd_ph"))
+        lbl_pre = QLabel(t("sd.term.pre_cmd"))
+        lbl_pre.setToolTip(t("sd.term.pre_cmd_tip"))
         layout.addRow(lbl_pre, self.edit_pre_cmd)
 
         self.spin_pre_cmd_timeout = QSpinBox()
         self.spin_pre_cmd_timeout.setRange(0, 120)
         self.spin_pre_cmd_timeout.setValue(15)
-        self.spin_pre_cmd_timeout.setSuffix(" s  (0 = nessun timeout)")
+        self.spin_pre_cmd_timeout.setSuffix(t("sd.term.timeout_sfx"))
         self.spin_pre_cmd_timeout.setMaximumWidth(170)
-        self.spin_pre_cmd_timeout.setToolTip(
-            "Secondi di attesa massima per il completamento del comando locale.\n"
-            "Se scade, la connessione viene annullata."
-        )
-        layout.addRow("Timeout pre-cmd:", self.spin_pre_cmd_timeout)
+        self.spin_pre_cmd_timeout.setToolTip(t("sd.term.timeout_tip"))
+        layout.addRow(t("sd.term.timeout"), self.spin_pre_cmd_timeout)
 
-        self.chk_sftp_browser = QCheckBox("Apri browser SFTP laterale dopo la connessione SSH")
+        self.chk_sftp_browser = QCheckBox(t("sd.term.sftp_auto"))
         self.chk_sftp_browser.setChecked(True)
         layout.addRow("", self.chk_sftp_browser)
 
-        self.chk_log = QCheckBox("Registra output su file")
+        self.chk_log = QCheckBox(t("sd.term.log"))
         layout.addRow("", self.chk_log)
 
         log_row = QHBoxLayout()
@@ -850,10 +772,10 @@ class SessionDialog(QDialog):
         self.btn_log_browse.clicked.connect(self._sfoglia_log_dir)
         log_row.addWidget(self.edit_log_dir)
         log_row.addWidget(self.btn_log_browse)
-        layout.addRow("Cartella log:", log_row)
+        layout.addRow(t("sd.term.log_dir"), log_row)
 
     def _sfoglia_log_dir(self):
-        d = QFileDialog.getExistingDirectory(self, "Cartella log")
+        d = QFileDialog.getExistingDirectory(self, t("sd.browse_log"))
         if d:
             self.edit_log_dir.setText(d)
 
@@ -866,36 +788,29 @@ class SessionDialog(QDialog):
         layout.setSpacing(10)
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # SSH avanzate
-        self.grp_ssh_adv = QGroupBox("Opzioni SSH")
+        self.grp_ssh_adv = QGroupBox(t("sd.grp.ssh_adv"))
         ssh_layout = QFormLayout(self.grp_ssh_adv)
-        self.chk_x11 = QCheckBox("X11 Forwarding (-X)")
+        self.chk_x11 = QCheckBox(t("sd.ssh.x11"))
         ssh_layout.addRow("", self.chk_x11)
-        self.chk_compression = QCheckBox("Compressione (-C)")
+        self.chk_compression = QCheckBox(t("sd.ssh.compression"))
         ssh_layout.addRow("", self.chk_compression)
-        self.chk_keepalive = QCheckBox("Keepalive (ServerAliveInterval=60)")
+        self.chk_keepalive = QCheckBox(t("sd.ssh.keepalive"))
         ssh_layout.addRow("", self.chk_keepalive)
-        self.chk_strict_host = QCheckBox("Strict Host Key Checking")
+        self.chk_strict_host = QCheckBox(t("sd.ssh.strict"))
         ssh_layout.addRow("", self.chk_strict_host)
         layout.addRow(self.grp_ssh_adv)
 
-        # ── Modalità apertura SSH ────────────────────────────────────────
-        self.grp_ssh_open = QGroupBox("Modalità apertura SSH")
+        self.grp_ssh_open = QGroupBox(t("sd.grp.ssh_open"))
         ssh_open_layout = QFormLayout(self.grp_ssh_open)
         self.combo_ssh_open = QComboBox()
         self.combo_ssh_open.addItems([
             "Terminale interno",
             "Terminale esterno",
         ])
-        self.combo_ssh_open.setToolTip(
-            "Terminale interno: xterm embedded dentro PCM\n"
-            "Terminale esterno: apre il terminale scelto in una finestra separata"
-        )
-        ssh_open_layout.addRow("Apri con:", self.combo_ssh_open)
+        ssh_open_layout.addRow(t("sd.open_with"), self.combo_ssh_open)
         layout.addRow(self.grp_ssh_open)
 
-        # ── Modalità apertura SFTP ───────────────────────────────────────
-        self.grp_sftp_open = QGroupBox("Modalità apertura SFTP")
+        self.grp_sftp_open = QGroupBox(t("sd.grp.sftp_open"))
         sftp_open_layout = QFormLayout(self.grp_sftp_open)
         self.combo_sftp_open = QComboBox()
         self.combo_sftp_open.addItems([
@@ -904,17 +819,10 @@ class SessionDialog(QDialog):
             "Terminale interno (sftp CLI embedded)",
             "Terminale esterno (sftp CLI in finestra separata)",
         ])
-        self.combo_sftp_open.setToolTip(
-            "Browser interno: interfaccia WinSCP integrata in PCM\n"
-            "Browser esterno: apre il file manager di sistema con URI sftp://\n"
-            "Terminale interno: client sftp CLI in xterm dentro PCM\n"
-            "Terminale esterno: client sftp CLI in finestra separata"
-        )
-        sftp_open_layout.addRow("Apri con:", self.combo_sftp_open)
+        sftp_open_layout.addRow(t("sd.open_with"), self.combo_sftp_open)
         layout.addRow(self.grp_sftp_open)
 
-        # ── Modalità apertura FTP ────────────────────────────────────────
-        self.grp_ftp_open = QGroupBox("Modalità apertura FTP")
+        self.grp_ftp_open = QGroupBox(t("sd.grp.ftp_open"))
         ftp_open_layout = QFormLayout(self.grp_ftp_open)
         self.combo_ftp_open = QComboBox()
         self.combo_ftp_open.addItems([
@@ -923,17 +831,10 @@ class SessionDialog(QDialog):
             "Terminale interno (lftp embedded)",
             "Terminale esterno (lftp in finestra separata)",
         ])
-        self.combo_ftp_open.setToolTip(
-            "Browser interno: interfaccia WinSCP integrata in PCM\n"
-            "Browser esterno: apre il file manager di sistema con URI ftp://\n"
-            "Terminale interno: lftp/ftp in xterm dentro PCM\n"
-            "Terminale esterno: lftp/ftp in finestra terminale separata"
-        )
-        ftp_open_layout.addRow("Apri con:", self.combo_ftp_open)
+        ftp_open_layout.addRow(t("sd.open_with"), self.combo_ftp_open)
         layout.addRow(self.grp_ftp_open)
 
-        # ── Selettore terminale (SSH/SFTP/FTP terminale esterno / Telnet / Mosh / Serial) ──
-        self.grp_term_ext = QGroupBox("Terminale")
+        self.grp_term_ext = QGroupBox(t("sd.grp.terminal"))
         te_layout = QFormLayout(self.grp_term_ext)
         self.combo_term_ext = QComboBox()
         self.combo_term_ext.setEditable(True)
@@ -943,11 +844,7 @@ class SessionDialog(QDialog):
             "gnome-terminal", "konsole", "alacritty", "kitty", "terminator",
             "wezterm", "foot", "tilix", "st"
         ])
-        self.combo_term_ext.setToolTip(
-            "Terminale Interno: xterm embedded in PCM\n"
-            "Qualsiasi altro valore: apre una finestra separata"
-        )
-        te_layout.addRow("Terminale:", self.combo_term_ext)
+        te_layout.addRow(t("sd.terminal_lbl"), self.combo_term_ext)
         layout.addRow(self.grp_term_ext)
 
     # ------------------------------------------------------------------
@@ -957,22 +854,15 @@ class SessionDialog(QDialog):
     def _build_tab_note(self):
         layout = QVBoxLayout(self.tab_note)
         self.edit_notes = QTextEdit()
-        self.edit_notes.setPlaceholderText("Note libere su questa sessione…")
+        self.edit_notes.setPlaceholderText(t("sd.notes_ph"))
         layout.addWidget(self.edit_notes)
-
-    # ------------------------------------------------------------------
-    # Tab Macro
-    # ------------------------------------------------------------------
 
     def _build_tab_macro(self):
         layout = QVBoxLayout(self.tab_macro)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
 
-        lbl_info = QLabel(
-            "Le macro sono comandi inviati al terminale con un clic dal pannello sessioni.<br>"
-            "Ogni macro ha un <b>nome</b> (etichetta nel menu) e un <b>comando</b> da eseguire."
-        )
+        lbl_info = QLabel(t("sd.macro.info"))
         lbl_info.setWordWrap(True)
         lbl_info.setStyleSheet(
             "background:#f0f6ff; border:1px solid #b0c8e8; border-radius:4px; "
@@ -980,7 +870,6 @@ class SessionDialog(QDialog):
         )
         layout.addWidget(lbl_info)
 
-        # Lista macro
         self._lista_macro = QListWidget()
         self._lista_macro.setAlternatingRowColors(True)
         self._lista_macro.setStyleSheet(
@@ -990,26 +879,24 @@ class SessionDialog(QDialog):
         )
         layout.addWidget(self._lista_macro, 1)
 
-        # Campi modifica
         form = QWidget()
         fl = QFormLayout(form)
         fl.setSpacing(6)
         fl.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self._edit_macro_nome = QLineEdit()
-        self._edit_macro_nome.setPlaceholderText("es. Stato servizi")
-        fl.addRow("Nome:", self._edit_macro_nome)
+        self._edit_macro_nome.setPlaceholderText(t("sd.macro.name_ph"))
+        fl.addRow(t("sd.macro.name"), self._edit_macro_nome)
         self._edit_macro_cmd = QLineEdit()
-        self._edit_macro_cmd.setPlaceholderText("es. systemctl status nginx")
-        fl.addRow("Comando:", self._edit_macro_cmd)
+        self._edit_macro_cmd.setPlaceholderText(t("sd.macro.cmd_ph"))
+        fl.addRow(t("sd.macro.cmd"), self._edit_macro_cmd)
         layout.addWidget(form)
 
-        # Pulsanti
         btn_row = QHBoxLayout()
-        btn_add = QPushButton("➕  Aggiungi")
+        btn_add = QPushButton(t("sd.macro.add"))
         btn_add.clicked.connect(self._macro_aggiungi)
-        btn_mod = QPushButton("✏  Aggiorna")
+        btn_mod = QPushButton(t("sd.macro.update"))
         btn_mod.clicked.connect(self._macro_aggiorna)
-        btn_del = QPushButton("🗑  Elimina")
+        btn_del = QPushButton(t("sd.macro.delete"))
         btn_del.clicked.connect(self._macro_elimina)
         btn_up  = QPushButton("▲")
         btn_up.setMaximumWidth(32)
@@ -1036,7 +923,7 @@ class SessionDialog(QDialog):
         nome = self._edit_macro_nome.text().strip()
         cmd  = self._edit_macro_cmd.text().strip()
         if not nome or not cmd:
-            QMessageBox.warning(self, "Macro", "Inserisci nome e comando.")
+            QMessageBox.warning(self, t("sd.tab.macros").strip(), t("sd.macro.warn"))
             return
         item = QListWidgetItem(f"[{nome}]  →  {cmd}")
         item.setData(Qt.ItemDataRole.UserRole, {"nome": nome, "cmd": cmd})
@@ -1051,7 +938,7 @@ class SessionDialog(QDialog):
         nome = self._edit_macro_nome.text().strip()
         cmd  = self._edit_macro_cmd.text().strip()
         if not nome or not cmd:
-            QMessageBox.warning(self, "Macro", "Inserisci nome e comando.")
+            QMessageBox.warning(self, t("sd.tab.macros").strip(), t("sd.macro.warn"))
             return
         item.setText(f"[{nome}]  →  {cmd}")
         item.setData(Qt.ItemDataRole.UserRole, {"nome": nome, "cmd": cmd})
@@ -1124,7 +1011,7 @@ class SessionDialog(QDialog):
         if _auth_layout:
             for i in range(_auth_layout.rowCount()):
                 lbl = _auth_layout.itemAt(i, _auth_layout.ItemRole.LabelRole)
-                if lbl and lbl.widget() and lbl.widget().text() == "Chiave privata:":
+                if lbl and lbl.widget() and lbl.widget().text() == t("sd.pkey"):
                     lbl.widget().setVisible(_ssh_like)
                     break
 
@@ -1143,17 +1030,17 @@ class SessionDialog(QDialog):
 
         # Placeholder password contestuale al protocollo
         _placeholder_pwd = {
-            "ssh":        "lascia vuoto per chiave privata o prompt interattivo",
-            "sftp":       "lascia vuoto per chiave privata o prompt interattivo",
-            "mosh":       "lascia vuoto per chiave privata o prompt interattivo",
-            "ftp":        "password FTP (lascia vuoto per anonymous)",
-            "telnet":     "lascia vuoto per prompt interattivo",
-            "rdp":        "password Windows",
-            "vnc":        "password VNC",
-            "ssh_tunnel": "lascia vuoto per chiave privata",
+            "ssh":        t("sd.pwd_ph.ssh"),
+            "sftp":       t("sd.pwd_ph.ssh"),
+            "mosh":       t("sd.pwd_ph.ssh"),
+            "ftp":        t("sd.pwd_ph.ftp"),
+            "telnet":     t("sd.pwd_ph.telnet"),
+            "rdp":        t("sd.pwd_ph.rdp"),
+            "vnc":        t("sd.pwd_ph.vnc"),
+            "ssh_tunnel": t("sd.pwd_ph.tunnel"),
         }
         self.edit_password.setPlaceholderText(
-            _placeholder_pwd.get(proto, "password")
+            _placeholder_pwd.get(proto, t("sd.pwd_ph.default"))
         )
 
     def _aggiorna_porta_ftp(self, tls_attivo: bool):

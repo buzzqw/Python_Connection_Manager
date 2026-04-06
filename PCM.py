@@ -42,6 +42,8 @@ from PyQt6.QtCore import Qt, QTimer, QSize, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 
 import config_manager
+import translations as _tr
+from translations import t, tl
 from themes import APP_STYLESHEET, TERMINAL_THEMES
 from terminal_widget import TerminalWidget
 from sftp_browser import SftpBrowserWidget
@@ -82,12 +84,12 @@ class WelcomeWidget(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(20)
 
-        titolo = QLabel("PCM — Python Connection Manager")
+        titolo = QLabel(t("app.title"))
         titolo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         titolo.setStyleSheet("color:#4e7abc; font-size:22px; font-weight:bold;")
         layout.addWidget(titolo)
 
-        sottotitolo = QLabel("Python Connection Manager • Gestione sessioni remote multi-protocollo")
+        sottotitolo = QLabel(t("app.subtitle"))
         sottotitolo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sottotitolo.setStyleSheet("color:#444444; font-size:13px;")
         layout.addWidget(sottotitolo)
@@ -102,10 +104,10 @@ class WelcomeWidget(QWidget):
         pulsanti_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         pulsanti_layout.setSpacing(16)
 
-        btn_nuova = self._crea_pulsante_grande("➕\n\nNuova sessione\nremota", "#4e7abc")
+        btn_nuova = self._crea_pulsante_grande(t("welcome.btn_new_session"), "#4e7abc")
         btn_nuova.clicked.connect(self.nuova_sessione.emit)
 
-        btn_locale = self._crea_pulsante_grande("⌨\n\nTerminale\nlocale", "#2d7a2d")
+        btn_locale = self._crea_pulsante_grande(t("welcome.btn_local_terminal"), "#2d7a2d")
         btn_locale.clicked.connect(self.terminale_locale.emit)
 
         for b in [btn_nuova, btn_locale]:
@@ -117,13 +119,13 @@ class WelcomeWidget(QWidget):
         deps = check_dipendenze()
         mancanti = [k for k, v in deps.items() if not v and k not in ("paramiko",)]
         if mancanti:
-            avviso = QLabel(f"⚠  Strumenti non trovati: {', '.join(mancanti)}")
+            avviso = QLabel(t("welcome.missing_tools", tools=", ".join(mancanti)))
             avviso.setAlignment(Qt.AlignmentFlag.AlignCenter)
             avviso.setStyleSheet("color:#c9b458; font-size:11px; margin-top:20px;")
             layout.addWidget(avviso)
 
         # Footer
-        footer = QLabel("Doppio clic su una sessione nella sidebar per connettersi  •  Ctrl+Alt+T = terminale locale")
+        footer = QLabel(t("welcome.footer"))
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setStyleSheet("color:#444; font-size:11px; margin-top:30px;")
         layout.addWidget(footer)
@@ -193,13 +195,13 @@ class TabBar(QTabBar):
             idx = self.tabAt(event.pos())
             if idx >= 0:
                 menu = QMenu(self)
-                menu.addAction("⇄  Sposta nell'altro pannello",
+                menu.addAction(t("tab.move_to_other"),
                                lambda: self.sposta_ad_altro.emit(idx))
                 menu.addSeparator()
-                menu.addAction("📄  Esporta comandi.sh…",
+                menu.addAction(t("tab.export_commands"),
                                lambda: self.esporta_replay.emit(idx))
                 menu.addSeparator()
-                menu.addAction("✖  Chiudi tab",
+                menu.addAction(t("tab.close"),
                                lambda: self.tabCloseRequested.emit(idx))
                 menu.exec(event.globalPosition().toPoint())
                 return
@@ -239,7 +241,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PCM — Python Connection Manager")
+        self.setWindowTitle(t("app.title"))
         self.setMinimumSize(1000, 650)
         self.resize(1280, 780)
 
@@ -347,13 +349,13 @@ class MainWindow(QMainWindow):
         self._welcome = WelcomeWidget()
         self._welcome.nuova_sessione.connect(self._nuova_sessione)
         self._welcome.terminale_locale.connect(self._terminale_locale)
-        self.tabs.addTab(self._welcome, "🏠 Benvenuto")
+        self.tabs.addTab(self._welcome, t("tab.welcome"))
         self.tabs.setTabsClosable(False)
 
         # --- Barra di stato ---
         self.statusbar = QStatusBar()
         self.setStatusBar(self.statusbar)
-        self.lbl_status = QLabel("  PCM pronto")
+        self.lbl_status = QLabel(f"  {t('app.ready')}")
         self.lbl_connessioni = QLabel()
         self.statusbar.addWidget(self.lbl_status, 1)
         self.statusbar.addPermanentWidget(self.lbl_connessioni)
@@ -380,36 +382,35 @@ class MainWindow(QMainWindow):
             return a
 
         # Toolbar principale
-        _azione("server.png",   "Sessione",     "Nuova sessione remota",  self._nuova_sessione, "Ctrl+Shift+N")
-        _azione("terminal.png", "Locale",        "Terminale locale",       self._terminale_locale, "Ctrl+Alt+T")
+        _azione("server.png",   t("toolbar.session"),   t("toolbar.session.tooltip"),  self._nuova_sessione, "Ctrl+Shift+N")
+        _azione("terminal.png", t("toolbar.local"),      t("toolbar.local.tooltip"),    self._terminale_locale, "Ctrl+Alt+T")
         self.toolbar.addSeparator()
-        _azione("tunnel.png",   "Tunnel",        "Gestione tunnel SSH",    self._apri_tunnel_manager)
+        _azione("tunnel.png",   "Tunnel",                t("toolbar.tunnel.tooltip"),   self._apri_tunnel_manager)
         self.toolbar.addSeparator()
-        _azione("settings.png", "Impostazioni",  "Impostazioni globali",   self._apri_impostazioni)
+        _azione("settings.png", t("toolbar.settings"),  t("toolbar.settings.tooltip"), self._apri_impostazioni)
 
         self.toolbar.addSeparator()
 
         # Bottone split mode
         split_btn = QToolButton()
-        split_btn.setText("Split")
-        split_btn.setIcon(_qi("split.png")) # Aggiunta icona
-        split_btn.setToolTip("Modalità split terminale")
+        split_btn.setText(t("toolbar.split"))
+        split_btn.setIcon(_qi("split.png"))
+        split_btn.setToolTip(t("toolbar.split.tooltip"))
         split_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        split_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon) # Mostra sia icona che testo
-        
+        split_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+
         split_menu = QMenu(split_btn)
-        split_menu.addAction("Singolo", self._split_singolo)
-        split_menu.addAction("Split verticale (2)", self._split_verticale)
-        split_menu.addAction("Split orizzontale (2)", self._split_orizzontale)
+        split_menu.addAction(t("toolbar.split.single"),     self._split_singolo)
+        split_menu.addAction(t("toolbar.split.vertical"),   self._split_verticale)
+        split_menu.addAction(t("toolbar.split.horizontal"), self._split_orizzontale)
         split_btn.setMenu(split_menu)
         self.toolbar.addWidget(split_btn)
 
         self.toolbar.addSeparator()
 
-        # Info dipendenze mancanti nella toolbar
         deps = check_dipendenze()
         if not deps.get("xterm"):
-            lbl_warn = QLabel("  ⚠ xterm mancante  ")
+            lbl_warn = QLabel(t("toolbar.xterm_missing"))
             lbl_warn.setStyleSheet("color:#c9b458; font-weight:bold;")
             self.toolbar.addWidget(lbl_warn)
 
@@ -427,7 +428,7 @@ class MainWindow(QMainWindow):
         qc_layout.setContentsMargins(8, 2, 8, 2)
         qc_layout.setSpacing(6)
 
-        lbl = QLabel("Quick Connect:")
+        lbl = QLabel(t("qc.label"))
         lbl.setStyleSheet("color:#888; font-size:12px;")
         qc_layout.addWidget(lbl)
 
@@ -438,7 +439,7 @@ class MainWindow(QMainWindow):
         qc_layout.addWidget(self.combo_proto_qc)
 
         self.edit_qc = QLineEdit()
-        self.edit_qc.setPlaceholderText("utente@host:porta  oppure  host")
+        self.edit_qc.setPlaceholderText(t("qc.placeholder"))
         self.edit_qc.setStyleSheet(
             "background:#ffffff; color:#000000; border:1px solid #aaa; "
             "border-radius:3px; padding:2px 6px; font-family:monospace; font-size:12px;"
@@ -446,7 +447,7 @@ class MainWindow(QMainWindow):
         self.edit_qc.returnPressed.connect(self._esegui_quick_connect)
         qc_layout.addWidget(self.edit_qc, 1)
 
-        btn_go = QPushButton("▶ Connetti")
+        btn_go = QPushButton(t("qc.connect"))
         btn_go.setFixedHeight(24)
         btn_go.clicked.connect(self._esegui_quick_connect)
         btn_go.setStyleSheet(
@@ -471,35 +472,34 @@ class MainWindow(QMainWindow):
             return a
 
         # File
-        file_menu = mb.addMenu("File")
-        file_menu.addAction(_act("➕ Nuova sessione",    self._nuova_sessione,    "Ctrl+Shift+N"))
-        file_menu.addAction(_act("⌨ Terminale locale",  self._terminale_locale,  "Ctrl+Alt+T"))
+        file_menu = mb.addMenu(t("menu.file"))
+        file_menu.addAction(_act(t("menu.file.new_session"),      self._nuova_sessione,    "Ctrl+Shift+N"))
+        file_menu.addAction(_act(t("menu.file.local_terminal"),   self._terminale_locale,  "Ctrl+Alt+T"))
         file_menu.addSeparator()
-        file_menu.addAction(_act("📥 Importa sessioni…", self._importa_sessioni))
-        file_menu.addAction(_act("📤 Esporta sessioni…", self._esporta_sessioni))
+        file_menu.addAction(_act(t("menu.file.import_sessions"),  self._importa_sessioni))
+        file_menu.addAction(_act(t("menu.file.export_sessions"),  self._esporta_sessioni))
         file_menu.addSeparator()
-        file_menu.addAction(_act("⚙ Impostazioni",      self._apri_impostazioni))
+        file_menu.addAction(_act(t("menu.file.settings"),         self._apri_impostazioni))
         file_menu.addSeparator()
-        file_menu.addAction(_act("✖ Esci",              self.close,              "Alt+F4"))
+        file_menu.addAction(_act(t("menu.file.quit"),             self.close, "Alt+F4"))
 
         # Visualizza
-        view_menu = mb.addMenu("Visualizza")
-        view_menu.addAction(_act("📋 Mostra/Nascondi Sidebar",      self._toggle_sidebar,     "Ctrl+Shift+B"))
-        view_menu.addAction(_act("🔀 Modalità Split verticale",     self._split_verticale,    "Ctrl+Alt+2"))
-        view_menu.addAction(_act("🔀 Modalità Split orizzontale",   self._split_orizzontale,  "Ctrl+Alt+3"))
-        view_menu.addAction(_act("⬜ Vista singola",                self._split_singolo,      "Ctrl+Alt+1"))
+        view_menu = mb.addMenu(t("menu.view"))
+        view_menu.addAction(_act(t("menu.view.sidebar"),          self._toggle_sidebar,    "Ctrl+Shift+B"))
+        view_menu.addAction(_act(t("menu.view.split_vertical"),   self._split_verticale,   "Ctrl+Alt+2"))
+        view_menu.addAction(_act(t("menu.view.split_horizontal"), self._split_orizzontale, "Ctrl+Alt+3"))
+        view_menu.addAction(_act(t("menu.view.split_single"),     self._split_singolo,     "Ctrl+Alt+1"))
 
         # Strumenti
-        tools_menu = mb.addMenu("Strumenti")
-        tools_menu.addAction(_act("🔀 Gestione Tunnel SSH",   self._apri_tunnel_manager))
-        tools_menu.addAction(_act("⚡ Multi-exec…",           self._apri_multi_exec,      "Ctrl+Shift+M"))
-        tools_menu.addAction(_act("📦 Variabili globali…",    self._apri_variabili,       "Ctrl+Shift+V"))
+        tools_menu = mb.addMenu(t("menu.tools"))
+        tools_menu.addAction(_act(t("menu.tools.tunnels"),        self._apri_tunnel_manager))
+        tools_menu.addAction(_act(t("menu.tools.multiexec"),      self._apri_multi_exec,   "Ctrl+Shift+M"))
+        tools_menu.addAction(_act(t("menu.tools.variables"),      self._apri_variabili,    "Ctrl+Shift+V"))
         tools_menu.addSeparator()
-        tools_menu.addAction(_act("🗄  Server FTP locale…",   self._apri_ftp_server,      "Ctrl+Shift+F"))
+        tools_menu.addAction(_act(t("menu.tools.ftp_server"),     self._apri_ftp_server,   "Ctrl+Shift+F"))
         tools_menu.addSeparator()
 
-        # Sottomenu importazione da applicazioni esterne
-        import_menu = tools_menu.addMenu("📥  Importa da applicazione esterna")
+        import_menu = tools_menu.addMenu(t("menu.tools.import_from"))
         import_menu.addAction(_act("🖥  Remmina…",
                                    lambda: self._importa_da_app("remmina")))
         import_menu.addAction(_act("🗂  Remote Desktop Manager (XML)…",
@@ -508,8 +508,7 @@ class MainWindow(QMainWindow):
                                    lambda: self._importa_da_app("rdm_json")))
         tools_menu.addSeparator()
 
-        # Modalità protetta (checkable)
-        self._act_protetta = QAction("🔒 Modalità protetta (nascondi password)", self)
+        self._act_protetta = QAction(t("menu.tools.protected_mode"), self)
         self._act_protetta.setCheckable(True)
         self._act_protetta.setChecked(False)
         self._act_protetta.setShortcut(QKeySequence("Ctrl+Shift+P"))
@@ -517,13 +516,13 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(self._act_protetta)
 
         tools_menu.addSeparator()
-        tools_menu.addAction(_act("📋 Verifica dipendenze",   self._mostra_dipendenze))
+        tools_menu.addAction(_act(t("menu.tools.check_deps"),     self._mostra_dipendenze))
 
         # Aiuto
         help_menu = mb.addMenu("?")
-        help_menu.addAction(_act("📖 Guida di PCM",       self._apri_guida,        "F1"))
+        help_menu.addAction(_act(t("menu.help.guide"),  self._apri_guida, "F1"))
         help_menu.addSeparator()
-        help_menu.addAction(_act("ℹ  Informazioni su PCM", self._about))
+        help_menu.addAction(_act(t("menu.help.about"),  self._about))
 
     # ------------------------------------------------------------------
     # Scorciatoie da tastiera
@@ -637,7 +636,7 @@ class MainWindow(QMainWindow):
         if proto == "vnc" and profilo.get("vnc_internal"):
             self._rimuovi_welcome_se_presente()
             self.tabs.setTabsClosable(True)
-            self._set_status(f"Avvio VNC integrato: {nome}...")
+            self._set_status(t("session.status.vnc_starting", name=nome))
             
             host = profilo.get("host", "localhost")
             port = profilo.get("port", "5900")
@@ -658,7 +657,7 @@ class MainWindow(QMainWindow):
             # RDP, VNC, SFTP gui → apre in background
             if cmd:
                 subprocess.Popen(cmd, shell=True)
-            self._set_status(f"Avviato: {nome} ({proto.upper()})")
+            self._set_status(t("session.status.started", name=nome, proto=proto.upper()))
             return
 
         if modalita == "sftp_panel":
@@ -675,7 +674,7 @@ class MainWindow(QMainWindow):
                 self._set_status(f"SFTP: {profilo.get('user')}@{profilo.get('host')}")
                 self.session_panel.aggiorna()   # aggiorna in caso di credenziali salvate
             else:
-                self._set_status("Connessione SFTP fallita")
+                self._set_status(t("session.connection_failed_sftp"))
             self._aggiorna_status()
             return
 
@@ -693,7 +692,7 @@ class MainWindow(QMainWindow):
                 self._set_status(f"FTP: {profilo.get('user')}@{profilo.get('host')}")
                 self.session_panel.aggiorna()   # aggiorna in caso di credenziali salvate
             else:
-                self._set_status("Connessione FTP fallita")
+                self._set_status(t("session.connection_failed_ftp"))
             self._aggiorna_status()
             return
 
@@ -701,7 +700,7 @@ class MainWindow(QMainWindow):
             # FTP tramite file manager di sistema (nautilus/thunar/dolphin)
             if cmd:
                 subprocess.Popen(cmd, shell=True)
-            self._set_status(f"Aperto file manager FTP: {nome}")
+            self._set_status(t("session.status.opened_fm_ftp", name=nome))
             return
 
         if modalita == "ftp_term_ext":
@@ -714,7 +713,7 @@ class MainWindow(QMainWindow):
                     subprocess.Popen([term_ext, "-e", cmd])
                 else:
                     subprocess.Popen(["xterm", "-e", cmd])
-            self._set_status(f"Aperto terminale FTP esterno: {nome}")
+            self._set_status(t("session.status.opened_ftp_ext", name=nome))
             return
 
         if modalita == "ssh_term_ext":
@@ -726,14 +725,14 @@ class MainWindow(QMainWindow):
                 subprocess.Popen([term, "-e", cmd])
             elif cmd:
                 subprocess.Popen(["xterm", "-e", cmd])
-            self._set_status(f"Aperto terminale esterno: {nome}")
+            self._set_status(t("session.status.opened_ext", name=nome))
             return
 
         if modalita == "sftp_external":
             # SFTP tramite file manager di sistema
             if cmd:
                 subprocess.Popen(cmd, shell=True)
-            self._set_status(f"Aperto file manager SFTP: {nome}")
+            self._set_status(t("session.status.opened_fm_sftp", name=nome))
             return
 
         if modalita == "sftp_term_ext":
@@ -746,7 +745,7 @@ class MainWindow(QMainWindow):
                     subprocess.Popen([term, "-e", cmd])
                 else:
                     subprocess.Popen(["xterm", "-e", cmd])
-            self._set_status(f"Aperto terminale SFTP esterno: {nome}")
+            self._set_status(t("session.status.opened_sftp_ext", name=nome))
             return
 
         if modalita == "tunnel":
@@ -756,7 +755,7 @@ class MainWindow(QMainWindow):
 
         # embedded / serial
         if not cmd:
-            QMessageBox.warning(self, "Errore", "Impossibile costruire il comando per questa sessione.")
+            QMessageBox.warning(self, t("error.title"), t("error.cannot_build_cmd"))
             return
 
         self._rimuovi_welcome_se_presente()
@@ -807,7 +806,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(1500, lambda: self._connetti_sftp_browser(profilo))
 
         self._aggiorna_status()
-        self._set_status(f"Connesso: {nome}")
+        self._set_status(t("session.connected", name=nome))
 
     def _apri_sessione_tunnel(self, nome, profilo, cmd):
         """Avvia un tunnel SSH come processo in background."""
@@ -819,13 +818,13 @@ class MainWindow(QMainWindow):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
             self._processi_tunnel[nome] = proc
-            self._set_status(f"Tunnel attivo: {nome} (PID {proc.pid})")
+            self._set_status(t("tunnel.active_status", name=nome, pid=proc.pid))
             QMessageBox.information(
-                self, "Tunnel SSH avviato",
-                f"Tunnel '{nome}' avviato in background.\n\nComando:\n{cmd}\n\nPID: {proc.pid}"
+                self, "Tunnel SSH",
+                t("tunnel.started", name=nome, cmd=cmd, pid=proc.pid)
             )
         except Exception as e:
-            QMessageBox.critical(self, "Errore tunnel", str(e))
+            QMessageBox.critical(self, t("error.tunnel"), str(e))
 
     def _connetti_sftp_browser(self, profilo):
         host = profilo.get("host", "")
@@ -851,7 +850,7 @@ class MainWindow(QMainWindow):
             font_size=s.get("default_font_size", 11)
         )
         self.tabs.setTabsClosable(True)
-        idx = self.tabs.addTab(term, _qi("terminal.png"), " Locale")
+        idx = self.tabs.addTab(term, _qi("terminal.png"), t("tab.local"))
         self.tabs.setCurrentIndex(idx)
         term.avvia_locale()
         self._aggiorna_status()
@@ -871,7 +870,7 @@ class MainWindow(QMainWindow):
         # Parse user@host:porta
         match = re.match(r'(?:(\w[\w.-]*)@)?([\w.\-]+)(?::(\d+))?', testo)
         if not match:
-            self._set_status("Quick Connect: formato non riconosciuto")
+            self._set_status(t("qc.bad_format"))
             return
 
         user  = match.group(1) or os.getlogin()
@@ -917,8 +916,8 @@ class MainWindow(QMainWindow):
             if ha_processo and self._settings.get("terminal", {}).get("confirm_on_close", True):
                 nome_tab = self.tabs.tabText(index).strip()
                 risposta = QMessageBox.question(
-                    self, "Chiudi tab",
-                    f"Chiudere la sessione '{nome_tab}'?",
+                    self, t("tab.close_confirm_title"),
+                    t("tab.close_confirm_msg", name=nome_tab),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if risposta != QMessageBox.StandardButton.Yes:
@@ -940,7 +939,7 @@ class MainWindow(QMainWindow):
                 self._welcome = WelcomeWidget()
                 self._welcome.nuova_sessione.connect(self._nuova_sessione)
                 self._welcome.terminale_locale.connect(self._terminale_locale)
-                self.tabs.addTab(self._welcome, "🏠 Benvenuto")
+                self.tabs.addTab(self._welcome, t("tab.welcome"))
                 self.left_tabs.setCurrentIndex(0)
 
             self._aggiorna_status()
@@ -951,7 +950,7 @@ class MainWindow(QMainWindow):
 
     def _chiudi_tab_corrente(self):
         idx = self.tabs.currentIndex()
-        if idx >= 0 and self.tabs.tabText(idx) != "🏠 Benvenuto":
+        if idx >= 0 and self.tabs.tabText(idx).strip() != t("tab.welcome").strip():
             self._chiudi_tab(idx)
 
     def _tab_precedente(self):
@@ -965,8 +964,9 @@ class MainWindow(QMainWindow):
             self.tabs.setCurrentIndex((self.tabs.currentIndex() + 1) % c)
 
     def _rimuovi_welcome_se_presente(self):
+        welcome_txt = t("tab.welcome").strip()
         for i in range(self.tabs.count()):
-            if self.tabs.tabText(i) == "🏠 Benvenuto":
+            if self.tabs.tabText(i).strip() == welcome_txt:
                 self.tabs.removeTab(i)
                 break
 
@@ -1031,7 +1031,7 @@ class MainWindow(QMainWindow):
             self._welcome = WelcomeWidget()
             self._welcome.nuova_sessione.connect(self._nuova_sessione)
             self._welcome.terminale_locale.connect(self._terminale_locale)
-            sorgente.addTab(self._welcome, "🏠 Benvenuto")
+            sorgente.addTab(self._welcome, t("tab.welcome"))
         elif sorgente == self.tabs2 and sorgente.count() == 0:
             sorgente.hide()
             self.splitter_term.setSizes([1, 0])
@@ -1051,7 +1051,7 @@ class MainWindow(QMainWindow):
         dlg = SettingsDialog(self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._settings = config_manager.load_settings()
-            self._set_status("Impostazioni salvate")
+            self._set_status(t("settings.saved"))
 
     def _mostra_dipendenze(self):
         deps = check_dipendenze()
@@ -1060,9 +1060,8 @@ class MainWindow(QMainWindow):
             stato = "✅" if v else "❌"
             righe.append(f"  {stato}  {k}")
         QMessageBox.information(
-            self, "Dipendenze PCM",
-            "\n".join(righe) +
-            "\n\nInstalla i mancanti con il gestore pacchetti della tua distribuzione."
+            self, t("deps.title"),
+            "\n".join(righe) + t("deps.install_hint")
         )
 
     # ------------------------------------------------------------------
@@ -1075,8 +1074,8 @@ class MainWindow(QMainWindow):
 
     def _toggle_modalita_protetta(self, attiva: bool):
         self._modalita_protetta = attiva
-        stato = "🔒 ATTIVA" if attiva else "🔓 disattivata"
-        self._set_status(f"Modalità protetta {stato}")
+        stato = t("protected.active") if attiva else t("protected.inactive")
+        self._set_status(t("protected.status", state=stato))
         
         # Aggiorna la barra info di tutti i terminali aperti
         for i in range(self.tabs.count()):
@@ -1097,7 +1096,7 @@ class MainWindow(QMainWindow):
         # Aggiorna statusbar con indicatore visivo
         if attiva:
             self.lbl_connessioni.setStyleSheet("color:#c9b458; font-weight:bold;")
-            self.lbl_connessioni.setText("  🔒 Modalità protetta  ")
+            self.lbl_connessioni.setText(t("protected.indicator"))
         else:
             self.lbl_connessioni.setStyleSheet("")
             self._aggiorna_status()
@@ -1121,16 +1120,15 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _aggiorna_status(self):
+        welcome_txt = t("tab.welcome").strip()
         n_tab = sum(
             1 for i in range(self.tabs.count())
-            if self.tabs.tabText(i) != "🏠 Benvenuto"
+            if self.tabs.tabText(i).strip() != welcome_txt
         )
         if n_tab == 0:
             self.lbl_connessioni.setText("")
         else:
-            self.lbl_connessioni.setText(
-                f"  Sessioni aperte: {n_tab}  "
-            )
+            self.lbl_connessioni.setText(t("app.sessions_open", n=n_tab))
 
     def _set_status(self, msg: str):
         self.lbl_status.setText(f"  {msg}")
@@ -1143,9 +1141,9 @@ class MainWindow(QMainWindow):
         """Apre la guida HTML in una scheda dedicata (QWebEngineView)."""
         from PyQt6.QtCore import QUrl
 
-        # Se la guida è già aperta, la porta in primo piano
+        guide_txt = t("tab.guide").strip()
         for i in range(self.tabs.count()):
-            if self.tabs.tabText(i).strip() == "📖 Guida":
+            if self.tabs.tabText(i).strip() == guide_txt:
                 self.tabs.setCurrentIndex(i)
                 return
 
@@ -1153,17 +1151,15 @@ class MainWindow(QMainWindow):
             os.path.dirname(os.path.abspath(__file__)), "pcm_help.html"
         )
         if not os.path.isfile(guida_path):
-            QMessageBox.warning(self, "Guida",
-                "File pcm_help.html non trovato nella cartella di PCM.")
+            QMessageBox.warning(self, t("tab.guide").strip(),
+                t("guide.file_missing"))
             return
 
-        # QWebEngineView: browser Chromium completo, supporta CSS moderno
         try:
             from PyQt6.QtWebEngineWidgets import QWebEngineView
             browser = QWebEngineView()
             browser.setUrl(QUrl.fromLocalFile(guida_path))
         except ImportError:
-            # Fallback a QTextBrowser se WebEngine non disponibile
             from PyQt6.QtWidgets import QTextBrowser
             browser = QTextBrowser()
             browser.setOpenExternalLinks(True)
@@ -1172,19 +1168,11 @@ class MainWindow(QMainWindow):
 
         self._rimuovi_welcome_se_presente()
         self.tabs.setTabsClosable(True)
-        idx = self.tabs.addTab(browser, "📖 Guida")
+        idx = self.tabs.addTab(browser, t("tab.guide"))
         self.tabs.setCurrentIndex(idx)
 
     def _about(self):
-        QMessageBox.about(
-            self, "PCM — Python Connection Manager",
-            "<b>PCM — Python Connection Manager</b><br><br>"
-            "Sviluppato in Python/PyQt6.<br><br>"
-            "<b>Protocolli supportati:</b> SSH, Telnet, SFTP, RDP, VNC, "
-            "SSH Tunnel, Mosh, Seriale<br><br>"
-            "<b>Tecnologie:</b> Python 3 e Brownie<br><br>"
-            "<b>Autore:</b> Andres Zanzani - azanzani@gmail.com"
-        )
+        QMessageBox.about(self, t("app.title"), t("app.about_text"))
 
     # ------------------------------------------------------------------
     # Gestione apertura (intercetta macro dal panel)
@@ -1201,9 +1189,10 @@ class MainWindow(QMainWindow):
                     info = self._profili_tab.get(id(w))
                     if info and info[1].get("host") == profilo.get("host"):
                         w.invia_testo(cmd, invio=True, sorgente="macro")
-                        self._set_status(f"Macro inviata: {cmd}")
+                        self._set_status(t("macro.sent", cmd=cmd))
                         return
-            QMessageBox.information(self, "Macro", f"Nessuna sessione attiva per '{profilo.get('host')}'.\nComando: {cmd}")
+            QMessageBox.information(self, t("panel.macros").strip(),
+                t("macro.no_active_session", host=profilo.get("host",""), cmd=cmd))
         else:
             self._apri_sessione(nome, profilo)
 
@@ -1218,21 +1207,20 @@ class MainWindow(QMainWindow):
 
         icona = _qi("pcm_icon.png")
         self._tray = QSystemTrayIcon(icona, self)
-        self._tray.setToolTip("PCM — Python Connection Manager")
+        self._tray.setToolTip(t("app.title"))
 
         tray_menu = QMenu()
-        tray_menu.addAction("🖥  Mostra PCM", self._mostra_finestra)
+        tray_menu.addAction(t("tray.show"), self._mostra_finestra)
         tray_menu.addSeparator()
 
-        # Sottomenu sessioni rapide (prime 10)
-        self._tray_sessioni_menu = tray_menu.addMenu("⚡  Connetti a…")
+        self._tray_sessioni_menu = tray_menu.addMenu(t("tray.connect_to"))
         self._aggiorna_tray_sessioni()
 
         tray_menu.addSeparator()
-        tray_menu.addAction("➕  Nuova sessione", self._nuova_sessione)
-        tray_menu.addAction("⌨  Terminale locale", self._terminale_locale)
+        tray_menu.addAction(t("tray.new_session"),    self._nuova_sessione)
+        tray_menu.addAction(t("tray.local_terminal"), self._terminale_locale)
         tray_menu.addSeparator()
-        tray_menu.addAction("✖  Esci", self._esci_definitivo)
+        tray_menu.addAction(t("tray.quit"), self._esci_definitivo)
 
         self._tray.setContextMenu(tray_menu)
         self._tray.activated.connect(self._tray_attivato)
@@ -1249,7 +1237,7 @@ class MainWindow(QMainWindow):
         self._tray_sessioni_menu.clear()
         profili = config_manager.load_profiles()
         if not profili:
-            self._tray_sessioni_menu.addAction("(nessuna sessione)").setEnabled(False)
+            self._tray_sessioni_menu.addAction(t("tray.no_sessions")).setEnabled(False)
             return
 
         recenti = self._settings.get("recent_sessions", [])
@@ -1283,7 +1271,7 @@ class MainWindow(QMainWindow):
             if len(restanti) > posti_rimasti:
                 rimaste = len(restanti) - posti_rimasti
                 self._tray_sessioni_menu.addSeparator()
-                a = self._tray_sessioni_menu.addAction(f"... e altre {rimaste} sessioni (apri PCM)")
+                a = self._tray_sessioni_menu.addAction(t("tray.more_sessions", n=rimaste))
                 a.setEnabled(False)
 
     def _apri_dal_tray(self, nome: str, profilo: dict):
@@ -1320,17 +1308,14 @@ class MainWindow(QMainWindow):
                                       QHeaderView, QLineEdit)
 
         dlg = QDialog(self)
-        dlg.setWindowTitle("📦 Variabili globali PCM")
+        dlg.setWindowTitle(t("variables.title"))
         dlg.setMinimumSize(480, 360)
         layout = QVBoxLayout(dlg)
 
-        layout.addWidget(QLabel(
-            "Usa {NOME} nei comandi e nelle macro per sostituire automaticamente il valore.\n"
-            "Es: {SERVER}, {USER}, {DB_HOST}"
-        ))
+        layout.addWidget(QLabel(t("variables.hint")))
 
         tabella = QTableWidget(0, 2)
-        tabella.setHorizontalHeaderLabels(["Nome variabile", "Valore"])
+        tabella.setHorizontalHeaderLabels([t("variables.col_name"), t("variables.col_value")])
         tabella.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         tabella.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         tabella.verticalHeader().setVisible(False)
@@ -1351,8 +1336,8 @@ class MainWindow(QMainWindow):
         edit_nome.setPlaceholderText("NOME (es. SERVER_IP)")
         edit_valore = QLineEdit()
         edit_valore.setPlaceholderText("valore")
-        btn_add = QPushButton("➕ Aggiungi")
-        btn_del = QPushButton("🗑 Elimina")
+        btn_add = QPushButton(t("variables.add"))
+        btn_del = QPushButton(t("variables.delete"))
 
         def aggiungi():
             n = edit_nome.text().strip().upper().replace(" ", "_")
@@ -1395,7 +1380,7 @@ class MainWindow(QMainWindow):
                 if n and n.text().strip():
                     nuove[n.text().strip()] = v.text() if v else ""
             config_manager.save_variables(nuove)
-            self._set_status(f"Variabili globali salvate ({len(nuove)})")
+            self._set_status(t("variables.saved", n=len(nuove)))
 
     # ------------------------------------------------------------------
     # Riconnessione automatica
@@ -1412,8 +1397,8 @@ class MainWindow(QMainWindow):
                 # Notifica tray
                 if hasattr(self, '_tray'):
                     self._tray.showMessage(
-                        "PCM — Sessione terminata",
-                        f"La sessione '{nome_tab}' si è disconnessa.",
+                        t("tray.session_ended_title"),
+                        t("tray.session_ended_msg", name=nome_tab),
                         QSystemTrayIcon.MessageIcon.Warning, 4000
                     )
                 break
@@ -1422,7 +1407,7 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QPushButton
         for child in term.findChildren(QPushButton, "btn_riconnetti"):
             child.deleteLater()
-        btn = QPushButton("🔄  Riconnetti", term)
+        btn = QPushButton(t("terminal.reconnect"), term)
         btn.setObjectName("btn_riconnetti")
         btn.setFixedHeight(32)
         btn.setStyleSheet(
@@ -1451,7 +1436,7 @@ class MainWindow(QMainWindow):
         import json
         from PyQt6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getSaveFileName(
-            self, "Esporta sessioni", "pcm_sessioni.json", "JSON (*.json)"
+            self, t("export.done_title"), "pcm_sessioni.json", "JSON (*.json)"
         )
         if not path:
             return
@@ -1459,17 +1444,17 @@ class MainWindow(QMainWindow):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(profili, f, indent=4, ensure_ascii=False)
-            self._set_status(f"Sessioni esportate: {path}")
-            QMessageBox.information(self, "Esportazione completata",
-                                    f"Esportate {len(profili)} sessioni in:\n{path}")
+            self._set_status(t("export.done_status", path=path))
+            QMessageBox.information(self, t("export.done_title"),
+                                    t("export.done_msg", n=len(profili), path=path))
         except Exception as e:
-            QMessageBox.critical(self, "Errore esportazione", str(e))
+            QMessageBox.critical(self, t("error.export"), str(e))
 
     def _importa_sessioni(self):
         import json
         from PyQt6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(
-            self, "Importa sessioni", "", "JSON (*.json)"
+            self, t("import.done", n=0).split(":")[0], "", "JSON (*.json)"
         )
         if not path:
             return
@@ -1482,8 +1467,8 @@ class MainWindow(QMainWindow):
             conflitti = [n for n in nuovi if n in esistenti]
             if conflitti:
                 risposta = QMessageBox.question(
-                    self, "Conflitti trovati",
-                    f"Le seguenti sessioni esistono già:\n\n{chr(10).join(conflitti)}\n\nSovrascrivi?",
+                    self, t("import.conflicts_title"),
+                    t("import.conflicts_msg", names=chr(10).join(conflitti)),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if risposta != QMessageBox.StandardButton.Yes:
@@ -1492,9 +1477,9 @@ class MainWindow(QMainWindow):
             config_manager.save_profiles(esistenti)
             self.session_panel.aggiorna()
             self._aggiorna_tray_sessioni()
-            self._set_status(f"Importate {len(nuovi)} sessioni")
+            self._set_status(t("import.done", n=len(nuovi)))
         except Exception as e:
-            QMessageBox.critical(self, "Errore importazione", str(e))
+            QMessageBox.critical(self, t("error.import"), str(e))
 
     def _importa_da_app(self, sorgente: str):
         """Importa sessioni da Remmina o Remote Desktop Manager."""
@@ -1502,9 +1487,8 @@ class MainWindow(QMainWindow):
         try:
             from importer import importa_remmina, importa_rdm, unisci_in_pcm
         except ImportError:
-            QMessageBox.critical(self, "Errore",
-                "Modulo importer.py non trovato.\n"
-                "Assicurati che importer.py sia nella stessa cartella di PCM.py.")
+            QMessageBox.critical(self, t("error.title"),
+                t("import.app.module_missing"))
             return
 
         profili_importati: dict = {}
@@ -1533,7 +1517,7 @@ class MainWindow(QMainWindow):
             try:
                 profili_importati = importa_remmina(percorso)
             except Exception as e:
-                QMessageBox.critical(self, "Errore importazione Remmina", str(e))
+                QMessageBox.critical(self, t("error.import"), str(e))
                 return
 
         elif sorgente in ("rdm_xml", "rdm_json"):
@@ -1546,11 +1530,12 @@ class MainWindow(QMainWindow):
             try:
                 profili_importati = importa_rdm(path)
             except Exception as e:
-                QMessageBox.critical(self, "Errore importazione RDM", str(e))
+                QMessageBox.critical(self, t("error.import"), str(e))
                 return
 
         if not profili_importati:
-            QMessageBox.information(self, "Importazione", "Nessuna connessione trovata.")
+            QMessageBox.information(self, t("import.app.title_done"),
+                t("import.app.no_connections"))
             return
 
         # Anteprima e conferma
@@ -1563,9 +1548,9 @@ class MainWindow(QMainWindow):
             anteprima += f"\n  … e altre {len(nomi)-20}"
 
         risposta = QMessageBox.question(
-            self, "Conferma importazione",
+            self, t("import.app.title_done"),
             f"Trovate <b>{len(nomi)}</b> connessioni:\n\n{anteprima}\n\n"
-            "Importare e unire a PCM?",
+            + t("import.app.confirm_msg"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if risposta != QMessageBox.StandardButton.Yes:
@@ -1575,13 +1560,13 @@ class MainWindow(QMainWindow):
             aggiunti, _ = unisci_in_pcm(profili_importati)
             self.session_panel.aggiorna()
             self._aggiorna_tray_sessioni()
-            self._set_status(f"Importate {aggiunti} connessioni")
+            self._set_status(t("import.done", n=aggiunti))
             QMessageBox.information(
-                self, "Importazione completata",
-                f"Aggiunte <b>{aggiunti}</b> connessioni al pannello sessioni."
+                self, t("import.app.title_done"),
+                t("import.app.added", n=aggiunti)
             )
         except Exception as e:
-            QMessageBox.critical(self, "Errore salvataggio", str(e))
+            QMessageBox.critical(self, t("error.title"), str(e))
 
     # ------------------------------------------------------------------
     # Multi-exec
@@ -1595,7 +1580,7 @@ class MainWindow(QMainWindow):
                 terminali.append((self.tabs.tabText(i).strip(), w))
 
         if not terminali:
-            QMessageBox.information(self, "Multi-exec", "Nessuna sessione attiva.")
+            QMessageBox.information(self, "Multi-exec", t("multiexec.no_sessions"))
             return
 
         from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QListWidget,
@@ -1603,11 +1588,11 @@ class MainWindow(QMainWindow):
                                       QLabel, QDialogButtonBox, QCheckBox)
 
         dlg = QDialog(self)
-        dlg.setWindowTitle("⚡ Multi-exec — Invia comando a più sessioni")
+        dlg.setWindowTitle(t("multiexec.title"))
         dlg.setMinimumSize(520, 400)
         layout = QVBoxLayout(dlg)
 
-        layout.addWidget(QLabel("Seleziona le sessioni destinatarie:"))
+        layout.addWidget(QLabel(t("multiexec.select_sessions")))
         lista = QListWidget()
         lista.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
         for nome, _ in terminali:
@@ -1616,7 +1601,7 @@ class MainWindow(QMainWindow):
             lista.addItem(item)
         layout.addWidget(lista)
 
-        layout.addWidget(QLabel("Comando da inviare:"))
+        layout.addWidget(QLabel(t("multiexec.command")))
         edit_cmd = QTextEdit()
         edit_cmd.setPlaceholderText("es: uptime")
         edit_cmd.setFixedHeight(80)
@@ -1625,14 +1610,14 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(edit_cmd)
 
-        chk_invio = QCheckBox("Invia Enter automaticamente dopo il comando")
+        chk_invio = QCheckBox(t("multiexec.auto_enter"))
         chk_invio.setChecked(True)
         layout.addWidget(chk_invio)
 
         bbox = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        bbox.button(QDialogButtonBox.StandardButton.Ok).setText("⚡ Invia")
+        bbox.button(QDialogButtonBox.StandardButton.Ok).setText(t("multiexec.send_btn"))
         bbox.accepted.connect(dlg.accept)
         bbox.rejected.connect(dlg.reject)
         layout.addWidget(bbox)
@@ -1653,7 +1638,7 @@ class MainWindow(QMainWindow):
             if nome in selezionati:
                 term.invia_testo(cmd, invio=chk_invio.isChecked(), sorgente="multi_exec")
                 n_inviati += 1
-        self._set_status(f"Multi-exec: comando inviato a {n_inviati} sessioni")
+        self._set_status(t("multiexec.sent", n=n_inviati))
 
     # ------------------------------------------------------------------
     # Chiusura
@@ -1683,8 +1668,8 @@ class MainWindow(QMainWindow):
         w = tab_widget.widget(idx)
         if not isinstance(w, TerminalWidget):
             QMessageBox.information(
-                self, "Esporta comandi.sh",
-                "Il tab selezionato non è una sessione terminale."
+                self, t("tab.export_commands").strip("…").strip(),
+                t("export_cmd.not_terminal")
             )
             return
 
@@ -1697,32 +1682,18 @@ class MainWindow(QMainWindow):
         log_dir       = profilo.get("log_dir", "").strip()
 
         if not log_abilitato or not log_dir:
-            # Avviso con istruzioni precise
             msg = QMessageBox(self)
-            msg.setWindowTitle("Esporta comandi.sh — Log non abilitato")
+            msg.setWindowTitle(t("export_cmd.no_log_title"))
             msg.setIcon(QMessageBox.Icon.Information)
-            msg.setText(
-                "<b>Il log della sessione non è abilitato.</b><br><br>"
-                "Per poter esportare tutti i comandi digitati in console, "
-                "abilita il log nel profilo della sessione:"
-            )
-            msg.setInformativeText(
-                "1. Tasto destro sulla sessione nel pannello → Modifica\n"
-                "2. Tab Terminale\n"
-                "3. Spunta 'Registra output su file'\n"
-                "4. Imposta la cartella log\n"
-                "5. Riconnetti la sessione\n\n"
-                "Senza log, sono disponibili solo i comandi inviati tramite "
-                "macro e multi-exec."
-            )
+            msg.setText(t("export_cmd.no_log_text"))
+            msg.setInformativeText(t("export_cmd.no_log_info"))
             btn_solo_pcm = msg.addButton(
-                "Esporta solo comandi PCM", QMessageBox.ButtonRole.AcceptRole
+                t("export_cmd.only_pcm"), QMessageBox.ButtonRole.AcceptRole
             )
-            msg.addButton("Annulla", QMessageBox.ButtonRole.RejectRole)
+            msg.addButton(t("export_cmd.cancel"), QMessageBox.ButtonRole.RejectRole)
             msg.exec()
             if msg.clickedButton() != btn_solo_pcm:
                 return
-            # Esporta solo comandi PCM (nessun parsing log)
             self._genera_dialog_comandi(nome, profilo, w, comandi_log=[])
             return
 
@@ -1732,10 +1703,8 @@ class MainWindow(QMainWindow):
 
         if not log_files:
             QMessageBox.warning(
-                self, "Esporta comandi.sh",
-                f"Log abilitato ma nessun file trovato in:\n{log_dir}\n\n"
-                "Il file viene creato alla connessione. Assicurati che la sessione "
-                "sia stata avviata dopo aver abilitato il log."
+                self, t("export_cmd.no_log_title"),
+                t("export_cmd.no_log_found", dir=log_dir)
             )
             return
 
@@ -1830,7 +1799,7 @@ class MainWindow(QMainWindow):
 
         # ── Dialog ────────────────────────────────────────────────────
         dlg = QDialog(self)
-        dlg.setWindowTitle(f"Esporta comandi.sh — {nome}")
+        dlg.setWindowTitle(t("export_cmd.title", name=nome))
         dlg.setMinimumSize(740, 560)
         root = QVBoxLayout(dlg)
 
@@ -1847,12 +1816,8 @@ class MainWindow(QMainWindow):
         root.addWidget(lbl)
 
         if not unici:
-            root.addWidget(QLabel(
-                "\n  Nessun comando trovato.\n"
-                "  Invia comandi tramite macro/multi-exec oppure\n"
-                "  abilita il log e riconnetti la sessione.\n"
-            ))
-            btn = QPushButton("Chiudi")
+            root.addWidget(QLabel(t("cmd_dialog.no_cmds")))
+            btn = QPushButton(t("btn.close"))
             btn.clicked.connect(dlg.accept)
             root.addWidget(btn)
             dlg.exec()
@@ -1863,7 +1828,7 @@ class MainWindow(QMainWindow):
 
         # ── Tabella comandi ────────────────────────────────────────────
         tbl = QTableWidget(len(unici), 3)
-        tbl.setHorizontalHeaderLabels(["Timestamp", "Sorgente", "Comando"])
+        tbl.setHorizontalHeaderLabels(tl("cmd_dialog.headers"))
         tbl.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -1976,7 +1941,7 @@ class MainWindow(QMainWindow):
         tb = QHBoxLayout()
         btn_su  = QPushButton("▲"); btn_su.setMaximumWidth(32)
         btn_giu = QPushButton("▼"); btn_giu.setMaximumWidth(32)
-        btn_del = QPushButton("🗑  Rimuovi riga")
+        btn_del = QPushButton(t("btn.remove_row"))
 
         def _sposta(d):
             r = tbl.currentRow(); n = r + d
@@ -1999,14 +1964,14 @@ class MainWindow(QMainWindow):
             tb.addWidget(b)
         tb.addStretch()
 
-        btn_salva  = QPushButton("💾  Salva comandi.sh…")
-        btn_copia  = QPushButton("📋  Copia script")
-        btn_chiudi = QPushButton("Chiudi")
+        btn_salva  = QPushButton(t("btn.save"))
+        btn_copia  = QPushButton(t("btn.copy_script"))
+        btn_chiudi = QPushButton(t("btn.close"))
 
         def _salva():
             nome_f = "comandi_" + nome.replace(" ", "_").replace("/", "_") + ".sh"
             path, _ = QFileDialog.getSaveFileName(
-                dlg, "Salva comandi.sh",
+                dlg, t("btn.save").strip("…").strip(),
                 os.path.join(os.path.expanduser("~"), nome_f),
                 "Script shell (*.sh);;Tutti i file (*)"
             )
@@ -2015,13 +1980,13 @@ class MainWindow(QMainWindow):
                     f.write(txt.toPlainText())
                 os.chmod(path, 0o755)
                 QMessageBox.information(
-                    dlg, "Salvato", f"Script salvato:\n{path}"
+                    dlg, t("btn.close"), t("btn.saved", path=path)
                 )
 
         btn_salva.clicked.connect(_salva)
         btn_copia.clicked.connect(lambda: (
             QApplication.clipboard().setText(txt.toPlainText()),
-            btn_copia.setText("✅  Copiato!")
+            btn_copia.setText(t("btn.copied"))
         ))
         btn_chiudi.clicked.connect(dlg.accept)
 
@@ -2044,15 +2009,15 @@ class MainWindow(QMainWindow):
 
         if confirm and n_sessioni > 0:
             msg = QMessageBox(self)
-            msg.setWindowTitle("Chiudi PCM")
+            msg.setWindowTitle(t("close.title"))
             msg.setIcon(QMessageBox.Icon.Question)
 
             if tray_disponibile:
-                msg.setText(f"Ci sono <b>{n_sessioni}</b> sessione/i attive.")
-                msg.setInformativeText("Cosa vuoi fare?")
-                btn_tray    = msg.addButton("🔽  Minimizza nel tray", QMessageBox.ButtonRole.AcceptRole)
-                btn_chiudi  = msg.addButton("✖  Chiudi e termina tutto", QMessageBox.ButtonRole.DestructiveRole)
-                btn_annulla = msg.addButton("Annulla", QMessageBox.ButtonRole.RejectRole)
+                msg.setText(t("close.active_sessions", n=n_sessioni))
+                msg.setInformativeText(t("close.what_to_do"))
+                btn_tray    = msg.addButton(t("close.minimize_tray"),  QMessageBox.ButtonRole.AcceptRole)
+                btn_chiudi  = msg.addButton(t("close.close_all_btn"),  QMessageBox.ButtonRole.DestructiveRole)
+                btn_annulla = msg.addButton(t("close.cancel"),         QMessageBox.ButtonRole.RejectRole)
                 msg.setDefaultButton(btn_tray)
                 msg.exec()
                 clicked = msg.clickedButton()
@@ -2062,18 +2027,17 @@ class MainWindow(QMainWindow):
                 elif clicked == btn_tray:
                     self.hide()
                     self._tray.showMessage(
-                        "PCM in esecuzione",
-                        "PCM continua in background. Doppio clic sull'icona per riaprire.",
+                        t("app.title"),
+                        t("tray.running_msg"),
                         QSystemTrayIcon.MessageIcon.Information, 3000
                     )
                     event.ignore()
                     return
-                # btn_chiudi → prosegue con la chiusura definitiva
             else:
-                msg.setText(f"Ci sono <b>{n_sessioni}</b> sessione/i attive.")
-                msg.setInformativeText("Vuoi chiudere tutto e terminare PCM?")
-                btn_chiudi  = msg.addButton("✖  Chiudi tutto", QMessageBox.ButtonRole.DestructiveRole)
-                btn_annulla = msg.addButton("Annulla", QMessageBox.ButtonRole.RejectRole)
+                msg.setText(t("close.active_sessions", n=n_sessioni))
+                msg.setInformativeText(t("close.confirm_msg"))
+                btn_chiudi  = msg.addButton(t("close.close_btn"),  QMessageBox.ButtonRole.DestructiveRole)
+                btn_annulla = msg.addButton(t("close.cancel"),     QMessageBox.ButtonRole.RejectRole)
                 msg.setDefaultButton(btn_annulla)
                 msg.exec()
                 if msg.clickedButton() != btn_chiudi:
@@ -2114,6 +2078,10 @@ class MainWindow(QMainWindow):
 # ==============================================================================
 
 if __name__ == "__main__":
+    # ── i18n: carica lingua da pcm_settings.json prima di costruire qualsiasi widget
+    import translations as _tr
+    _tr.init_from_settings()
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("PCM")

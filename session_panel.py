@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap, QPainter
 
 import config_manager
+from translations import t
 
 # ---------------------------------------------------------------------------
 # Percorso assoluto della cartella icons (accanto a questo file)
@@ -161,7 +162,7 @@ class SessionPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        hdr = QLabel("  Sessioni")
+        hdr = QLabel(t("sidebar.sessions"))
         hdr.setStyleSheet(
             "background:#f0f0f0; color:#4e7abc; font-size:13px; font-weight:bold; "
             "padding:8px; border-bottom:1px solid #ccc;"
@@ -173,10 +174,10 @@ class SessionPanel(QWidget):
         tb.setContentsMargins(4, 3, 4, 3)
         tb.setSpacing(2)
         for testo, tooltip, slot in [
-            ("➕", "Nuova sessione",  self.nuova_sessione.emit),
-            ("↺",  "Aggiorna lista",  self.aggiorna),
-            ("▼",  "Espandi tutto",   lambda: self.tree.expandAll()),
-            ("▲",  "Comprimi tutto",  lambda: self.tree.collapseAll()),
+            ("➕", t("sidebar.new_session_tooltip"), self.nuova_sessione.emit),
+            ("↺",  t("sidebar.refresh_tooltip"),     self.aggiorna),
+            ("▼",  t("sidebar.expand_tooltip"),      lambda: self.tree.expandAll()),
+            ("▲",  t("sidebar.collapse_tooltip"),    lambda: self.tree.collapseAll()),
         ]:
             b = QToolButton()
             b.setText(testo)
@@ -198,7 +199,7 @@ class SessionPanel(QWidget):
 
         # Ricerca
         self.edit_cerca = QLineEdit()
-        self.edit_cerca.setPlaceholderText("Cerca sessione…")
+        self.edit_cerca.setPlaceholderText(t("sidebar.search_placeholder"))
         self.edit_cerca.setClearButtonEnabled(True)
         self.edit_cerca.setStyleSheet(
             "background:#ffffff; color:#111111; border:none; "
@@ -278,7 +279,7 @@ class SessionPanel(QWidget):
             primo = False
 
             # Nodo gruppo
-            label_g = f"  📂  {gruppo}" if gruppo else "  (senza gruppo)"
+            label_g = f"  📂  {gruppo}" if gruppo else t("sidebar.no_group")
             ng = QTreeWidgetItem([label_g])
             ng.setFont(0, QFont("sans-serif", 10, QFont.Weight.Bold))
             ng.setForeground(0, QColor("#4e7abc" if gruppo else "#888888"))
@@ -323,7 +324,7 @@ class SessionPanel(QWidget):
             ng.setExpanded(True)
 
         n_gruppi = len(gruppi_ordinati)
-        self.lbl_count.setText(f"   {totale} sessioni  ·  {n_gruppi} gruppi")
+        self.lbl_count.setText(t("sidebar.count", sessions=totale, groups=n_gruppi))
 
     # ------------------------------------------------------------------
     # Filtro e interazioni
@@ -349,15 +350,15 @@ class SessionPanel(QWidget):
 
         profilo = self._profili[nome]
         menu = QMenu(self)
-        menu.addAction("▶  Connetti",  lambda: self.sessione_aperta.emit(nome, profilo))
+        menu.addAction(t("panel.connect"),  lambda: self.sessione_aperta.emit(nome, profilo))
         menu.addSeparator()
-        menu.addAction("✏  Modifica",  lambda: self.sessione_modifica.emit(nome, profilo))
-        menu.addAction("📋  Duplica",  lambda: self._duplica(nome, profilo))
+        menu.addAction(t("panel.edit"),     lambda: self.sessione_modifica.emit(nome, profilo))
+        menu.addAction(t("panel.duplicate"),lambda: self._duplica(nome, profilo))
         menu.addSeparator()
 
         macros = profilo.get("macros", [])
         if macros:
-            mm = menu.addMenu("⚡  Macro")
+            mm = menu.addMenu(t("panel.macros"))
             for m in macros:
                 nome_m = m.get("nome") or m.get("cmd", "")
                 cmd_m  = m.get("cmd", "")
@@ -365,12 +366,12 @@ class SessionPanel(QWidget):
                     lambda c=cmd_m: self.sessione_aperta.emit(f"__macro__:{c}", profilo))
             menu.addSeparator()
 
-        menu.addAction("📋  Copia comando", lambda: self._copia_comando(nome, profilo))
-        menu.addAction("📄  Esporta apri-connessione.sh…", lambda: self._esporta_sh(nome, profilo))
+        menu.addAction(t("panel.copy_command"), lambda: self._copia_comando(nome, profilo))
+        menu.addAction(t("panel.export_sh"),    lambda: self._esporta_sh(nome, profilo))
         menu.addSeparator()
-        menu.addAction("🌐  Verifica raggiungibilità…", lambda: self._verifica_raggiungibilita(nome, profilo))
+        menu.addAction(t("panel.check_reach"),  lambda: self._verifica_raggiungibilita(nome, profilo))
         menu.addSeparator()
-        menu.addAction("🗑  Elimina",       lambda: self._chiedi_elimina(nome))
+        menu.addAction(t("panel.delete"),       lambda: self._chiedi_elimina(nome))
         menu.exec(self.tree.mapToGlobal(pos))
 
     # ------------------------------------------------------------------
@@ -407,8 +408,9 @@ class SessionPanel(QWidget):
         done = threading.Event()
 
         # ── Dialog ────────────────────────────────────────────────────
+        from translations import t as _t
         dlg = QDialog()
-        dlg.setWindowTitle(f"Verifica raggiungibilita — {nome}")
+        dlg.setWindowTitle(_t("reach.title", name=nome))
         dlg.setMinimumWidth(560)
         dlg.setMinimumHeight(340)
         lay = QVBoxLayout(dlg)
@@ -429,7 +431,7 @@ class SessionPanel(QWidget):
         )
         lay.addWidget(log, 1)
 
-        btn_chiudi = QPushButton("Chiudi")
+        btn_chiudi = QPushButton(_t("btn.close"))
         btn_chiudi.setEnabled(False)   # abilitato solo a fine test
         btn_chiudi.clicked.connect(dlg.accept)
         lay.addWidget(btn_chiudi)
@@ -532,7 +534,8 @@ class SessionPanel(QWidget):
         from session_command import build_command
         cmd, modalita = build_command(profilo)
         if not cmd:
-            QMessageBox.warning(self, "Esporta", "Impossibile costruire il comando per questa sessione.")
+            QMessageBox.warning(self, t("panel.export_sh").strip("…").strip(),
+                                t("error.cannot_build_cmd"))
             return
 
         proto = profilo.get("protocol", "ssh").upper()
@@ -579,12 +582,11 @@ class SessionPanel(QWidget):
 
         # Dialog preview
         dlg = QDialog()
-        dlg.setWindowTitle(f"📄  Esporta apri-connessione.sh — {nome}")
+        dlg.setWindowTitle(t("export_conn.title", name=nome))
         dlg.setMinimumSize(620, 420)
         lay = QVBoxLayout(dlg)
         lay.addWidget(QLabel(
-            f"Script <b>apri-connessione.sh</b> per {nome} ({proto} {host}).<br>"
-            f"<small style='color:#888'>Per esportare i comandi digitati: tasto destro sul <b>tab</b> della sessione → 'Esporta comandi.sh'</small>"
+            t("export_conn.subtitle", name=nome, proto=proto, host=host)
         ))
 
         txt = QTextEdit()
@@ -593,25 +595,27 @@ class SessionPanel(QWidget):
         lay.addWidget(txt, 1)
 
         btn_row = QHBoxLayout()
-        btn_salva  = QPushButton("💾  Salva .sh…")
-        btn_copia  = QPushButton("📋  Copia negli appunti")
-        btn_chiudi = QPushButton("Chiudi")
+        btn_salva  = QPushButton(t("btn.save_sh"))
+        btn_copia  = QPushButton(t("btn.copy_cb"))
+        btn_chiudi = QPushButton(t("btn.close"))
 
         def _salva():
             nome_file = "apri-connessione_" + nome.replace(" ", "_").replace("/", "_") + ".sh"
             path, _ = QFileDialog.getSaveFileName(
-                dlg, "Salva script", os.path.join(os.path.expanduser("~"), nome_file),
+                dlg, t("btn.save_sh").strip("…").strip(),
+                os.path.join(os.path.expanduser("~"), nome_file),
                 "Script shell (*.sh);;Tutti i file (*)"
             )
             if path:
                 with open(path, "w") as f:
                     f.write(txt.toPlainText())
                 os.chmod(path, 0o755)
-                QMessageBox.information(dlg, "Salvato", f"Script salvato e reso eseguibile:\n{path}")
+                QMessageBox.information(dlg, t("btn.close"),
+                                        t("btn.saved_exec", path=path))
 
         def _copia():
             QApplication.clipboard().setText(txt.toPlainText())
-            btn_copia.setText("✅  Copiato!")
+            btn_copia.setText(t("btn.copied"))
 
         btn_salva.clicked.connect(_salva)
         btn_copia.clicked.connect(_copia)
@@ -642,8 +646,8 @@ class SessionPanel(QWidget):
 
     def _chiedi_elimina(self, nome: str):
         if QMessageBox.question(
-            self, "Elimina sessione",
-            f"Eliminare la sessione «{nome}»?"
+            self, t("panel.delete").strip(),
+            t("panel.delete_confirm", name=nome)
         ) == QMessageBox.StandardButton.Yes:
             del self._profili[nome]
             config_manager.save_profiles(self._profili)
