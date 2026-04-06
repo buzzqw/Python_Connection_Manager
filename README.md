@@ -27,7 +27,13 @@ per gestire connessioni remote multi-protocollo, trasferimenti file e terminali 
 
 ---
 
-## 🛠 Installazione
+## � Screenshot
+
+Per una panoramica visiva dell'interfaccia e delle funzionalità di PCM, guarda gli **[screenshot disponibili nella cartella immagini](immagini/)**.
+
+---
+
+## �🛠 Installazione
 
 ### Metodo rapido (consigliato)
 
