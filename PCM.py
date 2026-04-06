@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
 PCM - Python Connection Manager
-Clone Linux di MobaXterm sviluppato in Python/PyQt6.
+Ispirato Linux di MobaXterm sviluppato in Python/PyQt6.
+
+Licensed under the European Union Public Licence (EUPL) v1.2
+© 2025 - All rights reserved
 
 Moduli:
   PCM.py              - Finestra principale

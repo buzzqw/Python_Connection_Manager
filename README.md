@@ -162,7 +162,18 @@ I gruppi RDM vengono mantenuti come gruppi PCM.
 
 ---
 
-## 💰 Donazioni
+## � Licenza
+
+Questo progetto è licenziato sotto la **[European Union Public Licence v1.2 (EUPL)](LICENSE)**.
+
+L'EUPL è una licenza open-source approvata dall'Unione Europea che promuove il riutilizzo del software
+e garantisce la libertà di uso, modifica e distribuzione, mantenendo al contempo il copyleft.
+
+Per maggiori dettagli, consulta il file [LICENSE](LICENSE).
+
+---
+
+## �💰 Donazioni
 
 Se apprezzi questo progetto e vuoi supportare il suo sviluppo, considera una donazione via PayPal:
 
