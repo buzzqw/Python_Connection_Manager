@@ -161,7 +161,19 @@ I gruppi RDM vengono mantenuti come gruppi PCM.
 | `pyftpdlib` | Server FTP locale |
 
 ---
+## 🌍 Lingue supportate
 
+PCM è disponibile nelle seguenti lingue:
+
+- **Italiano** 🇮🇹
+- **English** 🇬🇧
+- **Deutsch** 🇩🇪
+- **Français** 🇫🇷
+- **Español** 🇪🇸
+
+La lingua può essere cambiata dalle impostazioni dell'applicazione (**Strumenti → Impostazioni**).
+
+---
 ## � Licenza
 
 Questo progetto è licenziato sotto la **[European Union Public Licence v1.2 (EUPL)](LICENSE)**.
@@ -182,3 +194,208 @@ Se apprezzi questo progetto e vuoi supportare il suo sviluppo, considera una don
 ---
 
 Sviluppato con ♥ per la community Linux.
+
+---
+
+---
+
+---
+
+# PCM — Python Connection Manager 🚀
+
+**PCM** is an advanced Connection Manager for Linux, developed in Python and PyQt6.
+It is an open-source alternative to MobaXterm, with a unified tabbed interface
+for managing multi-protocol remote connections, file transfers, and local terminals.
+
+---
+
+## ✨ Features
+
+- **Multi-protocol:** SSH, Telnet, SFTP, FTP/FTPS, RDP, VNC, Mosh, SSH Tunnel, Serial
+- **Integrated Terminal:** `xterm` embedded in tabs, with configurable color themes, fonts and scrollback
+- **Integrated VNC:** VNC sessions in tabs via noVNC (optional), or external client
+- **SFTP Browser:** automatically opens for SSH sessions, with drag & drop
+- **FTP Browser:** FTP/FTPS client with WinSCP-like graphical interface
+- **Session Panel:** grouped by group, sorted by name, with protocol icons and live search
+- **Import from external apps:** import connections from **Remmina** and **Remote Desktop Manager** (XML and JSON)
+- **Split Mode:** divide workspace vertically or horizontally (2 panels)
+- **Quick Connect:** top bar for quick connections (`user@host:port`)
+- **SSH Tunnel Management:** SOCKS tunnels, local and remote with graphical interface
+- **Multi-exec:** send the same command to multiple SSH sessions simultaneously
+- **Global Variables:** `{NAME}` substitutions in session commands
+- **Local FTP Server:** start an FTP server on the local machine
+- **Protected Mode:** hide passwords from the interface (`****`)
+- **System Tray:** minimize to background, sessions accessible from tray
+- **Light Theme** with dedicated PNG icons for each protocol
+
+---
+
+## 📸 Screenshots
+
+For a visual overview of PCM's interface and features, check out the **[available screenshots in the immagini folder](immagini/)**.
+
+---
+
+## 🛠 Installation
+
+### Quick method (recommended)
+
+```bash
+git clone <repo>
+cd PCM
+bash setup.sh
+./run_pcm.sh
+```
+
+`setup.sh` automatically installs all system and Python dependencies,
+creates the virtualenv with `uv` and creates the launcher.
+
+### Manual
+
+**1. System Dependencies**
+
+Debian/Ubuntu:
+```bash
+sudo apt install python3 xterm xdotool openssh-client sshpass \
+                 xfreerdp2-x11 lftp libxcb-cursor0
+```
+
+Arch/Manjaro:
+```bash
+sudo pacman -S python xterm xdotool openssh sshpass freerdp lftp
+```
+
+Fedora/RHEL:
+```bash
+sudo dnf install python3 xterm xdotool openssh-clients sshpass freerdp lftp
+```
+
+**2. Python Virtualenv**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**3. Icons**
+
+PNG icons are already included in the `icons/` folder of the repository,
+including `checkmark.png` for interface checkboxes.
+
+**3. Launch**
+
+```bash
+./run_pcm.sh
+# or
+.venv/bin/python PCM.py
+```
+
+---
+
+## 📁 File Structure
+
+```
+PCM/
+├── PCM.py                  # Main window
+├── config_manager.py       # Session and settings management (connections.json)
+├── session_panel.py        # Sessions sidebar
+├── session_dialog.py       # Session creation/modification dialog
+├── session_command.py      # Shell command construction for protocol
+├── themes.py               # UI theme and terminal themes
+├── terminal_widget.py      # Embedded xterm widget
+├── sftp_browser.py         # SFTP browser (paramiko)
+├── winscp_widget.py        # Graphical SFTP/FTP browser
+├── tunnel_manager.py       # SSH tunnel manager
+├── settings_dialog.py      # Global settings dialog
+├── importer.py             # Import from Remmina and Remote Desktop Manager
+├── ftp_server_dialog.py   # Local FTP server
+├── vnc_widget.py           # Integrated VNC widget (noVNC)
+├── connections.json        # Saved sessions (created on first launch)
+├── pcm_settings.json       # Global settings (created on first launch)
+├── requirements.txt        # Python dependencies
+├── setup.sh                # Automatic installer
+├── run_pcm.sh              # Launcher with virtualenv
+└── icons/                  # PNG icons (including checkmark.png)
+```
+
+---
+
+## ⌨ Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+N` | New remote session |
+| `Ctrl+Alt+T` | Local terminal |
+| `Ctrl+Shift+B` | Show/Hide sidebar |
+| `Ctrl+Shift+P` | Protected mode (toggle) |
+| `Ctrl+Shift+M` | Multi-exec |
+| `Ctrl+Shift+V` | Global variables |
+| `Ctrl+Shift+F` | Local FTP server |
+| `Ctrl+Alt+1` | Single view |
+| `Ctrl+Alt+2` | Vertical split |
+| `Ctrl+Alt+3` | Horizontal split |
+| `Ctrl+Alt+Q` | Close current tab |
+| `Ctrl+Alt+←/→` | Previous / next tab |
+| `F11` | Full screen |
+
+---
+
+## 📥 Import Connections
+
+From **Tools → Import from external application**:
+
+- **Remmina** — automatically reads `~/.local/share/remmina/` or chosen file/folder
+- **Remote Desktop Manager (XML)** — `.rdm` file exported from RDM
+- **Remote Desktop Manager (JSON)** — `.json` file exported from RDM
+
+Passwords are not imported (they are encrypted in the source apps).
+RDM groups are maintained as PCM groups.
+
+---
+
+## 🌍 Supported Languages
+
+PCM is available in the following languages:
+
+- **Italiano** 🇮🇹
+- **English** 🇬🇧
+- **Deutsch** 🇩🇪
+- **Français** 🇫🇷
+- **Español** 🇪🇸
+
+Language can be changed from application settings (**Tools → Settings**).
+
+---
+
+## 🔧 Python Dependencies
+
+| Package | Use |
+|---|---|
+| `PyQt6` | Graphical interface |
+| `PyQt6-WebEngine` | Integrated VNC via noVNC (optional) |
+| `paramiko` | Native SSH/SFTP, SFTP browser |
+| `pyftpdlib` | Local FTP server |
+
+---
+
+## 📜 License
+
+This project is licensed under the **[European Union Public Licence v1.2 (EUPL)](LICENSE)**.
+
+EUPL is an open-source license approved by the European Union that promotes software reuse
+and guarantees freedom of use, modification and distribution, while maintaining copyleft.
+
+For more details, see the [LICENSE](LICENSE) file.
+
+---
+
+## 💰 Donations
+
+If you appreciate this project and want to support its development, consider a donation via PayPal:
+
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
+
+---
+
+Developed with ♥ for the Linux community.
