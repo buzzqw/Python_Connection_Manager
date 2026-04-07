@@ -97,7 +97,9 @@ class TerminalWidget(QWidget):
     def avvia(self, comando: str):
         """Avvia xterm con il comando dato, embedded nel container Qt."""
         self._comando_corrente = comando
-        self.barra_info.setText(f"  ▶  {comando}")
+        # Mostra la stringa censurata se fornita da PCM.py, altrimenti usa quella normale
+        cmd_show = getattr(self, 'comando_display', comando)
+        self.barra_info.setText(f"  ▶  {cmd_show}")
         # Estrai startup_cmd remoto se presente nel comando SSH
         # Formato: ssh ... -t 'CMD; exec $SHELL -l'
         import re as _re
@@ -332,7 +334,8 @@ class TerminalWidget(QWidget):
         else:
             chars = ""
 
-        cmd_show = getattr(self, 'comando_originale', self._comando_corrente)
+        # Cerca prima la versione censurata, poi l'originale, infine il comando grezzo
+        cmd_show = getattr(self, 'comando_display', getattr(self, 'comando_originale', self._comando_corrente))
         stat = f"  ⏱ {durata}{chars}" if durata else ""
         self.barra_info.setText(f"  {dot}  {cmd_show}{stat}")
 

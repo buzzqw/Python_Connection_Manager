@@ -176,6 +176,7 @@ DEFAULT_SETTINGS = {
         "default_editor": "nano",
         "confirm_on_exit": True,
         "language": "it",
+        "protected_mode": False,
     },
     "terminal": {
         "default_theme": "Scuro (Default)",

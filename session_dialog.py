@@ -96,7 +96,7 @@ class SessionDialog(QDialog):
 
         self.setWindowTitle(t("sd.new_title") if not nome else t("sd.edit_title", name=nome))
         self.setMinimumSize(720, 600)
-        self.resize(770, 660)
+        self.resize(800, 700)
         self.setModal(True)
 
         # ── Palette chiara (sovrascrive tema dark globale) ──────────────
