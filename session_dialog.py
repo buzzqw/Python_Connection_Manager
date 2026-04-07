@@ -267,6 +267,9 @@ class SessionDialog(QDialog):
         self.combo_rdp_client = QComboBox()
         self.combo_rdp_client.addItems(["xfreerdp3", "xfreerdp", "rdesktop"])
         rdp_layout.addRow(t("sd.rdp.client"), self.combo_rdp_client)
+        self.edit_rdp_domain = QLineEdit()
+        self.edit_rdp_domain.setPlaceholderText(t("sd.rdp.domain_ph"))
+        rdp_layout.addRow(t("sd.rdp.domain"), self.edit_rdp_domain)
         self.chk_rdp_fs = QCheckBox(t("sd.rdp.fullscreen"))
         self.chk_rdp_fs.setChecked(True)
         rdp_layout.addRow("", self.chk_rdp_fs)
@@ -1119,6 +1122,7 @@ class SessionDialog(QDialog):
         self.chk_rdp_fs.setChecked(dati.get("fullscreen", True))
         self.chk_rdp_clip.setChecked(dati.get("redirect_clipboard", True))
         self.chk_rdp_drives.setChecked(dati.get("redirect_drives", False))
+        self.edit_rdp_domain.setText(dati.get("rdp_domain", ""))
 
         # VNC
         self.chk_vnc_internal.setChecked(dati.get("vnc_internal", True))
@@ -1241,6 +1245,7 @@ class SessionDialog(QDialog):
             "fullscreen":     self.chk_rdp_fs.isChecked(),
             "redirect_clipboard": self.chk_rdp_clip.isChecked(),
             "redirect_drives": self.chk_rdp_drives.isChecked(),
+            "rdp_domain":     self.edit_rdp_domain.text().strip(),
             "vnc_internal":   self.chk_vnc_internal.isChecked(), 
             "vnc_client":     self.combo_vnc_client.currentText(),
             "vnc_color":      self.combo_vnc_color.currentText(),

@@ -319,6 +319,7 @@ def _build_rdp(p: dict) -> str:
     port   = p.get("port", "3389")
     user   = p.get("user", "")
     pwd    = p.get("password", "")
+    domain = p.get("rdp_domain", "").strip()
     client = p.get("rdp_client", "xfreerdp3")   # xfreerdp3 è il default attuale
     fs     = p.get("fullscreen", False)
     clips  = p.get("redirect_clipboard", True)
@@ -328,6 +329,8 @@ def _build_rdp(p: dict) -> str:
         args = [f"/v:{host}:{port}"]
         if user:
             args.append(f"/u:{user}")
+        if domain:
+            args.append(f"/d:{domain}")
         if pwd:
             args.append(f"/p:'{_esc(pwd)}'")
         args.append("/cert:ignore")
@@ -343,6 +346,8 @@ def _build_rdp(p: dict) -> str:
         args = ["-a 16"]
         if user:
             args.append(f"-u {user}")
+        if domain:
+            args.append(f"-d {domain}")
         if pwd:
             args.append(f"-p '{_esc(pwd)}'")
         if fs:
