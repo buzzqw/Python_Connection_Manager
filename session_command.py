@@ -63,15 +63,14 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
         else:  # Browser interno (default)
             return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
     elif proto == "rdp":
-        mode = profilo.get("rdp_open_mode", "Finestra esterna")
-        if mode.startswith("Pannello interno"):
+        mode = profilo.get("rdp_open_mode", "external")
+        # Supporta sia il valore canonico che i vecchi testi tradotti
+        if mode == "internal" or "intern" in mode.lower() or "panel" in mode.lower():
             # cmd=None: RdpEmbedWidget costruisce il comando internamente
             return None, "rdp_embedded"
         return _build_rdp(profilo), "external"
     elif proto == "vnc":
         return _build_vnc(profilo), "external"
-    elif proto == "ssh_tunnel":
-        return _build_ssh_tunnel(profilo), "tunnel"
     elif proto == "serial":
         return _wrap_pre(_build_serial(profilo), profilo), "serial"
     else:
@@ -444,40 +443,6 @@ def _trova_realvnc() -> str:
     return "realvnc-viewer"
 
 
-# ---------------------------------------------------------------------------
-# SSH Tunnel
-# ---------------------------------------------------------------------------
-
-def _build_ssh_tunnel(p: dict) -> str:
-    host       = p.get("host", "")
-    port       = p.get("port", "22")
-    user       = p.get("user", "")
-    pwd        = p.get("password", "")
-    pkey       = p.get("private_key", "")
-    ttype      = p.get("tunnel_type", "Proxy SOCKS (-D)")
-    lport      = p.get("tunnel_local_port", "1080")
-    rhost      = p.get("tunnel_remote_host", "")
-    rport      = p.get("tunnel_remote_port", "")
-
-    args = [f"-p {port}", "-N", "-o StrictHostKeyChecking=no",
-            "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
-    if pkey and os.path.exists(pkey):
-        args.append(f"-i '{pkey}'")
-
-    if ttype == "Proxy SOCKS (-D)":
-        args.append(f"-D {lport}")
-    elif ttype == "Locale (-L)" and rhost and rport:
-        args.append(f"-L {lport}:{rhost}:{rport}")
-    elif ttype == "Remoto (-R)" and rhost and rport:
-        args.append(f"-R {lport}:{rhost}:{rport}")
-
-    target = f"{user}@{host}" if user else host
-    args_str = " ".join(args)
-
-    if pwd and not pkey and shutil.which("sshpass"):
-        return f"sshpass -p '{_esc(pwd)}' ssh {args_str} {target}"
-    return f"ssh {args_str} {target}"
-
 
 # ---------------------------------------------------------------------------
 # Mosh
@@ -528,23 +493,57 @@ def _esc(s: str) -> str:
 
 
 def check_dipendenze() -> dict:
-    """Controlla la disponibilità degli strumenti necessari."""
+    """
+    Controlla la disponibilita degli strumenti necessari.
+    Restituisce {nome: True/False} per gli strumenti obbligatori,
+    e raggruppa quelli opzionali (terminali, client RDP/VNC).
+    """
+    # Strumenti obbligatori / fortemente consigliati
     tools = {
-        "xterm":       shutil.which("xterm") is not None,
         "ssh":         shutil.which("ssh") is not None,
         "sshpass":     shutil.which("sshpass") is not None,
-        "xfreerdp3":   shutil.which("xfreerdp3") is not None,
-        "vncviewer":   shutil.which("vncviewer") is not None,
-        "mosh":        shutil.which("mosh") is not None,
-        "telnet":      shutil.which("telnet") is not None,
         "xdotool":     shutil.which("xdotool") is not None,
         "xwininfo":    shutil.which("xwininfo") is not None,
+        "mosh":        shutil.which("mosh") is not None,
+        "telnet":      shutil.which("telnet") is not None,
         "picocom":     shutil.which("picocom") is not None,
-        "remmina":     shutil.which("remmina") is not None,
     }
+    # Terminali grafici: almeno uno necessario per sessioni embedded
+    _terminali = ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
+                  "alacritty", "kitty", "terminator", "wezterm",
+                  "foot", "tilix", "lxterminal", "mate-terminal", "st"]
+    for t in _terminali:
+        tools[t] = shutil.which(t) is not None
+    # Client RDP
+    for c in ["xfreerdp3", "xfreerdp", "rdesktop"]:
+        tools[c] = shutil.which(c) is not None
+    # Client VNC
+    for c in ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"]:
+        tools[c] = shutil.which(c) is not None
     try:
         import paramiko
         tools["paramiko"] = True
     except ImportError:
         tools["paramiko"] = False
+    try:
+        import cryptography
+        tools["cryptography"] = True
+    except ImportError:
+        tools["cryptography"] = False
     return tools
+
+
+def installed_tools(category: str) -> list[str]:
+    """
+    Restituisce la lista degli strumenti installati per categoria.
+    category: "terminal" | "rdp" | "vnc"
+    """
+    _map = {
+        "terminal": ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
+                     "alacritty", "kitty", "terminator", "wezterm",
+                     "foot", "tilix", "lxterminal", "mate-terminal", "st"],
+        "rdp":      ["xfreerdp3", "xfreerdp", "rdesktop"],
+        "vnc":      ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"],
+    }
+    candidates = _map.get(category, [])
+    return [t for t in candidates if shutil.which(t)]

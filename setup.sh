@@ -58,10 +58,12 @@ install_sys_deps() {
             sudo apt-get update -qq
             sudo apt-get install -y \
                 python3 curl git \
-                xterm xdotool x11-utils \
+                xterm xdotool x11-utils xwininfo \
                 openssh-client sshpass \
-                xfreerdp2-x11 \
                 lftp \
+                freerdp3-x11 xfreerdp2-x11 \
+                rdesktop \
+                tigervnc-viewer \
                 libxcb-cursor0 libxkbcommon-x11-0 \
                 libqt6svg6 \
                 2>/dev/null || true
@@ -72,10 +74,12 @@ install_sys_deps() {
             command -v dnf &>/dev/null || PKG="yum"
             sudo $PKG install -y \
                 python3 curl git \
-                xterm xdotool xorg-x11-utils \
+                xterm xdotool xorg-x11-utils xwininfo \
                 openssh-clients sshpass \
-                freerdp \
                 lftp \
+                freerdp \
+                rdesktop \
+                tigervnc \
                 qt6-qtsvg \
                 2>/dev/null || true
             ;;
@@ -85,8 +89,10 @@ install_sys_deps() {
                 python curl git \
                 xterm xdotool xorg-xwininfo \
                 openssh sshpass \
-                freerdp \
                 lftp \
+                freerdp \
+                rdesktop \
+                tigervnc \
                 qt6-svg \
                 2>/dev/null || true
             ;;
@@ -98,14 +104,11 @@ install_sys_deps() {
     esac
 
     # Strumenti opzionali (non installati automaticamente):
-    #   remmina   — client RDP/VNC alternativo a xfreerdp
     #   mosh      — shell mobile (alternativa SSH su connessioni instabili)
     #   picocom   — client seriale (alternativa a minicom/screen)
-    #   novnc     — per il VNC integrato nel browser di PCM
-    info "Opzionali non installati: remmina, mosh, picocom, novnc."
-    info "  Installali manualmente se vuoi usare queste funzionalità."
-    info "  - lftp: client FTP/SFTP per terminale embedded (installato sopra se disponibile)"
-    info "  - sshpass: login SSH con password senza prompt (consigliato)"
+    #   novnc     — per il VNC integrato nel browser di PCM (noVNC)
+    info "Opzionali non installati: mosh, picocom, novnc."
+    info "  Installali manualmente se vuoi usare queste funzionalita'."
 
     ok "Strumenti di sistema installati"
 }
@@ -151,12 +154,14 @@ setup_venv() {
         PyQt6-WebEngine \
         paramiko \
         pyftpdlib \
+        cryptography \
         2>/dev/null || {
             warn "PyQt6-WebEngine non disponibile (VNC integrato non funzionerà)"
             uv pip install --python "$VENV_DIR/bin/python" \
                 PyQt6 \
                 paramiko \
-                pyftpdlib
+                pyftpdlib \
+                cryptography
         }
 
     ok "Dipendenze Python installate"
@@ -208,6 +213,7 @@ verify() {
     "$PYTHON" -c "import PyQt6.QtWidgets; print('PyQt6 OK')" 2>/dev/null && ok "PyQt6 OK" || warn "PyQt6 non trovato"
     "$PYTHON" -c "import paramiko; print('paramiko OK')"     2>/dev/null && ok "paramiko OK" || warn "paramiko non trovato"
     "$PYTHON" -c "import pyftpdlib; print('pyftpdlib OK')"   2>/dev/null && ok "pyftpdlib OK"  || warn "pyftpdlib non trovato (server FTP locale non funzionerà)"
+    "$PYTHON" -c "import cryptography; print('cryptography OK')" 2>/dev/null && ok "cryptography OK" || warn "cryptography non trovato (cifratura credenziali non disponibile)"
 
     # Verifica supporto SVG (icone)
     if "$PYTHON" -c "
@@ -231,11 +237,18 @@ sys.exit(0 if ok else 1)
         warn "                sudo dnf install qt6-qtsvg     (Fedora)"
     fi
 
-    command -v xterm    &>/dev/null && ok "xterm trovato"    || warn "xterm non trovato — installa manualmente"
-    command -v ssh      &>/dev/null && ok "ssh trovato"      || warn "ssh non trovato"
-    command -v sshpass  &>/dev/null && ok "sshpass trovato"  || warn "sshpass non trovato (login con password SSH limitato)"
-    command -v xdotool  &>/dev/null && ok "xdotool trovato"  || warn "xdotool non trovato (multi-exec non funzionerà)"
-    command -v lftp     &>/dev/null && ok "lftp trovato"     || warn "lftp non trovato (terminale FTP/SFTP embedded limitato)"
+    command -v xterm      &>/dev/null && ok "xterm trovato"      || warn "xterm non trovato — installa manualmente"
+    command -v ssh        &>/dev/null && ok "ssh trovato"        || warn "ssh non trovato"
+    command -v sshpass    &>/dev/null && ok "sshpass trovato"    || warn "sshpass non trovato (login SSH con password non funzionerà)"
+    command -v lftp       &>/dev/null && ok "lftp trovato"       || warn "lftp non trovato (terminale FTP/SFTP embedded non funzionerà)"
+    command -v xdotool    &>/dev/null && ok "xdotool trovato"    || warn "xdotool non trovato (multi-exec e RDP pannello interno non funzioneranno)"
+    command -v xwininfo   &>/dev/null && ok "xwininfo trovato"   || warn "xwininfo non trovato (resize RDP pannello interno non funzionerà)"
+    # Client RDP (almeno uno richiesto per sessioni RDP)
+    command -v xfreerdp3  &>/dev/null && ok "xfreerdp3 trovato (RDP pannello interno + finestra esterna)"  || true
+    command -v xfreerdp   &>/dev/null && ok "xfreerdp trovato"   || true
+    command -v rdesktop   &>/dev/null && ok "rdesktop trovato (RDP pannello interno nativo)" || warn "rdesktop non trovato — consigliato per pannello interno RDP"
+    # Client VNC
+    command -v vncviewer  &>/dev/null && ok "vncviewer trovato"  || warn "vncviewer non trovato (sessioni VNC esterne non disponibili)"
 }
 
 # ---------------------------------------------------------------------------

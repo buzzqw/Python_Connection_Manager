@@ -40,7 +40,6 @@ PROTO_COLOR = {
     "ftp":        "#b87a00",
     "rdp":        "#0078d4",
     "vnc":        "#e8a020",
-    "ssh_tunnel": "#9b72aa",
     "mosh":       "#5aadad",
     "serial":     "#888888",
 }
@@ -53,7 +52,6 @@ PROTO_ICON_FILE = {
     "ftp":        "folder.png",
     "rdp":        "monitor.png",
     "vnc":        "vnc.png",
-    "ssh_tunnel": "tunnel.png",
     "mosh":       "flash.png",
     "serial":     "cable.png",
 }
@@ -65,7 +63,6 @@ PROTO_LABEL = {
     "ftp":        "FTP",
     "rdp":        "RDP",
     "vnc":        "VNC",
-    "ssh_tunnel": "Tunnel",
     "mosh":       "Mosh",
     "serial":     "Serial",
 }
@@ -73,8 +70,7 @@ PROTO_LABEL = {
 _PORTE_STD = {
     "ssh": "22", "telnet": "23", "rdp": "3389",
     "vnc": "5900", "ftp": "21", "sftp": "22",
-    "mosh": "22", "ssh_tunnel": "22",
-}
+    "mosh": "22", }
 
 _SEPARATOR_ROLE = Qt.ItemDataRole.UserRole + 1
 
@@ -400,7 +396,7 @@ class SessionPanel(QWidget):
         host  = profilo.get("host", "")
         proto = profilo.get("protocol", "ssh")
         _PORTE = {"ssh": 22, "telnet": 23, "sftp": 22, "ftp": 21,
-                  "rdp": 3389, "vnc": 5900, "mosh": 22, "ssh_tunnel": 22}
+                  "rdp": 3389, "vnc": 5900, "mosh": 22}
         porta = int(profilo.get("port", _PORTE.get(proto, 22)) or _PORTE.get(proto, 22))
 
         # Coda thread-safe: ogni item è (testo, colore_hex)

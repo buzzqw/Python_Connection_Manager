@@ -364,7 +364,7 @@
 <div class="header">
   <h1>🚀 PCM — Python Connection Manager</h1>
   <p class="sub">Guida completa &nbsp;·&nbsp; Gestore sessioni remote multi-protocollo per Linux</p>
-  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · SSH Tunnel · Mosh · Seriale</p>
+  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════ INDICE -->
@@ -419,7 +419,7 @@
 <ul>
   <li><b>File</b> — nuova sessione, terminale locale, importa/esporta sessioni JSON, impostazioni, esci</li>
   <li><b>Visualizza</b> — mostra/nascondi sidebar, modalità split</li>
-  <li><b>Strumenti</b> — tunnel SSH, multi-exec, variabili globali, server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze</li>
+  <li><b>Strumenti</b> — Gestore Tunnel SSH, multi-exec, variabili globali, password globale (cifratura credenziali), server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze</li>
   <li><b>?</b> — questa guida (<kbd>F1</kbd>), informazioni su PCM</li>
 </ul>
 
@@ -570,11 +570,12 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   <p class="proto-desc">Desktop remoto Windows — mostra l'intero desktop della macchina remota.</p>
   <ul>
     <li><b>Client RDP</b> — xfreerdp3 (raccomandato), xfreerdp, rdesktop</li>
-    <li><b>Schermo intero</b> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Invio</kbd> per uscire</li>
+    <li><b>Dominio / Workgroup</b> — inserisci il dominio Active Directory o il workgroup (es. <code>AZIENDA</code>, <code>WORKGROUP</code>); lascia vuoto per macchine standalone</li>
+    <li><b>Modalità apertura</b> — <b>Finestra esterna</b> (default, xfreerdp in finestra separata) oppure <b>Pannello interno</b> (desktop RDP incorporato nella scheda PCM, richiede X11 o XWayland)</li>
+    <li><b>Schermo intero</b> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Invio</kbd> per uscire (solo finestra esterna)</li>
     <li>Condivisione clipboard e cartelle locali</li>
-    <li>Si apre come finestra esterna indipendente</li>
   </ul>
-  <div class="info">ℹ️ xfreerdp3 offre la migliore compatibilità con Windows 10/11 e Windows Server 2019+.</div>
+  <div class="info">ℹ️ Il combo <b>Client RDP</b> mostra solo i client installati. <b>rdesktop</b> è il client raccomandato per il pannello interno (usa <code>-X</code> per embedding nativo diretto, connessione rapida senza Kerberos). <b>xfreerdp3</b> supporta il pannello interno tramite xdotool ma richiede più tempo. Con <b>xfreerdp</b> v2 il pannello interno è disabilitato. Il campo <b>Autenticazione</b> permette di scegliere NTLM (veloce, senza timeout Kerberos) o Kerberos+NTLM (standard AD).</div>
 </div>
 
 <div class="proto-block vnc">
@@ -592,16 +593,6 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   <p class="proto-title"><span class="badge b-tel">Telnet</span></p>
   <p class="proto-desc">Terminale legacy non cifrato. Solo per reti locali sicure o dispositivi che non supportano SSH.</p>
   <div class="danger">🚫 Non usare Telnet su reti pubbliche — le credenziali sono visibili in chiaro sul traffico di rete.</div>
-</div>
-
-<div class="proto-block tun">
-  <p class="proto-title"><span class="badge b-tun">SSH Tunnel</span> Port Forwarding</p>
-  <p class="proto-desc">Crea tunnel cifrati SSH per raggiungere servizi altrimenti inaccessibili.</p>
-  <ul>
-    <li><b>Proxy SOCKS (-D)</b> — proxy SOCKS5 sulla porta locale; configura browser o app per usare <code>127.0.0.1:porta</code></li>
-    <li><b>Tunnel locale (-L)</b> — <code>porta-locale → host-remoto:porta-remota</code> (es. accesso DB remoto come locale)</li>
-    <li><b>Tunnel remoto (-R)</b> — <code>porta-remota → localhost:porta-locale</code> (espone servizio locale sul server)</li>
-  </ul>
 </div>
 
 <div class="proto-block mosh">
@@ -626,6 +617,10 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
 
 
 <!-- ══════════════════════════════════════════════════ AUTENTICAZIONE -->
+<div class="tip">
+  💡 <b>Client e terminali:</b> i combo <b>Client RDP</b>, <b>Client VNC</b> e <b>Terminale esterno</b> mostrano solo i programmi effettivamente installati nel sistema. Se installi un nuovo client dopo aver aperto PCM, riapri il dialog sessione per vederlo comparire. Se un profilo salvato usa un client non più installato, il combo lo mostra con il suffisso <code>⚠ non trovato</code>.
+</div>
+
 <h2 id="autenticazione">🔑 Autenticazione</h2>
 
 <h3>Password</h3>
@@ -747,12 +742,13 @@ automaticamente tutto l'output in un file <code>pcm_YYYYMMDD_HHMMSS.log</code> n
 <!-- ══════════════════════════════════════════════════ TUNNEL -->
 <h2 id="tunnel">🔀 Gestione Tunnel SSH</h2>
 
-<p>Da <b>Toolbar → Tunnel</b> gestisci tutti i tunnel SSH da un'unica interfaccia grafica.</p>
+<p>Da <b>Toolbar → Tunnel</b> (oppure <b>Strumenti → Gestore Tunnel SSH</b>) gestisci tutti i tunnel SSH da un'unica interfaccia grafica dedicata.</p>
+<div class="info">ℹ️ I tunnel SSH si gestiscono <b>esclusivamente</b> dal Gestore Tunnel — non esiste più il protocollo "SSH Tunnel" nella lista sessioni. Questo evita duplicazioni e permette di avviare, fermare e monitorare tutti i tunnel da un solo posto.</div>
 
 <h3>Creare un tunnel SOCKS (proxy)</h3>
-<div class="step"><div class="step-num">1</div><div class="step-text">Crea una sessione con protocollo <b>SSH Tunnel</b>, tipo <b>Proxy SOCKS (-D)</b></div></div>
-<div class="step"><div class="step-num">2</div><div class="step-text">Porta locale: es. <code>1080</code></div></div>
-<div class="step"><div class="step-num">3</div><div class="step-text">Connetti — il tunnel rimane attivo in background</div></div>
+<div class="step"><div class="step-num">1</div><div class="step-text">Apri il Gestore Tunnel da <b>Toolbar → Tunnel</b> oppure <b>Strumenti → Gestore Tunnel SSH</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Clicca <b>+ Aggiungi</b>, scegli tipo <b>Proxy SOCKS (-D)</b>, inserisci SSH Host e porta locale (es. <code>1080</code>)</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Clicca <b>▶ Avvia</b> — il tunnel rimane attivo in background anche dopo aver chiuso il dialog</div></div>
 <div class="step"><div class="step-num">4</div><div class="step-text">Configura il browser: Proxy → SOCKS5 → <code>127.0.0.1:1080</code></div></div>
 
 <h3>Tunnel locale (port forward)</h3>
@@ -822,6 +818,102 @@ Utile per diagnosticare perché un protocollo non funziona.</p>
 <h2 id="nuove">✦ Nuove funzioni <span class="new-badge">AGGIORNAMENTO</span></h2>
 
 <p>Le seguenti funzionalità sono state aggiunte nelle ultime versioni di PCM.</p>
+
+<hr>
+
+<!-- ── CIFRATURA CREDENZIALI ── -->
+<div class="new-feature">
+  <div class="nf-title">🔐 Cifratura credenziali</div>
+  <p>PCM può proteggere utenti e password salvati in <code>connections.json</code> con cifratura <b>AES-256</b> (Fernet). La chiave viene derivata dalla password master con PBKDF2-HMAC-SHA256 (480.000 iterazioni) e non viene mai scritta su disco.</p>
+</div>
+
+<h3>Primo avvio</h3>
+<p>Al primo avvio assoluto, se <code>connections.json</code> non esiste ancora, PCM chiede se abilitare la protezione delle credenziali:</p>
+<ul>
+  <li>Spunta <b>"Sì, voglio cifrare le credenziali"</b> e inserisci una password master (minimo 6 caratteri)</li>
+  <li>Oppure scegli <b>"No, lascia in chiaro"</b> per usare PCM senza protezione</li>
+</ul>
+
+<h3>Avvii successivi con cifratura attiva</h3>
+<p>PCM mostra un dialog di sblocco prima di aprire la finestra principale. Hai 3 tentativi; se li esaurisci devi riavviare l'applicazione. Il pulsante <b>Esci</b> chiude PCM senza sbloccare.</p>
+
+<h3>Gestione da menu</h3>
+<p>Da <b>Strumenti → Imposta password globale…</b> puoi:</p>
+<ul>
+  <li><b>Abilitare la cifratura</b> — se non era attiva; tutti i profili vengono immediatamente cifrati</li>
+  <li><b>Cambiare la password</b> — inserisci quella vecchia e quella nuova; tutti i profili vengono ricifrati</li>
+  <li><b>Disabilitare la cifratura</b> — inserisci la password attuale; le credenziali tornano in chiaro nel JSON</li>
+</ul>
+
+<h3>Cosa viene cifrato</h3>
+<p>I campi <code>user</code> e <code>password</code> di ogni profilo in <code>connections.json</code>. I valori cifrati hanno il prefisso <code>ENC:</code> seguito dal token Fernet base64. Tutti gli altri campi (host, porte, opzioni) restano in chiaro.</p>
+
+<div class="warn">⚠️ Se dimentichi la password master non è possibile recuperare le credenziali. Tieni una copia sicura della password. Per resettare: elimina <code>connections.json</code> e la sezione <code>crypto</code> da <code>pcm_settings.json</code>.</div>
+
+<hr>
+
+<!-- ── RDP PANNELLO INTERNO ── -->
+<div class="new-feature">
+  <div class="nf-title">RDP — Pannello interno e Dominio</div>
+  <p>Le sessioni RDP hanno ora due nuove opzioni: il campo <b>Dominio</b> per ambienti Active Directory, e la scelta della modalità di apertura.</p>
+</div>
+
+<h3>Campo Dominio</h3>
+<p>Nel dialog sessione RDP, tab <b>Connessione</b>, sezione <b>Opzioni RDP</b>:</p>
+<ul>
+  <li>Inserisci il dominio AD (es. <code>AZIENDA</code>) o il workgroup (es. <code>WORKGROUP</code>)</li>
+  <li>Viene passato come <code>/d:DOMINIO</code> a xfreerdp o <code>-d DOMINIO</code> a rdesktop</li>
+  <li>Lascia vuoto per macchine standalone o account locali</li>
+</ul>
+
+<h3>Modalità di apertura</h3>
+<table>
+  <tr><th>Modalità</th><th>Comportamento</th><th>Requisiti</th></tr>
+  <tr>
+    <td><b>Finestra esterna</b> (default)</td>
+    <td>xfreerdp si apre in una finestra indipendente, fuori da PCM</td>
+    <td>Nessuno</td>
+  </tr>
+  <tr>
+    <td><b>Pannello interno</b></td>
+    <td>Il desktop RDP appare in una scheda PCM, integrato come le sessioni SSH</td>
+    <td>X11 o XWayland (<code>DISPLAY</code> deve essere impostato). Su Wayland puro senza XWayland non è supportato.</td>
+  </tr>
+</table>
+
+<div class="info">ℹ️ Il pannello interno usa <code>/parent-window:&lt;WID&gt;</code> di xfreerdp per agganciarsi al widget Qt. Su sessioni Wayland con XWayland attivo (il caso tipico su GNOME e KDE) funziona normalmente — PCM forza <code>DISPLAY</code> nell'ambiente del processo.</div>
+
+<hr>
+
+<!-- ── CLIENT DINAMICI ── -->
+<div class="new-feature">
+  <div class="nf-title">Client e terminali: solo quelli installati</div>
+  <p>I combo <b>Client RDP</b>, <b>Client VNC</b> e <b>Terminale esterno</b> nel dialog sessione mostrano <b>solo i programmi presenti nel PATH</b> al momento dell'apertura del dialog.</p>
+</div>
+
+<h3>Client RDP rilevati</h3>
+<table>
+  <tr><th>Client</th><th>Pannello interno</th><th>Autenticazione</th><th>Note</th></tr>
+  <tr><td><code>rdesktop</code></td><td>✅ Nativo (<code>-X</code>)</td><td>NTLM nativo, nessun Kerberos</td><td><b>Raccomandato</b> per pannello interno — connessione rapida</td></tr>
+  <tr><td><code>xfreerdp3</code></td><td>✅ xdotool reparent</td><td>NTLM o Kerberos (selezionabile)</td><td>FreeRDP 3.x — pannello interno più lento (polling)</td></tr>
+  <tr><td><code>xfreerdp</code></td><td>❌ v2 non supportato</td><td>—</td><td>Opzione pannello interno disabilitata automaticamente</td></tr>
+</table>
+
+<h3>Autenticazione RDP</h3>
+<table>
+  <tr><th>Modalità</th><th>Flag xfreerdp</th><th>Quando usarla</th></tr>
+  <tr><td><b>NTLM</b> (default)</td><td><code>/sec:nla /auth-pkg-list:ntlm</code></td><td>Quando il server Kerberos (KDC) non è raggiungibile dalla rete Linux — connessione in ~7s</td></tr>
+  <tr><td><b>Kerberos + NTLM</b></td><td>default xfreerdp</td><td>Ambienti AD con KDC raggiungibile — può richiedere 60+ secondi se KDC non risponde</td></tr>
+</table>
+<div class="info">ℹ️ rdesktop usa sempre autenticazione nativa senza Kerberos — non è influenzato dall'impostazione NTLM/Kerberos.</div>
+
+<h3>Terminali rilevati</h3>
+<p>PCM rileva automaticamente: <code>xterm</code>, <code>xfce4-terminal</code>, <code>gnome-terminal</code>, <code>konsole</code>, <code>alacritty</code>, <code>kitty</code>, <code>terminator</code>, <code>wezterm</code>, <code>foot</code>, <code>tilix</code>, <code>lxterminal</code>, <code>mate-terminal</code>, <code>st</code>. L'opzione <b>Terminale Interno</b> è sempre disponibile.</p>
+
+<h3>Profili con client non installato</h3>
+<p>Se un profilo salvato usa un client che non è più installato, il combo mostra la voce con il suffisso <code>⚠ non trovato</code>. Aggiorna il profilo scegliendo un client disponibile prima di connetterti.</p>
+
+<div class="tip">💡 Usa <b>Strumenti → Verifica dipendenze</b> per vedere l'elenco completo di tutti i client e terminali rilevati sul sistema.</div>
 
 <hr>
 
@@ -1009,7 +1101,7 @@ echo "WoL inviato, attendo 20s..."
 sleep 20
 
 <span class="cm"># Connessione</span>
-ssh -p 22 -o StrictHostKeyChecking=no admin@192.168.1.10
+ssh -p 22 -o StrictHostKeyChecking=no <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e48580898d8aa4d5ddd6cad5d2dccad5cad5d4">[email&#160;protected]</a>
 </pre>
 
 <hr>
@@ -1065,12 +1157,12 @@ ssh -p 22 -o StrictHostKeyChecking=no admin@192.168.1.10
 <pre>
 <span class="cm">#!/usr/bin/env bash</span>
 <span class="cm"># comandi.sh — Server produzione</span>
-<span class="cm"># SSH admin@192.168.1.10:22</span>
+<span class="cm"># SSH <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c9a8ada4a0a789f8f0fbe7f8fff1e7f8e7f8f9">[email&#160;protected]</a>:22</span>
 <span class="cm"># 5 comandi</span>
 
 set -e
 
-<span class="kw">ssh</span> -p 22 -o StrictHostKeyChecking=no admin@192.168.1.10 &lt;&lt; '<span class="str">PCMREPLAY</span>'
+<span class="kw">ssh</span> -p 22 -o StrictHostKeyChecking=no <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5130353c383f116068637f6067697f607f6061">[email&#160;protected]</a> &lt;&lt; '<span class="str">PCMREPLAY</span>'
 df -h
 systemctl status nginx
 tail -n 50 /var/log/nginx/error.log
@@ -1193,15 +1285,4 @@ Se manca: <code>uv pip install --python .venv/bin/python paramiko</code></p>
   <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, sessioni recenti</li>
   <li><code>/tmp/pcm_logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
 </ul>
-<p>Tutto nella cartella di PCM — semplice da fare backup, sincronizzare o spostare.</p>
-
-</div><!-- /content -->
-
-<div class="footer">
-  PCM — Python Connection Manager &nbsp;·&nbsp; Guida utente &nbsp;·&nbsp;
-  <a href="#">GitHub</a> &nbsp;·&nbsp;
-  Protocolli: SSH · SFTP · FTP · RDP · VNC · Telnet · Tunnel · Mosh · Seriale
-</div>
-
-</body>
-</html>
+<p>

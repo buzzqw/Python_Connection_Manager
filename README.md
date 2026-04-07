@@ -8,23 +8,26 @@ per gestire connessioni remote multi-protocollo, trasferimenti file e terminali 
 
 ## ✨ Funzionalità
 
-- **Multi-protocollo:** SSH, Telnet, SFTP, FTP/FTPS, RDP, VNC, Mosh, SSH Tunnel, Seriale
+- **Multi-protocollo:** SSH, Telnet, SFTP, FTP/FTPS, RDP, VNC, Mosh, Seriale
 - **Terminale integrato:** `xterm` embedded nelle schede, con temi colore, font configurabili e scrollback
 - **VNC integrato:** sessioni VNC in scheda tramite noVNC (opzionale), oppure client esterno
+- **RDP avanzato:** dominio Active Directory, pannello interno (rdesktop nativo con `-X`, o xfreerdp3 via xdotool reparent) o finestra esterna; autenticazione NTLM o Kerberos selezionabile; solo client installati nel combo
 - **Browser SFTP grafico:** si apre in automatico per le sessioni SSH, con drag & drop
 - **Browser FTP:** client FTP/FTPS integrato con interfaccia grafica tipo WinSCP
 - **Pannello sessioni:** raggruppate per gruppo, ordinate per nome, con icone per protocollo e ricerca live
 - **Import da app esterne:** importa connessioni da **Remmina** e **Remote Desktop Manager** (XML e JSON)
 - **Modalità Split:** divide l'area di lavoro verticalmente o orizzontalmente (2 pannelli)
 - **Quick Connect:** barra superiore per connessioni rapide (`utente@host:porta`)
-- **Gestione Tunnel SSH:** tunnel SOCKS, locali e remoti con interfaccia grafica
+- **Gestione Tunnel SSH:** tunnel SOCKS, locali e remoti con interfaccia grafica dedicata
 - **Multi-exec:** invia lo stesso comando a più sessioni SSH contemporaneamente
 - **Variabili globali:** sostituzioni `{NOME}` nei comandi delle sessioni
+- **Cifratura credenziali:** utenti e password cifrati con AES-256 (Fernet/PBKDF2) — opzionale, con password master
 - **Server FTP locale:** avvia un server FTP sulla macchina locale
 - **Modalità protetta:** nasconde le password dall'interfaccia (`****`)
 - **System tray:** minimizza in background, sessioni accessibili dal tray
+- **Interfaccia multilingua:** Italiano, English, Deutsch, Français, Español
 - **Tema chiaro** con icone PNG dedicate per ogni protocollo
-- **Backup RAPIDO** le connessioni vengono salvate in un file json in chiaro! Basta backupare questo file per salvare tutte le sessioni
+- **Backup sessioni:** `connections.json` — basta copiarlo per salvare tutte le sessioni (cifrato se attivata la protezione)
 
 ---
 
@@ -54,18 +57,18 @@ crea il virtualenv con `uv` e crea il launcher.
 
 Debian/Ubuntu:
 ```bash
-sudo apt install python3 xterm xdotool openssh-client sshpass \
-                 xfreerdp2-x11 lftp libxcb-cursor0
+sudo apt install python3 xterm xdotool xwininfo openssh-client sshpass lftp \
+                 freerdp3-x11 xfreerdp2-x11 rdesktop tigervnc-viewer libxcb-cursor0
 ```
 
 Arch/Manjaro:
 ```bash
-sudo pacman -S python xterm xdotool openssh sshpass freerdp lftp
+sudo pacman -S python xterm xdotool xorg-xwininfo openssh sshpass lftp freerdp rdesktop tigervnc
 ```
 
 Fedora/RHEL:
 ```bash
-sudo dnf install python3 xterm xdotool openssh-clients sshpass freerdp lftp
+sudo dnf install python3 xterm xdotool xorg-x11-utils openssh-clients sshpass lftp freerdp rdesktop tigervnc
 ```
 
 **2. Virtualenv Python**
@@ -109,6 +112,8 @@ PCM/
 ├── importer.py             # Import da Remmina e Remote Desktop Manager
 ├── ftp_server_dialog.py    # Server FTP locale
 ├── vnc_widget.py           # Widget VNC integrato (noVNC)
+├── rdp_widget.py           # Widget RDP pannello interno (rdesktop -X / xfreerdp3 xdotool)
+├── crypto_manager.py       # Cifratura AES-256 credenziali (Fernet/PBKDF2)
 ├── connections.json        # Sessioni salvate (creato al primo avvio)
 ├── pcm_settings.json       # Impostazioni globali (creato al primo avvio)
 ├── requirements.txt        # Dipendenze Python
@@ -160,6 +165,7 @@ I gruppi RDM vengono mantenuti come gruppi PCM.
 | `PyQt6-WebEngine` | VNC integrato via noVNC (opzionale) |
 | `paramiko` | SSH/SFTP nativo, browser SFTP |
 | `pyftpdlib` | Server FTP locale |
+| `cryptography` | Cifratura AES-256 delle credenziali (opzionale ma consigliato) |
 
 ---
 ## 🌍 Lingue supportate
@@ -212,21 +218,24 @@ for managing multi-protocol remote connections, file transfers, and local termin
 
 ## ✨ Features
 
-- **Multi-protocol:** SSH, Telnet, SFTP, FTP/FTPS, RDP, VNC, Mosh, SSH Tunnel, Serial
+- **Multi-protocol:** SSH, Telnet, SFTP, FTP/FTPS, RDP, VNC, Mosh, Serial
 - **Integrated Terminal:** `xterm` embedded in tabs, with configurable color themes, fonts and scrollback
 - **Integrated VNC:** VNC sessions in tabs via noVNC (optional), or external client
+- **Advanced RDP:** Active Directory domain, internal panel (rdesktop native `-X` embedding, or xfreerdp3 via xdotool reparent) or external window; NTLM or Kerberos authentication; combo shows only installed clients
 - **SFTP Browser:** automatically opens for SSH sessions, with drag & drop
 - **FTP Browser:** FTP/FTPS client with WinSCP-like graphical interface
 - **Session Panel:** grouped by group, sorted by name, with protocol icons and live search
 - **Import from external apps:** import connections from **Remmina** and **Remote Desktop Manager** (XML and JSON)
 - **Split Mode:** divide workspace vertically or horizontally (2 panels)
 - **Quick Connect:** top bar for quick connections (`user@host:port`)
-- **SSH Tunnel Management:** SOCKS tunnels, local and remote with graphical interface
+- **SSH Tunnel Management:** SOCKS, local and remote tunnels with dedicated graphical interface
 - **Multi-exec:** send the same command to multiple SSH sessions simultaneously
 - **Global Variables:** `{NAME}` substitutions in session commands
+- **Credential encryption:** usernames and passwords encrypted with AES-256 (Fernet/PBKDF2) — optional, with master password
 - **Local FTP Server:** start an FTP server on the local machine
 - **Protected Mode:** hide passwords from the interface (`****`)
 - **System Tray:** minimize to background, sessions accessible from tray
+- **Multilingual UI:** Italiano, English, Deutsch, Français, Español
 - **Light Theme** with dedicated PNG icons for each protocol
 
 ---
@@ -257,18 +266,18 @@ creates the virtualenv with `uv` and creates the launcher.
 
 Debian/Ubuntu:
 ```bash
-sudo apt install python3 xterm xdotool openssh-client sshpass \
-                 xfreerdp2-x11 lftp libxcb-cursor0
+sudo apt install python3 xterm xdotool xwininfo openssh-client sshpass lftp \
+                 freerdp3-x11 xfreerdp2-x11 rdesktop tigervnc-viewer libxcb-cursor0
 ```
 
 Arch/Manjaro:
 ```bash
-sudo pacman -S python xterm xdotool openssh sshpass freerdp lftp
+sudo pacman -S python xterm xdotool xorg-xwininfo openssh sshpass lftp freerdp rdesktop tigervnc
 ```
 
 Fedora/RHEL:
 ```bash
-sudo dnf install python3 xterm xdotool openssh-clients sshpass freerdp lftp
+sudo dnf install python3 xterm xdotool xorg-x11-utils openssh-clients sshpass lftp freerdp rdesktop tigervnc
 ```
 
 **2. Python Virtualenv**
@@ -312,6 +321,8 @@ PCM/
 ├── importer.py             # Import from Remmina and Remote Desktop Manager
 ├── ftp_server_dialog.py   # Local FTP server
 ├── vnc_widget.py           # Integrated VNC widget (noVNC)
+├── rdp_widget.py           # RDP internal panel widget (rdesktop -X / xfreerdp3 xdotool)
+├── crypto_manager.py       # AES-256 credential encryption (Fernet/PBKDF2)
 ├── connections.json        # Saved sessions (created on first launch)
 ├── pcm_settings.json       # Global settings (created on first launch)
 ├── requirements.txt        # Python dependencies
@@ -377,6 +388,7 @@ Language can be changed from application settings (**Tools → Settings**).
 | `PyQt6-WebEngine` | Integrated VNC via noVNC (optional) |
 | `paramiko` | Native SSH/SFTP, SFTP browser |
 | `pyftpdlib` | Local FTP server |
+| `cryptography` | AES-256 credential encryption (optional but recommended) |
 
 ---
 

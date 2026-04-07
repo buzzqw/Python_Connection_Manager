@@ -43,6 +43,7 @@ from PyQt6.QtCore import Qt, QTimer, QSize, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 
 import config_manager
+import crypto_manager
 import translations as _tr
 from translations import t, tl
 from themes import APP_STYLESHEET, TERMINAL_THEMES
@@ -233,6 +234,355 @@ class TabBar(QTabBar):
         src_bar.sposta_ad_altro.emit(src_idx)
         event.acceptProposedAction()
 
+
+
+# ==============================================================================
+# Dialog cifratura credenziali
+# ==============================================================================
+
+def _dialog_primo_avvio(app) -> None:
+    """
+    Mostrato al primo avvio assoluto (connections.json appena creato).
+    Chiede se si vuole abilitare la cifratura delle credenziali.
+    """
+    from PyQt6.QtWidgets import (
+        QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+        QPushButton, QLineEdit, QCheckBox, QFrame
+    )
+    from PyQt6.QtCore import Qt
+
+    dlg = QDialog()
+    dlg.setWindowTitle(t("crypto.first_run.title"))
+    dlg.setMinimumWidth(480)
+    dlg.setModal(True)
+
+    lay = QVBoxLayout(dlg)
+    lay.setSpacing(12)
+
+    ico = QLabel("🔐")
+    ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    ico.setStyleSheet("font-size:36px; padding:8px;")
+    lay.addWidget(ico)
+
+    titolo = QLabel(t("crypto.first_run.heading"))
+    titolo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    titolo.setStyleSheet("font-size:14px; font-weight:bold; color:#4e7abc;")
+    lay.addWidget(titolo)
+
+    descr = QLabel(t("crypto.first_run.description"))
+    descr.setWordWrap(True)
+    descr.setStyleSheet("color:#555; font-size:12px;")
+    lay.addWidget(descr)
+
+    sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+    lay.addWidget(sep)
+
+    chk = QCheckBox(t("crypto.first_run.enable_checkbox"))
+    chk.setStyleSheet("font-size:13px; font-weight:bold;")
+    lay.addWidget(chk)
+
+    # Campi password (nascosti finché non si spunta il checkbox)
+    pwd_frame = QFrame()
+    pwd_lay = QVBoxLayout(pwd_frame)
+    pwd_lay.setContentsMargins(0, 0, 0, 0)
+
+    lbl1 = QLabel(t("crypto.password_label"))
+    edit_pwd = QLineEdit()
+    edit_pwd.setEchoMode(QLineEdit.EchoMode.Password)
+    edit_pwd.setPlaceholderText(t("crypto.password_ph"))
+
+    lbl2 = QLabel(t("crypto.password_confirm_label"))
+    edit_pwd2 = QLineEdit()
+    edit_pwd2.setEchoMode(QLineEdit.EchoMode.Password)
+    edit_pwd2.setPlaceholderText(t("crypto.password_confirm_ph"))
+
+    lbl_err = QLabel("")
+    lbl_err.setStyleSheet("color:#cc3333; font-size:11px;")
+
+    for w in (lbl1, edit_pwd, lbl2, edit_pwd2, lbl_err):
+        pwd_lay.addWidget(w)
+    pwd_frame.setVisible(False)
+    lay.addWidget(pwd_frame)
+
+    chk.toggled.connect(pwd_frame.setVisible)
+
+    btn_row = QHBoxLayout()
+    btn_skip = QPushButton(t("crypto.first_run.btn_skip"))
+    btn_ok   = QPushButton(t("crypto.first_run.btn_ok"))
+    btn_ok.setStyleSheet(
+        "QPushButton { background:#2d7a2d; color:#fff; border-radius:4px; padding:6px 18px; font-weight:bold; }"
+        "QPushButton:hover { background:#3a9a3a; }"
+    )
+    btn_row.addWidget(btn_skip)
+    btn_row.addStretch()
+    btn_row.addWidget(btn_ok)
+    lay.addLayout(btn_row)
+
+    def _accetta():
+        if not chk.isChecked():
+            dlg.accept()
+            return
+        p1 = edit_pwd.text()
+        p2 = edit_pwd2.text()
+        if len(p1) < 6:
+            lbl_err.setText(t("crypto.err_too_short"))
+            return
+        if p1 != p2:
+            lbl_err.setText(t("crypto.err_mismatch"))
+            return
+        # Configura cifratura
+        try:
+            crypto_manager.setup(p1)
+            # Cifra i profili di default appena creati
+            profili = config_manager.load_profiles()
+            config_manager.save_profiles(profili)
+            dlg.accept()
+        except Exception as e:
+            lbl_err.setText(str(e))
+
+    btn_ok.clicked.connect(_accetta)
+    btn_skip.clicked.connect(dlg.reject)
+    dlg.exec()
+
+
+def _dialog_sblocco(app) -> bool:
+    """
+    Mostrato agli avvii successivi se la cifratura è attiva.
+    Chiede la password master. Restituisce True se sbloccato, False se annullato.
+    Dà 3 tentativi prima di bloccarsi.
+    """
+    from PyQt6.QtWidgets import (
+        QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+        QPushButton, QLineEdit, QFrame
+    )
+    from PyQt6.QtCore import Qt
+
+    dlg = QDialog()
+    dlg.setWindowTitle(t("crypto.unlock.title"))
+    dlg.setMinimumWidth(380)
+    dlg.setModal(True)
+    # Non chiudibile con la X
+    dlg.setWindowFlags(
+        dlg.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
+    )
+
+    lay = QVBoxLayout(dlg)
+    lay.setSpacing(10)
+
+    ico = QLabel("🔒")
+    ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    ico.setStyleSheet("font-size:32px; padding:6px;")
+    lay.addWidget(ico)
+
+    lbl = QLabel(t("crypto.unlock.prompt"))
+    lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lbl.setWordWrap(True)
+    lay.addWidget(lbl)
+
+    edit = QLineEdit()
+    edit.setEchoMode(QLineEdit.EchoMode.Password)
+    edit.setPlaceholderText(t("crypto.password_ph"))
+    lay.addWidget(edit)
+
+    lbl_err = QLabel("")
+    lbl_err.setStyleSheet("color:#cc3333; font-size:11px;")
+    lbl_err.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lay.addWidget(lbl_err)
+
+    btn_row = QHBoxLayout()
+    btn_esci  = QPushButton(t("crypto.unlock.btn_exit"))
+    btn_ok    = QPushButton(t("crypto.unlock.btn_ok"))
+    btn_ok.setDefault(True)
+    btn_ok.setStyleSheet(
+        "QPushButton { background:#2d5a8e; color:#fff; border-radius:4px; padding:6px 18px; font-weight:bold; }"
+        "QPushButton:hover { background:#4e7abc; }"
+    )
+    btn_row.addWidget(btn_esci)
+    btn_row.addStretch()
+    btn_row.addWidget(btn_ok)
+    lay.addLayout(btn_row)
+
+    _result = [False]
+    _tentativi = [0]
+
+    def _sblocca():
+        pwd = edit.text()
+        if not pwd:
+            return
+        _tentativi[0] += 1
+        if crypto_manager.unlock(pwd):
+            _result[0] = True
+            dlg.accept()
+        else:
+            rimanenti = 3 - _tentativi[0]
+            if rimanenti <= 0:
+                lbl_err.setText(t("crypto.unlock.too_many_attempts"))
+                btn_ok.setEnabled(False)
+            else:
+                lbl_err.setText(t("crypto.unlock.wrong_password", n=rimanenti))
+            edit.clear()
+            edit.setFocus()
+
+    btn_ok.clicked.connect(_sblocca)
+    btn_esci.clicked.connect(dlg.reject)
+    edit.returnPressed.connect(_sblocca)
+
+    dlg.exec()
+    return _result[0]
+
+
+def _dialog_password_globale(parent) -> None:
+    """
+    Voce menu Strumenti → Imposta password globale.
+    Gestisce: abilitazione, cambio password, disabilitazione.
+    """
+    from PyQt6.QtWidgets import (
+        QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
+        QLabel, QPushButton, QLineEdit, QFrame, QTabWidget, QWidget
+    )
+    from PyQt6.QtCore import Qt
+
+    attiva = crypto_manager.is_enabled()
+
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(t("crypto.manage.title"))
+    dlg.setMinimumWidth(440)
+    dlg.setModal(True)
+
+    lay = QVBoxLayout(dlg)
+
+    stato_txt = t("crypto.manage.status_on") if attiva else t("crypto.manage.status_off")
+    stato_color = "#2d7a2d" if attiva else "#888"
+    lbl_stato = QLabel(f"<b>{t('crypto.manage.status_label')}:</b> "
+                       f"<span style='color:{stato_color}'>{stato_txt}</span>")
+    lbl_stato.setStyleSheet("font-size:13px; padding:6px;")
+    lay.addWidget(lbl_stato)
+
+    sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+    lay.addWidget(sep)
+
+    tabs = QTabWidget()
+    lay.addWidget(tabs)
+
+    lbl_err = QLabel("")
+    lbl_err.setStyleSheet("color:#cc3333; font-size:11px;")
+    lbl_err.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lay.addWidget(lbl_err)
+
+    btn_chiudi = QPushButton(t("btn.close"))
+    btn_chiudi.clicked.connect(dlg.accept)
+    lay.addWidget(btn_chiudi, alignment=Qt.AlignmentFlag.AlignRight)
+
+    # ── Tab Abilita/Cambia password ───────────────────────────────────────
+    tab_cambia = QWidget()
+    form_c = QFormLayout(tab_cambia)
+    form_c.setSpacing(8)
+
+    if attiva:
+        edit_old = QLineEdit(); edit_old.setEchoMode(QLineEdit.EchoMode.Password)
+        form_c.addRow(t("crypto.manage.old_password"), edit_old)
+        tab_cambia_lbl = t("crypto.manage.tab_change")
+    else:
+        edit_old = None
+        tab_cambia_lbl = t("crypto.manage.tab_enable")
+
+    edit_new  = QLineEdit(); edit_new.setEchoMode(QLineEdit.EchoMode.Password)
+    edit_new2 = QLineEdit(); edit_new2.setEchoMode(QLineEdit.EchoMode.Password)
+    edit_new.setPlaceholderText(t("crypto.password_ph"))
+    edit_new2.setPlaceholderText(t("crypto.password_confirm_ph"))
+    form_c.addRow(t("crypto.password_label"), edit_new)
+    form_c.addRow(t("crypto.password_confirm_label"), edit_new2)
+
+    descr_c = QLabel(t("crypto.manage.change_hint"))
+    descr_c.setWordWrap(True)
+    descr_c.setStyleSheet("color:#666; font-size:11px;")
+    form_c.addRow("", descr_c)
+
+    btn_applica = QPushButton(
+        t("crypto.manage.btn_change") if attiva else t("crypto.manage.btn_enable")
+    )
+    btn_applica.setStyleSheet(
+        "QPushButton { background:#2d5a8e; color:#fff; border-radius:4px; padding:5px 14px; }"
+        "QPushButton:hover { background:#4e7abc; }"
+    )
+    form_c.addRow("", btn_applica)
+    tabs.addTab(tab_cambia, tab_cambia_lbl)
+
+    def _applica():
+        lbl_err.setText("")
+        p_new  = edit_new.text()
+        p_new2 = edit_new2.text()
+        if len(p_new) < 6:
+            lbl_err.setText(t("crypto.err_too_short"))
+            return
+        if p_new != p_new2:
+            lbl_err.setText(t("crypto.err_mismatch"))
+            return
+        try:
+            if attiva:
+                p_old = edit_old.text() if edit_old else ""
+                ok = crypto_manager.change_password(p_old, p_new)
+            else:
+                crypto_manager.setup(p_new)
+                profili = config_manager.load_profiles()
+                config_manager.save_profiles(profili)
+                ok = True
+            if ok:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    dlg, t("crypto.manage.title"),
+                    t("crypto.manage.success_change") if attiva
+                    else t("crypto.manage.success_enable")
+                )
+                dlg.accept()
+            else:
+                lbl_err.setText(t("crypto.err_wrong_old"))
+        except Exception as e:
+            lbl_err.setText(str(e))
+
+    btn_applica.clicked.connect(_applica)
+
+    # ── Tab Disabilita (solo se attiva) ───────────────────────────────────
+    if attiva:
+        tab_dis = QWidget()
+        form_d = QFormLayout(tab_dis)
+        form_d.setSpacing(8)
+
+        avviso = QLabel(t("crypto.manage.disable_warning"))
+        avviso.setWordWrap(True)
+        avviso.setStyleSheet("color:#cc3333; font-size:12px;")
+        form_d.addRow(avviso)
+
+        edit_dis = QLineEdit(); edit_dis.setEchoMode(QLineEdit.EchoMode.Password)
+        form_d.addRow(t("crypto.manage.old_password"), edit_dis)
+
+        btn_dis = QPushButton(t("crypto.manage.btn_disable"))
+        btn_dis.setStyleSheet(
+            "QPushButton { background:#8e2d2d; color:#fff; border-radius:4px; padding:5px 14px; }"
+            "QPushButton:hover { background:#bc3c3c; }"
+        )
+        form_d.addRow("", btn_dis)
+        tabs.addTab(tab_dis, t("crypto.manage.tab_disable"))
+
+        def _disabilita():
+            lbl_err.setText("")
+            pwd = edit_dis.text()
+            if not pwd:
+                return
+            ok = crypto_manager.disable(pwd)
+            if ok:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    dlg, t("crypto.manage.title"),
+                    t("crypto.manage.success_disable")
+                )
+                dlg.accept()
+            else:
+                lbl_err.setText(t("crypto.err_wrong_old"))
+
+        btn_dis.clicked.connect(_disabilita)
+
+    dlg.exec()
 
 # ==============================================================================
 # Finestra principale
@@ -518,6 +868,8 @@ class MainWindow(QMainWindow):
 
         tools_menu.addSeparator()
         tools_menu.addAction(_act(t("menu.tools.check_deps"),     self._mostra_dipendenze))
+        tools_menu.addSeparator()
+        tools_menu.addAction(_act(t("menu.tools.crypto"),          self._gestisci_password_globale))
 
         # Aiuto
         help_menu = mb.addMenu("?")
@@ -764,10 +1116,6 @@ class MainWindow(QMainWindow):
             self._set_status(t("session.status.opened_sftp_ext", name=nome))
             return
 
-        if modalita == "tunnel":
-            # Tunnel SSH → avvia e mostra nella gestione tunnel
-            self._apri_sessione_tunnel(nome, profilo, cmd)
-            return
 
         # embedded / serial
         if not cmd:
@@ -824,23 +1172,6 @@ class MainWindow(QMainWindow):
         self._aggiorna_status()
         self._set_status(t("session.connected", name=nome))
 
-    def _apri_sessione_tunnel(self, nome, profilo, cmd):
-        """Avvia un tunnel SSH come processo in background."""
-        if not cmd:
-            return
-        try:
-            proc = subprocess.Popen(
-                cmd, shell=True, preexec_fn=os.setsid,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-            self._processi_tunnel[nome] = proc
-            self._set_status(t("tunnel.active_status", name=nome, pid=proc.pid))
-            QMessageBox.information(
-                self, "Tunnel SSH",
-                t("tunnel.started", name=nome, cmd=cmd, pid=proc.pid)
-            )
-        except Exception as e:
-            QMessageBox.critical(self, t("error.tunnel"), str(e))
 
     def _connetti_sftp_browser(self, profilo):
         host = profilo.get("host", "")
@@ -1068,6 +1399,10 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._settings = config_manager.load_settings()
             self._set_status(t("settings.saved"))
+
+    def _gestisci_password_globale(self):
+        """Voce menu Strumenti → Imposta password globale."""
+        _dialog_password_globale(self)
 
     def _mostra_dipendenze(self):
         deps = check_dipendenze()
@@ -2103,6 +2438,25 @@ if __name__ == "__main__":
     app.setApplicationName("PCM")
     app.setApplicationVersion("1.0")
     app.setStyleSheet(APP_STYLESHEET)
+
+    # ── Gestione cifratura all'avvio ─────────────────────────────────────────
+    # Carica i profili (crea connections.json se non esiste e setta primo_avvio)
+    config_manager.load_profiles()
+    settings = config_manager.load_settings()
+
+    if settings.get("crypto", {}).get("primo_avvio"):
+        # Primo avvio assoluto: chiedi se cifrare
+        _dialog_primo_avvio(app)
+        # Rimuovi flag
+        s = config_manager.load_settings()
+        s.get("crypto", {}).pop("primo_avvio", None)
+        config_manager.save_settings(s)
+
+    elif crypto_manager.is_enabled():
+        # Avvii successivi con cifratura attiva: chiedi password di sblocco
+        if not _dialog_sblocco(app):
+            sys.exit(0)   # utente ha annullato
+    # ─────────────────────────────────────────────────────────────────────────
 
     win = MainWindow()
     win.show()
