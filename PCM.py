@@ -588,6 +588,35 @@ def _dialog_password_globale(parent) -> None:
 # Finestra principale
 # ==============================================================================
 
+from PyQt6.QtCore import QObject, QEvent
+import time
+
+class TripleClickFilter(QObject):
+    """Intercetta i clic del mouse per riconoscere un triplo clic veloce."""
+    def __init__(self, parent, callback):
+        super().__init__(parent)
+        self.callback = callback
+        self.clicks = 0
+        self.last_time = 0
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.MouseButtonPress:
+            now = time.time()
+            if now - self.last_time < 0.5:  # Mezzo secondo di tolleranza
+                self.clicks += 1
+            else:
+                self.clicks = 1
+            self.last_time = now
+
+            if self.clicks == 3:
+                self.clicks = 0
+                # Verifica se il clic è avvenuto esattamente sul testo "?"
+                azione = obj.actionAt(event.pos())
+                if azione and azione.text() == "?":
+                    self.callback()
+                    return True # Interrompe il clic normale
+        return super().eventFilter(obj, event)
+
 class MainWindow(QMainWindow):
 
     def __init__(self):
@@ -608,6 +637,7 @@ class MainWindow(QMainWindow):
         self._setup_scorciatoie()
         self._setup_tray()
         self._aggiorna_status()
+        self._konami_code = []
 
     # ------------------------------------------------------------------
     # Costruzione UI principale
@@ -879,6 +909,11 @@ class MainWindow(QMainWindow):
         help_menu.addAction(_act(t("menu.help.guide"),  self._apri_guida, "F1"))
         help_menu.addSeparator()
         help_menu.addAction(_act(t("menu.help.about"),  self._about))
+
+        # --- INIZIO MODIFICA EASTER EGG ---
+        self._filtro_easter_egg = TripleClickFilter(mb, self._lancia_easter_egg)
+        mb.installEventFilter(self._filtro_easter_egg)
+        # --- FINE MODIFICA EASTER EGG ---
 
     # ------------------------------------------------------------------
     # Scorciatoie da tastiera
@@ -2438,6 +2473,62 @@ class MainWindow(QMainWindow):
             self._tray.hide()
 
         event.accept()
+        
+    def _lancia_easter_egg(self):
+        import os
+        try:
+            from PyQt6.QtWebEngineWidgets import QWebEngineView
+        except ImportError:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "???", "Insert Coin...\n(Manca PyQt6-WebEngine)")
+            return
+
+        # Cerca il file JS camuffato da PNG
+        games_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "games.png")
+        if not os.path.isfile(games_path):
+            return
+
+        try:
+            with open(games_path, "r", encoding="utf-8") as f:
+                js_content = f.read()
+        except Exception:
+            return
+
+        # Crea un documento HTML al volo e inietta il tuo JS
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ background: #02060e; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }}
+                #app-logo {{ font-family: monospace; font-size: 24px; color: #1e3a5f; cursor: pointer; user-select: none; }}
+            </style>
+        </head>
+        <body>
+            <div id="app-logo">PCM ARCADE</div>
+            <script>
+                {js_content}
+            </script>
+            <script>
+                // Simula il triplo clic richiesto dal tuo games.js dopo mezzo secondo
+                setTimeout(() => {{
+                    let logo = document.getElementById('app-logo');
+                    if(logo) {{ logo.click(); logo.click(); logo.click(); }}
+                }}, 500);
+            </script>
+        </body>
+        </html>
+        """
+
+        browser = QWebEngineView()
+        browser.setHtml(html)
+
+        self._rimuovi_welcome_se_presente()
+        self.tabs.setTabsClosable(True)
+        idx = self.tabs.addTab(browser, "🕹️ Arcade")
+        self.tabs.setCurrentIndex(idx)
+        self._set_status("It's a secret to everybody!")
 
 
 # ==============================================================================
