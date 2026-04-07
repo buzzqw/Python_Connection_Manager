@@ -265,7 +265,8 @@ class TunnelManagerDialog(QDialog):
 
             attivo = t.get("attivo", False)
             stato_txt = "🟢 Attivo" if attivo else "⚫ Fermo"
-            colore = QColor("#1a3d1a") if attivo else QColor("#2b2b2b")
+            bg    = QColor("#1e5c2a") if attivo else QColor("#2b2b2b")
+            fg    = QColor("#ffffff") if attivo else QColor("#aaaaaa")
 
             celle = [
                 t.get("nome", ""),
@@ -277,7 +278,8 @@ class TunnelManagerDialog(QDialog):
             ]
             for c, testo in enumerate(celle):
                 item = QTableWidgetItem(testo)
-                item.setBackground(colore)
+                item.setBackground(bg)
+                item.setForeground(fg)
                 self.tabella.setItem(r, c, item)
 
     # ------------------------------------------------------------------
