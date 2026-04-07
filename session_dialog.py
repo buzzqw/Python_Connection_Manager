@@ -5,6 +5,7 @@ Supporta tutti i protocolli con tab specifici per le impostazioni avanzate.
 
 import os
 import shutil
+from session_command import installed_tools as _installed_tools
 import subprocess
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QTabWidget,
@@ -39,7 +40,7 @@ def _icon(filename: str) -> QIcon:
     return ico
 
 
-PROTOCOLLI = ["ssh", "telnet", "sftp", "ftp", "rdp", "vnc", "ssh_tunnel", "mosh", "serial"]
+PROTOCOLLI = ["ssh", "telnet", "sftp", "ftp", "rdp", "vnc", "mosh", "serial"]
 
 PROTO_LABEL = {
     "ssh":        "SSH",
@@ -48,7 +49,6 @@ PROTO_LABEL = {
     "ftp":        "FTP / FTPS",
     "rdp":        "RDP",
     "vnc":        "VNC",
-    "ssh_tunnel": "SSH Tunnel",
     "mosh":       "Mosh",
     "serial":     "Seriale",
 }
@@ -60,10 +60,27 @@ PROTO_ICON = {
     "ftp":        "folder.png",
     "rdp":        "monitor.png",
     "vnc":        "vnc.png",
-    "ssh_tunnel": "tunnel.png",
     "mosh":       "flash.png",
     "serial":     "cable.png",
 }
+
+
+def _available_tools(candidates: list[str], always_include: list[str] | None = None) -> list[str]:
+    """
+    Restituisce i tool della lista che sono presenti nel PATH.
+    I tool in always_include vengono sempre inclusi (es. "Terminale Interno").
+    Se nessun candidato e' trovato, restituisce il primo della lista come fallback.
+    """
+    found = [t for t in candidates if shutil.which(t)]
+    if always_include:
+        result = list(always_include) + [t for t in found if t not in always_include]
+    else:
+        result = found
+    # Fallback: almeno un elemento
+    if not result:
+        result = [candidates[0]]
+    return result
+
 
 
 class SessionDialog(QDialog):
@@ -262,33 +279,62 @@ class SessionDialog(QDialog):
         lbl_user.setMinimumWidth(115)
         layout.addRow(lbl_user, self.edit_user)
 
-        self.grp_rdp = QGroupBox(t("sd.grp.rdp"))
+        self.grp_rdp = QGroupBox(t("sd.grp.rdp") if not t("sd.grp.rdp").startswith("sd.") else "Opzioni RDP")
         rdp_layout = QFormLayout(self.grp_rdp)
+        # 1. Client RDP (creato per primo — serve a _aggiorna_rdp_open)
         self.combo_rdp_client = QComboBox()
-        self.combo_rdp_client.addItems(["xfreerdp3", "xfreerdp", "rdesktop"])
-        rdp_layout.addRow(t("sd.rdp.client"), self.combo_rdp_client)
+        _rdp_tools = _installed_tools("rdp") or ["xfreerdp"]
+        self.combo_rdp_client.addItems(_rdp_tools)
+        rdp_layout.addRow(t("sd.rdp.client") if not t("sd.rdp.client").startswith("sd.") else "Client RDP:", self.combo_rdp_client)
         self.edit_rdp_domain = QLineEdit()
-        self.edit_rdp_domain.setPlaceholderText(t("sd.rdp.domain_ph"))
-        rdp_layout.addRow(t("sd.rdp.domain"), self.edit_rdp_domain)
-        self.chk_rdp_fs = QCheckBox(t("sd.rdp.fullscreen"))
+        self.edit_rdp_domain.setPlaceholderText(t("sd.rdp.domain_ph") if not t("sd.rdp.domain_ph").startswith("sd.") else "es. MAGGIOLI")
+        rdp_layout.addRow(t("sd.rdp.domain") if not t("sd.rdp.domain").startswith("sd.") else "Dominio:", self.edit_rdp_domain)
+        # Separatore visivo
+        from PyQt6.QtWidgets import QFrame as _QFrame
+        _sep = _QFrame(); _sep.setFrameShape(_QFrame.Shape.HLine)
+        _sep.setStyleSheet("color:#ccc;")
+        rdp_layout.addRow(_sep)
+        # 2. Modalita apertura (dopo il client, cosi il connect funziona)
+        self.combo_rdp_open = QComboBox()
+        self.combo_rdp_open.setMinimumWidth(260)
+        self.combo_rdp_open.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Fallback hardcoded per compatibilita con translations.py non aggiornato
+        _lbl_ext = t("sd.rdp.open_ext") if not t("sd.rdp.open_ext").startswith("sd.") else "Finestra esterna"
+        _lbl_int = t("sd.rdp.open_int") if not t("sd.rdp.open_int").startswith("sd.") else "Pannello interno"
+        self.combo_rdp_open.addItem(_lbl_ext, "external")
+        self.combo_rdp_open.addItem(_lbl_int, "internal")
+        _lbl_mode = t("sd.rdp.open_mode") if not t("sd.rdp.open_mode").startswith("sd.") else "Modalita:"
+        rdp_layout.addRow(_lbl_mode, self.combo_rdp_open)
+        self.lbl_rdp_embed_warn = QLabel(t("sd.rdp.embed_v2_warn") if not t("sd.rdp.embed_v2_warn").startswith("sd.") else "Pannello interno richiede xfreerdp3")
+        self.lbl_rdp_embed_warn.setStyleSheet("color:#c09020; font-size:10px;")
+        self.lbl_rdp_embed_warn.setWordWrap(True)
+        self.lbl_rdp_embed_warn.setVisible(False)
+        rdp_layout.addRow("", self.lbl_rdp_embed_warn)
+        # Connect ora che entrambi i widget esistono
+        self.combo_rdp_client.currentTextChanged.connect(self._aggiorna_rdp_open)
+        self.chk_rdp_fs = QCheckBox(t("sd.rdp.fullscreen") if not t("sd.rdp.fullscreen").startswith("sd.") else "Schermo intero")
         self.chk_rdp_fs.setChecked(True)
         rdp_layout.addRow("", self.chk_rdp_fs)
-        self.chk_rdp_clip = QCheckBox(t("sd.rdp.clipboard"))
+        self.chk_rdp_clip = QCheckBox(t("sd.rdp.clipboard") if not t("sd.rdp.clipboard").startswith("sd.") else "Condividi clipboard")
         self.chk_rdp_clip.setChecked(True)
         rdp_layout.addRow("", self.chk_rdp_clip)
-        self.chk_rdp_drives = QCheckBox(t("sd.rdp.drives"))
+        self.chk_rdp_drives = QCheckBox(t("sd.rdp.drives") if not t("sd.rdp.drives").startswith("sd.") else "Condividi cartelle locali")
         rdp_layout.addRow("", self.chk_rdp_drives)
+        # Autenticazione NLA: NTLM (veloce) o Kerberos+NTLM (standard AD)
+        self.combo_rdp_auth = QComboBox()
+        self.combo_rdp_auth.setMinimumWidth(260)
+        self.combo_rdp_auth.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        _lbl_ntlm = t("sd.rdp.auth_ntlm") if not t("sd.rdp.auth_ntlm").startswith("sd.") else "NTLM (veloce, senza Kerberos)"
+        _lbl_kerb = t("sd.rdp.auth_kerberos") if not t("sd.rdp.auth_kerberos").startswith("sd.") else "Kerberos + NTLM (standard AD)"
+        _tip_auth = t("sd.rdp.auth_tooltip") if not t("sd.rdp.auth_tooltip").startswith("sd.") else "NTLM: connessione rapida. Kerberos: standard AD, puo impiegare 60s+"
+        self.combo_rdp_auth.addItem(_lbl_ntlm, "ntlm")
+        self.combo_rdp_auth.addItem(_lbl_kerb, "kerberos")
+        self.combo_rdp_auth.setToolTip(_tip_auth)
+        _lbl_auth = t("sd.rdp.auth") if not t("sd.rdp.auth").startswith("sd.") else "Autenticazione:"
+        rdp_layout.addRow(_lbl_auth, self.combo_rdp_auth)
         layout.addRow(self.grp_rdp)
-
-        self.grp_rdp_open = QGroupBox(t("sd.grp.rdp_open"))
-        rdp_open_layout = QFormLayout(self.grp_rdp_open)
-        self.combo_rdp_open = QComboBox()
-        self.combo_rdp_open.addItems([
-            "Finestra esterna",
-            "Pannello interno",
-        ])
-        rdp_open_layout.addRow(t("sd.open_with"), self.combo_rdp_open)
-        layout.addRow(self.grp_rdp_open)
 
         self.grp_vnc = QGroupBox(t("sd.grp.vnc"))
         vnc_layout = QFormLayout(self.grp_vnc)
@@ -296,7 +342,8 @@ class SessionDialog(QDialog):
         self.chk_vnc_internal.setChecked(True)
         vnc_layout.addRow("", self.chk_vnc_internal)
         self.combo_vnc_client = QComboBox()
-        self.combo_vnc_client.addItems(["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"])
+        _vnc_tools = _installed_tools("vnc") or ["vncviewer"]
+        self.combo_vnc_client.addItems(_vnc_tools)
         vnc_layout.addRow(t("sd.vnc.client"), self.combo_vnc_client)
         self.combo_vnc_color = QComboBox()
         self.combo_vnc_color.addItems(["Truecolor (32 bpp)", "Highcolor (16 bpp)", "256 colori"])
@@ -852,11 +899,8 @@ class SessionDialog(QDialog):
         self.combo_term_ext = QComboBox()
         self.combo_term_ext.setEditable(True)
         self.combo_term_ext.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.combo_term_ext.addItems([
-            "Terminale Interno", "xterm", "xfce4-terminal",
-            "gnome-terminal", "konsole", "alacritty", "kitty", "terminator",
-            "wezterm", "foot", "tilix", "st"
-        ])
+        _term_tools = _installed_tools("terminal")
+        self.combo_term_ext.addItems(["Terminale Interno"] + _term_tools)
         te_layout.addRow(t("sd.terminal_lbl"), self.combo_term_ext)
         layout.addRow(self.grp_term_ext)
 
@@ -985,8 +1029,7 @@ class SessionDialog(QDialog):
         # Porta di default per protocollo
         default_ports = {
             "ssh": "22", "telnet": "23", "sftp": "22", "ftp": "21",
-            "rdp": "3389", "vnc": "5900", "ssh_tunnel": "22",
-            "mosh": "22", "serial": ""
+            "rdp": "3389", "vnc": "5900",             "mosh": "22", "serial": ""
         }
         porta_corrente = self.edit_port.text().strip()
         proto_prec = getattr(self, "_proto_precedente", None)
@@ -997,13 +1040,14 @@ class SessionDialog(QDialog):
 
         # Gruppi specifici
         self.grp_rdp.setVisible(proto == "rdp")
-        self.grp_rdp_open.setVisible(proto == "rdp")
+        self.grp_tunnel.setVisible(False)   # gestito dal Tunnel Manager
+        if proto == "rdp":
+            self._aggiorna_rdp_open()
         self.grp_vnc.setVisible(proto == "vnc")
         self.grp_ftp.setVisible(proto == "ftp")
-        self.grp_tunnel.setVisible(proto == "ssh_tunnel")
         self.grp_serial.setVisible(proto == "serial")
         self.grp_jump.setVisible(proto in ("ssh", "sftp", "mosh"))
-        self.grp_ssh_adv.setVisible(proto in ("ssh", "sftp", "mosh", "ssh_tunnel"))
+        self.grp_ssh_adv.setVisible(proto in ("ssh", "sftp", "mosh"))
         # Gruppi modalità apertura — uno solo visibile per volta
         self.grp_ssh_open.setVisible(proto in ("ssh", "mosh"))
         self.grp_sftp_open.setVisible(proto == "sftp")
@@ -1012,11 +1056,11 @@ class SessionDialog(QDialog):
         # Selettore terminale: visibile per tutti i proto che usano un terminale
         # (incluso "Terminale esterno" per SSH/SFTP/FTP, sempre per Telnet/Serial/Mosh)
         self.grp_term_ext.setVisible(proto in (
-            "ssh", "mosh", "sftp", "ftp", "telnet", "serial", "ssh_tunnel"
+            "ssh", "mosh", "sftp", "ftp", "telnet", "serial"
         ))
 
         # Nel tab autenticazione: chiave privata e gestione chiavi SSH solo per proto SSH-based
-        _ssh_like = proto in ("ssh", "sftp", "mosh", "ssh_tunnel")
+        _ssh_like = proto in ("ssh", "sftp", "mosh")
         self.edit_pkey.setVisible(_ssh_like)
         self.btn_pkey_browse.setVisible(_ssh_like)
         self.grp_chiavi.setVisible(_ssh_like)
@@ -1033,7 +1077,7 @@ class SessionDialog(QDialog):
         self.grp_wol.setVisible(proto in ("ssh", "mosh", "rdp", "vnc", "telnet"))
 
         # Mostra/nascondi tab terminale
-        show_term = proto in ("ssh", "telnet", "mosh", "serial", "ssh_tunnel")
+        show_term = proto in ("ssh", "telnet", "mosh", "serial")
         self.tabs.setTabVisible(
             self.tabs.indexOf(self.tab_term), show_term
         )
@@ -1051,7 +1095,6 @@ class SessionDialog(QDialog):
             "telnet":     t("sd.pwd_ph.telnet"),
             "rdp":        t("sd.pwd_ph.rdp"),
             "vnc":        t("sd.pwd_ph.vnc"),
-            "ssh_tunnel": t("sd.pwd_ph.tunnel"),
         }
         self.edit_password.setPlaceholderText(
             _placeholder_pwd.get(proto, t("sd.pwd_ph.default"))
@@ -1076,6 +1119,36 @@ class SessionDialog(QDialog):
 
     # ------------------------------------------------------------------
     # Popola dati esistenti
+    def _aggiorna_rdp_open(self, client_text=""):
+        """Abilita/disabilita pannello interno in base alla versione xfreerdp."""
+        import shutil as _sh, subprocess as _sp, re as _re
+        client = client_text or self.combo_rdp_client.currentText()
+        item1 = self.combo_rdp_open.model().item(1)
+        if client == "rdesktop":
+            # rdesktop supporta embedding nativo con -X — nessun avviso
+            item1.setEnabled(True)
+            self.lbl_rdp_embed_warn.setVisible(False)
+            return
+        ver = 0
+        exe = _sh.which(client)
+        if exe:
+            try:
+                out = _sp.check_output([exe, "--version"],
+                    stderr=_sp.STDOUT, timeout=3, text=True)
+                m = _re.search(r"(\d+)\.\d+", out)
+                if m:
+                    ver = int(m.group(1))
+            except Exception:
+                pass
+        if 0 < ver < 3:
+            self.combo_rdp_open.setCurrentIndex(0)
+            item1.setEnabled(False)
+            self.lbl_rdp_embed_warn.setText(t("sd.rdp.embed_v2_warn") if not t("sd.rdp.embed_v2_warn").startswith("sd.") else "Pannello interno richiede xfreerdp3")
+            self.lbl_rdp_embed_warn.setVisible(True)
+        else:
+            item1.setEnabled(True)
+            self.lbl_rdp_embed_warn.setVisible(False)
+
     # ------------------------------------------------------------------
 
     def _popola(self, nome, dati):
@@ -1130,14 +1203,32 @@ class SessionDialog(QDialog):
         idx_r = self.combo_rdp_client.findText(rdp_c)
         if idx_r >= 0:
             self.combo_rdp_client.setCurrentIndex(idx_r)
+        elif rdp_c:
+            # Client salvato non installato: aggiunge voce grigia informativa
+            self.combo_rdp_client.addItem(f"{rdp_c}  ⚠ non trovato")
+            self.combo_rdp_client.setCurrentIndex(self.combo_rdp_client.count() - 1)
+        rdp_auth = dati.get("rdp_auth", "ntlm")
+        for i in range(self.combo_rdp_auth.count()):
+            if self.combo_rdp_auth.itemData(i) == rdp_auth:
+                self.combo_rdp_auth.setCurrentIndex(i)
+                break
         self.chk_rdp_fs.setChecked(dati.get("fullscreen", True))
         self.chk_rdp_clip.setChecked(dati.get("redirect_clipboard", True))
         self.chk_rdp_drives.setChecked(dati.get("redirect_drives", False))
         self.edit_rdp_domain.setText(dati.get("rdp_domain", ""))
-        rdp_open = dati.get("rdp_open_mode", "Finestra esterna")
-        idx_ro = self.combo_rdp_open.findText(rdp_open, Qt.MatchFlag.MatchStartsWith)
-        if idx_ro >= 0:
-            self.combo_rdp_open.setCurrentIndex(idx_ro)
+        # rdp_open_mode: "external" (default) o "internal"
+        # Compatibilita con valori vecchi ("Finestra esterna", "Pannello interno", ecc.)
+        rdp_open = dati.get("rdp_open_mode", "external")
+        # Prima aggiorna disponibilita in base al client scelto
+        self._aggiorna_rdp_open(self.combo_rdp_client.currentText())
+        # Poi imposta il valore (solo se il pannello interno e' disponibile)
+        if rdp_open == "internal" or "intern" in rdp_open.lower() or "panel" in rdp_open.lower():
+            if self.combo_rdp_open.model().item(1).isEnabled():
+                self.combo_rdp_open.setCurrentIndex(1)
+            else:
+                self.combo_rdp_open.setCurrentIndex(0)
+        else:
+            self.combo_rdp_open.setCurrentIndex(0)
 
         # VNC
         self.chk_vnc_internal.setChecked(dati.get("vnc_internal", True))
@@ -1166,6 +1257,9 @@ class SessionDialog(QDialog):
         idx_v = self.combo_vnc_client.findText(vnc_c)
         if idx_v >= 0:
             self.combo_vnc_client.setCurrentIndex(idx_v)
+        elif vnc_c:
+            self.combo_vnc_client.addItem(f"{vnc_c}  ⚠ non trovato")
+            self.combo_vnc_client.setCurrentIndex(self.combo_vnc_client.count() - 1)
 
         # Tunnel
         tt = dati.get("tunnel_type", "Proxy SOCKS (-D)")
@@ -1193,6 +1287,9 @@ class SessionDialog(QDialog):
         idx_te = self.combo_term_ext.findText(te)
         if idx_te >= 0:
             self.combo_term_ext.setCurrentIndex(idx_te)
+        elif te and te != "Terminale Interno":
+            self.combo_term_ext.addItem(f"{te}  ⚠ non trovato")
+            self.combo_term_ext.setCurrentIndex(self.combo_term_ext.count() - 1)
 
         # Pre-cmd locale
         self.edit_pre_cmd.setText(dati.get("pre_cmd", ""))
@@ -1257,11 +1354,12 @@ class SessionDialog(QDialog):
             "keepalive":      self.chk_keepalive.isChecked(),
             "strict_host":    self.chk_strict_host.isChecked(),
             "rdp_client":     self.combo_rdp_client.currentText(),
+            "rdp_auth":       self.combo_rdp_auth.currentData() or "ntlm",
             "fullscreen":     self.chk_rdp_fs.isChecked(),
             "redirect_clipboard": self.chk_rdp_clip.isChecked(),
             "redirect_drives": self.chk_rdp_drives.isChecked(),
             "rdp_domain":     self.edit_rdp_domain.text().strip(),
-            "rdp_open_mode": self.combo_rdp_open.currentText(),
+            "rdp_open_mode": self.combo_rdp_open.currentData() or "external",
             "vnc_internal":   self.chk_vnc_internal.isChecked(), 
             "vnc_client":     self.combo_vnc_client.currentText(),
             "vnc_color":      self.combo_vnc_color.currentText(),

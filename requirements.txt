@@ -9,3 +9,6 @@ paramiko>=2.10.0
 
 # Server FTP locale (Strumenti → Server FTP locale)
 pyftpdlib>=1.5.7
+
+# Cifratura credenziali (Strumenti → Imposta password globale)
+cryptography>=41.0.0

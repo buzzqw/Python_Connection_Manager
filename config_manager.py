@@ -5,6 +5,14 @@ config_manager.py - Gestione profili sessioni e impostazioni globali PCM
 import json
 import os
 
+# Import lazy: crypto_manager potrebbe non avere cryptography installato
+def _crypto():
+    try:
+        import crypto_manager
+        return crypto_manager
+    except ImportError:
+        return None
+
 # Percorsi ancorati alla cartella di config_manager.py (indipendente dalla CWD)
 _HERE          = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_FILE  = os.path.join(_HERE, "connections.json")
@@ -15,20 +23,51 @@ SETTINGS_FILE  = os.path.join(_HERE, "pcm_settings.json")
 # ---------------------------------------------------------------------------
 
 def load_profiles() -> dict:
-    if not os.path.exists(SESSIONS_FILE):
+    """
+    Carica i profili da connections.json.
+    Se la cifratura è attiva decifra automaticamente user/password.
+    Se il file non esiste lo crea con le sessioni di esempio
+    e imposta il flag primo_avvio in settings.
+    """
+    first_run = not os.path.exists(SESSIONS_FILE)
+    if first_run:
         _create_default_sessions()
+        # Segnala il primo avvio a PCM.py tramite settings
+        s = load_settings()
+        s.setdefault("crypto", {})["primo_avvio"] = True
+        save_settings(s)
+
     try:
         with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            profili = json.load(f)
     except (json.JSONDecodeError, Exception) as e:
         print(f"[config] Errore lettura sessioni: {e}")
         return {}
 
+    # Decifratura trasparente
+    cm = _crypto()
+    if cm and cm.is_enabled():
+        profili = {nome: cm.decrypt_profile(p) for nome, p in profili.items()}
+
+    return profili
+
 
 def save_profiles(profiles: dict) -> bool:
+    """
+    Salva i profili su connections.json.
+    Se la cifratura è attiva e sbloccata, cifra automaticamente user/password
+    prima di scrivere su disco.
+    """
+    # Cifratura trasparente
+    cm = _crypto()
+    if cm and cm.is_enabled() and cm.is_unlocked():
+        to_save = {nome: cm.encrypt_profile(p) for nome, p in profiles.items()}
+    else:
+        to_save = profiles
+
     try:
         with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump(profiles, f, indent=4, ensure_ascii=False)
+            json.dump(to_save, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
         print(f"[config] Errore salvataggio sessioni: {e}")
@@ -103,18 +142,6 @@ def _create_default_sessions():
             "host": "192.168.1.200",
             "port": "23",
             "user": "",
-            "notes": ""
-        },
-        "Esempio SSH Tunnel": {
-            "protocol": "ssh_tunnel",
-            "host": "192.168.1.100",
-            "port": "22",
-            "user": "utente",
-            "password": "",
-            "tunnel_type": "Proxy SOCKS (-D)",
-            "tunnel_local_port": "1080",
-            "tunnel_remote_host": "",
-            "tunnel_remote_port": "",
             "notes": ""
         },
         "Esempio Mosh": {
