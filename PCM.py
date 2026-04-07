@@ -861,7 +861,10 @@ class MainWindow(QMainWindow):
 
         self._act_protetta = QAction(t("menu.tools.protected_mode"), self)
         self._act_protetta.setCheckable(True)
-        self._act_protetta.setChecked(False)
+        # Legge lo stato salvato in memoria all'avvio
+        is_protected = self._settings.get("general", {}).get("protected_mode", False)
+        self._act_protetta.setChecked(is_protected)
+        self._modalita_protetta = is_protected
         self._act_protetta.setShortcut(QKeySequence("Ctrl+Shift+P"))
         self._act_protetta.toggled.connect(self._toggle_modalita_protetta)
         tools_menu.addAction(self._act_protetta)
@@ -1161,6 +1164,9 @@ class MainWindow(QMainWindow):
             import re
             cmd_display = re.sub(r"sshpass -p '[^']*'", "sshpass -p '****'", cmd_display)
             cmd_display = re.sub(r"/p:'[^']*'", "/p:'****'", cmd_display)
+        
+        # Comunichiamo al terminale la stringa sicura da mostrare sempre
+        term.comando_display = cmd_display
         term.barra_info.setText(f"  ▶  {cmd_display}")
         term.avvia(cmd)
 
@@ -1323,6 +1329,10 @@ class MainWindow(QMainWindow):
 
     def _split_singolo(self):
         """Un solo pannello, nasconde il secondo."""
+        # Riporta tutte le tab nel primo pannello prima di nascondere il secondo
+        while self.tabs2.count() > 0:
+            self._sposta_tab(self.tabs2, self.tabs, 0)
+
         self.splitter_term.setOrientation(Qt.Orientation.Horizontal)
         self.tabs2.hide()
         self.splitter_term.setSizes([1, 0])
@@ -1425,24 +1435,30 @@ class MainWindow(QMainWindow):
 
     def _toggle_modalita_protetta(self, attiva: bool):
         self._modalita_protetta = attiva
+        
+        # Salva la scelta nelle impostazioni in modo che se ne ricordi
+        self._settings.setdefault("general", {})["protected_mode"] = attiva
+        config_manager.save_settings(self._settings)
+
         stato = t("protected.active") if attiva else t("protected.inactive")
         self._set_status(t("protected.status", state=stato))
         
-        # Aggiorna la barra info di tutti i terminali aperti
-        for i in range(self.tabs.count()):
-            w = self.tabs.widget(i)
-            # Verifica che il tab sia un terminale con le info salvate
-            if hasattr(w, 'barra_info') and hasattr(w, 'comando_originale'):
-                cmd_display = w.comando_originale
-                
-                # Se attiva, censura il comando originale
-                if attiva:
-                    import re
-                    cmd_display = re.sub(r"sshpass -p '[^']*'", "sshpass -p '****'", cmd_display)
-                    cmd_display = re.sub(r"/p:'[^']*'", "/p:'****'", cmd_display)
-                
-                # Applica il testo (in chiaro o censurato)
-                w.barra_info.setText(f"  ▶  {cmd_display}")
+        # Funzione helper per aggiornare un singolo pannello di tab
+        def _aggiorna_tab_panel(tab_widget):
+            for i in range(tab_widget.count()):
+                w = tab_widget.widget(i)
+                if hasattr(w, 'barra_info') and hasattr(w, 'comando_originale'):
+                    cmd_display = w.comando_originale
+                    if attiva:
+                        import re
+                        cmd_display = re.sub(r"sshpass -p '[^']*'", "sshpass -p '****'", cmd_display)
+                        cmd_display = re.sub(r"/p:'[^']*'", "/p:'****'", cmd_display)
+                    w.comando_display = cmd_display
+                    w.barra_info.setText(f"  ▶  {cmd_display}")
+
+        # Aggiorna entrambi i pannelli (normale e split)
+        _aggiorna_tab_panel(self.tabs)
+        _aggiorna_tab_panel(self.tabs2)
                 
         # Aggiorna statusbar con indicatore visivo
         if attiva:
