@@ -63,6 +63,10 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
         else:  # Browser interno (default)
             return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
     elif proto == "rdp":
+        mode = profilo.get("rdp_open_mode", "Finestra esterna")
+        if mode.startswith("Pannello interno"):
+            # cmd=None: RdpEmbedWidget costruisce il comando internamente
+            return None, "rdp_embedded"
         return _build_rdp(profilo), "external"
     elif proto == "vnc":
         return _build_vnc(profilo), "external"

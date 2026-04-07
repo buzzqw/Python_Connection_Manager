@@ -31,6 +31,7 @@ import signal
 import shutil
 from functools import partial
 from vnc_widget import VncWebWidget
+from rdp_widget import RdpEmbedWidget
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -651,6 +652,21 @@ class MainWindow(QMainWindow):
             return
         
         # ... [il resto di _apri_sessione rimane identico] ...
+        if modalita == "rdp_embedded":
+            # RDP pannello interno — RdpEmbedWidget gestisce xfreerdp
+            self._rimuovi_welcome_se_presente()
+            self.tabs.setTabsClosable(True)
+            widget = RdpEmbedWidget(profilo, parent=self)
+            idx = self.tabs.addTab(widget, _qi("monitor.png"), f" {nome}")
+            self.tabs.setCurrentIndex(idx)
+            self._profili_tab[id(widget)] = (nome, profilo)
+            widget.processo_terminato.connect(
+                lambda w=widget: self._on_processo_terminato(w)
+            )
+            self._set_status(t("session.connected", name=nome))
+            self._aggiorna_status()
+            return
+
         if modalita == "external":
 
 
@@ -1423,7 +1439,7 @@ class MainWindow(QMainWindow):
             if info:
                 nome, profilo = info
                 self._apri_sessione(nome, profilo)
-            else:
+            elif hasattr(term, 'avvia') and hasattr(term, '_comando_corrente'):
                 term.avvia(term._comando_corrente)
 
         btn.clicked.connect(_riconnetti)

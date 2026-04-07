@@ -566,6 +566,13 @@ _T: dict[str, dict[str, str]] = {
     "sd.rdp.fullscreen":        {"it": "Schermo intero",        "en": "Fullscreen",           "de": "Vollbild",              "fr": "Plein écran",           "es": "Pantalla completa"},
     "sd.rdp.clipboard":         {"it": "Condividi clipboard",   "en": "Share clipboard",      "de": "Zwischenablage teilen", "fr": "Partager le presse-papiers", "es": "Compartir portapapeles"},
     "sd.rdp.drives":            {"it": "Condividi cartelle locali", "en": "Share local folders", "de": "Lokale Ordner teilen", "fr": "Partager les dossiers locaux", "es": "Compartir carpetas locales"},
+    "sd.grp.rdp_open":           {"it": "Modalità apertura RDP", "en": "RDP open mode",        "de": "RDP-Öffnungsmodus",      "fr": "Mode d'ouverture RDP",  "es": "Modo apertura RDP"},
+    "sd.rdp.domain":            {"it": "Dominio:",                  "en": "Domain:",              "de": "Domäne:",                "fr": "Domaine :",               "es": "Dominio:"},
+    # ── RDP embedded widget ────────────────────────────────────────────────────
+    "rdp.embed.waiting":        {"it": "Connessione RDP in corso…",              "en": "Connecting RDP…",               "de": "RDP-Verbindung wird aufgebaut…",  "fr": "Connexion RDP en cours…",        "es": "Conectando RDP…"},
+    "rdp.embed.wayland_error":  {"it": "Pannello interno non supportato su Wayland. Usa 'Finestra esterna'.", "en": "Embedded panel not supported on Wayland. Use 'External window'.", "de": "Eingebetteter Modus wird unter Wayland nicht unterstützt. Verwende 'Externes Fenster'.", "fr": "Le panneau intégré n'est pas pris en charge sur Wayland. Utilisez 'Fenêtre externe'.", "es": "Panel interno no compatible con Wayland. Usa 'Ventana externa'."},
+    "rdp.embed.client_missing": {"it": "Client RDP '{client}' non trovato nel PATH.", "en": "RDP client '{client}' not found in PATH.", "de": "RDP-Client '{client}' nicht im PATH gefunden.", "fr": "Client RDP '{client}' introuvable dans le PATH.", "es": "Cliente RDP '{client}' no encontrado en el PATH."},
+    "sd.rdp.domain_ph":         {"it": "es. MAGGIOLI",              "en": "e.g. CORP",            "de": "z.B. FIRMA",             "fr": "ex. SOCIÉTÉ",             "es": "ej. EMPRESA"},
 
     "sd.grp.vnc":               {"it": "Opzioni VNC",           "en": "VNC options",          "de": "VNC-Optionen",          "fr": "Options VNC",           "es": "Opciones VNC"},
     "sd.vnc.integrated":        {"it": "Integra VNC in una scheda di PCM", "en": "Embed VNC in a PCM tab", "de": "VNC in einen PCM-Tab integrieren", "fr": "Intégrer VNC dans un onglet PCM", "es": "Integrar VNC en una pestaña de PCM"},

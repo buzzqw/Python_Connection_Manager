@@ -280,6 +280,16 @@ class SessionDialog(QDialog):
         rdp_layout.addRow("", self.chk_rdp_drives)
         layout.addRow(self.grp_rdp)
 
+        self.grp_rdp_open = QGroupBox(t("sd.grp.rdp_open"))
+        rdp_open_layout = QFormLayout(self.grp_rdp_open)
+        self.combo_rdp_open = QComboBox()
+        self.combo_rdp_open.addItems([
+            "Finestra esterna",
+            "Pannello interno",
+        ])
+        rdp_open_layout.addRow(t("sd.open_with"), self.combo_rdp_open)
+        layout.addRow(self.grp_rdp_open)
+
         self.grp_vnc = QGroupBox(t("sd.grp.vnc"))
         vnc_layout = QFormLayout(self.grp_vnc)
         self.chk_vnc_internal = QCheckBox(t("sd.vnc.integrated"))
@@ -987,6 +997,7 @@ class SessionDialog(QDialog):
 
         # Gruppi specifici
         self.grp_rdp.setVisible(proto == "rdp")
+        self.grp_rdp_open.setVisible(proto == "rdp")
         self.grp_vnc.setVisible(proto == "vnc")
         self.grp_ftp.setVisible(proto == "ftp")
         self.grp_tunnel.setVisible(proto == "ssh_tunnel")
@@ -1123,6 +1134,10 @@ class SessionDialog(QDialog):
         self.chk_rdp_clip.setChecked(dati.get("redirect_clipboard", True))
         self.chk_rdp_drives.setChecked(dati.get("redirect_drives", False))
         self.edit_rdp_domain.setText(dati.get("rdp_domain", ""))
+        rdp_open = dati.get("rdp_open_mode", "Finestra esterna")
+        idx_ro = self.combo_rdp_open.findText(rdp_open, Qt.MatchFlag.MatchStartsWith)
+        if idx_ro >= 0:
+            self.combo_rdp_open.setCurrentIndex(idx_ro)
 
         # VNC
         self.chk_vnc_internal.setChecked(dati.get("vnc_internal", True))
@@ -1246,6 +1261,7 @@ class SessionDialog(QDialog):
             "redirect_clipboard": self.chk_rdp_clip.isChecked(),
             "redirect_drives": self.chk_rdp_drives.isChecked(),
             "rdp_domain":     self.edit_rdp_domain.text().strip(),
+            "rdp_open_mode": self.combo_rdp_open.currentText(),
             "vnc_internal":   self.chk_vnc_internal.isChecked(), 
             "vnc_client":     self.combo_vnc_client.currentText(),
             "vnc_color":      self.combo_vnc_color.currentText(),
