@@ -1,0 +1,62 @@
+# PCM - Python Connection Manager (GTK3 port)
+# Dipendenze di sistema
+
+# ===========================================================================
+# Debian / Ubuntu / Linux Mint
+# ===========================================================================
+#
+#   sudo apt install \
+#       python3-gi \
+#       gir1.2-gtk-3.0 \
+#       gir1.2-vte-2.91 \
+#       gir1.2-webkit2-4.1 \
+#       python3-paramiko \
+#       xterm \
+#       xdotool \
+#       xclip
+#
+# Opzionali (per embedding RDP in finestra interna):
+#   sudo apt install xfreerdp3
+#
+# Opzionali (per VNC integrato via noVNC):
+#   sudo apt install novnc
+#
+# Python packages (solo se non in apt):
+#   pip install cryptography
+
+# ===========================================================================
+# FreeBSD (pkg)
+# ===========================================================================
+#
+#   pkg install \
+#       py311-gobject3 \
+#       vte3 \
+#       webkit2-gtk3 \
+#       py311-paramiko \
+#       xterm \
+#       xdotool \
+#       xclip
+#
+# Opzionali:
+#   pkg install freerdp novnc
+#   pip install cryptography
+
+# ===========================================================================
+# Note Wayland
+# ===========================================================================
+#
+# GTK3 + VTE funziona nativamente su Wayland senza XWayland.
+# L'unico componente che richiede XWayland è rdp_widget.py in modalità
+# "internal" (embedding finestra xfreerdp nel pannello).
+# Per evitare XWayland, usare sempre rdp_open_mode = "external" nelle
+# sessioni RDP — xfreerdp aprirà la propria finestra nativa Wayland.
+#
+# xterm (usato nella versione PyQt6 originale) NON è necessario in
+# questa versione: il terminale è completamente gestito da VTE.
+# xdotool è necessario SOLO per rdp_widget in modalità internal.
+
+# ===========================================================================
+# Avvio
+# ===========================================================================
+#
+#   python3 PCM.py

@@ -1,2 +1,8 @@
-*.json
+# Dati utente — NON committare
+connections.json
+pcm_settings.json
+*.log
 __pycache__/
+*.pyc
+*.pyo
+.DS_Store

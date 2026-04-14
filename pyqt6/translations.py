@@ -1,0 +1,767 @@
+"""
+translations.py - Sistema i18n per PCM
+Supporta: Italiano (it), English (en), Deutsch (de), Français (fr), Español (es)
+
+Uso rapido:
+    from translations import t, set_lang, get_lang
+    t("chiave")           → stringa nella lingua attiva
+    t("chiave", n=3)      → con sostituzione {n}
+    set_lang("en")        → cambia lingua in memoria (non salva su disco)
+    get_lang()            → codice lingua corrente
+
+Note:
+  - Il selettore lingua nell'UI è SEMPRE in inglese (nomi fissi).
+  - Fallback: se la chiave manca nella lingua attiva → inglese → chiave grezza.
+  - set_lang() non salva su disco: il salvataggio avviene in SettingsDialog.
+  - Chiamare init_from_settings() una sola volta all'avvio di PCM.py.
+"""
+
+_LANG: str = "it"
+
+# Lingue disponibili: codice ISO → etichetta SEMPRE in inglese (per il selettore UI)
+AVAILABLE_LANGUAGES: dict[str, str] = {
+    "it": "Italiano",
+    "en": "English",
+    "de": "Deutsch",
+    "fr": "Français",
+    "es": "Español",
+}
+
+
+def set_lang(code: str) -> None:
+    global _LANG
+    if code in AVAILABLE_LANGUAGES:
+        _LANG = code
+
+
+def get_lang() -> str:
+    return _LANG
+
+
+def t(key: str, **kwargs) -> str:
+    """Traduce una chiave. Fallback: inglese → chiave grezza."""
+    entry = _T.get(key, {})
+    text = entry.get(_LANG) or entry.get("en") or key
+    if isinstance(text, list):
+        # lista: restituisce stringa join (caso raro, usa tl() per liste)
+        return str(text)
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except (KeyError, ValueError):
+            pass
+    return text
+
+
+def tl(key: str) -> list:
+    """Traduce una chiave che contiene una lista di stringhe."""
+    entry = _T.get(key, {})
+    result = entry.get(_LANG) or entry.get("en") or []
+    return result if isinstance(result, list) else [result]
+
+
+def init_from_settings() -> None:
+    """
+    Legge la lingua salvata in pcm_settings.json e la imposta.
+    Chiamare una sola volta all'avvio, dopo aver importato config_manager.
+    """
+    global _LANG
+    try:
+        import config_manager
+        s = config_manager.load_settings()
+        code = s.get("general", {}).get("language", "it")
+        if code in AVAILABLE_LANGUAGES:
+            _LANG = code
+    except Exception:
+        pass
+
+
+# ===========================================================================
+# Dizionario traduzioni
+# ===========================================================================
+
+_T: dict[str, dict[str, str]] = {
+
+    # ── Applicazione ─────────────────────────────────────────────────────────
+    "app.title": {
+        "it": "PCM — Python Connection Manager",
+        "en": "PCM — Python Connection Manager",
+        "de": "PCM — Python Connection Manager",
+        "fr": "PCM — Python Connection Manager",
+        "es": "PCM — Python Connection Manager",
+    },
+    "app.subtitle": {
+        "it": "Python Connection Manager • Gestione sessioni remote multi-protocollo",
+        "en": "Python Connection Manager • Multi-protocol remote session manager",
+        "de": "Python Connection Manager • Mehrprotokoll-Fernverbindungsmanager",
+        "fr": "Python Connection Manager • Gestionnaire de sessions distantes multi-protocole",
+        "es": "Python Connection Manager • Gestor de sesiones remotas multi-protocolo",
+    },
+    "app.ready": {
+        "it": "PCM pronto",
+        "en": "PCM ready",
+        "de": "PCM bereit",
+        "fr": "PCM prêt",
+        "es": "PCM listo",
+    },
+    "app.sessions_open": {
+        "it": "  Sessioni aperte: {n}  ",
+        "en": "  Open sessions: {n}  ",
+        "de": "  Offene Sitzungen: {n}  ",
+        "fr": "  Sessions ouvertes : {n}  ",
+        "es": "  Sesiones abiertas: {n}  ",
+    },
+    "app.about_text": {
+        "it": (
+            "<b>PCM — Python Connection Manager</b><br><br>"
+            "Sviluppato in Python/PyQt6.<br><br>"
+            "<b>Protocolli supportati:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "SSH Tunnel, Mosh, Seriale<br><br>"
+            "<b>Autore:</b> Andres Zanzani - azanzani@gmail.com"
+        ),
+        "en": (
+            "<b>PCM — Python Connection Manager</b><br><br>"
+            "Built with Python/PyQt6.<br><br>"
+            "<b>Supported protocols:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "SSH Tunnel, Mosh, Serial<br><br>"
+            "<b>Author:</b> Andres Zanzani - azanzani@gmail.com"
+        ),
+        "de": (
+            "<b>PCM — Python Connection Manager</b><br><br>"
+            "Entwickelt mit Python/PyQt6.<br><br>"
+            "<b>Unterstützte Protokolle:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "SSH-Tunnel, Mosh, Seriell<br><br>"
+            "<b>Autor:</b> Andres Zanzani - azanzani@gmail.com"
+        ),
+        "fr": (
+            "<b>PCM — Python Connection Manager</b><br><br>"
+            "Développé avec Python/PyQt6.<br><br>"
+            "<b>Protocoles supportés :</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "Tunnel SSH, Mosh, Série<br><br>"
+            "<b>Auteur :</b> Andres Zanzani - azanzani@gmail.com"
+        ),
+        "es": (
+            "<b>PCM — Python Connection Manager</b><br><br>"
+            "Desarrollado con Python/PyQt6.<br><br>"
+            "<b>Protocolos soportados:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "Túnel SSH, Mosh, Serie<br><br>"
+            "<b>Autor:</b> Andres Zanzani - azanzani@gmail.com"
+        ),
+    },
+
+    # ── Menu File ─────────────────────────────────────────────────────────────
+    "menu.file": {
+        "it": "File", "en": "File", "de": "Datei", "fr": "Fichier", "es": "Archivo",
+    },
+    "menu.file.new_session": {
+        "it": "➕ Nuova sessione",
+        "en": "➕ New session",
+        "de": "➕ Neue Sitzung",
+        "fr": "➕ Nouvelle session",
+        "es": "➕ Nueva sesión",
+    },
+    "menu.file.local_terminal": {
+        "it": "⌨ Terminale locale",
+        "en": "⌨ Local terminal",
+        "de": "⌨ Lokales Terminal",
+        "fr": "⌨ Terminal local",
+        "es": "⌨ Terminal local",
+    },
+    "menu.file.import_sessions": {
+        "it": "📥 Importa sessioni…",
+        "en": "📥 Import sessions…",
+        "de": "📥 Sitzungen importieren…",
+        "fr": "📥 Importer des sessions…",
+        "es": "📥 Importar sesiones…",
+    },
+    "menu.file.export_sessions": {
+        "it": "📤 Esporta sessioni…",
+        "en": "📤 Export sessions…",
+        "de": "📤 Sitzungen exportieren…",
+        "fr": "📤 Exporter des sessions…",
+        "es": "📤 Exportar sesiones…",
+    },
+    "menu.file.settings": {
+        "it": "⚙ Impostazioni",
+        "en": "⚙ Settings",
+        "de": "⚙ Einstellungen",
+        "fr": "⚙ Paramètres",
+        "es": "⚙ Configuración",
+    },
+    "menu.file.quit": {
+        "it": "✖ Esci",
+        "en": "✖ Quit",
+        "de": "✖ Beenden",
+        "fr": "✖ Quitter",
+        "es": "✖ Salir",
+    },
+
+    # ── Menu Visualizza ───────────────────────────────────────────────────────
+    "menu.view": {
+        "it": "Visualizza", "en": "View", "de": "Ansicht", "fr": "Affichage", "es": "Vista",
+    },
+    "menu.view.sidebar": {
+        "it": "📋 Mostra/Nascondi Sidebar",
+        "en": "📋 Show/Hide Sidebar",
+        "de": "📋 Seitenleiste ein-/ausblenden",
+        "fr": "📋 Afficher/masquer la barre latérale",
+        "es": "📋 Mostrar/ocultar barra lateral",
+    },
+    "menu.view.split_vertical": {
+        "it": "🔀 Modalità Split verticale",
+        "en": "🔀 Vertical split mode",
+        "de": "🔀 Vertikaler Split-Modus",
+        "fr": "🔀 Mode division verticale",
+        "es": "🔀 Modo división vertical",
+    },
+    "menu.view.split_horizontal": {
+        "it": "🔀 Modalità Split orizzontale",
+        "en": "🔀 Horizontal split mode",
+        "de": "🔀 Horizontaler Split-Modus",
+        "fr": "🔀 Mode division horizontale",
+        "es": "🔀 Modo división horizontal",
+    },
+    "menu.view.split_single": {
+        "it": "⬜ Vista singola",
+        "en": "⬜ Single view",
+        "de": "⬜ Einzelansicht",
+        "fr": "⬜ Vue unique",
+        "es": "⬜ Vista única",
+    },
+
+    # ── Menu Strumenti ────────────────────────────────────────────────────────
+    "menu.tools": {
+        "it": "Strumenti", "en": "Tools", "de": "Werkzeuge", "fr": "Outils", "es": "Herramientas",
+    },
+    "menu.tools.tunnels": {
+        "it": "🔀 Gestione Tunnel SSH",
+        "en": "🔀 SSH Tunnel Manager",
+        "de": "🔀 SSH-Tunnel-Verwaltung",
+        "fr": "🔀 Gestionnaire de tunnels SSH",
+        "es": "🔀 Gestión de túneles SSH",
+    },
+    "menu.tools.multiexec": {
+        "it": "⚡ Multi-exec…", "en": "⚡ Multi-exec…", "de": "⚡ Multi-exec…",
+        "fr": "⚡ Multi-exec…", "es": "⚡ Multi-exec…",
+    },
+    "menu.tools.variables": {
+        "it": "📦 Variabili globali…",
+        "en": "📦 Global variables…",
+        "de": "📦 Globale Variablen…",
+        "fr": "📦 Variables globales…",
+        "es": "📦 Variables globales…",
+    },
+    "menu.tools.ftp_server": {
+        "it": "🗄  Server FTP locale…",
+        "en": "🗄  Local FTP server…",
+        "de": "🗄  Lokaler FTP-Server…",
+        "fr": "🗄  Serveur FTP local…",
+        "es": "🗄  Servidor FTP local…",
+    },
+    "menu.tools.import_from": {
+        "it": "📥  Importa da applicazione esterna",
+        "en": "📥  Import from external app",
+        "de": "📥  Aus externer Anwendung importieren",
+        "fr": "📥  Importer depuis une application externe",
+        "es": "📥  Importar desde aplicación externa",
+    },
+    "menu.tools.protected_mode": {
+        "it": "🔒 Modalità protetta (nascondi password)",
+        "en": "🔒 Protected mode (hide passwords)",
+        "de": "🔒 Geschützter Modus (Passwörter verbergen)",
+        "fr": "🔒 Mode protégé (masquer les mots de passe)",
+        "es": "🔒 Modo protegido (ocultar contraseñas)",
+    },
+    "menu.tools.check_deps": {
+        "it": "📋 Verifica dipendenze",
+        "en": "📋 Check dependencies",
+        "de": "📋 Abhängigkeiten prüfen",
+        "fr": "📋 Vérifier les dépendances",
+        "es": "📋 Verificar dependencias",
+    },
+
+    # ── Menu Aiuto ────────────────────────────────────────────────────────────
+    "menu.help.guide": {
+        "it": "📖 Guida di PCM",
+        "en": "📖 PCM Guide",
+        "de": "📖 PCM-Handbuch",
+        "fr": "📖 Guide PCM",
+        "es": "📖 Guía de PCM",
+    },
+    "menu.help.about": {
+        "it": "ℹ  Informazioni su PCM",
+        "en": "ℹ  About PCM",
+        "de": "ℹ  Über PCM",
+        "fr": "ℹ  À propos de PCM",
+        "es": "ℹ  Acerca de PCM",
+    },
+
+    # ── Toolbar ───────────────────────────────────────────────────────────────
+    "toolbar.session":          {"it": "Sessione",      "en": "Session",     "de": "Sitzung",    "fr": "Session",   "es": "Sesión"},
+    "toolbar.session.tooltip":  {"it": "Nuova sessione remota", "en": "New remote session", "de": "Neue Fernsitzung", "fr": "Nouvelle session distante", "es": "Nueva sesión remota"},
+    "toolbar.local":            {"it": "Locale",        "en": "Local",       "de": "Lokal",      "fr": "Local",     "es": "Local"},
+    "toolbar.local.tooltip":    {"it": "Terminale locale", "en": "Local terminal", "de": "Lokales Terminal", "fr": "Terminal local", "es": "Terminal local"},
+    "toolbar.tunnel.tooltip":   {"it": "Gestione tunnel SSH", "en": "SSH tunnel manager", "de": "SSH-Tunnel-Verwaltung", "fr": "Gestionnaire de tunnels SSH", "es": "Gestión de túneles SSH"},
+    "toolbar.settings":         {"it": "Impostazioni",  "en": "Settings",    "de": "Einstellungen", "fr": "Paramètres", "es": "Configuración"},
+    "toolbar.settings.tooltip": {"it": "Impostazioni globali", "en": "Global settings", "de": "Globale Einstellungen", "fr": "Paramètres globaux", "es": "Configuración global"},
+    "toolbar.split":            {"it": "Split",         "en": "Split",       "de": "Teilen",     "fr": "Diviser",   "es": "Dividir"},
+    "toolbar.split.tooltip":    {"it": "Modalità split terminale", "en": "Terminal split mode", "de": "Terminal-Split-Modus", "fr": "Mode division du terminal", "es": "Modo división del terminal"},
+    "toolbar.split.single":     {"it": "Singolo",       "en": "Single",      "de": "Einzeln",    "fr": "Simple",    "es": "Simple"},
+    "toolbar.split.vertical":   {"it": "Split verticale (2)", "en": "Vertical split (2)", "de": "Vertikale Teilung (2)", "fr": "Division verticale (2)", "es": "División vertical (2)"},
+    "toolbar.split.horizontal": {"it": "Split orizzontale (2)", "en": "Horizontal split (2)", "de": "Horizontale Teilung (2)", "fr": "Division horizontale (2)", "es": "División horizontal (2)"},
+    "toolbar.xterm_missing":    {"it": "  ⚠ xterm mancante  ", "en": "  ⚠ xterm missing  ", "de": "  ⚠ xterm fehlt  ", "fr": "  ⚠ xterm manquant  ", "es": "  ⚠ xterm no encontrado  "},
+
+    # ── Quick Connect ─────────────────────────────────────────────────────────
+    "qc.label":       {"it": "Quick Connect:", "en": "Quick Connect:", "de": "Schnellverbindung:", "fr": "Connexion rapide :", "es": "Conexión rápida:"},
+    "qc.placeholder": {"it": "utente@host:porta  oppure  host", "en": "user@host:port  or  host", "de": "benutzer@host:port  oder  host", "fr": "utilisateur@hôte:port  ou  hôte", "es": "usuario@host:puerto  o  host"},
+    "qc.connect":     {"it": "▶ Connetti", "en": "▶ Connect", "de": "▶ Verbinden", "fr": "▶ Connecter", "es": "▶ Conectar"},
+    "qc.bad_format":  {"it": "Quick Connect: formato non riconosciuto", "en": "Quick Connect: unrecognised format", "de": "Quick Connect: Format nicht erkannt", "fr": "Connexion rapide : format non reconnu", "es": "Conexión rápida: formato no reconocido"},
+
+    # ── Schermata Benvenuto ───────────────────────────────────────────────────
+    "welcome.btn_new_session":  {"it": "➕\n\nNuova sessione\nremota", "en": "➕\n\nNew remote\nsession", "de": "➕\n\nNeue\nFernsitzung", "fr": "➕\n\nNouvelle session\ndistante", "es": "➕\n\nNueva sesión\nremota"},
+    "welcome.btn_local_terminal": {"it": "⌨\n\nTerminale\nlocale", "en": "⌨\n\nLocal\nterminal", "de": "⌨\n\nLokales\nTerminal", "fr": "⌨\n\nTerminal\nlocal", "es": "⌨\n\nTerminal\nlocal"},
+    "welcome.missing_tools": {"it": "⚠  Strumenti non trovati: {tools}", "en": "⚠  Tools not found: {tools}", "de": "⚠  Werkzeuge nicht gefunden: {tools}", "fr": "⚠  Outils non trouvés : {tools}", "es": "⚠  Herramientas no encontradas: {tools}"},
+    "welcome.footer": {"it": "Doppio clic su una sessione nella sidebar per connettersi  •  Ctrl+Alt+T = terminale locale", "en": "Double-click a session in the sidebar to connect  •  Ctrl+Alt+T = local terminal", "de": "Doppelklick auf eine Sitzung in der Seitenleiste  •  Ctrl+Alt+T = lokales Terminal", "fr": "Double-cliquez sur une session dans la barre latérale  •  Ctrl+Alt+T = terminal local", "es": "Doble clic en una sesión en la barra lateral  •  Ctrl+Alt+T = terminal local"},
+
+    # ── Sidebar ───────────────────────────────────────────────────────────────
+    "sidebar.sessions":           {"it": "  Sessioni",     "en": "  Sessions",    "de": "  Sitzungen",   "fr": "  Sessions",   "es": "  Sesiones"},
+    "sidebar.search_placeholder": {"it": "Cerca sessione…", "en": "Search session…", "de": "Sitzung suchen…", "fr": "Rechercher session…", "es": "Buscar sesión…"},
+    "sidebar.new_session_tooltip": {"it": "Nuova sessione", "en": "New session", "de": "Neue Sitzung", "fr": "Nouvelle session", "es": "Nueva sesión"},
+    "sidebar.refresh_tooltip":    {"it": "Aggiorna lista", "en": "Refresh list", "de": "Liste aktualisieren", "fr": "Actualiser la liste", "es": "Actualizar lista"},
+    "sidebar.expand_tooltip":     {"it": "Espandi tutto",  "en": "Expand all",   "de": "Alle aufklappen", "fr": "Tout développer", "es": "Expandir todo"},
+    "sidebar.collapse_tooltip":   {"it": "Comprimi tutto", "en": "Collapse all", "de": "Alle einklappen", "fr": "Tout réduire",    "es": "Contraer todo"},
+    "sidebar.no_group":           {"it": "  (senza gruppo)", "en": "  (no group)", "de": "  (keine Gruppe)", "fr": "  (sans groupe)", "es": "  (sin grupo)"},
+    "sidebar.count":              {"it": "   {sessions} sessioni  ·  {groups} gruppi", "en": "   {sessions} sessions  ·  {groups} groups", "de": "   {sessions} Sitzungen  ·  {groups} Gruppen", "fr": "   {sessions} sessions  ·  {groups} groupes", "es": "   {sessions} sesiones  ·  {groups} grupos"},
+
+    # ── Tab ───────────────────────────────────────────────────────────────────
+    "tab.welcome":          {"it": "🏠 Benvenuto",  "en": "🏠 Welcome",  "de": "🏠 Willkommen", "fr": "🏠 Bienvenue",  "es": "🏠 Bienvenido"},
+    "tab.guide":            {"it": "📖 Guida",      "en": "📖 Guide",    "de": "📖 Handbuch",   "fr": "📖 Guide",      "es": "📖 Guía"},
+    "tab.local":            {"it": " Locale",       "en": " Local",      "de": " Lokal",         "fr": " Local",        "es": " Local"},
+    "tab.move_to_other":    {"it": "⇄  Sposta nell'altro pannello", "en": "⇄  Move to other panel", "de": "⇄  In das andere Panel verschieben", "fr": "⇄  Déplacer vers l'autre panneau", "es": "⇄  Mover al otro panel"},
+    "tab.export_commands":  {"it": "📄  Esporta comandi.sh…", "en": "📄  Export commands.sh…", "de": "📄  Befehle.sh exportieren…", "fr": "📄  Exporter commandes.sh…", "es": "📄  Exportar comandos.sh…"},
+    "tab.close":            {"it": "✖  Chiudi tab", "en": "✖  Close tab", "de": "✖  Tab schließen", "fr": "✖  Fermer l'onglet", "es": "✖  Cerrar pestaña"},
+    "tab.close_confirm_title": {"it": "Chiudi tab", "en": "Close tab", "de": "Tab schließen", "fr": "Fermer l'onglet", "es": "Cerrar pestaña"},
+    "tab.close_confirm_msg":   {"it": "Chiudere la sessione '{name}'?", "en": "Close session '{name}'?", "de": "Sitzung '{name}' schließen?", "fr": "Fermer la session '{name}' ?", "es": "¿Cerrar la sesión '{name}'?"},
+
+    # ── Pannello sessioni (menu contestuale) ──────────────────────────────────
+    "panel.connect":        {"it": "▶  Connetti",   "en": "▶  Connect",   "de": "▶  Verbinden",        "fr": "▶  Connecter",   "es": "▶  Conectar"},
+    "panel.edit":           {"it": "✏  Modifica",   "en": "✏  Edit",      "de": "✏  Bearbeiten",       "fr": "✏  Modifier",    "es": "✏  Editar"},
+    "panel.duplicate":      {"it": "📋  Duplica",   "en": "📋  Duplicate","de": "📋  Duplizieren",     "fr": "📋  Dupliquer",   "es": "📋  Duplicar"},
+    "panel.copy_command":   {"it": "📋  Copia comando", "en": "📋  Copy command", "de": "📋  Befehl kopieren", "fr": "📋  Copier la commande", "es": "📋  Copiar comando"},
+    "panel.export_sh":      {"it": "📄  Esporta apri-connessione.sh…", "en": "📄  Export open-connection.sh…", "de": "📄  Verbindung.sh exportieren…", "fr": "📄  Exporter ouvrir-connexion.sh…", "es": "📄  Exportar abrir-conexión.sh…"},
+    "panel.check_reach":    {"it": "🌐  Verifica raggiungibilità…", "en": "🌐  Check reachability…", "de": "🌐  Erreichbarkeit prüfen…", "fr": "🌐  Vérifier la disponibilité…", "es": "🌐  Verificar accesibilidad…"},
+    "panel.delete":         {"it": "🗑  Elimina",   "en": "🗑  Delete",   "de": "🗑  Löschen",         "fr": "🗑  Supprimer",   "es": "🗑  Eliminar"},
+    "panel.macros":         {"it": "⚡  Macro",     "en": "⚡  Macros",   "de": "⚡  Makros",          "fr": "⚡  Macros",      "es": "⚡  Macros"},
+    "panel.delete_confirm": {"it": "Eliminare la sessione «{name}»?", "en": "Delete session «{name}»?", "de": "Sitzung «{name}» löschen?", "fr": "Supprimer la session «{name}» ?", "es": "¿Eliminar la sesión «{name}»?"},
+
+    # ── Terminale ─────────────────────────────────────────────────────────────
+    "terminal.session_ended":     {"it": "  ✖  Sessione terminata — clicca 'Riconnetti' o chiudi il tab", "en": "  ✖  Session ended — click 'Reconnect' or close the tab", "de": "  ✖  Sitzung beendet — 'Neu verbinden' klicken oder Tab schließen", "fr": "  ✖  Session terminée — cliquez sur 'Reconnecter' ou fermez l'onglet", "es": "  ✖  Sesión terminada — haz clic en 'Reconectar' o cierra la pestaña"},
+    "terminal.reconnect":         {"it": "🔄  Riconnetti", "en": "🔄  Reconnect", "de": "🔄  Neu verbinden", "fr": "🔄  Reconnecter", "es": "🔄  Reconectar"},
+    "terminal.xterm_missing":     {"it": "xterm non trovato", "en": "xterm not found", "de": "xterm nicht gefunden", "fr": "xterm introuvable", "es": "xterm no encontrado"},
+    "terminal.xterm_install":     {"it": "Installa xterm: sudo apt install xterm", "en": "Install xterm: sudo apt install xterm", "de": "Installiere xterm: sudo apt install xterm", "fr": "Installez xterm : sudo apt install xterm", "es": "Instala xterm: sudo apt install xterm"},
+    "terminal.deps_missing":      {"it": "Dipendenze mancanti", "en": "Missing dependencies", "de": "Fehlende Abhängigkeiten", "fr": "Dépendances manquantes", "es": "Dependencias faltantes"},
+    "terminal.install_xdotool":   {"it": "Installa xwininfo e xdotool per usare questa funzione.", "en": "Install xwininfo and xdotool to use this feature.", "de": "Installiere xwininfo und xdotool.", "fr": "Installez xwininfo et xdotool.", "es": "Instala xwininfo y xdotool."},
+    "terminal.clipboard_unavail": {"it": "Clipboard non disponibile", "en": "Clipboard unavailable", "de": "Zwischenablage nicht verfügbar", "fr": "Presse-papiers indisponible", "es": "Portapapeles no disponible"},
+    "terminal.install_xclip":     {"it": "Installa xclip o xsel: sudo apt install xclip", "en": "Install xclip or xsel: sudo apt install xclip", "de": "Installiere xclip oder xsel: sudo apt install xclip", "fr": "Installez xclip ou xsel : sudo apt install xclip", "es": "Instala xclip o xsel: sudo apt install xclip"},
+
+    # ── Impostazioni ──────────────────────────────────────────────────────────
+    "settings.title":   {"it": "Impostazioni PCM", "en": "PCM Settings", "de": "PCM-Einstellungen", "fr": "Paramètres PCM", "es": "Configuración PCM"},
+    "settings.header":  {"it": "  ⚙  Impostazioni Globali", "en": "  ⚙  Global Settings", "de": "  ⚙  Globale Einstellungen", "fr": "  ⚙  Paramètres globaux", "es": "  ⚙  Configuración global"},
+    "settings.tab.general":   {"it": "🏠 Generale",    "en": "🏠 General",    "de": "🏠 Allgemein",  "fr": "🏠 Général",    "es": "🏠 General"},
+    "settings.tab.terminal":  {"it": "⌨ Terminale",    "en": "⌨ Terminal",    "de": "⌨ Terminal",    "fr": "⌨ Terminal",    "es": "⌨ Terminal"},
+    "settings.tab.ssh":       {"it": "🔐 SSH",          "en": "🔐 SSH",         "de": "🔐 SSH",         "fr": "🔐 SSH",         "es": "🔐 SSH"},
+    "settings.tab.shortcuts": {"it": "⌨ Scorciatoie", "en": "⌨ Shortcuts",   "de": "⌨ Tastenkürzel","fr": "⌨ Raccourcis",  "es": "⌨ Atajos"},
+
+    # ─ Generale ─
+    "settings.general.home_dir":     {"it": "Home directory:", "en": "Home directory:", "de": "Home-Verzeichnis:", "fr": "Répertoire personnel :", "es": "Directorio home:"},
+    "settings.general.editor":       {"it": "Editor di testo:", "en": "Text editor:", "de": "Texteditor:", "fr": "Éditeur de texte :", "es": "Editor de texto:"},
+    "settings.general.confirm_exit": {"it": "Chiedi conferma alla chiusura", "en": "Ask for confirmation on exit", "de": "Beim Beenden bestätigen", "fr": "Demander confirmation à la fermeture", "es": "Pedir confirmación al salir"},
+    # NOTA: label lingua sempre in inglese — non tradurre
+    "settings.general.language":     {"it": "Language / Lingua:", "en": "Language / Lingua:", "de": "Language / Lingua:", "fr": "Language / Lingua:", "es": "Language / Lingua:"},
+    "settings.general.language_note":{"it": "Riavvia PCM per applicare la lingua.", "en": "Restart PCM to apply the language.", "de": "PCM neu starten, um die Sprache zu übernehmen.", "fr": "Redémarrez PCM pour appliquer la langue.", "es": "Reinicia PCM para aplicar el idioma."},
+
+    # ─ Terminale ─
+    "settings.terminal.default_theme": {"it": "Tema predefinito:", "en": "Default theme:", "de": "Standarddesign:", "fr": "Thème par défaut :", "es": "Tema predeterminado:"},
+    "settings.terminal.default_font":  {"it": "Font predefinito:", "en": "Default font:", "de": "Standardschrift:", "fr": "Police par défaut :", "es": "Fuente predeterminada:"},
+    "settings.terminal.font_size":     {"it": "Dimensione font:", "en": "Font size:", "de": "Schriftgröße:", "fr": "Taille de police :", "es": "Tamaño de fuente:"},
+    "settings.terminal.scrollback":    {"it": "Righe scrollback:", "en": "Scrollback lines:", "de": "Rückblatt-Zeilen:", "fr": "Lignes de défilement :", "es": "Líneas de desplazamiento:"},
+    "settings.terminal.paste_right":   {"it": "Incolla con tasto destro", "en": "Paste with right-click", "de": "Mit Rechtsklick einfügen", "fr": "Coller avec clic droit", "es": "Pegar con clic derecho"},
+    "settings.terminal.confirm_close": {"it": "Conferma chiusura tab con processo attivo", "en": "Confirm tab close with active process", "de": "Tab-Schließen mit aktivem Prozess bestätigen", "fr": "Confirmer la fermeture d'un onglet avec un processus actif", "es": "Confirmar cierre de pestaña con proceso activo"},
+    "settings.terminal.warn_paste":    {"it": "Avverti prima di incollare più righe", "en": "Warn before pasting multiple lines", "de": "Vor dem Einfügen mehrerer Zeilen warnen", "fr": "Avertir avant de coller plusieurs lignes", "es": "Advertir antes de pegar varias líneas"},
+    "settings.terminal.log_output":    {"it": "Registra output terminale su file", "en": "Log terminal output to file", "de": "Terminal-Ausgabe in Datei protokollieren", "fr": "Enregistrer la sortie du terminal dans un fichier", "es": "Registrar salida del terminal en archivo"},
+    "settings.terminal.log_dir":       {"it": "Cartella log:", "en": "Log folder:", "de": "Log-Ordner:", "fr": "Dossier de logs :", "es": "Carpeta de logs:"},
+
+    # ─ SSH ─
+    "settings.ssh.keepalive": {"it": "Keepalive interval:", "en": "Keepalive interval:", "de": "Keepalive-Intervall:", "fr": "Intervalle keepalive :", "es": "Intervalo keepalive:"},
+    "settings.ssh.strict":    {"it": "StrictHostKeyChecking (consigliato: disabilitato per lab)", "en": "StrictHostKeyChecking (recommended: disabled for lab)", "de": "StrictHostKeyChecking (empfohlen: für Labor deaktiviert)", "fr": "StrictHostKeyChecking (recommandé : désactivé pour lab)", "es": "StrictHostKeyChecking (recomendado: deshabilitado para lab)"},
+    "settings.ssh.sftp_auto": {"it": "Apri browser SFTP automaticamente per sessioni SSH", "en": "Automatically open SFTP browser for SSH sessions", "de": "SFTP-Browser für SSH-Sitzungen automatisch öffnen", "fr": "Ouvrir automatiquement le navigateur SFTP pour les sessions SSH", "es": "Abrir automáticamente el navegador SFTP para sesiones SSH"},
+
+    # ─ Scorciatoie ─
+    "settings.shortcuts.new_terminal":   {"it": "Nuovo terminale locale", "en": "New local terminal", "de": "Neues lokales Terminal", "fr": "Nouveau terminal local", "es": "Nuevo terminal local"},
+    "settings.shortcuts.close_tab":      {"it": "Chiudi tab", "en": "Close tab", "de": "Tab schließen", "fr": "Fermer l'onglet", "es": "Cerrar pestaña"},
+    "settings.shortcuts.prev_tab":       {"it": "Tab precedente", "en": "Previous tab", "de": "Vorheriger Tab", "fr": "Onglet précédent", "es": "Pestaña anterior"},
+    "settings.shortcuts.next_tab":       {"it": "Tab successivo", "en": "Next tab", "de": "Nächster Tab", "fr": "Onglet suivant", "es": "Pestaña siguiente"},
+    "settings.shortcuts.new_session":    {"it": "Nuova sessione remota", "en": "New remote session", "de": "Neue Fernsitzung", "fr": "Nouvelle session distante", "es": "Nueva sesión remota"},
+    "settings.shortcuts.toggle_sidebar": {"it": "Mostra/nascondi sidebar", "en": "Show/hide sidebar", "de": "Seitenleiste ein-/ausblenden", "fr": "Afficher/masquer la barre latérale", "es": "Mostrar/ocultar barra lateral"},
+    "settings.shortcuts.find":           {"it": "Cerca nel terminale", "en": "Find in terminal", "de": "Im Terminal suchen", "fr": "Rechercher dans le terminal", "es": "Buscar en el terminal"},
+    "settings.shortcuts.fullscreen":     {"it": "Schermo intero", "en": "Fullscreen", "de": "Vollbild", "fr": "Plein écran", "es": "Pantalla completa"},
+    "settings.shortcuts.note":           {"it": "Nota: le scorciatoie sono applicate al riavvio dell'applicazione.", "en": "Note: shortcuts are applied on application restart.", "de": "Hinweis: Tastenkürzel werden beim Neustart der Anwendung übernommen.", "fr": "Remarque : les raccourcis sont appliqués au redémarrage de l'application.", "es": "Nota: los atajos se aplican al reiniciar la aplicación."},
+    "settings.saved": {"it": "Impostazioni salvate", "en": "Settings saved", "de": "Einstellungen gespeichert", "fr": "Paramètres enregistrés", "es": "Configuración guardada"},
+
+    # ── Chiusura app ──────────────────────────────────────────────────────────
+    "close.title":           {"it": "Chiudi PCM",    "en": "Close PCM",    "de": "PCM schließen",  "fr": "Fermer PCM",   "es": "Cerrar PCM"},
+    "close.active_sessions": {"it": "Ci sono <b>{n}</b> sessione/i attive.", "en": "There are <b>{n}</b> active session(s).", "de": "Es gibt <b>{n}</b> aktive Sitzung(en).", "fr": "Il y a <b>{n}</b> session(s) active(s).", "es": "Hay <b>{n}</b> sesión/sesiones activa(s)."},
+    "close.what_to_do":      {"it": "Cosa vuoi fare?", "en": "What do you want to do?", "de": "Was möchten Sie tun?", "fr": "Que voulez-vous faire ?", "es": "¿Qué deseas hacer?"},
+    "close.minimize_tray":   {"it": "🔽  Minimizza nel tray", "en": "🔽  Minimize to tray", "de": "🔽  In Taskleiste minimieren", "fr": "🔽  Réduire dans la barre des tâches", "es": "🔽  Minimizar en la bandeja"},
+    "close.close_all_btn":   {"it": "✖  Chiudi e termina tutto", "en": "✖  Close and terminate all", "de": "✖  Schließen und alles beenden", "fr": "✖  Fermer et tout terminer", "es": "✖  Cerrar y terminar todo"},
+    "close.cancel":          {"it": "Annulla", "en": "Cancel", "de": "Abbrechen", "fr": "Annuler", "es": "Cancelar"},
+    "close.dialog":          {"it": "Chiudi",  "en": "Close",  "de": "Schließen", "fr": "Fermer",  "es": "Cerrar"},
+    "close.confirm_msg":     {"it": "Vuoi chiudere tutto e terminare PCM?", "en": "Do you want to close everything and quit PCM?", "de": "Möchten Sie alles schließen und PCM beenden?", "fr": "Voulez-vous tout fermer et quitter PCM ?", "es": "¿Deseas cerrar todo y salir de PCM?"},
+    "close.close_btn":       {"it": "✖  Chiudi tutto", "en": "✖  Close all", "de": "✖  Alles schließen", "fr": "✖  Tout fermer", "es": "✖  Cerrar todo"},
+    "tray.running_msg":      {"it": "PCM continua in background. Doppio clic sull'icona per riaprire.", "en": "PCM continues in background. Double-click the icon to reopen.", "de": "PCM läuft im Hintergrund. Doppelklicken Sie auf das Symbol.", "fr": "PCM continue en arrière-plan. Double-cliquez sur l'icône pour rouvrir.", "es": "PCM continúa en segundo plano. Doble clic en el icono para abrir de nuevo."},
+
+    # ── Tray ──────────────────────────────────────────────────────────────────
+    "tray.show":             {"it": "🖥  Mostra PCM",    "en": "🖥  Show PCM",      "de": "🖥  PCM anzeigen",       "fr": "🖥  Afficher PCM",                      "es": "🖥  Mostrar PCM"},
+    "tray.connect_to":       {"it": "⚡  Connetti a…",  "en": "⚡  Connect to…",   "de": "⚡  Verbinden mit…",     "fr": "⚡  Se connecter à…",                   "es": "⚡  Conectar a…"},
+    "tray.new_session":      {"it": "➕  Nuova sessione","en": "➕  New session",    "de": "➕  Neue Sitzung",       "fr": "➕  Nouvelle session",                  "es": "➕  Nueva sesión"},
+    "tray.local_terminal":   {"it": "⌨  Terminale locale","en": "⌨  Local terminal","de": "⌨  Lokales Terminal",  "fr": "⌨  Terminal local",                    "es": "⌨  Terminal local"},
+    "tray.quit":             {"it": "✖  Esci",           "en": "✖  Quit",           "de": "✖  Beenden",            "fr": "✖  Quitter",                            "es": "✖  Salir"},
+    "tray.no_sessions":      {"it": "(nessuna sessione)","en": "(no sessions)",      "de": "(keine Sitzungen)",     "fr": "(aucune session)",                      "es": "(sin sesiones)"},
+    "tray.more_sessions":    {"it": "... e altre {n} sessioni (apri PCM)", "en": "... and {n} more sessions (open PCM)", "de": "... und {n} weitere Sitzungen (PCM öffnen)", "fr": "... et {n} autres sessions (ouvrir PCM)", "es": "... y {n} sesiones más (abrir PCM)"},
+    "tray.session_ended_title": {"it": "PCM — Sessione terminata", "en": "PCM — Session ended", "de": "PCM — Sitzung beendet", "fr": "PCM — Session terminée", "es": "PCM — Sesión terminada"},
+    "tray.session_ended_msg":   {"it": "La sessione '{name}' si è disconnessa.", "en": "Session '{name}' has disconnected.", "de": "Sitzung '{name}' wurde getrennt.", "fr": "La session '{name}' s'est déconnectée.", "es": "La sesión '{name}' se ha desconectado."},
+
+    # ── Multi-exec ────────────────────────────────────────────────────────────
+    "multiexec.title":          {"it": "⚡ Multi-exec — Invia comando a più sessioni", "en": "⚡ Multi-exec — Send command to multiple sessions", "de": "⚡ Multi-exec — Befehl an mehrere Sitzungen senden", "fr": "⚡ Multi-exec — Envoyer une commande à plusieurs sessions", "es": "⚡ Multi-exec — Enviar comando a varias sesiones"},
+    "multiexec.select_sessions":{"it": "Seleziona le sessioni destinatarie:", "en": "Select target sessions:", "de": "Zielsitzungen auswählen:", "fr": "Sélectionnez les sessions cibles :", "es": "Selecciona las sesiones destino:"},
+    "multiexec.command":        {"it": "Comando da inviare:", "en": "Command to send:", "de": "Zu sendender Befehl:", "fr": "Commande à envoyer :", "es": "Comando a enviar:"},
+    "multiexec.auto_enter":     {"it": "Invia Enter automaticamente dopo il comando", "en": "Automatically send Enter after the command", "de": "Enter nach dem Befehl automatisch senden", "fr": "Envoyer automatiquement Entrée après la commande", "es": "Enviar Enter automáticamente después del comando"},
+    "multiexec.send_btn":       {"it": "⚡ Invia", "en": "⚡ Send", "de": "⚡ Senden", "fr": "⚡ Envoyer", "es": "⚡ Enviar"},
+    "multiexec.no_sessions":    {"it": "Nessuna sessione attiva.", "en": "No active sessions.", "de": "Keine aktiven Sitzungen.", "fr": "Aucune session active.", "es": "Ninguna sesión activa."},
+    "multiexec.sent":           {"it": "Multi-exec: comando inviato a {n} sessioni", "en": "Multi-exec: command sent to {n} sessions", "de": "Multi-exec: Befehl an {n} Sitzungen gesendet", "fr": "Multi-exec : commande envoyée à {n} sessions", "es": "Multi-exec: comando enviado a {n} sesiones"},
+
+    # ── Variabili globali ──────────────────────────────────────────────────────
+    "variables.title":    {"it": "📦 Variabili globali PCM", "en": "📦 PCM global variables", "de": "📦 Globale PCM-Variablen", "fr": "📦 Variables globales PCM", "es": "📦 Variables globales PCM"},
+    "variables.col_name": {"it": "Nome variabile", "en": "Variable name", "de": "Variablenname", "fr": "Nom de variable", "es": "Nombre de variable"},
+    "variables.col_value":{"it": "Valore", "en": "Value", "de": "Wert", "fr": "Valeur", "es": "Valor"},
+    "variables.add":      {"it": "➕ Aggiungi", "en": "➕ Add", "de": "➕ Hinzufügen", "fr": "➕ Ajouter", "es": "➕ Agregar"},
+    "variables.delete":   {"it": "🗑 Elimina",  "en": "🗑 Delete", "de": "🗑 Löschen", "fr": "🗑 Supprimer", "es": "🗑 Eliminar"},
+    "variables.saved":    {"it": "Variabili globali salvate ({n})", "en": "Global variables saved ({n})", "de": "Globale Variablen gespeichert ({n})", "fr": "Variables globales enregistrées ({n})", "es": "Variables globales guardadas ({n})"},
+
+    # ── Errori generici ────────────────────────────────────────────────────────
+    "error.title":           {"it": "Errore",   "en": "Error",   "de": "Fehler",   "fr": "Erreur",   "es": "Error"},
+    "error.cannot_build_cmd":{"it": "Impossibile costruire il comando per questa sessione.", "en": "Cannot build the command for this session.", "de": "Befehl für diese Sitzung kann nicht erstellt werden.", "fr": "Impossible de construire la commande pour cette session.", "es": "No se puede construir el comando para esta sesión."},
+    "error.tunnel":          {"it": "Errore tunnel", "en": "Tunnel error", "de": "Tunnel-Fehler", "fr": "Erreur tunnel", "es": "Error de túnel"},
+    "error.import":          {"it": "Errore importazione", "en": "Import error", "de": "Importfehler", "fr": "Erreur d'importation", "es": "Error de importación"},
+    "error.export":          {"it": "Errore esportazione", "en": "Export error", "de": "Exportfehler", "fr": "Erreur d'exportation", "es": "Error de exportación"},
+
+    # ── Macro ─────────────────────────────────────────────────────────────────
+    "macro.no_active_session": {"it": "Nessuna sessione attiva per '{host}'.\nComando: {cmd}", "en": "No active session for '{host}'.\nCommand: {cmd}", "de": "Keine aktive Sitzung für '{host}'.\nBefehl: {cmd}", "fr": "Aucune session active pour '{host}'.\nCommande : {cmd}", "es": "No hay sesión activa para '{host}'.\nComando: {cmd}"},
+    "macro.sent":              {"it": "Macro inviata: {cmd}", "en": "Macro sent: {cmd}", "de": "Makro gesendet: {cmd}", "fr": "Macro envoyée : {cmd}", "es": "Macro enviada: {cmd}"},
+
+    # ── Modalità protetta ──────────────────────────────────────────────────────
+    "protected.active":    {"it": "🔒 ATTIVA", "en": "🔒 ACTIVE", "de": "🔒 AKTIV", "fr": "🔒 ACTIVE", "es": "🔒 ACTIVO"},
+    "protected.inactive":  {"it": "🔓 disattivata", "en": "🔓 disabled", "de": "🔓 deaktiviert", "fr": "🔓 désactivée", "es": "🔓 desactivado"},
+    "protected.status":    {"it": "Modalità protetta {state}", "en": "Protected mode {state}", "de": "Geschützter Modus {state}", "fr": "Mode protégé {state}", "es": "Modo protegido {state}"},
+    "protected.indicator": {"it": "  🔒 Modalità protetta  ", "en": "  🔒 Protected mode  ", "de": "  🔒 Geschützter Modus  ", "fr": "  🔒 Mode protégé  ", "es": "  🔒 Modo protegido  "},
+
+    # ── Import / Export ────────────────────────────────────────────────────────
+    "import.done":              {"it": "Importate {n} sessioni", "en": "{n} sessions imported", "de": "{n} Sitzungen importiert", "fr": "{n} sessions importées", "es": "{n} sesiones importadas"},
+    "import.conflicts_title":   {"it": "Conflitti trovati", "en": "Conflicts found", "de": "Konflikte gefunden", "fr": "Conflits trouvés", "es": "Conflictos encontrados"},
+    "import.conflicts_msg":     {"it": "Le seguenti sessioni esistono già:\n\n{names}\n\nSovrascrivi?", "en": "The following sessions already exist:\n\n{names}\n\nOverwrite?", "de": "Die folgenden Sitzungen sind bereits vorhanden:\n\n{names}\n\nÜberschreiben?", "fr": "Les sessions suivantes existent déjà :\n\n{names}\n\nÉcraser ?", "es": "Las siguientes sesiones ya existen:\n\n{names}\n\n¿Sobrescribir?"},
+    "export.done_title":        {"it": "Esportazione completata", "en": "Export complete", "de": "Export abgeschlossen", "fr": "Exportation terminée", "es": "Exportación completada"},
+    "export.done_msg":          {"it": "Esportate {n} sessioni in:\n{path}", "en": "Exported {n} sessions to:\n{path}", "de": "{n} Sitzungen exportiert nach:\n{path}", "fr": "{n} sessions exportées dans :\n{path}", "es": "{n} sesiones exportadas en:\n{path}"},
+    "export.done_status":       {"it": "Sessioni esportate: {path}", "en": "Sessions exported: {path}", "de": "Sitzungen exportiert: {path}", "fr": "Sessions exportées : {path}", "es": "Sesiones exportadas: {path}"},
+
+    # ── Dipendenze ────────────────────────────────────────────────────────────
+    "deps.title":       {"it": "Dipendenze PCM", "en": "PCM Dependencies", "de": "PCM-Abhängigkeiten", "fr": "Dépendances PCM", "es": "Dependencias PCM"},
+    "deps.install_hint":{"it": "\n\nInstalla i mancanti con il gestore pacchetti della tua distribuzione.", "en": "\n\nInstall missing ones with your distribution's package manager.", "de": "\n\nInstalliere fehlende mit dem Paketmanager deiner Distribution.", "fr": "\n\nInstallez les manquants avec le gestionnaire de paquets de votre distribution.", "es": "\n\nInstala los faltantes con el gestor de paquetes de tu distribución."},
+
+    # ── Connessione sessione ───────────────────────────────────────────────────
+    "session.connected":              {"it": "Connesso: {name}", "en": "Connected: {name}", "de": "Verbunden: {name}", "fr": "Connecté : {name}", "es": "Conectado: {name}"},
+    "session.connection_failed_sftp": {"it": "Connessione SFTP fallita", "en": "SFTP connection failed", "de": "SFTP-Verbindung fehlgeschlagen", "fr": "Échec de la connexion SFTP", "es": "Error de conexión SFTP"},
+    "session.connection_failed_ftp":  {"it": "Connessione FTP fallita", "en": "FTP connection failed", "de": "FTP-Verbindung fehlgeschlagen", "fr": "Échec de la connexion FTP", "es": "Error de conexión FTP"},
+
+    # ── Tunnel ────────────────────────────────────────────────────────────────
+    "tunnel.started":     {"it": "Tunnel '{name}' avviato in background.\n\nComando:\n{cmd}\n\nPID: {pid}", "en": "Tunnel '{name}' started in background.\n\nCommand:\n{cmd}\n\nPID: {pid}", "de": "Tunnel '{name}' im Hintergrund gestartet.\n\nBefehl:\n{cmd}\n\nPID: {pid}", "fr": "Tunnel '{name}' démarré en arrière-plan.\n\nCommande :\n{cmd}\n\nPID : {pid}", "es": "Túnel '{name}' iniciado en segundo plano.\n\nComando:\n{cmd}\n\nPID: {pid}"},
+    "tunnel.active_status":{"it": "Tunnel attivo: {name} (PID {pid})", "en": "Tunnel active: {name} (PID {pid})", "de": "Tunnel aktiv: {name} (PID {pid})", "fr": "Tunnel actif : {name} (PID {pid})", "es": "Túnel activo: {name} (PID {pid})"},
+
+    # ── Guida ──────────────────────────────────────────────────────────────────
+    "guide.file_missing": {"it": "File pcm_help.html non trovato nella cartella di PCM.", "en": "File pcm_help.html not found in the PCM folder.", "de": "Datei pcm_help.html nicht im PCM-Ordner gefunden.", "fr": "Fichier pcm_help.html introuvable dans le dossier PCM.", "es": "Archivo pcm_help.html no encontrado en la carpeta de PCM."},
+
+    # ── Stato sessione (status bar) ────────────────────────────────────────────
+    "session.status.started":       {"it": "Avviato: {name} ({proto})", "en": "Started: {name} ({proto})", "de": "Gestartet: {name} ({proto})", "fr": "Démarré : {name} ({proto})", "es": "Iniciado: {name} ({proto})"},
+    "session.status.vnc_starting":  {"it": "Avvio VNC integrato: {name}...", "en": "Starting embedded VNC: {name}...", "de": "Eingebettetes VNC wird gestartet: {name}...", "fr": "Démarrage VNC intégré : {name}...", "es": "Iniciando VNC integrado: {name}..."},
+    "session.status.opened_fm_ftp": {"it": "Aperto file manager FTP: {name}", "en": "Opened FTP file manager: {name}", "de": "FTP-Dateimanager geöffnet: {name}", "fr": "Gestionnaire de fichiers FTP ouvert : {name}", "es": "Gestor de archivos FTP abierto: {name}"},
+    "session.status.opened_ftp_ext":{"it": "Aperto terminale FTP esterno: {name}", "en": "Opened external FTP terminal: {name}", "de": "Externes FTP-Terminal geöffnet: {name}", "fr": "Terminal FTP externe ouvert : {name}", "es": "Terminal FTP externo abierto: {name}"},
+    "session.status.opened_ext":    {"it": "Aperto terminale esterno: {name}", "en": "Opened external terminal: {name}", "de": "Externes Terminal geöffnet: {name}", "fr": "Terminal externe ouvert : {name}", "es": "Terminal externo abierto: {name}"},
+    "session.status.opened_fm_sftp":{"it": "Aperto file manager SFTP: {name}", "en": "Opened SFTP file manager: {name}", "de": "SFTP-Dateimanager geöffnet: {name}", "fr": "Gestionnaire de fichiers SFTP ouvert : {name}", "es": "Gestor de archivos SFTP abierto: {name}"},
+    "session.status.opened_sftp_ext":{"it": "Aperto terminale SFTP esterno: {name}", "en": "Opened external SFTP terminal: {name}", "de": "Externes SFTP-Terminal geöffnet: {name}", "fr": "Terminal SFTP externe ouvert : {name}", "es": "Terminal SFTP externo abierto: {name}"},
+
+    # ── Esporta comandi.sh ─────────────────────────────────────────────────────
+    "export_cmd.not_terminal":      {"it": "Il tab selezionato non è una sessione terminale.", "en": "The selected tab is not a terminal session.", "de": "Der ausgewählte Tab ist keine Terminal-Sitzung.", "fr": "L'onglet sélectionné n'est pas une session terminal.", "es": "La pestaña seleccionada no es una sesión de terminal."},
+    "export_cmd.no_log_title":      {"it": "Esporta comandi.sh — Log non abilitato", "en": "Export commands.sh — Log not enabled", "de": "Befehle.sh exportieren — Log nicht aktiviert", "fr": "Exporter commandes.sh — Journal non activé", "es": "Exportar comandos.sh — Log no habilitado"},
+    "export_cmd.no_log_text":       {"it": "<b>Il log della sessione non è abilitato.</b><br><br>Per poter esportare tutti i comandi digitati in console, abilita il log nel profilo della sessione:", "en": "<b>Session logging is not enabled.</b><br><br>To export all commands typed in the console, enable logging in the session profile:", "de": "<b>Die Sitzungsprotokollierung ist nicht aktiviert.</b><br><br>Um alle in der Konsole eingegebenen Befehle zu exportieren, aktiviere die Protokollierung im Sitzungsprofil:", "fr": "<b>La journalisation de la session n'est pas activée.</b><br><br>Pour exporter toutes les commandes saisies dans la console, activez la journalisation dans le profil de session :", "es": "<b>El registro de sesión no está habilitado.</b><br><br>Para exportar todos los comandos escritos en la consola, habilita el registro en el perfil de sesión:"},
+    "export_cmd.no_log_info":       {"it": "1. Tasto destro sulla sessione nel pannello → Modifica\n2. Tab Terminale\n3. Spunta 'Registra output su file'\n4. Imposta la cartella log\n5. Riconnetti la sessione\n\nSenza log, sono disponibili solo i comandi inviati tramite macro e multi-exec.", "en": "1. Right-click the session in the panel → Edit\n2. Terminal tab\n3. Check 'Log output to file'\n4. Set the log folder\n5. Reconnect the session\n\nWithout log, only commands sent via macro and multi-exec are available.", "de": "1. Rechtsklick auf die Sitzung im Panel → Bearbeiten\n2. Terminal-Tab\n3. 'Ausgabe in Datei protokollieren' aktivieren\n4. Log-Ordner festlegen\n5. Sitzung neu verbinden\n\nOhne Log sind nur Befehle verfügbar, die über Makros und Multi-exec gesendet wurden.", "fr": "1. Clic droit sur la session dans le panneau → Modifier\n2. Onglet Terminal\n3. Cocher 'Enregistrer la sortie dans un fichier'\n4. Définir le dossier de logs\n5. Reconnecter la session\n\nSans journal, seules les commandes envoyées via macro et multi-exec sont disponibles.", "es": "1. Clic derecho en la sesión del panel → Editar\n2. Pestaña Terminal\n3. Marcar 'Registrar salida en archivo'\n4. Establecer la carpeta de logs\n5. Reconectar la sesión\n\nSin log, solo están disponibles los comandos enviados mediante macro y multi-exec."},
+    "export_cmd.only_pcm":          {"it": "Esporta solo comandi PCM", "en": "Export PCM commands only", "de": "Nur PCM-Befehle exportieren", "fr": "Exporter uniquement les commandes PCM", "es": "Exportar solo comandos PCM"},
+    "export_cmd.cancel":            {"it": "Annulla", "en": "Cancel", "de": "Abbrechen", "fr": "Annuler", "es": "Cancelar"},
+    "export_cmd.title":             {"it": "Esporta comandi.sh — {name}", "en": "Export commands.sh — {name}", "de": "Befehle.sh exportieren — {name}", "fr": "Exporter commandes.sh — {name}", "es": "Exportar comandos.sh — {name}"},
+    "export_cmd.no_log_found":      {"it": "Log abilitato ma nessun file trovato in:\n{dir}\n\nIl file viene creato alla connessione. Assicurati che la sessione sia stata avviata dopo aver abilitato il log.", "en": "Logging enabled but no file found in:\n{dir}\n\nThe file is created on connection. Make sure the session was started after enabling logging.", "de": "Protokollierung aktiviert, aber keine Datei gefunden in:\n{dir}\n\nDie Datei wird bei der Verbindung erstellt. Stelle sicher, dass die Sitzung nach der Aktivierung der Protokollierung gestartet wurde.", "fr": "Journalisation activée mais aucun fichier trouvé dans :\n{dir}\n\nLe fichier est créé à la connexion. Assurez-vous que la session a été démarrée après l'activation de la journalisation.", "es": "Registro habilitado pero no se encontró ningún archivo en:\n{dir}\n\nEl archivo se crea al conectar. Asegúrate de que la sesión se inició después de habilitar el registro."},
+
+    # ── Pulsanti generici ──────────────────────────────────────────────────────
+    "btn.close":        {"it": "Chiudi",   "en": "Close",  "de": "Schließen", "fr": "Fermer",   "es": "Cerrar"},
+    "btn.save":         {"it": "💾  Salva comandi.sh…", "en": "💾  Save commands.sh…", "de": "💾  Befehle.sh speichern…", "fr": "💾  Enregistrer commandes.sh…", "es": "💾  Guardar comandos.sh…"},
+    "btn.copy_script":  {"it": "📋  Copia script", "en": "📋  Copy script", "de": "📋  Skript kopieren", "fr": "📋  Copier le script", "es": "📋  Copiar script"},
+    "btn.copied":       {"it": "✅  Copiato!", "en": "✅  Copied!", "de": "✅  Kopiert!", "fr": "✅  Copié !", "es": "✅  ¡Copiado!"},
+    "btn.saved":        {"it": "Script salvato:\n{path}", "en": "Script saved:\n{path}", "de": "Skript gespeichert:\n{path}", "fr": "Script enregistré :\n{path}", "es": "Script guardado:\n{path}"},
+    "btn.remove_row":   {"it": "🗑  Rimuovi riga", "en": "🗑  Remove row", "de": "🗑  Zeile entfernen", "fr": "🗑  Supprimer la ligne", "es": "🗑  Eliminar fila"},
+    "btn.save_sh":      {"it": "💾  Salva .sh…",  "en": "💾  Save .sh…",  "de": "💾  .sh speichern…", "fr": "💾  Enregistrer .sh…", "es": "💾  Guardar .sh…"},
+    "btn.copy_cb":      {"it": "📋  Copia negli appunti", "en": "📋  Copy to clipboard", "de": "📋  In die Zwischenablage kopieren", "fr": "📋  Copier dans le presse-papiers", "es": "📋  Copiar al portapapeles"},
+    "btn.saved_exec":   {"it": "Script salvato e reso eseguibile:\n{path}", "en": "Script saved and made executable:\n{path}", "de": "Skript gespeichert und ausführbar gemacht:\n{path}", "fr": "Script enregistré et rendu exécutable :\n{path}", "es": "Script guardado y hecho ejecutable:\n{path}"},
+
+    # ── Dialog verifica raggiungibilità ────────────────────────────────────────
+    "reach.title":      {"it": "Verifica raggiungibilita — {name}", "en": "Reachability check — {name}", "de": "Erreichbarkeit prüfen — {name}", "fr": "Vérification de disponibilité — {name}", "es": "Verificación de accesibilidad — {name}"},
+
+    # ── Dialog esporta apri-connessione.sh ─────────────────────────────────────
+    "export_conn.title":     {"it": "📄  Esporta apri-connessione.sh — {name}", "en": "📄  Export open-connection.sh — {name}", "de": "📄  Verbindung.sh exportieren — {name}", "fr": "📄  Exporter ouvrir-connexion.sh — {name}", "es": "📄  Exportar abrir-conexión.sh — {name}"},
+    "export_conn.subtitle":  {"it": "Script <b>apri-connessione.sh</b> per {name} ({proto} {host}).<br><small style='color:#888'>Per esportare i comandi digitati: tasto destro sul <b>tab</b> della sessione → 'Esporta comandi.sh'</small>", "en": "Script <b>open-connection.sh</b> for {name} ({proto} {host}).<br><small style='color:#888'>To export typed commands: right-click the session <b>tab</b> → 'Export commands.sh'</small>", "de": "Skript <b>Verbindung.sh</b> für {name} ({proto} {host}).<br><small style='color:#888'>Um eingegebene Befehle zu exportieren: Rechtsklick auf den Sitzungs-<b>Tab</b> → 'Befehle.sh exportieren'</small>", "fr": "Script <b>ouvrir-connexion.sh</b> pour {name} ({proto} {host}).<br><small style='color:#888'>Pour exporter les commandes saisies : clic droit sur l'<b>onglet</b> de session → 'Exporter commandes.sh'</small>", "es": "Script <b>abrir-conexión.sh</b> para {name} ({proto} {host}).<br><small style='color:#888'>Para exportar los comandos escritos: clic derecho en la <b>pestaña</b> de sesión → 'Exportar comandos.sh'</small>"},
+
+    # ── Dialog genera comandi ──────────────────────────────────────────────────
+    "cmd_dialog.headers":    {"it": ["Timestamp", "Sorgente", "Comando"], "en": ["Timestamp", "Source", "Command"], "de": ["Zeitstempel", "Quelle", "Befehl"], "fr": ["Horodatage", "Source", "Commande"], "es": ["Marca de tiempo", "Origen", "Comando"]},
+    "cmd_dialog.no_cmds":    {"it": "\n  Nessun comando trovato.\n  Invia comandi tramite macro/multi-exec oppure\n  abilita il log e riconnetti la sessione.\n", "en": "\n  No commands found.\n  Send commands via macro/multi-exec or\n  enable logging and reconnect the session.\n", "de": "\n  Keine Befehle gefunden.\n  Sende Befehle über Makros/Multi-exec oder\n  aktiviere die Protokollierung und verbinde die Sitzung erneut.\n", "fr": "\n  Aucune commande trouvée.\n  Envoyez des commandes via macro/multi-exec ou\n  activez la journalisation et reconnectez la session.\n", "es": "\n  No se encontraron comandos.\n  Envía comandos mediante macro/multi-exec o\n  habilita el registro y reconecta la sesión.\n"},
+
+    # ── Importazione da app (stringhe non ancora t()) ──────────────────────────
+    "import.app.no_connections": {"it": "Nessuna connessione trovata.", "en": "No connections found.", "de": "Keine Verbindungen gefunden.", "fr": "Aucune connexion trouvée.", "es": "No se encontraron conexiones."},
+    "import.app.confirm_msg":    {"it": "Importare e unire a PCM?", "en": "Import and merge into PCM?", "de": "In PCM importieren und zusammenführen?", "fr": "Importer et fusionner dans PCM ?", "es": "¿Importar y combinar en PCM?"},
+    "import.app.added":          {"it": "Aggiunte <b>{n}</b> connessioni al pannello sessioni.", "en": "Added <b>{n}</b> connections to the session panel.", "de": "<b>{n}</b> Verbindungen zum Sitzungspanel hinzugefügt.", "fr": "<b>{n}</b> connexions ajoutées au panneau de sessions.", "es": "<b>{n}</b> conexiones añadidas al panel de sesiones."},
+    "import.app.module_missing": {"it": "Modulo importer.py non trovato.\nAssicurati che importer.py sia nella stessa cartella di PCM.py.", "en": "Module importer.py not found.\nMake sure importer.py is in the same folder as PCM.py.", "de": "Modul importer.py nicht gefunden.\nStelle sicher, dass importer.py im selben Ordner wie PCM.py ist.", "fr": "Module importer.py introuvable.\nAssurez-vous qu'importer.py se trouve dans le même dossier que PCM.py.", "es": "Módulo importer.py no encontrado.\nAsegúrate de que importer.py esté en la misma carpeta que PCM.py."},
+    "import.app.title_done":     {"it": "Importazione completata", "en": "Import complete", "de": "Import abgeschlossen", "fr": "Importation terminée", "es": "Importación completada"},
+
+    # ── Session dialog — intestazioni e titoli ─────────────────────────────────
+    "sd.new_title":      {"it": "Nuova sessione",    "en": "New session",       "de": "Neue Sitzung",       "fr": "Nouvelle session",    "es": "Nueva sesión"},
+    "sd.edit_title":     {"it": "Modifica: {name}",  "en": "Edit: {name}",      "de": "Bearbeiten: {name}", "fr": "Modifier : {name}",   "es": "Editar: {name}"},
+    "sd.session_name":   {"it": "Nome sessione:",    "en": "Session name:",     "de": "Sitzungsname:",      "fr": "Nom de session :",    "es": "Nombre de sesión:"},
+    "sd.session_name_ph":{"it": "es. Server produzione", "en": "e.g. Production server", "de": "z.B. Produktionsserver", "fr": "ex. Serveur de production", "es": "ej. Servidor producción"},
+    "sd.group":          {"it": "Gruppo:",           "en": "Group:",            "de": "Gruppe:",            "fr": "Groupe :",            "es": "Grupo:"},
+    "sd.group_ph":       {"it": "es. Lavoro, Casa (vuoto = radice)", "en": "e.g. Work, Home (empty = root)", "de": "z.B. Arbeit, Zuhause (leer = Wurzel)", "fr": "ex. Travail, Maison (vide = racine)", "es": "ej. Trabajo, Casa (vacío = raíz)"},
+    "sd.protocol":       {"it": "Protocollo:",       "en": "Protocol:",         "de": "Protokoll:",         "fr": "Protocole :",         "es": "Protocolo:"},
+
+    # ── Tab Connessione ────────────────────────────────────────────────────────
+    "sd.tab.connection":  {"it": "Connessione",      "en": "Connection",        "de": "Verbindung",         "fr": "Connexion",           "es": "Conexión"},
+    "sd.tab.auth":        {"it": "Autenticazione",   "en": "Authentication",    "de": "Authentifizierung",  "fr": "Authentification",    "es": "Autenticación"},
+    "sd.tab.terminal":    {"it": "Terminale",         "en": "Terminal",          "de": "Terminal",           "fr": "Terminal",            "es": "Terminal"},
+    "sd.tab.advanced":    {"it": "⚙ Avanzate",        "en": "⚙ Advanced",        "de": "⚙ Erweitert",        "fr": "⚙ Avancé",            "es": "⚙ Avanzado"},
+    "sd.tab.notes":       {"it": "📝 Note",            "en": "📝 Notes",           "de": "📝 Notizen",          "fr": "📝 Notes",             "es": "📝 Notas"},
+    "sd.tab.macros":      {"it": "⚡ Macro",           "en": "⚡ Macros",          "de": "⚡ Makros",           "fr": "⚡ Macros",            "es": "⚡ Macros"},
+
+    "sd.host":            {"it": "Host:",             "en": "Host:",             "de": "Host:",              "fr": "Hôte :",              "es": "Host:"},
+    "sd.host_ph":         {"it": "hostname o IP",    "en": "hostname or IP",    "de": "Hostname oder IP",   "fr": "nom d'hôte ou IP",    "es": "hostname o IP"},
+    "sd.port":            {"it": "Porta:",            "en": "Port:",             "de": "Port:",              "fr": "Port :",              "es": "Puerto:"},
+    "sd.user":            {"it": "Utente:",           "en": "User:",             "de": "Benutzer:",          "fr": "Utilisateur :",       "es": "Usuario:"},
+    "sd.user_ph":         {"it": "nome utente",      "en": "username",          "de": "Benutzername",       "fr": "nom d'utilisateur",   "es": "nombre de usuario"},
+
+    # ── Gruppi specifici per protocollo ────────────────────────────────────────
+    "sd.grp.rdp":               {"it": "Opzioni RDP",           "en": "RDP options",          "de": "RDP-Optionen",          "fr": "Options RDP",           "es": "Opciones RDP"},
+    "sd.rdp.client":            {"it": "Client RDP:",           "en": "RDP client:",          "de": "RDP-Client:",           "fr": "Client RDP :",          "es": "Cliente RDP:"},
+    "sd.rdp.fullscreen":        {"it": "Schermo intero",        "en": "Fullscreen",           "de": "Vollbild",              "fr": "Plein écran",           "es": "Pantalla completa"},
+    "sd.rdp.clipboard":         {"it": "Condividi clipboard",   "en": "Share clipboard",      "de": "Zwischenablage teilen", "fr": "Partager le presse-papiers", "es": "Compartir portapapeles"},
+    "sd.rdp.drives":            {"it": "Condividi cartelle locali", "en": "Share local folders", "de": "Lokale Ordner teilen", "fr": "Partager les dossiers locaux", "es": "Compartir carpetas locales"},
+
+    "sd.grp.vnc":               {"it": "Opzioni VNC",           "en": "VNC options",          "de": "VNC-Optionen",          "fr": "Options VNC",           "es": "Opciones VNC"},
+    "sd.vnc.integrated":        {"it": "Integra VNC in una scheda di PCM", "en": "Embed VNC in a PCM tab", "de": "VNC in einen PCM-Tab integrieren", "fr": "Intégrer VNC dans un onglet PCM", "es": "Integrar VNC en una pestaña de PCM"},
+    "sd.vnc.client":            {"it": "Client VNC esterno:",   "en": "External VNC client:", "de": "Externer VNC-Client:",  "fr": "Client VNC externe :",  "es": "Cliente VNC externo:"},
+    "sd.vnc.color":             {"it": "Profondità colore:",    "en": "Color depth:",         "de": "Farbtiefe:",            "fr": "Profondeur de couleur :","es": "Profundidad de color:"},
+    "sd.vnc.quality":           {"it": "Qualità:",              "en": "Quality:",             "de": "Qualität:",             "fr": "Qualité :",             "es": "Calidad:"},
+
+    "sd.grp.ftp":               {"it": "Opzioni FTP / FTPS",   "en": "FTP / FTPS options",   "de": "FTP / FTPS-Optionen",   "fr": "Options FTP / FTPS",    "es": "Opciones FTP / FTPS"},
+    "sd.ftp.tls":               {"it": "Usa FTPS (TLS esplicito — porta 21, AUTH TLS)", "en": "Use FTPS (explicit TLS — port 21, AUTH TLS)", "de": "FTPS verwenden (explizites TLS — Port 21, AUTH TLS)", "fr": "Utiliser FTPS (TLS explicite — port 21, AUTH TLS)", "es": "Usar FTPS (TLS explícito — puerto 21, AUTH TLS)"},
+    "sd.ftp.passive":           {"it": "Modalità passiva (PASV) — consigliata dietro NAT/firewall", "en": "Passive mode (PASV) — recommended behind NAT/firewall", "de": "Passivmodus (PASV) — empfohlen hinter NAT/Firewall", "fr": "Mode passif (PASV) — recommandé derrière NAT/pare-feu", "es": "Modo pasivo (PASV) — recomendado detrás de NAT/firewall"},
+    "sd.ftp.note":              {"it": "<b>FTP plain</b>: porta 21, nessuna cifratura.<br><b>FTPS</b>: TLS esplicito sulla porta 21 — diverso da SFTP (che usa SSH).<br>La modalità di apertura si configura nel tab <b>Avanzate</b>.", "en": "<b>FTP plain</b>: port 21, no encryption.<br><b>FTPS</b>: explicit TLS on port 21 — different from SFTP (which uses SSH).<br>Open mode is configured in the <b>Advanced</b> tab.", "de": "<b>FTP plain</b>: Port 21, keine Verschlüsselung.<br><b>FTPS</b>: explizites TLS auf Port 21 — anders als SFTP (das SSH verwendet).<br>Der Öffnungsmodus wird im Tab <b>Erweitert</b> konfiguriert.", "fr": "<b>FTP plain</b> : port 21, aucun chiffrement.<br><b>FTPS</b> : TLS explicite sur le port 21 — différent de SFTP (qui utilise SSH).<br>Le mode d'ouverture se configure dans l'onglet <b>Avancé</b>.", "es": "<b>FTP plain</b>: puerto 21, sin cifrado.<br><b>FTPS</b>: TLS explícito en el puerto 21 — diferente de SFTP (que usa SSH).<br>El modo de apertura se configura en la pestaña <b>Avanzado</b>."},
+
+    "sd.grp.tunnel":            {"it": "Configurazione Tunnel SSH",  "en": "SSH Tunnel configuration",  "de": "SSH-Tunnel-Konfiguration",  "fr": "Configuration tunnel SSH",  "es": "Configuración túnel SSH"},
+    "sd.tunnel.type":           {"it": "Tipo:",           "en": "Type:",    "de": "Typ:",    "fr": "Type :",   "es": "Tipo:"},
+    "sd.tunnel.lport":          {"it": "Porta locale:",  "en": "Local port:", "de": "Lokaler Port:", "fr": "Port local :", "es": "Puerto local:"},
+    "sd.tunnel.rhost":          {"it": "Host remoto:",   "en": "Remote host:", "de": "Remote-Host:", "fr": "Hôte distant :", "es": "Host remoto:"},
+    "sd.tunnel.rhost_ph":       {"it": "host destinazione (per -L/-R)", "en": "destination host (for -L/-R)", "de": "Ziel-Host (für -L/-R)", "fr": "hôte destination (pour -L/-R)", "es": "host destino (para -L/-R)"},
+    "sd.tunnel.rport":          {"it": "Porta remota:",  "en": "Remote port:", "de": "Remote-Port:", "fr": "Port distant :", "es": "Puerto remoto:"},
+    "sd.tunnel.rport_ph":       {"it": "porta dest.",    "en": "dest. port",   "de": "Ziel-Port",    "fr": "port dest.",     "es": "puerto dest."},
+
+    "sd.grp.serial":            {"it": "Configurazione Seriale", "en": "Serial configuration", "de": "Serielle Konfiguration", "fr": "Configuration série", "es": "Configuración serie"},
+    "sd.serial.device":         {"it": "Dispositivo:",  "en": "Device:",   "de": "Gerät:",    "fr": "Périphérique :", "es": "Dispositivo:"},
+    "sd.serial.baud":           {"it": "Baud rate:",    "en": "Baud rate:", "de": "Baudrate:", "fr": "Débit :",        "es": "Velocidad en baudios:"},
+    "sd.serial.databits":       {"it": "Data bits:",    "en": "Data bits:", "de": "Datenbits:", "fr": "Bits de données :", "es": "Bits de datos:"},
+    "sd.serial.parity":         {"it": "Parità:",       "en": "Parity:",   "de": "Parität:",   "fr": "Parité :",      "es": "Paridad:"},
+    "sd.serial.stopbits":       {"it": "Stop bits:",    "en": "Stop bits:", "de": "Stoppbits:", "fr": "Bits d'arrêt :", "es": "Bits de parada:"},
+
+    "sd.grp.wol":               {"it": "Wake-on-LAN",   "en": "Wake-on-LAN", "de": "Wake-on-LAN", "fr": "Wake-on-LAN", "es": "Wake-on-LAN"},
+    "sd.wol.enable":            {"it": "Invia magic packet prima di connettersi", "en": "Send magic packet before connecting", "de": "Magic Packet vor dem Verbinden senden", "fr": "Envoyer un magic packet avant de se connecter", "es": "Enviar magic packet antes de conectar"},
+    "sd.wol.enable_tip":        {"it": "Invia un magic packet UDP (porta 9) all'indirizzo MAC indicato\ne attende che l'host risponda al ping prima di aprire la sessione.", "en": "Sends a UDP magic packet (port 9) to the MAC address\nand waits for the host to respond to ping before opening the session.", "de": "Sendet ein UDP-Magic-Packet (Port 9) an die MAC-Adresse\nund wartet, bis der Host auf Ping antwortet, bevor die Sitzung geöffnet wird.", "fr": "Envoie un magic packet UDP (port 9) à l'adresse MAC\net attend que l'hôte réponde au ping avant d'ouvrir la session.", "es": "Envía un magic packet UDP (puerto 9) a la dirección MAC\ny espera que el host responda al ping antes de abrir la sesión."},
+    "sd.wol.mac":               {"it": "Indirizzo MAC:", "en": "MAC address:", "de": "MAC-Adresse:", "fr": "Adresse MAC :", "es": "Dirección MAC:"},
+    "sd.wol.wait":              {"it": "Attesa risposta:", "en": "Response wait:", "de": "Antwortwartezeit:", "fr": "Attente réponse :", "es": "Espera respuesta:"},
+    "sd.wol.wait_tip":          {"it": "Secondi massimi di attesa che l'host risponda al ping dopo il WoL.", "en": "Maximum seconds to wait for the host to respond to ping after WoL.", "de": "Maximale Sekunden auf Ping-Antwort des Hosts nach WoL warten.", "fr": "Secondes maximales d'attente de réponse ping de l'hôte après WoL.", "es": "Segundos máximos de espera para que el host responda al ping tras WoL."},
+
+    # ── Tab Autenticazione ─────────────────────────────────────────────────────
+    "sd.pwd":               {"it": "Password:",       "en": "Password:",      "de": "Passwort:",     "fr": "Mot de passe :",    "es": "Contraseña:"},
+    "sd.pwd_ph":            {"it": "lascia vuoto per chiave privata o prompt", "en": "leave empty for private key or prompt", "de": "leer für privaten Schlüssel oder Eingabeaufforderung", "fr": "laisser vide pour clé privée ou invite", "es": "dejar vacío para clave privada o prompt"},
+    "sd.pwd_show_tip":      {"it": "Mostra/Nascondi password", "en": "Show/Hide password", "de": "Passwort anzeigen/verbergen", "fr": "Afficher/masquer le mot de passe", "es": "Mostrar/ocultar contraseña"},
+    "sd.pkey":              {"it": "Chiave privata:", "en": "Private key:",   "de": "Privater Schlüssel:", "fr": "Clé privée :",  "es": "Clave privada:"},
+    "sd.pkey_ph":           {"it": "percorso chiave privata (es. ~/.ssh/id_ed25519)", "en": "private key path (e.g. ~/.ssh/id_ed25519)", "de": "Pfad zum privaten Schlüssel (z.B. ~/.ssh/id_ed25519)", "fr": "chemin de la clé privée (ex. ~/.ssh/id_ed25519)", "es": "ruta de clave privada (ej. ~/.ssh/id_ed25519)"},
+
+    "sd.grp.keys":          {"it": "🔑  Gestione chiavi SSH",  "en": "🔑  SSH Key Management",     "de": "🔑  SSH-Schlüsselverwaltung",   "fr": "🔑  Gestion des clés SSH",      "es": "🔑  Gestión de claves SSH"},
+    "sd.keys.existing":     {"it": "Chiavi in ~/.ssh:",        "en": "Keys in ~/.ssh:",              "de": "Schlüssel in ~/.ssh:",          "fr": "Clés dans ~/.ssh :",            "es": "Claves en ~/.ssh:"},
+    "sd.keys.reload_tip":   {"it": "Ricarica lista chiavi",    "en": "Reload key list",              "de": "Schlüsselliste neu laden",      "fr": "Recharger la liste des clés",   "es": "Recargar lista de claves"},
+    "sd.keys.none":         {"it": "(nessuna — usa password)", "en": "(none — use password)",        "de": "(keine — Passwort verwenden)",  "fr": "(aucune — utiliser le mot de passe)", "es": "(ninguna — usar contraseña)"},
+    "sd.keys.generate":     {"it": "Genera nuova:",            "en": "Generate new:",                "de": "Neu generieren:",               "fr": "Générer nouveau :",             "es": "Generar nueva:"},
+    "sd.keys.gen_btn":      {"it": "⚙  Genera",               "en": "⚙  Generate",                 "de": "⚙  Generieren",                 "fr": "⚙  Générer",                   "es": "⚙  Generar"},
+    "sd.keys.gen_tip":      {"it": "Genera una nuova coppia di chiavi SSH", "en": "Generate a new SSH key pair", "de": "Neues SSH-Schlüsselpaar generieren", "fr": "Générer une nouvelle paire de clés SSH", "es": "Generar un nuevo par de claves SSH"},
+    "sd.keys.copy_server":  {"it": "📤  Copia chiave pubblica sul server", "en": "📤  Copy public key to server", "de": "📤  Öffentlichen Schlüssel auf Server kopieren", "fr": "📤  Copier la clé publique sur le serveur", "es": "📤  Copiar clave pública al servidor"},
+    "sd.keys.copy_tip":     {"it": "Esegue ssh-copy-id per copiare la chiave pubblica sul server remoto\nRichiede la password del server (una sola volta)", "en": "Runs ssh-copy-id to copy the public key to the remote server\nRequires the server password (once only)", "de": "Führt ssh-copy-id aus, um den öffentlichen Schlüssel auf den Remote-Server zu kopieren\nErfordert das Server-Passwort (einmalig)", "fr": "Exécute ssh-copy-id pour copier la clé publique sur le serveur distant\nNécessite le mot de passe du serveur (une seule fois)", "es": "Ejecuta ssh-copy-id para copiar la clave pública al servidor remoto\nRequiere la contraseña del servidor (solo una vez)"},
+    "sd.keys.show_pub":     {"it": "👁  Mostra pubblica",      "en": "👁  Show public",              "de": "👁  Öffentliche anzeigen",       "fr": "👁  Afficher publique",          "es": "👁  Mostrar pública"},
+    "sd.keys.show_pub_tip": {"it": "Mostra il contenuto della chiave pubblica (da copiare manualmente)", "en": "Show the public key content (to copy manually)", "de": "Inhalt des öffentlichen Schlüssels anzeigen (zum manuellen Kopieren)", "fr": "Afficher le contenu de la clé publique (à copier manuellement)", "es": "Mostrar el contenido de la clave pública (para copiar manualmente)"},
+
+    "sd.grp.jump":              {"it": "Jump Host (Bastion)", "en": "Jump Host (Bastion)", "de": "Jump-Host (Bastion)", "fr": "Jump Host (Bastion)", "es": "Jump Host (Bastion)"},
+    "sd.jump.info":             {"it": "<b>A cosa serve:</b> un Jump Host (o Bastion) è un server intermedio che fa da ponte verso macchine non raggiungibili direttamente.<br>Es: <tt>PC → gateway.azienda.it → server-interno</tt><br><br><b>Come funziona:</b> PCM si connette prima al Jump Host, poi da lì apre automaticamente la connessione al server finale — tutto in modo trasparente con un solo tab. Equivale a <tt>ssh -J gateway host</tt>.", "en": "<b>Purpose:</b> a Jump Host (or Bastion) is an intermediate server that bridges to machines not directly reachable.<br>E.g.: <tt>PC → gateway.company.com → internal-server</tt><br><br><b>How it works:</b> PCM connects first to the Jump Host, then automatically opens the connection to the final server — all transparently in a single tab. Equivalent to <tt>ssh -J gateway host</tt>.", "de": "<b>Zweck:</b> Ein Jump-Host (oder Bastion) ist ein Zwischenserver, der als Brücke zu Maschinen dient, die nicht direkt erreichbar sind.<br>Z.B.: <tt>PC → gateway.firma.de → interner-server</tt><br><br><b>Funktionsweise:</b> PCM verbindet sich zuerst mit dem Jump-Host und öffnet dann automatisch die Verbindung zum Zielserver — alles transparent in einem einzigen Tab. Entspricht <tt>ssh -J gateway host</tt>.", "fr": "<b>À quoi ça sert :</b> un Jump Host (ou Bastion) est un serveur intermédiaire qui fait pont vers des machines non directement accessibles.<br>Ex. : <tt>PC → passerelle.entreprise.fr → serveur-interne</tt><br><br><b>Comment ça marche :</b> PCM se connecte d'abord au Jump Host, puis ouvre automatiquement la connexion au serveur final — tout cela de manière transparente dans un seul onglet. Équivaut à <tt>ssh -J passerelle hôte</tt>.", "es": "<b>Para qué sirve:</b> un Jump Host (o Bastion) es un servidor intermedio que hace de puente hacia máquinas no accesibles directamente.<br>Ej.: <tt>PC → gateway.empresa.com → servidor-interno</tt><br><br><b>Cómo funciona:</b> PCM se conecta primero al Jump Host y luego abre automáticamente la conexión al servidor final — todo de forma transparente en una sola pestaña. Equivale a <tt>ssh -J gateway host</tt>."},
+    "sd.jump.host":             {"it": "Jump host:",      "en": "Jump host:",     "de": "Jump-Host:",     "fr": "Jump host :",    "es": "Jump host:"},
+    "sd.jump.host_ph":          {"it": "gateway.esempio.it", "en": "gateway.example.com", "de": "gateway.beispiel.de", "fr": "passerelle.exemple.fr", "es": "gateway.ejemplo.com"},
+    "sd.jump.user":             {"it": "Utente jump:",    "en": "Jump user:",     "de": "Jump-Benutzer:", "fr": "Utilisateur jump :", "es": "Usuario jump:"},
+    "sd.jump.user_ph":          {"it": "utente sul gateway (vuoto = stesso utente)", "en": "gateway user (empty = same user)", "de": "Gateway-Benutzer (leer = gleicher Benutzer)", "fr": "utilisateur sur la passerelle (vide = même utilisateur)", "es": "usuario en el gateway (vacío = mismo usuario)"},
+    "sd.jump.port":             {"it": "Porta jump:",     "en": "Jump port:",     "de": "Jump-Port:",     "fr": "Port jump :",     "es": "Puerto jump:"},
+
+    # ── Tab Terminale ──────────────────────────────────────────────────────────
+    "sd.term.theme":        {"it": "Tema:",               "en": "Theme:",              "de": "Design:",             "fr": "Thème :",              "es": "Tema:"},
+    "sd.term.font":         {"it": "Font:",               "en": "Font:",               "de": "Schrift:",            "fr": "Police :",             "es": "Fuente:"},
+    "sd.term.font_size":    {"it": "Dimensione font:",    "en": "Font size:",          "de": "Schriftgröße:",       "fr": "Taille de police :",   "es": "Tamaño de fuente:"},
+    "sd.term.startup_cmd":  {"it": "Comando avvio:",      "en": "Startup command:",    "de": "Startbefehl:",        "fr": "Commande de démarrage :", "es": "Comando de inicio:"},
+    "sd.term.startup_ph":   {"it": "es. cd /var/log && tail -f syslog", "en": "e.g. cd /var/log && tail -f syslog", "de": "z.B. cd /var/log && tail -f syslog", "fr": "ex. cd /var/log && tail -f syslog", "es": "ej. cd /var/log && tail -f syslog"},
+    "sd.term.pre_cmd":      {"it": "Cmd locale pre-connessione:", "en": "Local pre-connection cmd:", "de": "Lokaler Vor-Verbindungs-Befehl:", "fr": "Cmd local pré-connexion :", "es": "Cmd local pre-conexión:"},
+    "sd.term.pre_cmd_ph":   {"it": "es. wg-quick up vpn0  oppure  openfortivpn --config=/etc/vpn.conf", "en": "e.g. wg-quick up vpn0  or  openfortivpn --config=/etc/vpn.conf", "de": "z.B. wg-quick up vpn0  oder  openfortivpn --config=/etc/vpn.conf", "fr": "ex. wg-quick up vpn0  ou  openfortivpn --config=/etc/vpn.conf", "es": "ej. wg-quick up vpn0  o  openfortivpn --config=/etc/vpn.conf"},
+    "sd.term.pre_cmd_tip":  {"it": "Comando shell locale eseguito PRIMA di aprire la connessione remota.\nUtile per attivare una VPN, montare un volume, ecc.\nLa connessione parte solo se il comando esce con codice 0.", "en": "Local shell command executed BEFORE opening the remote connection.\nUseful to activate a VPN, mount a volume, etc.\nThe connection starts only if the command exits with code 0.", "de": "Lokaler Shell-Befehl, der VOR dem Öffnen der Remote-Verbindung ausgeführt wird.\nNützlich zum Aktivieren eines VPN, Einhängen eines Volumes usw.\nDie Verbindung startet nur, wenn der Befehl mit Code 0 endet.", "fr": "Commande shell locale exécutée AVANT d'ouvrir la connexion distante.\nUtile pour activer un VPN, monter un volume, etc.\nLa connexion démarre uniquement si la commande se termine avec le code 0.", "es": "Comando shell local ejecutado ANTES de abrir la conexión remota.\nÚtil para activar una VPN, montar un volumen, etc.\nLa conexión inicia solo si el comando termina con código 0."},
+    "sd.term.timeout":      {"it": "Timeout pre-cmd:",   "en": "Pre-cmd timeout:",    "de": "Vor-Befehl-Timeout:", "fr": "Délai pre-cmd :",      "es": "Timeout pre-cmd:"},
+    "sd.term.timeout_sfx":  {"it": " s  (0 = nessun timeout)", "en": " s  (0 = no timeout)", "de": " s  (0 = kein Timeout)", "fr": " s  (0 = aucun délai)", "es": " s  (0 = sin timeout)"},
+    "sd.term.timeout_tip":  {"it": "Secondi di attesa massima per il completamento del comando locale.\nSe scade, la connessione viene annullata.", "en": "Maximum seconds to wait for the local command to complete.\nIf it expires, the connection is cancelled.", "de": "Maximale Sekunden auf den Abschluss des lokalen Befehls warten.\nBei Ablauf wird die Verbindung abgebrochen.", "fr": "Secondes d'attente maximale pour l'exécution de la commande locale.\nSi délai dépassé, la connexion est annulée.", "es": "Segundos máximos de espera para que el comando local termine.\nSi expira, la conexión se cancela."},
+    "sd.term.sftp_auto":    {"it": "Apri browser SFTP laterale dopo la connessione SSH", "en": "Open side SFTP browser after SSH connection", "de": "Seitliches SFTP-Browser nach SSH-Verbindung öffnen", "fr": "Ouvrir le navigateur SFTP latéral après la connexion SSH", "es": "Abrir navegador SFTP lateral tras la conexión SSH"},
+    "sd.term.log":          {"it": "Registra output su file", "en": "Log output to file", "de": "Ausgabe in Datei protokollieren", "fr": "Enregistrer la sortie dans un fichier", "es": "Registrar salida en archivo"},
+    "sd.term.log_dir":      {"it": "Cartella log:",      "en": "Log folder:",         "de": "Log-Ordner:",         "fr": "Dossier de logs :",    "es": "Carpeta de logs:"},
+
+    # ── Tab Avanzate ───────────────────────────────────────────────────────────
+    "sd.grp.ssh_adv":       {"it": "Opzioni SSH",            "en": "SSH options",           "de": "SSH-Optionen",           "fr": "Options SSH",            "es": "Opciones SSH"},
+    "sd.ssh.x11":           {"it": "X11 Forwarding (-X)",    "en": "X11 Forwarding (-X)",   "de": "X11-Weiterleitung (-X)", "fr": "X11 Forwarding (-X)",    "es": "X11 Forwarding (-X)"},
+    "sd.ssh.compression":   {"it": "Compressione (-C)",      "en": "Compression (-C)",      "de": "Komprimierung (-C)",     "fr": "Compression (-C)",       "es": "Compresión (-C)"},
+    "sd.ssh.keepalive":     {"it": "Keepalive (ServerAliveInterval=60)", "en": "Keepalive (ServerAliveInterval=60)", "de": "Keepalive (ServerAliveInterval=60)", "fr": "Keepalive (ServerAliveInterval=60)", "es": "Keepalive (ServerAliveInterval=60)"},
+    "sd.ssh.strict":        {"it": "Strict Host Key Checking", "en": "Strict Host Key Checking", "de": "Strenge Host-Key-Prüfung", "fr": "Vérification stricte de la clé hôte", "es": "Verificación estricta de clave host"},
+    "sd.grp.ssh_open":      {"it": "Modalità apertura SSH",  "en": "SSH open mode",         "de": "SSH-Öffnungsmodus",      "fr": "Mode d'ouverture SSH",   "es": "Modo apertura SSH"},
+    "sd.grp.sftp_open":     {"it": "Modalità apertura SFTP", "en": "SFTP open mode",        "de": "SFTP-Öffnungsmodus",     "fr": "Mode d'ouverture SFTP",  "es": "Modo apertura SFTP"},
+    "sd.grp.ftp_open":      {"it": "Modalità apertura FTP",  "en": "FTP open mode",         "de": "FTP-Öffnungsmodus",      "fr": "Mode d'ouverture FTP",   "es": "Modo apertura FTP"},
+    "sd.open_with":         {"it": "Apri con:",              "en": "Open with:",            "de": "Öffnen mit:",            "fr": "Ouvrir avec :",          "es": "Abrir con:"},
+    "sd.grp.terminal":      {"it": "Terminale",              "en": "Terminal",              "de": "Terminal",               "fr": "Terminal",               "es": "Terminal"},
+    "sd.terminal_lbl":      {"it": "Terminale:",             "en": "Terminal:",             "de": "Terminal:",              "fr": "Terminal :",             "es": "Terminal:"},
+
+    # ── Tab Note e Macro ───────────────────────────────────────────────────────
+    "sd.notes_ph":          {"it": "Note libere su questa sessione…", "en": "Free notes about this session…", "de": "Freie Notizen zu dieser Sitzung…", "fr": "Notes libres sur cette session…", "es": "Notas libres sobre esta sesión…"},
+    "sd.macro.info":        {"it": "Le macro sono comandi inviati al terminale con un clic dal pannello sessioni.<br>Ogni macro ha un <b>nome</b> (etichetta nel menu) e un <b>comando</b> da eseguire.", "en": "Macros are commands sent to the terminal with one click from the session panel.<br>Each macro has a <b>name</b> (menu label) and a <b>command</b> to execute.", "de": "Makros sind Befehle, die mit einem Klick aus dem Sitzungspanel an das Terminal gesendet werden.<br>Jedes Makro hat einen <b>Namen</b> (Menübezeichnung) und einen auszuführenden <b>Befehl</b>.", "fr": "Les macros sont des commandes envoyées au terminal en un clic depuis le panneau de sessions.<br>Chaque macro a un <b>nom</b> (étiquette du menu) et une <b>commande</b> à exécuter.", "es": "Las macros son comandos enviados al terminal con un clic desde el panel de sesiones.<br>Cada macro tiene un <b>nombre</b> (etiqueta del menú) y un <b>comando</b> a ejecutar."},
+    "sd.macro.name":        {"it": "Nome:",    "en": "Name:",    "de": "Name:",    "fr": "Nom :",    "es": "Nombre:"},
+    "sd.macro.name_ph":     {"it": "es. Stato servizi", "en": "e.g. Service status", "de": "z.B. Dienststatus", "fr": "ex. État des services", "es": "ej. Estado servicios"},
+    "sd.macro.cmd":         {"it": "Comando:", "en": "Command:", "de": "Befehl:",  "fr": "Commande :", "es": "Comando:"},
+    "sd.macro.cmd_ph":      {"it": "es. systemctl status nginx", "en": "e.g. systemctl status nginx", "de": "z.B. systemctl status nginx", "fr": "ex. systemctl status nginx", "es": "ej. systemctl status nginx"},
+    "sd.macro.add":         {"it": "➕  Aggiungi",  "en": "➕  Add",     "de": "➕  Hinzufügen", "fr": "➕  Ajouter",   "es": "➕  Agregar"},
+    "sd.macro.update":      {"it": "✏  Aggiorna",  "en": "✏  Update",  "de": "✏  Aktualisieren","fr": "✏  Mettre à jour","es": "✏  Actualizar"},
+    "sd.macro.delete":      {"it": "🗑  Elimina",   "en": "🗑  Delete",  "de": "🗑  Löschen",    "fr": "🗑  Supprimer", "es": "🗑  Eliminar"},
+    "sd.macro.warn":        {"it": "Inserisci nome e comando.", "en": "Enter name and command.", "de": "Name und Befehl eingeben.", "fr": "Entrez un nom et une commande.", "es": "Introduce nombre y comando."},
+
+    # ── Dialogs chiavi SSH ─────────────────────────────────────────────────────
+    "sd.keygen.title":      {"it": "Nome file chiave", "en": "Key file name", "de": "Schlüsseldateiname", "fr": "Nom du fichier de clé", "es": "Nombre de archivo de clave"},
+    "sd.keygen.label":      {"it": "Nome del file chiave (in ~/.ssh/):", "en": "Key file name (in ~/.ssh/):", "de": "Schlüsseldateiname (in ~/.ssh/):", "fr": "Nom du fichier de clé (dans ~/.ssh/) :", "es": "Nombre del archivo de clave (en ~/.ssh/):"},
+    "sd.keygen.overwrite":  {"it": "Il file '{path}' esiste già. Sovrascrivere?", "en": "File '{path}' already exists. Overwrite?", "de": "Datei '{path}' existiert bereits. Überschreiben?", "fr": "Le fichier '{path}' existe déjà. Écraser ?", "es": "El archivo '{path}' ya existe. ¿Sobrescribir?"},
+    "sd.keygen.passphrase_title": {"it": "Passphrase (opzionale)", "en": "Passphrase (optional)", "de": "Passphrase (optional)", "fr": "Phrase secrète (optionnelle)", "es": "Frase de contraseña (opcional)"},
+    "sd.keygen.passphrase_label": {"it": "Passphrase per la chiave (lascia vuoto per nessuna):", "en": "Key passphrase (leave empty for none):", "de": "Schlüssel-Passphrase (leer lassen für keine):", "fr": "Phrase secrète pour la clé (laisser vide pour aucune) :", "es": "Frase de contraseña de la clave (dejar vacío para ninguna):"},
+    "sd.keygen.done":       {"it": "Chiave generata", "en": "Key generated", "de": "Schlüssel generiert", "fr": "Clé générée", "es": "Clave generada"},
+    "sd.keygen.done_msg":   {"it": "✅ Coppia di chiavi creata:\n\n  Privata: {priv}\n  Pubblica: {pub}\n\nUsa 'Copia chiave pubblica sul server' per installarla sul server remoto.", "en": "✅ Key pair created:\n\n  Private: {priv}\n  Public: {pub}\n\nUse 'Copy public key to server' to install it on the remote server.", "de": "✅ Schlüsselpaar erstellt:\n\n  Privat: {priv}\n  Öffentlich: {pub}\n\nVerwende 'Öffentlichen Schlüssel auf Server kopieren', um ihn auf dem Remote-Server zu installieren.", "fr": "✅ Paire de clés créée :\n\n  Privée : {priv}\n  Publique : {pub}\n\nUtilisez 'Copier la clé publique sur le serveur' pour l'installer sur le serveur distant.", "es": "✅ Par de claves creado:\n\n  Privada: {priv}\n  Pública: {pub}\n\nUsa 'Copiar clave pública al servidor' para instalarla en el servidor remoto."},
+    "sd.keygen.missing":    {"it": "ssh-keygen non trovato nel PATH.", "en": "ssh-keygen not found in PATH.", "de": "ssh-keygen nicht im PATH gefunden.", "fr": "ssh-keygen introuvable dans le PATH.", "es": "ssh-keygen no encontrado en el PATH."},
+    "sd.keygen.timeout":    {"it": "ssh-keygen ha impiegato troppo. Riprova.", "en": "ssh-keygen took too long. Try again.", "de": "ssh-keygen hat zu lange gedauert. Erneut versuchen.", "fr": "ssh-keygen a pris trop de temps. Réessayez.", "es": "ssh-keygen tardó demasiado. Inténtalo de nuevo."},
+
+    "sd.copykey.title":     {"it": "📤 Copia chiave pubblica sul server", "en": "📤 Copy public key to server", "de": "📤 Öffentlichen Schlüssel auf Server kopieren", "fr": "📤 Copier la clé publique sur le serveur", "es": "📤 Copiar clave pública al servidor"},
+    "sd.copykey.info":      {"it": "<b>Operazione:</b> copia la chiave pubblica su <tt>{target}:{port}</tt><br><br><b>Chiave pubblica:</b> <tt>{pub}</tt><br><br>Verrà eseguito in un terminale:<br><tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br><b>Ti verrà chiesta la password del server una sola volta.</b><br>Dopo, potrai connetterti senza password usando questa chiave.", "en": "<b>Operation:</b> copies the public key to <tt>{target}:{port}</tt><br><br><b>Public key:</b> <tt>{pub}</tt><br><br>Will run in a terminal:<br><tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br><b>You will be asked for the server password once.</b><br>After that, you can connect without a password using this key.", "de": "<b>Vorgang:</b> Kopiert den öffentlichen Schlüssel nach <tt>{target}:{port}</tt><br><br><b>Öffentlicher Schlüssel:</b> <tt>{pub}</tt><br><br>Wird in einem Terminal ausgeführt:<br><tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br><b>Das Server-Passwort wird einmalig abgefragt.</b><br>Danach kannst du dich mit diesem Schlüssel ohne Passwort verbinden.", "fr": "<b>Opération :</b> copie la clé publique vers <tt>{target}:{port}</tt><br><br><b>Clé publique :</b> <tt>{pub}</tt><br><br>Sera exécuté dans un terminal :<br><tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br><b>Le mot de passe du serveur vous sera demandé une seule fois.</b><br>Ensuite, vous pourrez vous connecter sans mot de passe avec cette clé.", "es": "<b>Operación:</b> copia la clave pública en <tt>{target}:{port}</tt><br><br><b>Clave pública:</b> <tt>{pub}</tt><br><br>Se ejecutará en un terminal:<br><tt style='background:#f0f0f0; padding:4px'>{cmd}</tt><br><br><b>Se te pedirá la contraseña del servidor una sola vez.</b><br>Después podrás conectarte sin contraseña usando esta clave."},
+    "sd.copykey.content_lbl": {"it": "Contenuto chiave pubblica (authorized_keys):", "en": "Public key content (authorized_keys):", "de": "Inhalt des öffentlichen Schlüssels (authorized_keys):", "fr": "Contenu de la clé publique (authorized_keys) :", "es": "Contenido de la clave pública (authorized_keys):"},
+    "sd.copykey.run":       {"it": "▶  Esegui ssh-copy-id", "en": "▶  Run ssh-copy-id", "de": "▶  ssh-copy-id ausführen", "fr": "▶  Exécuter ssh-copy-id", "es": "▶  Ejecutar ssh-copy-id"},
+    "sd.copykey.manual":    {"it": "📋  Copia testo pubblica", "en": "📋  Copy public key text", "de": "📋  Öffentlichen Schlüsseltext kopieren", "fr": "📋  Copier le texte de la clé publique", "es": "📋  Copiar texto de clave pública"},
+    "sd.copykey.copied":    {"it": "Chiave pubblica copiata negli appunti.\n\nIncollala nel file ~/.ssh/authorized_keys del server remoto.", "en": "Public key copied to clipboard.\n\nPaste it into the ~/.ssh/authorized_keys file on the remote server.", "de": "Öffentlicher Schlüssel in die Zwischenablage kopiert.\n\nEinfügen in die Datei ~/.ssh/authorized_keys auf dem Remote-Server.", "fr": "Clé publique copiée dans le presse-papiers.\n\nCollez-la dans le fichier ~/.ssh/authorized_keys du serveur distant.", "es": "Clave pública copiada al portapapeles.\n\nPégala en el archivo ~/.ssh/authorized_keys del servidor remoto."},
+    "sd.copykey.missing_sshcopyid": {"it": "ssh-copy-id non trovato nel PATH.", "en": "ssh-copy-id not found in PATH.", "de": "ssh-copy-id nicht im PATH gefunden.", "fr": "ssh-copy-id introuvable dans le PATH.", "es": "ssh-copy-id no encontrado en el PATH."},
+    "sd.copykey.no_key":    {"it": "Seleziona o genera prima una chiave privata.", "en": "Select or generate a private key first.", "de": "Zuerst einen privaten Schlüssel auswählen oder generieren.", "fr": "Sélectionnez ou générez d'abord une clé privée.", "es": "Selecciona o genera primero una clave privada."},
+    "sd.copykey.no_pub":    {"it": "Non trovato il file:\n{path}\n\nGenera prima la coppia di chiavi.", "en": "File not found:\n{path}\n\nGenerate the key pair first.", "de": "Datei nicht gefunden:\n{path}\n\nErstelle zuerst das Schlüsselpaar.", "fr": "Fichier introuvable :\n{path}\n\nGénérez d'abord la paire de clés.", "es": "Archivo no encontrado:\n{path}\n\nGenera primero el par de claves."},
+    "sd.copykey.no_host":   {"it": "Inserisci l'indirizzo del server nel campo Host.", "en": "Enter the server address in the Host field.", "de": "Serveradresse im Host-Feld eingeben.", "fr": "Entrez l'adresse du serveur dans le champ Hôte.", "es": "Introduce la dirección del servidor en el campo Host."},
+
+    "sd.showpub.title":     {"it": "Chiave pubblica — {name}", "en": "Public key — {name}", "de": "Öffentlicher Schlüssel — {name}", "fr": "Clé publique — {name}", "es": "Clave pública — {name}"},
+    "sd.showpub.no_key":    {"it": "Seleziona prima una chiave privata.", "en": "Select a private key first.", "de": "Zuerst einen privaten Schlüssel auswählen.", "fr": "Sélectionnez d'abord une clé privée.", "es": "Selecciona primero una clave privada."},
+    "sd.showpub.no_file":   {"it": "File non trovato:\n{path}", "en": "File not found:\n{path}", "de": "Datei nicht gefunden:\n{path}", "fr": "Fichier introuvable :\n{path}", "es": "Archivo no encontrado:\n{path}"},
+    "sd.showpub.read_err":  {"it": "Errore lettura", "en": "Read error", "de": "Lesefehler", "fr": "Erreur de lecture", "es": "Error de lectura"},
+
+    "sd.browse_key":        {"it": "Seleziona chiave privata", "en": "Select private key", "de": "Privaten Schlüssel auswählen", "fr": "Sélectionner une clé privée", "es": "Seleccionar clave privada"},
+    "sd.browse_log":        {"it": "Cartella log", "en": "Log folder", "de": "Log-Ordner", "fr": "Dossier de logs", "es": "Carpeta de logs"},
+
+    # ── Placeholder password per protocollo ────────────────────────────────────
+    "sd.pwd_ph.ssh":        {"it": "lascia vuoto per chiave privata o prompt interattivo", "en": "leave empty for private key or interactive prompt", "de": "leer für privaten Schlüssel oder interaktive Eingabe", "fr": "laisser vide pour clé privée ou invite interactive", "es": "dejar vacío para clave privada o prompt interactivo"},
+    "sd.pwd_ph.ftp":        {"it": "password FTP (lascia vuoto per anonymous)", "en": "FTP password (leave empty for anonymous)", "de": "FTP-Passwort (leer für anonym)", "fr": "mot de passe FTP (vide pour anonyme)", "es": "contraseña FTP (dejar vacío para anónimo)"},
+    "sd.pwd_ph.telnet":     {"it": "lascia vuoto per prompt interattivo", "en": "leave empty for interactive prompt", "de": "leer für interaktive Eingabe", "fr": "laisser vide pour invite interactive", "es": "dejar vacío para prompt interactivo"},
+    "sd.pwd_ph.rdp":        {"it": "password Windows", "en": "Windows password", "de": "Windows-Passwort", "fr": "mot de passe Windows", "es": "contraseña Windows"},
+    "sd.pwd_ph.vnc":        {"it": "password VNC", "en": "VNC password", "de": "VNC-Passwort", "fr": "mot de passe VNC", "es": "contraseña VNC"},
+    "sd.pwd_ph.tunnel":     {"it": "lascia vuoto per chiave privata", "en": "leave empty for private key", "de": "leer für privaten Schlüssel", "fr": "laisser vide pour clé privée", "es": "dejar vacío para clave privada"},
+    "sd.pwd_ph.default":    {"it": "password", "en": "password", "de": "Passwort", "fr": "mot de passe", "es": "contraseña"},
+    # ---- Cifratura credenziali ----
+    'menu.tools.crypto': {"it": 'Imposta password globale...', "en": 'Set global password...', "de": 'Globales Passwort festlegen...', "fr": 'Definir le mot de passe global...', "es": 'Establecer contrasena global...'},
+    'crypto.first_run.title': {"it": 'Primo avvio - Protezione credenziali', "en": 'First run - Credential protection', "de": 'Erster Start - Anmeldedatenschutz', "fr": 'Premier demarrage - Protection des identifiants', "es": 'Primer inicio - Proteccion de credenciales'},
+    'crypto.first_run.heading': {"it": 'Vuoi proteggere le tue credenziali?', "en": 'Do you want to protect your credentials?', "de": 'Moechtest du deine Anmeldedaten schuetzen?', "fr": 'Voulez-vous proteger vos identifiants ?', "es": 'Deseas proteger tus credenciales?'},
+    'crypto.first_run.description': {"it": 'PCM puo cifrare utenti e password in connections.json con AES-256. Ad ogni avvio viene chiesta la password master per sbloccare.\n\nSenza cifratura le credenziali restano in chiaro nel JSON.', "en": 'PCM can encrypt saved credentials in connections.json using AES-256. At startup the master password will be requested.\n\nWithout encryption, credentials remain in plain text.', "de": 'PCM kann Anmeldedaten in connections.json mit AES-256 verschluesseln. Beim Start wird das Masterpasswort abgefragt.\n\nOhne Verschluesselung bleiben Daten im Klartext.', "fr": 'PCM peut chiffrer les identifiants dans connections.json avec AES-256. Au demarrage le mot de passe maitre sera demande.\n\nSans chiffrement, les identifiants restent en clair.', "es": 'PCM puede cifrar credenciales en connections.json con AES-256. Al inicio se pedira la contrasena maestra.\n\nSin cifrado quedan en texto plano.'},
+    'crypto.first_run.enable_checkbox': {"it": 'Si, voglio cifrare le credenziali', "en": 'Yes, I want to encrypt credentials', "de": 'Ja, ich moechte Anmeldedaten verschluesseln', "fr": 'Oui, je veux chiffrer les identifiants', "es": 'Si, quiero cifrar las credenciales'},
+    'crypto.first_run.btn_skip': {"it": 'No, lascia in chiaro', "en": 'No, keep plain text', "de": 'Nein, Klartext behalten', "fr": 'Non, garder en clair', "es": 'No, mantener en texto plano'},
+    'crypto.first_run.btn_ok': {"it": 'Abilita cifratura', "en": 'Enable encryption', "de": 'Verschluesselung aktivieren', "fr": 'Activer le chiffrement', "es": 'Activar cifrado'},
+    'crypto.unlock.title': {"it": 'PCM - Sblocco credenziali', "en": 'PCM - Unlock credentials', "de": 'PCM - Anmeldedaten entsperren', "fr": 'PCM - Deverrouillage des identifiants', "es": 'PCM - Desbloqueo de credenciales'},
+    'crypto.unlock.prompt': {"it": 'Inserisci la password master per sbloccare le credenziali salvate.', "en": 'Enter the master password to unlock saved credentials.', "de": 'Gib das Masterpasswort ein, um gespeicherte Anmeldedaten zu entsperren.', "fr": 'Entrez le mot de passe maitre pour deverrouiller les identifiants.', "es": 'Introduce la contrasena maestra para desbloquear las credenciales.'},
+    'crypto.unlock.btn_ok': {"it": 'Sblocca', "en": 'Unlock', "de": 'Entsperren', "fr": 'Deverrouiller', "es": 'Desbloquear'},
+    'crypto.unlock.btn_exit': {"it": 'Esci', "en": 'Exit', "de": 'Beenden', "fr": 'Quitter', "es": 'Salir'},
+    'crypto.unlock.wrong_password': {"it": 'Password errata. Tentativi rimanenti: {n}', "en": 'Wrong password. Remaining attempts: {n}', "de": 'Falsches Passwort. Verbleibende Versuche: {n}', "fr": 'Mot de passe incorrect. Tentatives restantes : {n}', "es": 'Contrasena incorrecta. Intentos restantes: {n}'},
+    'crypto.unlock.too_many_attempts': {"it": 'Troppi tentativi falliti. Riavvia PCM.', "en": 'Too many failed attempts. Restart PCM.', "de": 'Zu viele fehlgeschlagene Versuche. Starte PCM neu.', "fr": 'Trop de tentatives echouees. Redemarrez PCM.', "es": 'Demasiados intentos fallidos. Reinicia PCM.'},
+    'crypto.password_label': {"it": 'Password master:', "en": 'Master password:', "de": 'Masterpasswort:', "fr": 'Mot de passe maitre :', "es": 'Contrasena maestra:'},
+    'crypto.password_ph': {"it": 'minimo 6 caratteri', "en": 'minimum 6 characters', "de": 'mindestens 6 Zeichen', "fr": 'minimum 6 caracteres', "es": 'minimo 6 caracteres'},
+    'crypto.password_confirm_label': {"it": 'Conferma password:', "en": 'Confirm password:', "de": 'Passwort bestaetigen:', "fr": 'Confirmer le mot de passe :', "es": 'Confirmar contrasena:'},
+    'crypto.password_confirm_ph': {"it": 'ripeti la password', "en": 'repeat the password', "de": 'Passwort wiederholen', "fr": 'repetez le mot de passe', "es": 'repite la contrasena'},
+    'crypto.err_too_short': {"it": 'La password deve essere di almeno 6 caratteri.', "en": 'Password must be at least 6 characters.', "de": 'Das Passwort muss mindestens 6 Zeichen haben.', "fr": 'Le mot de passe doit comporter au moins 6 caracteres.', "es": 'La contrasena debe tener al menos 6 caracteres.'},
+    'crypto.err_mismatch': {"it": 'Le password non corrispondono.', "en": 'Passwords do not match.', "de": 'Passwoerter stimmen nicht ueberein.', "fr": 'Les mots de passe ne correspondent pas.', "es": 'Las contraenas no coinciden.'},
+    'crypto.err_wrong_old': {"it": 'Password attuale errata.', "en": 'Current password is incorrect.', "de": 'Aktuelles Passwort falsch.', "fr": 'Mot de passe actuel incorrect.', "es": 'Contrasena actual incorrecta.'},
+    'crypto.manage.title': {"it": 'Gestione password globale', "en": 'Global password management', "de": 'Globale Passwortverwaltung', "fr": 'Gestion du mot de passe global', "es": 'Gestion de contrasena global'},
+    'crypto.manage.status_label': {"it": 'Stato cifratura', "en": 'Encryption status', "de": 'Verschluesselungsstatus', "fr": 'Etat du chiffrement', "es": 'Estado del cifrado'},
+    'crypto.manage.status_on': {"it": 'Attiva', "en": 'Active', "de": 'Aktiv', "fr": 'Active', "es": 'Activa'},
+    'crypto.manage.status_off': {"it": 'Non attiva', "en": 'Inactive', "de": 'Inaktiv', "fr": 'Inactive', "es": 'Inactiva'},
+    'crypto.manage.tab_enable': {"it": 'Abilita cifratura', "en": 'Enable encryption', "de": 'Verschluesselung aktivieren', "fr": 'Activer le chiffrement', "es": 'Activar cifrado'},
+    'crypto.manage.tab_change': {"it": 'Cambia password', "en": 'Change password', "de": 'Passwort aendern', "fr": 'Changer le mot de passe', "es": 'Cambiar contrasena'},
+    'crypto.manage.tab_disable': {"it": 'Disabilita cifratura', "en": 'Disable encryption', "de": 'Verschluesselung deaktivieren', "fr": 'Desactiver le chiffrement', "es": 'Desactivar cifrado'},
+    'crypto.manage.old_password': {"it": 'Password attuale:', "en": 'Current password:', "de": 'Aktuelles Passwort:', "fr": 'Mot de passe actuel :', "es": 'Contrasena actual:'},
+    'crypto.manage.change_hint': {"it": 'Tutti i profili verranno ricifrati con la nuova password.', "en": 'All profiles will be re-encrypted with the new password.', "de": 'Alle Profile werden mit dem neuen Passwort neu verschluesselt.', "fr": 'Tous les profils seront rechiffres avec le nouveau mot de passe.', "es": 'Todos los perfiles se recifran con la nueva contrasena.'},
+    'crypto.manage.disable_warning': {"it": 'Attenzione: le credenziali verranno salvate in chiaro nel file JSON.', "en": 'Warning: credentials will be saved in plain text in the JSON file.', "de": 'Achtung: Anmeldedaten werden im Klartext in der JSON-Datei gespeichert.', "fr": 'Attention : les identifiants seront enregistres en clair dans le JSON.', "es": 'Atencion: las credenciales se guardaran en texto plano en el JSON.'},
+    'crypto.manage.btn_enable': {"it": 'Abilita e cifra', "en": 'Enable and encrypt', "de": 'Aktivieren und verschluesseln', "fr": 'Activer et chiffrer', "es": 'Activar y cifrar'},
+    'crypto.manage.btn_change': {"it": 'Cambia password', "en": 'Change password', "de": 'Passwort aendern', "fr": 'Changer le mot de passe', "es": 'Cambiar contrasena'},
+    'crypto.manage.btn_disable': {"it": 'Disabilita e decifra', "en": 'Disable and decrypt', "de": 'Deaktivieren und entschluesseln', "fr": 'Desactiver et dechiffrer', "es": 'Desactivar y descifrar'},
+    'crypto.manage.success_enable': {"it": 'Cifratura abilitata. Credenziali protette.', "en": 'Encryption enabled. Credentials protected.', "de": 'Verschluesselung aktiviert. Anmeldedaten geschuetzt.', "fr": 'Chiffrement active. Identifiants proteges.', "es": 'Cifrado activado. Credenciales protegidas.'},
+    'crypto.manage.success_change': {"it": 'Password cambiata. Profili ricifrati.', "en": 'Password changed. Profiles re-encrypted.', "de": 'Passwort geaendert. Profile neu verschluesselt.', "fr": 'Mot de passe change. Profils rechiffres.', "es": 'Contrasena cambiada. Perfiles recifrados.'},
+    'crypto.manage.success_disable': {"it": 'Cifratura disabilitata. Credenziali salvate in chiaro.', "en": 'Encryption disabled. Credentials saved in plain text.', "de": 'Verschluesselung deaktiviert. Anmeldedaten im Klartext.', "fr": 'Chiffrement desactive. Identifiants enregistres en clair.', "es": 'Cifrado desactivado. Credenciales en texto plano.'},
+
+    "rdp.embed.waiting":       {"it": "Connessione RDP in corso...", "en": "Connecting RDP...", "de": "RDP-Verbindung wird aufgebaut...", "fr": "Connexion RDP en cours...", "es": "Conectando RDP..."},
+    "rdp.embed.client_missing": {"it": "Client RDP '{client}' non trovato nel PATH.", "en": "RDP client '{client}' not found in PATH.", "de": "RDP-Client '{client}' nicht im PATH gefunden.", "fr": "Client RDP '{client}' introuvable dans le PATH.", "es": "Cliente RDP '{client}' no encontrado en el PATH."},
+    "rdp.embed.reparent_failed": {"it": "Impossibile agganciare la finestra RDP al pannello. Controlla che xdotool sia installato.", "en": "Could not attach RDP window to panel. Check that xdotool is installed.", "de": "RDP-Fenster konnte nicht am Panel befestigt werden. Pruefen ob xdotool installiert ist.", "fr": "Impossible d'attacher la fenetre RDP au panneau. Verifiez que xdotool est installe.", "es": "No se pudo adjuntar la ventana RDP al panel. Comprueba que xdotool este instalado."},
+    "rdp.embed.wayland_no_xwayland": {"it": "Wayland rilevato senza XWayland (DISPLAY non impostato). Usa Finestra esterna per RDP.", "en": "Wayland detected without XWayland (DISPLAY not set). Use External window for RDP.", "de": "Wayland ohne XWayland erkannt (DISPLAY nicht gesetzt). Verwende Externes Fenster.", "fr": "Wayland detecte sans XWayland (DISPLAY non defini). Utilisez Fenetre externe.", "es": "Wayland detectado sin XWayland (DISPLAY no definido). Usa Ventana externa."},
+    "rdp.embed.wid_error": {"it": "Impossibile ottenere il WID X11 del container. Usa Finestra esterna.", "en": "Cannot obtain X11 WID for container. Use External window.", "de": "X11-WID des Containers nicht ermittelbar. Verwende Externes Fenster.", "fr": "Impossible d'obtenir le WID X11 du conteneur. Utilisez Fenetre externe.", "es": "No se puede obtener el WID X11 del contenedor. Usa Ventana externa."},
+    "sd.grp.rdp_open":  {"it": "Modalita apertura RDP", "en": "RDP open mode", "de": "RDP-Oeffnungsmodus", "fr": "Mode ouverture RDP", "es": "Modo apertura RDP"},
+    "sd.rdp.open_mode": {"it": "Modalita:", "en": "Mode:", "de": "Modus:", "fr": "Mode :", "es": "Modo:"},
+    "sd.rdp.open_ext":  {"it": "Finestra esterna", "en": "External window", "de": "Externes Fenster", "fr": "Fenetre externe", "es": "Ventana externa"},
+    "sd.rdp.open_int":  {"it": "Pannello interno", "en": "Internal panel", "de": "Internes Panel", "fr": "Panneau interne", "es": "Panel interno"},
+    "sd.rdp.domain":    {"it": "Dominio:", "en": "Domain:", "de": "Domaene:", "fr": "Domaine :", "es": "Dominio:"},
+    "sd.rdp.domain_ph": {"it": "es. MAGGIOLI", "en": "e.g. CORP", "de": "z.B. FIRMA", "fr": "ex. SOCIETE", "es": "ej. EMPRESA"},
+    "rdp.embed.rdesktop_no_embed": {"it": "rdesktop non supporta il pannello interno. Cambia client in xfreerdp o xfreerdp3.", "en": "rdesktop does not support embedded panel. Switch client to xfreerdp or xfreerdp3.", "de": "rdesktop unterstuetzt kein eingebettetes Panel. Wechsle zu xfreerdp oder xfreerdp3.", "fr": "rdesktop ne supporte pas le panneau integre. Changez de client vers xfreerdp.", "es": "rdesktop no soporta panel interno. Cambia el cliente a xfreerdp o xfreerdp3."},
+    "sd.rdp.embed_v2_warn": {"it": "Il pannello interno richiede xfreerdp3 (FreeRDP 3.x). Con xfreerdp v2 usa la finestra esterna.", "en": "Internal panel requires xfreerdp3 (FreeRDP 3.x). With xfreerdp v2 use external window.", "de": "Internes Panel erfordert xfreerdp3 (FreeRDP 3.x). Mit xfreerdp v2 externes Fenster verwenden.", "fr": "Le panneau interne necessite xfreerdp3 (FreeRDP 3.x). Avec xfreerdp v2 utilisez la fenetre externe.", "es": "El panel interno requiere xfreerdp3 (FreeRDP 3.x). Con xfreerdp v2 usa la ventana externa."},
+    "sd.rdp.embed_rdesktop_warn": {"it": "rdesktop non supporta il pannello interno. Usa xfreerdp3.", "en": "rdesktop does not support internal panel. Use xfreerdp3.", "de": "rdesktop unterstuetzt kein internes Panel. Verwende xfreerdp3.", "fr": "rdesktop ne supporte pas le panneau interne. Utilisez xfreerdp3.", "es": "rdesktop no soporta el panel interno. Usa xfreerdp3."},
+    "sd.rdp.auth":          {"it": "Autenticazione:", "en": "Authentication:", "de": "Authentifizierung:", "fr": "Authentification :", "es": "Autenticacion:"},
+    "sd.rdp.auth_ntlm":     {"it": "NTLM (veloce, senza Kerberos)", "en": "NTLM (fast, no Kerberos)", "de": "NTLM (schnell, kein Kerberos)", "fr": "NTLM (rapide, sans Kerberos)", "es": "NTLM (rapido, sin Kerberos)"},
+    "sd.rdp.auth_kerberos": {"it": "Kerberos + NTLM (standard Active Directory)", "en": "Kerberos + NTLM (standard Active Directory)", "de": "Kerberos + NTLM (Standard Active Directory)", "fr": "Kerberos + NTLM (Active Directory standard)", "es": "Kerberos + NTLM (Active Directory estandar)"},
+    "sd.rdp.auth_tooltip":  {"it": "NTLM: connessione rapida se il server Kerberos (KDC) non e' raggiungibile dalla rete Linux. Kerberos+NTLM: usa l'autenticazione standard AD, puo' impiegare 60+ secondi se il KDC non risponde.", "en": "NTLM: fast connection when the Kerberos server (KDC) is not reachable from Linux. Kerberos+NTLM: uses standard AD authentication, may take 60+ seconds if KDC does not respond.", "de": "NTLM: Schnelle Verbindung wenn Kerberos-Server (KDC) von Linux nicht erreichbar. Kerberos+NTLM: Nutzt Standard-AD-Authentifizierung, kann 60+ Sekunden dauern.", "fr": "NTLM: connexion rapide si le serveur Kerberos (KDC) n'est pas accessible depuis Linux. Kerberos+NTLM: utilise l'authentification AD standard, peut prendre 60+ secondes.", "es": "NTLM: conexion rapida si el servidor Kerberos (KDC) no es accesible desde Linux. Kerberos+NTLM: usa autenticacion AD estandar, puede tardar 60+ segundos."},
+    "rdp.embed.failed_suggest": {"it": "{client} non si e' connesso. Prova a cambiare client in '{alt}' nelle impostazioni della sessione.", "en": "{client} failed to connect. Try switching client to '{alt}' in session settings.", "de": "{client} konnte keine Verbindung herstellen. Versuche den Client in den Sitzungseinstellungen auf '{alt}' zu wechseln.", "fr": "{client} n'a pas pu se connecter. Essayez de changer le client en '{alt}' dans les parametres de session.", "es": "{client} no pudo conectarse. Prueba a cambiar el cliente a '{alt}' en la configuracion de sesion."},
+    "rdp.embed.failed_noalt": {"it": "{client} non si e' connesso. Verifica credenziali, host e porta.", "en": "{client} failed to connect. Check credentials, host and port.", "de": "{client} konnte keine Verbindung herstellen. Anmeldedaten, Host und Port pruefen.", "fr": "{client} n'a pas pu se connecter. Verifiez les identifiants, l'hote et le port.", "es": "{client} no pudo conectarse. Verifica credenciales, host y puerto."},
+}
