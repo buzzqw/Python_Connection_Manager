@@ -79,7 +79,7 @@ class SessionPanel(Gtk.Box):
         header.set_margin_top(6)
         header.set_margin_bottom(4)
 
-        lbl = Gtk.Label(label=t("sp.title"))
+        lbl = Gtk.Label(label=t("sidebar.sessions"))
         lbl.get_style_context().add_class("section-header")
         lbl.set_hexpand(True)
         lbl.set_xalign(0.0)
@@ -87,7 +87,7 @@ class SessionPanel(Gtk.Box):
 
         btn_new = Gtk.Button()
         btn_new.set_relief(Gtk.ReliefStyle.NONE)
-        btn_new.set_tooltip_text(t("tb.new_session"))
+        btn_new.set_tooltip_text(t("sidebar.new_session_tooltip"))
         icon_new = Gtk.Image.new_from_icon_name("list-add-symbolic", Gtk.IconSize.SMALL_TOOLBAR)
         btn_new.add(icon_new)
         btn_new.connect("clicked", lambda b: self.emit("nuova"))
@@ -97,7 +97,7 @@ class SessionPanel(Gtk.Box):
 
         # Barra ricerca
         self._search = Gtk.SearchEntry()
-        self._search.set_placeholder_text(t("sp.search_ph"))
+        self._search.set_placeholder_text(t("sidebar.search_placeholder"))
         self._search.set_margin_start(6)
         self._search.set_margin_end(6)
         self._search.set_margin_bottom(4)
@@ -155,7 +155,7 @@ class SessionPanel(Gtk.Box):
                 user = dati.get("user", "")
                 if filtro not in host.lower() and filtro not in user.lower():
                     continue
-            gruppo = dati.get("group", "") or t("sp.ungrouped")
+            gruppo = dati.get("group", "") or t("sidebar.no_group")
             gruppi.setdefault(gruppo, []).append(nome)
 
         folder_pb = _load_pixbuf("folder.png", 16)
@@ -234,12 +234,12 @@ class SessionPanel(Gtk.Box):
             mi.connect("activate", lambda _: callback())
             menu.append(mi)
 
-        _item(t("sp.connect"),   lambda: self.emit("connetti", nome, dati))
+        _item(t("panel.connect"),   lambda: self.emit("connetti", nome, dati))
         menu.append(Gtk.SeparatorMenuItem())
-        _item(t("sp.edit"),      lambda: self.emit("modifica", nome, dati))
-        _item(t("sp.duplicate"), lambda: self.emit("duplica", nome))
+        _item(t("panel.edit"),      lambda: self.emit("modifica", nome, dati))
+        _item(t("panel.duplicate"), lambda: self.emit("duplica", nome))
         menu.append(Gtk.SeparatorMenuItem())
-        _item(t("sp.delete"),    lambda: self._conferma_elimina(nome))
+        _item(t("panel.delete"),    lambda: self._conferma_elimina(nome))
 
         menu.show_all()
         menu.popup_at_pointer(event)
@@ -250,7 +250,7 @@ class SessionPanel(Gtk.Box):
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text=t("sp.delete_confirm", name=nome)
+            text=t("panel.delete_confirm", name=nome)
         )
         resp = dlg.run()
         dlg.destroy()

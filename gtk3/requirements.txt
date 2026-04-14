@@ -1,0 +1,15 @@
+# PCM — Python Connection Manager (GTK3)
+# Dipendenze Python installabili via pip
+# Le dipendenze di sistema (GTK3, VTE, ecc.) vengono gestite da setup.sh
+
+# Cifratura credenziali
+cryptography>=41.0
+
+# Connessioni SSH/SFTP
+paramiko>=3.0
+
+# Server FTP locale
+pyftpdlib>=1.5
+
+# Tutte le dipendenze GObject/GTK vengono dai pacchetti di sistema,
+# non da pip: PyGObject viene installato via apt/pacman/dnf/zypper.

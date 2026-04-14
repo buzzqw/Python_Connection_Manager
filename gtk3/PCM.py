@@ -84,7 +84,7 @@ class WelcomeWidget(Gtk.Box):
 
     def _build(self):
         # Titolo
-        title = Gtk.Label(label=t("welcome.title"))
+        title = Gtk.Label(label=t("app.title"))
         title.get_style_context().add_class("section-header")
         self.pack_start(title, False, False, 0)
 
@@ -92,12 +92,12 @@ class WelcomeWidget(Gtk.Box):
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         btn_box.set_halign(Gtk.Align.CENTER)
 
-        btn_new = Gtk.Button(label=t("welcome.new_session"))
+        btn_new = Gtk.Button(label=t("welcome.btn_new_session"))
         btn_new.get_style_context().add_class("connect-button")
         btn_new.set_size_request(160, 48)
         btn_new.connect("clicked", lambda b: self.emit("nuova-sessione"))
 
-        btn_term = Gtk.Button(label=t("welcome.local_term"))
+        btn_term = Gtk.Button(label=t("welcome.btn_local_terminal"))
         btn_term.set_size_request(160, 48)
         btn_term.connect("clicked", lambda b: self.emit("terminale-locale"))
 
@@ -183,7 +183,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     modal=True,
                     message_type=Gtk.MessageType.WARNING,
                     buttons=Gtk.ButtonsType.OK,
-                    text="⚠ Connessioni cifrate — salt mancante",
+                    text=t("crypto.unlock.title"),
                     secondary_text=(
                         "Il file connections.json contiene credenziali cifrate (ENC:…)\n"
                         "ma il file pcm_settings.json non contiene il salt di cifratura.\n\n"
@@ -222,7 +222,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     modal=True,
                     message_type=Gtk.MessageType.ERROR,
                     buttons=Gtk.ButtonsType.OK,
-                    text="Password master errata.\nLe credenziali resteranno cifrate."
+                    text=t("crypto.unlock.wrong_master")
                 )
                 err.run()
                 err.destroy()
@@ -271,7 +271,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Pulsante Chiudi sessione — sempre visibile, agisce sulla tab corrente
         self._btn_chiudi_sessione = Gtk.Button(label="✕  Chiudi sessione")
         self._btn_chiudi_sessione.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_chiudi_sessione.set_tooltip_text("Chiudi la sessione attiva")
+        self._btn_chiudi_sessione.set_tooltip_text(t("tab.close_session_tooltip"))
         self._btn_chiudi_sessione.get_style_context().add_class("bottom-close-btn")
         self._btn_chiudi_sessione.connect("clicked", lambda b: self._chiudi_tab_corrente())
         self._btn_chiudi_sessione.set_sensitive(False)  # disabilitato sulla Home
@@ -290,35 +290,35 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # Pulsante nuova sessione
         btn_new = Gtk.Button()
-        btn_new.set_tooltip_text(t("tb.new_session"))
+        btn_new.set_tooltip_text(t("toolbar.session.tooltip"))
         btn_new.add(Gtk.Image.new_from_icon_name("list-add-symbolic", Gtk.IconSize.BUTTON))
         btn_new.connect("clicked", lambda b: self._on_nuova_sessione())
         hb.pack_start(btn_new)
 
         # Pulsante terminale locale
         btn_term = Gtk.Button()
-        btn_term.set_tooltip_text(t("tb.new_terminal"))
+        btn_term.set_tooltip_text(t("toolbar.local.tooltip"))
         btn_term.add(Gtk.Image.new_from_icon_name("utilities-terminal-symbolic", Gtk.IconSize.BUTTON))
         btn_term.connect("clicked", lambda b: self._on_terminale_locale())
         hb.pack_start(btn_term)
 
         # Pulsante tunnel
         btn_tun = Gtk.Button()
-        btn_tun.set_tooltip_text(t("tb.tunnels"))
+        btn_tun.set_tooltip_text(t("toolbar.tunnel.tooltip"))
         btn_tun.add(Gtk.Image.new_from_icon_name("network-wired-symbolic", Gtk.IconSize.BUTTON))
         btn_tun.connect("clicked", lambda b: self._on_tunnel_manager())
         hb.pack_start(btn_tun)
 
         # Menu kebab (⋮) sul lato destro
-        menu_btn = Gtk.MenuButton()
-        menu_btn.set_direction(Gtk.ArrowType.DOWN)
-        menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
-        menu_btn.set_popup(self._build_menu())
-        hb.pack_end(menu_btn)
+        self._menu_btn = Gtk.MenuButton()
+        self._menu_btn.set_direction(Gtk.ArrowType.DOWN)
+        self._menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
+        self._menu_btn.set_popup(self._build_menu())
+        hb.pack_end(self._menu_btn)
 
         # Impostazioni
         btn_set = Gtk.Button()
-        btn_set.set_tooltip_text(t("tb.settings"))
+        btn_set.set_tooltip_text(t("toolbar.settings.tooltip"))
         btn_set.add(Gtk.Image.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON))
         btn_set.connect("clicked", lambda b: self._on_impostazioni())
         hb.pack_end(btn_set)
@@ -331,10 +331,20 @@ class MainWindow(Gtk.ApplicationWindow):
             mi.connect("activate", lambda _: callback())
             menu.append(mi)
 
-        _item(t("menu.import_sessions"), self._on_importa_sessioni)
-        _item(t("menu.ftp_server"),      self._on_ftp_server)
+        _item(t("menu.file.settings"),     self._on_impostazioni)
         menu.append(Gtk.SeparatorMenuItem())
-        _item(t("menu.exit"),            self._on_esci)
+        _item(t("menu.tools.tunnels"),     self._on_tunnel_manager)
+        _item(t("menu.tools.variables"),   self._on_variabili_globali)
+        _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
+        _item(t("menu.tools.import_from"), self._on_importa_sessioni)
+        menu.append(Gtk.SeparatorMenuItem())
+        _item(t("menu.tools.crypto"),      self._on_gestione_crypto)
+        _item(t("menu.tools.check_deps"),  self._on_check_deps)
+        menu.append(Gtk.SeparatorMenuItem())
+        _item(t("menu.help.guide"),        self._on_guida)
+        _item(t("menu.help.about"),        self._on_about)
+        menu.append(Gtk.SeparatorMenuItem())
+        _item(t("menu.file.quit"),         self._on_esci)
 
         menu.show_all()
         return menu
@@ -622,6 +632,10 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
         if resp == Gtk.ResponseType.OK:
             self._settings = config_manager.load_settings()
+            # Ricarica la lingua e ricostruisce il menu kebab
+            _tr.init_from_settings()
+            if hasattr(self, "_menu_btn") and self._menu_btn is not None:
+                self._menu_btn.set_popup(self._build_menu())
 
     def _on_importa_sessioni(self):
         """Dialog di importazione sessioni da Remmina / RDM."""
@@ -705,6 +719,90 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.run()
         dlg.destroy()
 
+    def _on_variabili_globali(self):
+        """Dialog variabili globali (variabili {VAR} usabili nei comandi)."""
+        from variables_dialog import VariablesDialog
+        dlg = VariablesDialog(parent=self)
+        dlg.run()
+        dlg.destroy()
+
+    def _on_gestione_crypto(self):
+        """Dialog gestione password master / cifratura credenziali."""
+        from crypto_manager import CryptoManagerDialog
+        dlg = CryptoManagerDialog(parent=self)
+        dlg.run()
+        dlg.destroy()
+
+    def _on_check_deps(self):
+        """Mostra un dialog con lo stato delle dipendenze di sistema."""
+        import shutil
+        tools = {
+            "ssh":        "SSH client",
+            "scp":        "SCP",
+            "sftp":       "SFTP client",
+            "telnet":     "Telnet",
+            "ftp":        "FTP client",
+            "xfreerdp3":  "FreeRDP 3.x (RDP)",
+            "xfreerdp":   "FreeRDP 2.x (RDP)",
+            "rdesktop":   "rdesktop (RDP)",
+            "vncviewer":  "VNC viewer",
+            "tigervnc":   "TigerVNC",
+            "mosh":       "Mosh",
+            "minicom":    "Minicom (seriale)",
+            "xdotool":    "xdotool",
+            "wol":        "Wake-on-LAN",
+        }
+        lines = []
+        for cmd, desc in tools.items():
+            found = shutil.which(cmd) is not None
+            icon = "✓" if found else "✗"
+            lines.append(f"{icon}  {desc}  ({cmd})")
+
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.CLOSE,
+            text=t("deps.title"),
+        )
+        dlg.format_secondary_text("\n".join(lines) + t("deps.install_hint"))
+        dlg.run()
+        dlg.destroy()
+
+    def _on_guida(self):
+        """Apre la guida HTML in una tab del notebook."""
+        import os
+        here = os.path.dirname(os.path.abspath(__file__))
+        html_path = os.path.join(here, "pcm_help.html")
+        if not os.path.exists(html_path):
+            dlg = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.CLOSE,
+                text=t("guide.file_missing"),
+            )
+            dlg.run()
+            dlg.destroy()
+            return
+        import subprocess
+        subprocess.Popen(["xdg-open", html_path])
+
+    def _on_about(self):
+        """Dialog Informazioni su PCM."""
+        dlg = Gtk.AboutDialog()
+        dlg.set_transient_for(self)
+        dlg.set_modal(True)
+        dlg.set_program_name("PCM")
+        dlg.set_version("2.0 (GTK3)")
+        dlg.set_comments("Python Connection Manager\nGestore connessioni remote multi-protocollo")
+        dlg.set_authors(["Andres Zanzani <azanzani@gmail.com>"])
+        dlg.set_license_type(Gtk.License.AGPL_3_0)
+        dlg.set_website("https://github.com/buzzqw/Python_Connection_Manager")
+        dlg.set_website_label("GitHub")
+        dlg.run()
+        dlg.destroy()
+
     def _on_esci(self):
         self.get_application().quit()
 
@@ -723,9 +821,9 @@ class MainWindow(Gtk.ApplicationWindow):
                     modal=True,
                     message_type=Gtk.MessageType.QUESTION,
                     buttons=Gtk.ButtonsType.YES_NO,
-                    text=t("app.exit_confirm"),
+                    text=t("close.title"),
                 )
-                dlg.format_secondary_text(t("app.exit_msg"))
+                dlg.format_secondary_text(t("close.confirm_msg"))
                 resp = dlg.run()
                 dlg.destroy()
                 if resp != Gtk.ResponseType.YES:
@@ -826,7 +924,7 @@ class _CryptoUnlockDialog(Gtk.Dialog):
 
     def __init__(self, parent=None):
         super().__init__(
-            title="Sblocco credenziali cifrate",
+            title=t("crypto.unlock.title"),
             transient_for=parent,
             modal=True,
             destroy_with_parent=True
@@ -845,20 +943,20 @@ class _CryptoUnlockDialog(Gtk.Dialog):
         area.set_margin_bottom(8)
 
         lbl = Gtk.Label()
-        lbl.set_markup("<b>🔒 Connessioni cifrate</b>\n"
-                       "<small>Inserisci la password master per sbloccare le credenziali.</small>")
+        lbl.set_markup(f"<b>🔒 {t('crypto.unlock.title')}</b>\n"
+                       f"<small>{t('crypto.unlock.prompt')}</small>")
         lbl.set_xalign(0.0)
         lbl.set_line_wrap(True)
         area.pack_start(lbl, False, False, 0)
 
         self._entry = Gtk.Entry()
         self._entry.set_visibility(False)
-        self._entry.set_placeholder_text("Password master…")
+        self._entry.set_placeholder_text(t("crypto.password_label"))
         self._entry.connect("activate", lambda e: self.response(Gtk.ResponseType.OK))
         area.pack_start(self._entry, False, False, 0)
 
-        self.add_button("Annulla", Gtk.ResponseType.CANCEL)
-        ok = self.add_button("Sblocca", Gtk.ResponseType.OK)
+        self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        ok = self.add_button(t("crypto.unlock.btn_ok"), Gtk.ResponseType.OK)
         ok.get_style_context().add_class("suggested-action")
 
     def get_password(self) -> str:

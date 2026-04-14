@@ -282,7 +282,7 @@ class SettingsDialog(Gtk.Dialog):
             self.combo_lingua.set_active(self._lang_codes.index(lang_code))
 
         term = self._settings.get("terminal", {})
-        self._set_combo_text(self.combo_tema, term.get("default_theme", "Scuro (Default)"))
+        self._set_combo_text(self.combo_tema, term.get("default_theme", "Dark (Default)"))
         font_child = self.combo_font.get_child()
         if font_child:
             font_child.set_text(term.get("default_font", "Monospace"))
@@ -329,7 +329,7 @@ class SettingsDialog(Gtk.Dialog):
             s["general"]["language"] = lang
             set_lang(lang)
 
-        s["terminal"]["default_theme"]        = self.combo_tema.get_active_text() or "Scuro (Default)"
+        s["terminal"]["default_theme"]        = self.combo_tema.get_active_text() or "Dark (Default)"
         font_child = self.combo_font.get_child()
         s["terminal"]["default_font"]         = font_child.get_text() if font_child else "Monospace"
         s["terminal"]["default_font_size"]    = int(self.spin_font_size.get_value())

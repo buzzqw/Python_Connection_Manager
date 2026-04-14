@@ -93,6 +93,7 @@ class SessionDialog(Gtk.Dialog):
         self._nome_originale = nome
         self._dati_originali = dati or {}
         self._macros: list[dict] = []
+        self._is_new = not bool(nome and dati)  # True = nuova sessione
 
         self.set_default_size(780, 680)
         self._init_ui()
@@ -130,7 +131,7 @@ class SessionDialog(Gtk.Dialog):
             self.combo_proto.append_text(PROTO_LABEL[k])
         self.combo_proto.set_active(0)
         self.combo_proto.set_hexpand(True)
-        self.combo_proto.connect("changed", lambda c: self._aggiorna_proto_fields())
+        self.combo_proto.connect("changed", self._on_proto_changed)
         _form_row(t("sd.protocol"), self.combo_proto, top_grid, 2)
 
         area.pack_start(top_grid, False, False, 0)
@@ -200,27 +201,27 @@ class SessionDialog(Gtk.Dialog):
 
         # Seriale
         self.entry_serial_dev = _entry("/dev/ttyUSB0")
-        self._row_serial_dev = self._conn_row("Dispositivo:", self.entry_serial_dev)
+        self._row_serial_dev = self._conn_row(t("sd.serial.device"), self.entry_serial_dev)
         vbox.pack_start(self._row_serial_dev, False, False, 0)
 
         self.combo_baud = _combo("9600","19200","38400","57600","115200","230400","460800","921600")
-        self.combo_baud.set_tooltip_text("Velocità in bit/sec. 115200 per dispositivi moderni.")
-        self._row_baud = self._conn_row("Baud rate (bps):", self.combo_baud)
+        self.combo_baud.set_tooltip_text(t("sd.serial.baud"))
+        self._row_baud = self._conn_row(t("sd.serial.baud"), self.combo_baud)
         vbox.pack_start(self._row_baud, False, False, 0)
 
         self.combo_data_bits = _combo("8","7","6","5")
-        self.combo_data_bits.set_tooltip_text("Bit per carattere. Quasi sempre 8.")
-        self._row_data_bits = self._conn_row("Bit di dati:", self.combo_data_bits)
+        self.combo_data_bits.set_tooltip_text(t("sd.serial.databits"))
+        self._row_data_bits = self._conn_row(t("sd.serial.databits"), self.combo_data_bits)
         vbox.pack_start(self._row_data_bits, False, False, 0)
 
         self.combo_parity = _combo("None","Even","Odd","Mark","Space")
-        self.combo_parity.set_tooltip_text("Parità. None=nessuno (comune), Even/Odd=pari/dispari.")
-        self._row_parity = self._conn_row("Parità:", self.combo_parity)
+        self.combo_parity.set_tooltip_text(t("sd.serial.parity"))
+        self._row_parity = self._conn_row(t("sd.serial.parity"), self.combo_parity)
         vbox.pack_start(self._row_parity, False, False, 0)
 
         self.combo_stop_bits = _combo("1","1.5","2")
-        self.combo_stop_bits.set_tooltip_text("Stop bit. Quasi sempre 1.")
-        self._row_stop_bits = self._conn_row("Stop bit:", self.combo_stop_bits)
+        self.combo_stop_bits.set_tooltip_text(t("sd.serial.stopbits"))
+        self._row_stop_bits = self._conn_row(t("sd.serial.stopbits"), self.combo_stop_bits)
         vbox.pack_start(self._row_stop_bits, False, False, 0)
 
         sw = Gtk.ScrolledWindow()
@@ -237,20 +238,20 @@ class SessionDialog(Gtk.Dialog):
         row = 0
 
         self.combo_tema = _combo(*TERMINAL_THEMES.keys())
-        _form_row("Tema:", self.combo_tema, grid, row); row += 1
+        _form_row(t("sd.term.theme"), self.combo_tema, grid, row); row += 1
 
         self.combo_font = Gtk.ComboBoxText.new_with_entry()
         for f in ["Monospace","DejaVu Sans Mono","Hack","JetBrains Mono",
                   "Fira Code","Source Code Pro","Inconsolata","Terminus"]:
             self.combo_font.append_text(f)
         self.combo_font.set_hexpand(True)
-        _form_row("Font:", self.combo_font, grid, row); row += 1
+        _form_row(t("sd.term.font"), self.combo_font, grid, row); row += 1
 
         self.spin_font_size = Gtk.SpinButton.new_with_range(6, 32, 1)
         self.spin_font_size.set_value(11)
-        _form_row("Dimensione:", self.spin_font_size, grid, row); row += 1
+        _form_row(t("sd.term.font_size"), self.spin_font_size, grid, row); row += 1
 
-        self.chk_log = _check("Registra output")
+        self.chk_log = _check(t("sd.term.log"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
         log_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -259,23 +260,23 @@ class SessionDialog(Gtk.Dialog):
         btn_log.connect("clicked", lambda b: self._browse_dir(self.entry_log_dir, "Log folder"))
         log_box.pack_start(self.entry_log_dir, True, True, 0)
         log_box.pack_start(btn_log, False, False, 0)
-        _form_row("Cartella log:", log_box, grid, row); row += 1
+        _form_row(t("sd.term.log_dir"), log_box, grid, row); row += 1
 
         # Terminale esterno
         ext_tools = _available_tools(
             ["xterm","gnome-terminal","konsole","xfce4-terminal","alacritty","kitty","foot"],
-            always_include=["Terminale Interno"]
+            always_include=[t("sd.open_int_terminal")]
         )
         self.combo_term_ext = _combo(*ext_tools)
-        _form_row("Terminale:", self.combo_term_ext, grid, row); row += 1
+        _form_row(t("sd.terminal_lbl"), self.combo_term_ext, grid, row); row += 1
 
         # Modalità apertura SSH
-        self.combo_ssh_open = _combo("Terminale interno", "Terminale esterno")
-        _form_row("Apertura SSH:", self.combo_ssh_open, grid, row); row += 1
+        self.combo_ssh_open = _combo(t("sd.rdp.open_int"), t("sd.rdp.open_ext"))
+        _form_row(t("sd.grp.ssh_open"), self.combo_ssh_open, grid, row); row += 1
 
         # Modalità apertura SFTP
-        self.combo_sftp_open = _combo("Browser interno", "Browser esterno (Nautilus/Dolphin)")
-        _form_row("Apertura SFTP:", self.combo_sftp_open, grid, row); row += 1
+        self.combo_sftp_open = _combo(t("sd.open_int"), t("sd.open_ext"))
+        _form_row(t("sd.grp.sftp_open"), self.combo_sftp_open, grid, row); row += 1
 
         return grid
 
@@ -311,11 +312,11 @@ class SessionDialog(Gtk.Dialog):
         # ── SSH / Mosh / Telnet ──────────────────────────────────────
         self._frame_ssh, vbox = self._section_frame("SSH / Mosh / Telnet")
         outer.pack_start(self._frame_ssh, False, False, 0)
-        self.chk_x11         = _check("X11 forwarding")
-        self.chk_compression = _check("Compressione")
-        self.chk_keepalive   = _check("Keepalive")
-        self.chk_strict_host = _check("Strict host check")
-        self.chk_sftp_browser= _check("Browser SFTP laterale")
+        self.chk_x11         = _check(t("sd.ssh.x11"))
+        self.chk_compression = _check(t("sd.ssh.compression"))
+        self.chk_keepalive   = _check(t("sd.ssh.keepalive"))
+        self.chk_strict_host = _check(t("sd.ssh.strict"))
+        self.chk_sftp_browser= _check(t("sd.term.sftp_auto"))
         for chk in [self.chk_x11, self.chk_compression, self.chk_keepalive,
                     self.chk_strict_host, self.chk_sftp_browser]:
             vbox.pack_start(chk, False, False, 0)
@@ -323,10 +324,10 @@ class SessionDialog(Gtk.Dialog):
         self.entry_jump_host   = _entry("jump.example.com")
         self.entry_jump_user   = _entry()
         self.entry_jump_port   = _entry("22")
-        vbox.pack_start(self._adv_row("Startup cmd:", self.entry_startup_cmd), False, False, 0)
-        vbox.pack_start(self._adv_row("Jump host:",   self.entry_jump_host),   False, False, 0)
-        vbox.pack_start(self._adv_row("Jump user:",   self.entry_jump_user),   False, False, 0)
-        vbox.pack_start(self._adv_row("Jump port:",   self.entry_jump_port),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.term.startup_cmd"), self.entry_startup_cmd), False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.jump.host"),   self.entry_jump_host),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.jump.user"),   self.entry_jump_user),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.jump.port"),   self.entry_jump_port),   False, False, 0)
 
         # ── RDP ──────────────────────────────────────────────────────
         self._frame_rdp, vbox = self._section_frame("RDP")
@@ -335,25 +336,22 @@ class SessionDialog(Gtk.Dialog):
         self.combo_rdp_client = _combo(*rdp_clients)
         self.combo_rdp_auth   = _combo("NLA (default)","TLS","RDP classic")
         self.entry_rdp_domain = _entry()
-        self.chk_rdp_fs       = _check("Schermo intero")
-        self.chk_rdp_clip     = _check("Condividi clipboard")
-        self.chk_rdp_drives   = _check("Condividi cartelle")
-        self.combo_rdp_open   = _combo("Finestra esterna","Pannello interno")
-        vbox.pack_start(self._adv_row("Client RDP:",     self.combo_rdp_client), False, False, 0)
-        vbox.pack_start(self._adv_row("Autenticazione:", self.combo_rdp_auth),   False, False, 0)
-        vbox.pack_start(self._adv_row("Dominio:",        self.entry_rdp_domain), False, False, 0)
+        self.chk_rdp_fs       = _check(t("sd.rdp.fullscreen"))
+        self.chk_rdp_clip     = _check(t("sd.rdp.clipboard"))
+        self.chk_rdp_drives   = _check(t("sd.rdp.drives"))
+        self.combo_rdp_open   = _combo(t("sd.rdp.open_ext"), t("sd.rdp.open_int"))
+        vbox.pack_start(self._adv_row(t("sd.rdp.client"),     self.combo_rdp_client), False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.rdp.auth"), self.combo_rdp_auth),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.rdp.domain"),        self.entry_rdp_domain), False, False, 0)
         for chk in [self.chk_rdp_fs, self.chk_rdp_clip, self.chk_rdp_drives]:
             vbox.pack_start(chk, False, False, 0)
-        vbox.pack_start(self._adv_row("Apertura RDP:", self.combo_rdp_open), False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.grp.rdp_open"), self.combo_rdp_open), False, False, 0)
 
         # ── VNC ──────────────────────────────────────────────────────
         self._frame_vnc, vbox = self._section_frame("VNC")
         outer.pack_start(self._frame_vnc, False, False, 0)
-        self.combo_vnc_mode = _combo("Client esterno", "noVNC integrato (WebKit)")
-        self.combo_vnc_mode.set_tooltip_text(
-            "Client esterno: vncviewer/tigervnc/remmina/krdc installato.\n"
-            "noVNC integrato: viewer HTML5 via WebKit2 (richiede novnc)."
-        )
+        self.combo_vnc_mode = _combo(t("sd.vnc.ext"), t("sd.vnc.novnc"))
+        self.combo_vnc_mode.set_tooltip_text(t("sd.vnc.integrated"))
         vnc_clients = _available_tools(
             ["vncviewer","tigervnc","realvnc-viewer","remmina","krdc","xvnc4viewer"],
             always_include=[]
@@ -362,12 +360,12 @@ class SessionDialog(Gtk.Dialog):
         self.combo_vnc_client.set_tooltip_text(
             "Client VNC trovati nel PATH. Puoi digitare un percorso personalizzato."
         )
-        self.combo_vnc_color   = _combo("Truecolor (32 bpp)","High (16 bpp)","Low (8 bpp)")
-        self.combo_vnc_quality = _combo("Migliore","Buona","Veloce")
-        vbox.pack_start(self._adv_row("Modalità:",   self.combo_vnc_mode),   False, False, 0)
-        vbox.pack_start(self._adv_row("Client VNC:", self.combo_vnc_client), False, False, 0)
-        vbox.pack_start(self._adv_row("Colori:",     self.combo_vnc_color),  False, False, 0)
-        vbox.pack_start(self._adv_row("Qualità:",    self.combo_vnc_quality),False, False, 0)
+        self.combo_vnc_color   = _combo(t("sd.vnc.color_32"), t("sd.vnc.color_16"), t("sd.vnc.color_8"))
+        self.combo_vnc_quality = _combo(t("sd.vnc.q_best"), t("sd.vnc.q_good"), t("sd.vnc.q_fast"))
+        vbox.pack_start(self._adv_row(t("sd.open_with"),   self.combo_vnc_mode),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.vnc.client"), self.combo_vnc_client), False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.vnc.color"),     self.combo_vnc_color),  False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.vnc.quality"),    self.combo_vnc_quality),False, False, 0)
         self.combo_vnc_mode.connect("changed", self._on_vnc_mode_changed)
         self.chk_vnc_internal = _check("")
         self.chk_vnc_internal.set_no_show_all(True)
@@ -375,24 +373,24 @@ class SessionDialog(Gtk.Dialog):
         # ── FTP / FTPS ───────────────────────────────────────────────
         self._frame_ftp, vbox = self._section_frame("FTP / FTPS")
         outer.pack_start(self._frame_ftp, False, False, 0)
-        self.chk_ftp_tls     = _check("FTPS (TLS)")
-        self.chk_ftp_passive = _check("Modalità passiva")
+        self.chk_ftp_tls     = _check(t("sd.ftp.tls"))
+        self.chk_ftp_passive = _check(t("sd.ftp.passive"))
         self.chk_ftp_passive.set_active(True)
-        self.combo_ftp_open  = _combo("Browser interno","Client esterno")
+        self.combo_ftp_open  = _combo(t("sd.open_int"), t("sd.open_ext_client"))
         for chk in [self.chk_ftp_tls, self.chk_ftp_passive]:
             vbox.pack_start(chk, False, False, 0)
-        vbox.pack_start(self._adv_row("Apertura FTP:", self.combo_ftp_open), False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.grp.ftp_open"), self.combo_ftp_open), False, False, 0)
 
         # ── Wake-on-LAN ──────────────────────────────────────────────
         self._frame_wol, vbox = self._section_frame("Wake-on-LAN")
         outer.pack_start(self._frame_wol, False, False, 0)
-        self.chk_wol       = _check("Attiva WoL prima della connessione")
+        self.chk_wol       = _check(t("sd.wol.enable"))
         self.entry_wol_mac = _entry("AA:BB:CC:DD:EE:FF")
         self.spin_wol_wait = Gtk.SpinButton.new_with_range(0, 120, 1)
         self.spin_wol_wait.set_value(20)
         vbox.pack_start(self.chk_wol, False, False, 0)
-        vbox.pack_start(self._adv_row("MAC address:", self.entry_wol_mac),   False, False, 0)
-        vbox.pack_start(self._adv_row("Attesa (sec):", self.spin_wol_wait),  False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.wol.mac"), self.entry_wol_mac),   False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.wol.wait"), self.spin_wol_wait),  False, False, 0)
 
         # ── Pre-comando locale ───────────────────────────────────────
         self._frame_precmd, vbox = self._section_frame("Pre-comando locale")
@@ -400,8 +398,8 @@ class SessionDialog(Gtk.Dialog):
         self.entry_pre_cmd = _entry("es. vpn-up.sh")
         self.spin_pre_cmd_timeout = Gtk.SpinButton.new_with_range(0, 120, 1)
         self.spin_pre_cmd_timeout.set_value(15)
-        vbox.pack_start(self._adv_row("Comando:",       self.entry_pre_cmd),         False, False, 0)
-        vbox.pack_start(self._adv_row("Timeout (sec):", self.spin_pre_cmd_timeout),  False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.term.pre_cmd"),       self.entry_pre_cmd),         False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.term.timeout"), self.spin_pre_cmd_timeout),  False, False, 0)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -419,16 +417,16 @@ class SessionDialog(Gtk.Dialog):
         self.combo_tunnel_type = _combo(
             "Proxy SOCKS (-D)", "Locale (-L)", "Remoto (-R)"
         )
-        _form_row("Tipo:", self.combo_tunnel_type, grid, row); row += 1
+        _form_row(t("sd.tunnel.type"), self.combo_tunnel_type, grid, row); row += 1
 
         self.entry_tunnel_lport = _entry("1080")
-        _form_row("Porta locale:", self.entry_tunnel_lport, grid, row); row += 1
+        _form_row(t("sd.tunnel.lport"), self.entry_tunnel_lport, grid, row); row += 1
 
         self.entry_tunnel_rhost = _entry("host.interno")
-        _form_row("Host remoto:", self.entry_tunnel_rhost, grid, row); row += 1
+        _form_row(t("sd.tunnel.rhost"), self.entry_tunnel_rhost, grid, row); row += 1
 
         self.entry_tunnel_rport = _entry("80")
-        _form_row("Porta remota:", self.entry_tunnel_rport, grid, row); row += 1
+        _form_row(t("sd.tunnel.rport"), self.entry_tunnel_rport, grid, row); row += 1
 
         return grid
 
@@ -447,7 +445,7 @@ class SessionDialog(Gtk.Dialog):
         self._macro_view = Gtk.TreeView(model=self._macro_store)
         self._macro_view.set_headers_visible(True)
 
-        for i, title in enumerate(["Nome", "Comando"]):
+        for i, title in enumerate([t("sd.macro.name"), t("sd.macro.cmd")]):
             cell = Gtk.CellRendererText()
             cell.set_property("editable", True)
             col = Gtk.TreeViewColumn(title, cell, text=i)
@@ -462,9 +460,9 @@ class SessionDialog(Gtk.Dialog):
 
         # Toolbar macro
         tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        btn_add = Gtk.Button(label="Aggiungi")
+        btn_add = Gtk.Button(label=t("sd.macro.add"))
         btn_add.connect("clicked", self._macro_aggiungi)
-        btn_del = Gtk.Button(label="Rimuovi")
+        btn_del = Gtk.Button(label=t("sd.macro.delete"))
         btn_del.connect("clicked", self._macro_rimuovi)
         tb.pack_start(btn_add, False, False, 0)
         tb.pack_start(btn_del, False, False, 0)
@@ -473,7 +471,7 @@ class SessionDialog(Gtk.Dialog):
         return box
 
     def _macro_aggiungi(self, btn):
-        self._macro_store.append(["Nuova macro", ""])
+        self._macro_store.append([t("sd.macro.name"), ""])
 
     def _macro_rimuovi(self, btn):
         sel = self._macro_view.get_selection()
@@ -504,7 +502,7 @@ class SessionDialog(Gtk.Dialog):
 
     def _sfoglia_pkey(self, btn):
         dlg = Gtk.FileChooserDialog(
-            title="Chiave privata SSH",
+            title=t("sd.browse_key"),
             parent=self,
             action=Gtk.FileChooserAction.OPEN
         )
@@ -528,6 +526,12 @@ class SessionDialog(Gtk.Dialog):
         gruppi = sorted({d.get("group", "") for d in profili.values() if d.get("group")})
         for g in gruppi:
             self.combo_gruppo.append_text(g)
+
+    def _on_proto_changed(self, combo):
+        """Chiamato quando l'utente cambia manualmente il protocollo."""
+        self._proto_changed_by_user = True
+        self._aggiorna_proto_fields()
+        self._proto_changed_by_user = False
 
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
@@ -560,7 +564,8 @@ class SessionDialog(Gtk.Dialog):
             "ssh":"22","telnet":"23","sftp":"22","ftp":"21",
             "rdp":"3389","vnc":"5900","mosh":"22","serial":""
         }
-        if not self.entry_port.get_text():
+        # Aggiorna porta: sempre se nuova sessione o se l'utente ha cambiato protocollo manualmente
+        if getattr(self, "_proto_changed_by_user", False) or getattr(self, "_is_new", True):
             self.entry_port.set_text(default_port.get(proto, ""))
 
     def _set_combo_active_text(self, combo: Gtk.ComboBoxText, text: str):
@@ -593,7 +598,7 @@ class SessionDialog(Gtk.Dialog):
         self.entry_pkey.set_text(dati.get("private_key", ""))
 
         # Terminale
-        self._set_combo_active_text(self.combo_tema, dati.get("term_theme", "Scuro (Default)"))
+        self._set_combo_active_text(self.combo_tema, dati.get("term_theme", "Dark (Default)"))
         font_child = self.combo_font.get_child()
         if font_child:
             font_child.set_text(dati.get("term_font", "Monospace"))
@@ -645,12 +650,10 @@ class SessionDialog(Gtk.Dialog):
         self.entry_tunnel_rport.set_text(str(dati.get("tunnel_remote_port", "")))
 
         # Modalità apertura (tab Terminale)
+        self.combo_ssh_open.set_active(0 if dati.get("ssh_open_mode", "internal") == "internal" else 1)
+        self.combo_sftp_open.set_active(0 if dati.get("sftp_open_mode", "internal") == "internal" else 1)
         self._set_combo_active_text(
-            self.combo_ssh_open, dati.get("ssh_open_mode", "Terminale interno"))
-        self._set_combo_active_text(
-            self.combo_sftp_open, dati.get("sftp_open_mode", "Browser interno"))
-        self._set_combo_active_text(
-            self.combo_term_ext, dati.get("terminal_type", "Terminale Interno"))
+            self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
         self.entry_log_dir.set_text(dati.get("log_dir", "/tmp/pcm_logs"))
 
@@ -718,7 +721,7 @@ class SessionDialog(Gtk.Dialog):
             "jump_host":      self.entry_jump_host.get_text().strip(),
             "jump_user":      self.entry_jump_user.get_text().strip(),
             "jump_port":      self.entry_jump_port.get_text().strip(),
-            "term_theme":     self.combo_tema.get_active_text() or "Scuro (Default)",
+            "term_theme":     self.combo_tema.get_active_text() or "Dark (Default)",
             "term_font":      (self.combo_font.get_child().get_text()
                                if self.combo_font.get_child() else "Monospace"),
             "term_size":      int(self.spin_font_size.get_value()),
@@ -739,11 +742,11 @@ class SessionDialog(Gtk.Dialog):
             "rdp_open_mode":  "internal" if self.combo_rdp_open.get_active() == 1 else "external",
             "vnc_internal":   self.combo_vnc_mode.get_active() == 1,
             "vnc_client":     self.combo_vnc_client.get_active_text() or "vncviewer",
-            "vnc_color":      self.combo_vnc_color.get_active_text() or "Truecolor (32 bpp)",
-            "vnc_quality":    self.combo_vnc_quality.get_active_text() or "Buona",
-            "ssh_open_mode":  self.combo_ssh_open.get_active_text() or "Terminale interno",
-            "sftp_open_mode": self.combo_sftp_open.get_active_text() or "Browser interno",
-            "ftp_open_mode":  self.combo_ftp_open.get_active_text() or "Browser interno",
+            "vnc_color":      self.combo_vnc_color.get_active(),
+            "vnc_quality":    self.combo_vnc_quality.get_active(),
+            "ssh_open_mode":  "internal" if self.combo_ssh_open.get_active() == 0 else "external",
+            "sftp_open_mode": "internal" if self.combo_sftp_open.get_active() == 0 else "external",
+            "ftp_open_mode":  "internal" if self.combo_ftp_open.get_active() == 0 else "external",
             "ftp_tls":        self.chk_ftp_tls.get_active(),
             "ftp_passive":    self.chk_ftp_passive.get_active(),
             "tunnel_type":    self.combo_tunnel_type.get_active_text() or "Proxy SOCKS (-D)",
@@ -755,7 +758,7 @@ class SessionDialog(Gtk.Dialog):
             "data_bits":      self.combo_data_bits.get_active_text() or "8",
             "parity":         self.combo_parity.get_active_text() or "None",
             "stop_bits":      self.combo_stop_bits.get_active_text() or "1",
-            "terminal_type":  self.combo_term_ext.get_active_text() or "Terminale Interno",
+            "terminal_type":  self.combo_term_ext.get_active_text() or t("sd.open_int_terminal"),
             "wol_enabled":    self.chk_wol.get_active(),
             "wol_mac":        self.entry_wol_mac.get_text().strip(),
             "wol_wait":       int(self.spin_wol_wait.get_value()),

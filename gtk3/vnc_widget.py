@@ -1,78 +1,550 @@
 """
-vnc_widget.py - Widget VNC per PCM (GTK3)
+vnc_widget.py - Viewer VNC integrato (GTK3)
 
-Usa WebKit2.WebView (WebKitGTK) al posto di QWebEngineView.
-Lancia novnc in background e carica la pagina web nel widget.
+Strategia con fallback automatico:
+  1. gtk-vnc  (gir1.2-gtk-vnc-2.0)  — widget nativo, zero processi esterni
+  2. Gtk.Socket + vncviewer          — embedding X11 del client VNC installato
+  3. Messaggio di errore con istruzioni
 
-Dipendenze:
-  python3-gi, gir1.2-webkit2-4.1   (Debian/Ubuntu)
-  py311-gobject3, webkit2-gtk3      (FreeBSD)
+Dipendenze per metodo 1 (raccomandato):
+  sudo apt install gir1.2-gtk-vnc-2.0
+
+Dipendenze per metodo 2 (fallback):
+  uno qualsiasi tra: vncviewer, xtightvncviewer, tigervnc-viewer, xvnc4viewer
 """
 
-import urllib.parse
+import os
+import shutil
 import subprocess
 
 import gi
 gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+
+# Prova a caricare gtk-vnc
+_GTKV_OK = False
 try:
-    gi.require_version("WebKit2", "4.1")
-except ValueError:
-    gi.require_version("WebKit2", "4.0")
-from gi.repository import Gtk, GLib, WebKit2
+    gi.require_version("GtkVnc", "2.0")
+    from gi.repository import GtkVnc
+    _GTKV_OK = True
+except Exception:
+    pass
 
 
-class VncWebWidget(Gtk.Box):
+def _find_vnc_client() -> str | None:
+    for c in ["vncviewer", "xtightvncviewer", "xvnc4viewer",
+              "tigervnc", "xtigervncviewer", "krdc", "remmina"]:
+        if shutil.which(c):
+            return c
+    return None
 
-    def __init__(self, host, port, password="", parent=None):
+
+# Keysyms X11 per send_keys
+_KEY_CTRL  = 0xffe3
+_KEY_ALT   = 0xffe9
+_KEY_DEL   = 0xffff
+_KEY_F1    = 0xffbe
+_KEY_ESC   = 0xff1b
+_KEY_SUPER = 0xffeb
+
+
+# ---------------------------------------------------------------------------
+# Metodo 1: gtk-vnc nativo
+# ---------------------------------------------------------------------------
+
+class _VncGtkVnc(Gtk.Box):
+
+    def __init__(self, host, port, password):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self.host = host
-        self.port = port
-        self.password = password
-        self.novnc_proc = None
-        self.local_ws_port = 8765
+        self._host = host
+        self._port = str(port)
+        self._password = password
+        self._closed = False
+        self._scaling = True
+        self._pointer_local = True
+        self._keyboard_grab = False
+        self._read_only = False
+        self._build()
 
-        self._init_ui()
+    # ------------------------------------------------------------------
+    # UI
+    # ------------------------------------------------------------------
 
-    def _init_ui(self):
-        cmd = [
-            "novnc",
-            "--listen", str(self.local_ws_port),
-            "--vnc", f"{self.host}:{self.port}"
-        ]
+    def _build(self):
+        # ── Barra superiore: stato + toolbar ─────────────────────────
+        topbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        topbar.get_style_context().add_class("vnc-topbar")
+
+        # Label stato (sx)
+        self._lbl = Gtk.Label(label=f"VNC — {self._host}:{self._port}  connessione…")
+        self._lbl.set_xalign(0.0)
+        self._lbl.set_hexpand(True)
+        self._lbl.set_margin_start(8)
+        topbar.pack_start(self._lbl, True, True, 0)
+
+        # Toolbar pulsanti (dx)
+        tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        tb.set_margin_start(4)
+        tb.set_margin_end(4)
+        tb.set_margin_top(2)
+        tb.set_margin_bottom(2)
+
+        # Adatta schermo (scaling)
+        self._btn_scale = Gtk.ToggleButton()
+        self._btn_scale.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_scale.set_tooltip_text("Adatta schermo alla finestra")
+        self._btn_scale.add(Gtk.Image.new_from_icon_name(
+            "zoom-fit-best-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        self._btn_scale.set_active(self._scaling)
+        self._btn_scale.connect("toggled", self._on_scale_toggled)
+        tb.pack_start(self._btn_scale, False, False, 0)
+
+        # Puntatore locale/remoto
+        self._btn_ptr = Gtk.ToggleButton()
+        self._btn_ptr.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_ptr.set_tooltip_text("Puntatore: locale / remoto")
+        self._btn_ptr.add(Gtk.Image.new_from_icon_name(
+            "input-mouse-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        self._btn_ptr.set_active(self._pointer_local)
+        self._btn_ptr.connect("toggled", self._on_pointer_toggled)
+        tb.pack_start(self._btn_ptr, False, False, 0)
+
+        # Grab tastiera
+        self._btn_kb = Gtk.ToggleButton()
+        self._btn_kb.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_kb.set_tooltip_text("Cattura tastiera (intercetta scorciatoie di sistema)")
+        self._btn_kb.add(Gtk.Image.new_from_icon_name(
+            "input-keyboard-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        self._btn_kb.set_active(self._keyboard_grab)
+        self._btn_kb.connect("toggled", self._on_keyboard_toggled)
+        tb.pack_start(self._btn_kb, False, False, 0)
+
+        # Sola lettura
+        self._btn_ro = Gtk.ToggleButton()
+        self._btn_ro.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_ro.set_tooltip_text("Sola lettura (nessun input al server)")
+        self._btn_ro.add(Gtk.Image.new_from_icon_name(
+            "changes-prevent-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        self._btn_ro.set_active(self._read_only)
+        self._btn_ro.connect("toggled", self._on_readonly_toggled)
+        tb.pack_start(self._btn_ro, False, False, 0)
+
+        tb.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
+
+        # Ctrl+Alt+Del
+        btn_cad = Gtk.Button()
+        btn_cad.set_relief(Gtk.ReliefStyle.NONE)
+        btn_cad.set_tooltip_text("Invia Ctrl+Alt+Canc")
+        btn_cad.add(Gtk.Image.new_from_icon_name(
+            "system-restart-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_cad.connect("clicked", lambda b: self._send_ctrl_alt_del())
+        tb.pack_start(btn_cad, False, False, 0)
+
+        # Ctrl+Alt+F1..F7 (cambio VT)
+        btn_vt = Gtk.MenuButton()
+        btn_vt.set_relief(Gtk.ReliefStyle.NONE)
+        btn_vt.set_tooltip_text("Invia Ctrl+Alt+Fn (cambio terminale virtuale)")
+        btn_vt.add(Gtk.Image.new_from_icon_name(
+            "computer-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_vt.set_popup(self._build_vt_menu())
+        tb.pack_start(btn_vt, False, False, 0)
+
+        # Screenshot
+        btn_ss = Gtk.Button()
+        btn_ss.set_relief(Gtk.ReliefStyle.NONE)
+        btn_ss.set_tooltip_text("Cattura screenshot del desktop remoto")
+        btn_ss.add(Gtk.Image.new_from_icon_name(
+            "camera-photo-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_ss.connect("clicked", lambda b: self._screenshot())
+        tb.pack_start(btn_ss, False, False, 0)
+
+        tb.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
+
+        # Riconnetti
+        btn_r = Gtk.Button()
+        btn_r.set_relief(Gtk.ReliefStyle.NONE)
+        btn_r.set_tooltip_text("Riconnetti al server VNC")
+        btn_r.add(Gtk.Image.new_from_icon_name(
+            "view-refresh-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_r.connect("clicked", lambda b: self._riconnetti())
+        tb.pack_start(btn_r, False, False, 0)
+
+        topbar.pack_start(tb, False, False, 0)
+        self.pack_start(topbar, False, False, 0)
+        self.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+            False, False, 0)
+
+        # ── Display VNC ───────────────────────────────────────────────
+        self._display = GtkVnc.Display()
+        self._display.set_hexpand(True)
+        self._display.set_vexpand(True)
+        self._display.set_scaling(self._scaling)
+        self._display.set_allow_resize(True)
+        self._display.set_keep_aspect_ratio(True)
+        self._display.set_pointer_local(self._pointer_local)
+        self._display.set_keyboard_grab(self._keyboard_grab)
+        self._display.set_read_only(self._read_only)
+
+        self._display.connect("vnc-connected",       self._on_connected)
+        self._display.connect("vnc-initialized",     self._on_initialized)
+        self._display.connect("vnc-disconnected",    self._on_disconnected)
+        self._display.connect("vnc-error",           self._on_error)
+        self._display.connect("vnc-auth-credential", self._on_auth)
+        self._display.connect("vnc-auth-failure",    self._on_auth_failure)
+
+        self.pack_start(self._display, True, True, 0)
+        GLib.idle_add(self._connetti)
+
+    def _build_vt_menu(self) -> Gtk.Menu:
+        menu = Gtk.Menu()
+        for n in range(1, 8):
+            key = getattr(GtkVnc, f'_KEY_F{n}', _KEY_F1 + n - 1) if False else (_KEY_F1 + n - 1)
+            mi = Gtk.MenuItem(label=f"Ctrl+Alt+F{n}  (VT{n})")
+            mi.connect("activate", lambda _, k=key: self._send_keys([_KEY_CTRL, _KEY_ALT, k]))
+            menu.append(mi)
+        menu.show_all()
+        return menu
+
+    # ------------------------------------------------------------------
+    # Connessione
+    # ------------------------------------------------------------------
+
+    def _connetti(self):
+        self._display.open_host(self._host, self._port)
+        return False
+
+    def _riconnetti(self):
+        if not self._closed:
+            try:
+                self._display.close()
+            except Exception:
+                pass
+            self._lbl.set_text(f"VNC — {self._host}:{self._port}  riconnessione…")
+            GLib.timeout_add(800, self._connetti)
+
+    # ------------------------------------------------------------------
+    # Segnali GtkVnc
+    # ------------------------------------------------------------------
+
+    def _on_connected(self, d):
+        self._lbl.set_text(f"VNC — {self._host}:{self._port}  autenticazione…")
+
+    def _on_initialized(self, d):
+        nome = ""
         try:
-            self.novnc_proc = subprocess.Popen(cmd)
-        except FileNotFoundError:
-            lbl = Gtk.Label(
-                label="Errore: comando 'novnc' non trovato nel PATH.\n"
-                      "Assicurati di aver installato il pacchetto novnc."
-            )
-            lbl.set_xalign(0.0)
-            lbl.get_style_context().add_class("error-label")
-            self.pack_start(lbl, True, True, 20)
-            return
-        except Exception as e:
-            print(f"[vnc] Errore avvio novnc: {e}")
-
-        # WebKit2 WebView
-        self.webview = WebKit2.WebView()
-        self.pack_start(self.webview, True, True, 0)
-
-        # Attende 500ms per dare tempo a novnc di aprire la porta
-        GLib.timeout_add(500, self._carica_pagina)
-
-    def _carica_pagina(self):
-        url = (
-            f"http://localhost:{self.local_ws_port}"
-            f"/vnc.html?host=localhost&port={self.local_ws_port}"
-            f"&autoconnect=true&show_dot=true"
+            nome = self._display.get_name() or ""
+        except Exception:
+            pass
+        self._lbl.set_text(
+            f"VNC — {self._host}:{self._port}"
+            + (f"  [{nome}]" if nome else "")
         )
-        if self.password:
-            pwd_enc = urllib.parse.quote(self.password)
-            url += f"&password={pwd_enc}"
-        self.webview.load_uri(url)
-        return False  # non ripetere il timeout
+
+    def _on_disconnected(self, d):
+        if not self._closed:
+            self._lbl.set_text(f"VNC — {self._host}:{self._port}  disconnesso")
+
+    def _on_error(self, d, msg):
+        self._lbl.set_text(f"VNC errore: {msg}")
+
+    def _on_auth_failure(self, d, msg):
+        self._lbl.set_text(f"VNC — autenticazione fallita: {msg}")
+
+    def _on_auth(self, display, credlist):
+        cred = GtkVnc.DisplayCredential
+        # credlist è un GLib.ValueArray, non iterabile con `in` direttamente
+        try:
+            n = credlist.n_values
+            vals = [credlist.get_nth(i) for i in range(n)]
+        except Exception:
+            try:
+                vals = list(credlist)
+            except Exception:
+                vals = []
+        if cred.PASSWORD in vals and self._password:
+            display.set_credential(cred.PASSWORD, self._password)
+        if cred.USERNAME in vals:
+            display.set_credential(cred.USERNAME, "")
+
+    # ------------------------------------------------------------------
+    # Azioni toolbar
+    # ------------------------------------------------------------------
+
+    def _on_scale_toggled(self, btn):
+        self._scaling = btn.get_active()
+        try:
+            self._display.set_scaling(self._scaling)
+            self._display.set_keep_aspect_ratio(self._scaling)
+        except Exception:
+            pass
+
+    def _on_pointer_toggled(self, btn):
+        self._pointer_local = btn.get_active()
+        try:
+            self._display.set_pointer_local(self._pointer_local)
+        except Exception:
+            pass
+
+    def _on_keyboard_toggled(self, btn):
+        self._keyboard_grab = btn.get_active()
+        try:
+            self._display.set_keyboard_grab(self._keyboard_grab)
+        except Exception:
+            pass
+
+    def _on_readonly_toggled(self, btn):
+        self._read_only = btn.get_active()
+        try:
+            self._display.set_read_only(self._read_only)
+        except Exception:
+            pass
+
+    def _send_keys(self, keysyms: list):
+        try:
+            self._display.send_keys(keysyms)
+        except Exception:
+            pass
+
+    def _send_ctrl_alt_del(self):
+        self._send_keys([_KEY_CTRL, _KEY_ALT, _KEY_DEL])
+
+    def _screenshot(self):
+        try:
+            pixbuf = self._display.capture_screenshot()
+            if pixbuf is None:
+                return
+            import time
+            from gi.repository import GdkPixbuf
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            path = os.path.expanduser(f"~/vnc_screenshot_{self._host}_{ts}.png")
+            pixbuf.savev(path, "png", [], [])
+            # Notifica utente
+            dlg = Gtk.MessageDialog(
+                transient_for=self.get_toplevel(),
+                modal=False,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.CLOSE,
+                text=f"Screenshot salvato:\n{path}"
+            )
+            dlg.connect("response", lambda d, r: d.destroy())
+            dlg.show()
+        except Exception as e:
+            self._lbl.set_text(f"Screenshot errore: {e}")
+
+    # ------------------------------------------------------------------
+    # Chiusura
+    # ------------------------------------------------------------------
 
     def chiudi_processo(self):
-        if self.novnc_proc:
-            self.novnc_proc.terminate()
-            self.novnc_proc.wait()
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._display.close()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Metodo 2: Gtk.Socket + vncviewer esterno (XEmbed)
+# ---------------------------------------------------------------------------
+
+class _VncSocket(Gtk.Box):
+
+    _EMBED = {
+        "vncviewer":       ("--EmbedIn={}",  None),
+        "xtigervncviewer": ("--EmbedIn={}",  None),
+        "xtightvncviewer": ("-Parent {}",    "-passwd {}"),
+        "xvnc4viewer":    ("-Parent {}",    "-passwd {}"),
+    }
+
+    def __init__(self, host, port, password):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._host = host
+        self._port = str(port)
+        self._password = password
+        self._client = _find_vnc_client()
+        self._proc = None
+        self._closed = False
+        self._passwd_file = None
+        self._build()
+
+    def _build(self):
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        bar.set_margin_start(8); bar.set_margin_end(8)
+        bar.set_margin_top(4);   bar.set_margin_bottom(4)
+        self._lbl = Gtk.Label(label=f"VNC → {self._host}:{self._port}  avvio…")
+        self._lbl.set_xalign(0.0); self._lbl.set_hexpand(True)
+        bar.pack_start(self._lbl, True, True, 0)
+
+        btn_r = Gtk.Button()
+        btn_r.set_relief(Gtk.ReliefStyle.NONE)
+        btn_r.set_tooltip_text("Riconnetti")
+        btn_r.add(Gtk.Image.new_from_icon_name(
+            "view-refresh-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_r.connect("clicked", lambda b: self._avvia_client())
+        bar.pack_start(btn_r, False, False, 0)
+
+        self.pack_start(bar, False, False, 0)
+        self.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL),
+            False, False, 0)
+
+        self._socket = Gtk.Socket()
+        self._socket.set_hexpand(True)
+        self._socket.set_vexpand(True)
+        self._socket.connect("plug-added",   self._on_plug_added)
+        self._socket.connect("plug-removed", self._on_plug_removed)
+        self.pack_start(self._socket, True, True, 0)
+        self._socket.connect("realize", lambda w: GLib.idle_add(self._avvia_client))
+
+    def _avvia_client(self):
+        if self._closed:
+            return False
+        if not self._client:
+            self._errore(
+                "Nessun client VNC trovato nel PATH.\n"
+                "Installa: sudo apt install tigervnc-viewer\n"
+                "     o:   sudo apt install gir1.2-gtk-vnc-2.0"
+            )
+            return False
+
+        if self._proc and self._proc.poll() is None:
+            self._proc.terminate()
+            self._proc = None
+
+        xid = self._socket.get_id()
+        if not xid:
+            return False
+
+        embed_fmt, passwd_fmt = self._EMBED.get(self._client, ("--EmbedIn={}", None))
+        cmd = [self._client]
+
+        if self._password:
+            if passwd_fmt:
+                pf = self._write_passwd_file(self._password)
+                if pf:
+                    self._passwd_file = pf
+                    cmd.append(passwd_fmt.format(pf))
+            elif self._client in ("vncviewer", "xtigervncviewer"):
+                pf = self._write_passwd_file(self._password)
+                if pf:
+                    self._passwd_file = pf
+                    cmd += ["--PasswordFile", pf]
+
+        cmd.append(embed_fmt.format(xid))
+        cmd.append(f"{self._host}:{self._port}")
+
+        try:
+            self._proc = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._lbl.set_text(
+                f"VNC → {self._host}:{self._port}  ({self._client})")
+            GLib.timeout_add(3000, self._check_proc)
+        except Exception as e:
+            self._errore(f"Errore avvio {self._client}:\n{e}")
+        return False
+
+    def _check_proc(self):
+        if self._closed or self._proc is None:
+            return False
+        if self._proc.poll() is not None:
+            if not self._closed:
+                self._lbl.set_text(
+                    f"VNC → {self._host}:{self._port}  disconnesso")
+            return False
+        return True
+
+    @staticmethod
+    def _write_passwd_file(password):
+        try:
+            import tempfile
+            key = [23, 82, 107, 6, 35, 78, 88, 7]
+            pw = (password.encode()[:8]).ljust(8, b'\x00')
+            enc = bytes(b ^ key[i] for i, b in enumerate(pw))
+            fd, path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
+            with os.fdopen(fd, 'wb') as f:
+                f.write(enc)
+            return path
+        except Exception:
+            return None
+
+    def _on_plug_added(self, s):
+        self._lbl.set_text(f"VNC → {self._host}:{self._port}")
+
+    def _on_plug_removed(self, s):
+        if not self._closed:
+            self._lbl.set_text(
+                f"VNC → {self._host}:{self._port}  disconnesso")
+        return True
+
+    def _errore(self, msg):
+        lbl = Gtk.Label(label=msg)
+        lbl.set_line_wrap(True); lbl.set_xalign(0.0)
+        lbl.set_valign(Gtk.Align.CENTER); lbl.set_vexpand(True)
+        lbl.set_margin_start(12)
+        self.pack_start(lbl, True, True, 0)
+        self.show_all()
+
+    def chiudi_processo(self):
+        if self._closed:
+            return
+        self._closed = True
+        if self._proc and self._proc.poll() is None:
+            try:
+                self._proc.terminate()
+                try:
+                    self._proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    self._proc.kill()
+            except Exception:
+                pass
+        if self._passwd_file and os.path.exists(self._passwd_file):
+            try:
+                os.unlink(self._passwd_file)
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Metodo 3: nessun driver disponibile
+# ---------------------------------------------------------------------------
+
+class _VncNoDriver(Gtk.Box):
+
+    def __init__(self, host, port, **_):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.set_valign(Gtk.Align.CENTER)
+        self.set_halign(Gtk.Align.CENTER)
+        self.set_margin_start(24); self.set_margin_end(24)
+        lbl = Gtk.Label()
+        lbl.set_markup(
+            "<b>VNC integrato non disponibile</b>\n\n"
+            "Installa uno dei seguenti pacchetti:\n\n"
+            "<tt>sudo apt install gir1.2-gtk-vnc-2.0</tt>   (raccomandato)\n"
+            "<tt>sudo apt install tigervnc-viewer</tt>       (alternativa)"
+        )
+        lbl.set_line_wrap(True); lbl.set_xalign(0.0)
+        self.pack_start(lbl, False, False, 0)
+
+    def chiudi_processo(self):
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Factory pubblica
+# ---------------------------------------------------------------------------
+
+def VncWebWidget(host: str, port: str = "5900", password: str = ""):
+    """
+    Restituisce il miglior widget VNC disponibile:
+      1. gtk-vnc nativo (gir1.2-gtk-vnc-2.0)  — toolbar completa
+      2. Gtk.Socket + client vncviewer         — embedding XEmbed
+      3. Widget con istruzioni di installazione
+    """
+    if _GTKV_OK:
+        return _VncGtkVnc(host=host, port=port, password=password)
+    if _find_vnc_client():
+        return _VncSocket(host=host, port=port, password=password)
+    return _VncNoDriver(host=host, port=port)

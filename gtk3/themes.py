@@ -15,13 +15,14 @@ def _icon(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Temi terminale VTE: (background, foreground) come stringhe hex
+# Temi terminale VTE: chiavi EN stabili (usate nel JSON dei profili)
+# I valori sono (background, foreground) come stringhe hex
 # ---------------------------------------------------------------------------
 
 TERMINAL_THEMES: dict[str, tuple[str, str]] = {
-    "Scuro (Default)":   ("#1e1e1e", "#cccccc"),
-    "Chiaro (B/W)":      ("#ffffff", "#1a1a1a"),
-    "Matrix (Verde)":    ("#000000", "#00ff00"),
+    "Dark (Default)":    ("#1e1e1e", "#cccccc"),
+    "Light (B/W)":       ("#ffffff", "#1a1a1a"),
+    "Matrix (Green)":    ("#000000", "#00ff00"),
     "Dracula":           ("#282a36", "#f8f8f2"),
     "Nord":              ("#2e3440", "#d8dee9"),
     "Monokai":           ("#272822", "#f8f8f2"),
@@ -34,6 +35,20 @@ TERMINAL_THEMES: dict[str, tuple[str, str]] = {
     "Cobalt":            ("#002240", "#ffffff"),
     "Zenburn":           ("#3f3f3f", "#dcdccc"),
 }
+
+# Mapping da chiavi vecchie (italiano) a chiavi nuove (EN) per migrazione profili
+_THEME_MIGRATION: dict[str, str] = {
+    "Scuro (Default)":  "Dark (Default)",
+    "Chiaro (B/W)":     "Light (B/W)",
+    "Matrix (Verde)":   "Matrix (Green)",
+}
+
+
+def migrate_theme_name(name: str) -> str:
+    """Converte un vecchio nome tema in italiano al nome EN stabile."""
+    return _THEME_MIGRATION.get(name, name)
+
+
 
 
 def hex_to_gdk_rgba(hex_color: str):
