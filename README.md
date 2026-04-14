@@ -72,6 +72,6 @@ Per la versione PyQt6 e le istruzioni complete vedi [`pyqt6/README.md`](./pyqt6/
 
 ## Autore
 
-**Andres Zanzani** — licenza [EUPL-1.2](EUPL-1.2%20EN.txt) / AGPL-3.0
+**Andres Zanzani** — licenza [EUPL-1.2](EUPL-1.2%20EN.txt)
 
 [![GitHub](https://img.shields.io/badge/GitHub-buzzqw%2FPython__Connection__Manager-blue?logo=github)](https://github.com/buzzqw/Python_Connection_Manager)
