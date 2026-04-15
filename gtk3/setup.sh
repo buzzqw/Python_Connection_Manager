@@ -69,14 +69,35 @@ install_uv() {
 setup_venv() {
     hdr "Creazione Ambiente Virtuale (.venv) con UV"
     if [[ ! -d ".venv" ]]; then
-        uv venv
-        ok "Ambiente .venv creato"
+        uv venv --system-site-packages
+        ok "Ambiente .venv creato (con accesso ai pacchetti di sistema)"
     else
         ok ".venv già esistente"
     fi
 
-    echo "  Installazione pacchetti Python..."
+    echo "  Installazione pacchetti Python nel venv..."
     uv pip install "${PIP_PACKAGES[@]}"
+
+    # Installa anche nel Python di sistema per "python3 PCM.py"
+    hdr "Installazione pacchetti nel Python di sistema"
+    if command -v pip3 &>/dev/null; then
+        pip3 install --break-system-packages --quiet "${PIP_PACKAGES[@]}" \
+            && ok "Pacchetti installati nel Python di sistema" \
+            || warn "Installazione sistema fallita (non critico se usi il venv)"
+    else
+        warn "pip3 non trovato, salto installazione di sistema"
+    fi
+
+    # Crea script launcher che usa il venv
+    hdr "Creazione script launcher"
+    cat > pcm <<'LAUNCHER'
+#!/usr/bin/env bash
+# Launcher PCM: attiva il venv e lancia PCM.py
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/.venv/bin/python3" "$SCRIPT_DIR/PCM.py" "$@"
+LAUNCHER
+    chmod +x pcm
+    ok "Script './pcm' creato"
 }
 
 check_status() {
@@ -113,5 +134,6 @@ check_status
 
 hdr "Completato"
 echo "  Per avviare PCM usando l'ambiente virtuale:"
-echo -e "  ${CYAN}${BOLD}./.venv/bin/python3 PCM.py${NC}"
+echo -e "  ${CYAN}${BOLD}./pcm${NC}             (usa il venv automaticamente)"
+  echo -e "  ${CYAN}./.venv/bin/python3 PCM.py${NC}   (alternativa esplicita)"
 echo ""

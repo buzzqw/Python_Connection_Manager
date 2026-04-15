@@ -383,7 +383,14 @@ class TunnelManagerDialog(Gtk.Dialog):
         return cmd
 
     def _aggiorna_stati(self) -> bool:
-        self._ricarica()
+        """Aggiorna solo la colonna Stato senza ricostruire la lista
+        (evita la perdita della selezione ad ogni tick)."""
+        it = self._store.get_iter_first()
+        while it:
+            idx = self._store.get_value(it, 7)
+            stato = "Attivo" if idx in self._procs and self._procs[idx].poll() is None else "Fermo"
+            self._store.set_value(it, 6, stato)
+            it = self._store.iter_next(it)
         return True
 
     def _on_destroy(self, *args):

@@ -822,17 +822,64 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_about(self):
         """Dialog Informazioni su PCM."""
-        dlg = Gtk.AboutDialog()
-        dlg.set_transient_for(self)
-        dlg.set_modal(True)
-        dlg.set_program_name("PCM")
-        dlg.set_version("2.0 (GTK3)")
-        dlg.set_comments("Python Connection Manager\nGestore connessioni remote multi-protocollo")
-        dlg.set_authors(["Andres Zanzani <azanzani@gmail.com>"])
-        dlg.set_license_type(Gtk.License.CUSTOM)
-        dlg.set_license("Licensed under the European Union Public Licence (EUPL) v1.2")
-        dlg.set_website("https://github.com/buzzqw/Python_Connection_Manager")
-        dlg.set_website_label("GitHub")
+        dlg = Gtk.Dialog(
+            title="PCM — Python Connection Manager",
+            transient_for=self,
+            modal=True,
+        )
+        dlg.set_default_size(400, -1)
+        dlg.add_button("OK", Gtk.ResponseType.OK)
+
+        box = dlg.get_content_area()
+        box.set_spacing(12)
+        box.set_margin_start(20)
+        box.set_margin_end(20)
+        box.set_margin_top(16)
+        box.set_margin_bottom(12)
+
+        lbl_title = Gtk.Label()
+        lbl_title.set_markup("<b>PCM — Python Connection Manager</b>")
+        lbl_title.set_xalign(0.0)
+        box.pack_start(lbl_title, False, False, 0)
+
+        lbl_desc = Gtk.Label(label="Sviluppato in Python/GTK3.")
+        lbl_desc.set_xalign(0.0)
+        box.pack_start(lbl_desc, False, False, 0)
+
+        lbl_proto = Gtk.Label()
+        lbl_proto.set_markup(
+            "<b>Protocolli supportati:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
+            "SSH Tunnel, Mosh, Seriale"
+        )
+        lbl_proto.set_xalign(0.0)
+        lbl_proto.set_line_wrap(True)
+        box.pack_start(lbl_proto, False, False, 0)
+
+        lbl_author = Gtk.Label()
+        lbl_author.set_markup(
+            "<b>Autore:</b> Andres Zanzani - "
+            "<a href=\"mailto:azanzani@gmail.com\">azanzani@gmail.com</a>"
+        )
+        lbl_author.set_xalign(0.0)
+        box.pack_start(lbl_author, False, False, 0)
+
+        lbl_gh = Gtk.Label()
+        lbl_gh.set_markup(
+            "<b>GitHub:</b> "
+            "<a href=\"https://github.com/buzzqw/Python_Connection_Manager\">"
+            "github.com/buzzqw/Python_Connection_Manager</a>"
+        )
+        lbl_gh.set_xalign(0.0)
+        box.pack_start(lbl_gh, False, False, 0)
+
+        lbl_lic = Gtk.Label()
+        lbl_lic.set_markup(
+            "<b>Licenza:</b> European Union Public Licence (EUPL) v1.2"
+        )
+        lbl_lic.set_xalign(0.0)
+        box.pack_start(lbl_lic, False, False, 0)
+
+        box.show_all()
         dlg.run()
         dlg.destroy()
 

@@ -238,6 +238,10 @@ class SessionDialog(Gtk.Dialog):
         row = 0
 
         self.combo_tema = _combo(*TERMINAL_THEMES.keys())
+        # Imposta subito il tema di default dalle impostazioni globali
+        _def = config_manager.load_settings().get("terminal", {}).get("default_theme", "")
+        if _def:
+            self._set_combo_active_text(self.combo_tema, _def)
         _form_row(t("sd.term.theme"), self.combo_tema, grid, row); row += 1
 
         self.combo_font = Gtk.ComboBoxText.new_with_entry()

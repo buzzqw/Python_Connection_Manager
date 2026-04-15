@@ -373,6 +373,8 @@ class LocalPanel(FilePanel):
             ws = self._trova_winscp()
             _mi(f"⬆  Carica su remoto ({len(sel)} elementi)",
                 lambda: ws._upload_selezione() if ws else None)
+            _mi(f"📋  Aggiungi a coda ({len(sel)} elementi)",
+                lambda: ws._accoda_upload(sel) if ws else None)
         menu.append(Gtk.SeparatorMenuItem())
         _mi("📁+  Nuova cartella", self._nuova_cartella)
         if sel and not sel[0]["is_dir"]:
@@ -477,6 +479,8 @@ class RemotePanel(FilePanel):
             ws = self._trova_winscp()
             _mi(f"⬇  Scarica in locale ({len(sel)} elementi)",
                 lambda: ws._download_selezione() if ws else None)
+            _mi(f"📋  Aggiungi a coda ({len(sel)} elementi)",
+                lambda: ws._accoda_download(sel) if ws else None)
         menu.append(Gtk.SeparatorMenuItem())
         _mi("📁+  Nuova cartella", self._nuova_cartella)
         if sel:
@@ -552,10 +556,37 @@ class CodaWidget(Gtk.Box):
         self._init_ui()
 
     def _init_ui(self):
+        # Header + toolbar coda
+        hdr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        hdr_box.set_margin_start(4); hdr_box.set_margin_end(4)
+        hdr_box.set_margin_top(2);   hdr_box.set_margin_bottom(2)
+
         hdr = Gtk.Label(label="  📋  Coda trasferimenti")
         hdr.set_xalign(0.0)
         hdr.get_style_context().add_class("section-header")
-        self.pack_start(hdr, False, False, 0)
+        hdr.set_hexpand(True)
+        hdr_box.pack_start(hdr, True, True, 0)
+
+        self._btn_pausa = Gtk.Button(label="⏸ Pausa")
+        self._btn_pausa.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_pausa.set_tooltip_text("Pausa/Riprendi trasferimenti")
+        self._btn_pausa.connect("clicked", self._on_pausa_riprendi)
+        hdr_box.pack_start(self._btn_pausa, False, False, 0)
+
+        btn_annulla = Gtk.Button(label="✖ Annulla")
+        btn_annulla.set_relief(Gtk.ReliefStyle.NONE)
+        btn_annulla.set_tooltip_text("Annulla trasferimento selezionato")
+        btn_annulla.connect("clicked", self._on_annulla)
+        hdr_box.pack_start(btn_annulla, False, False, 0)
+
+        btn_pulisci = Gtk.Button(label="🧹 Pulisci")
+        btn_pulisci.set_relief(Gtk.ReliefStyle.NONE)
+        btn_pulisci.set_tooltip_text("Rimuovi trasferimenti completati/errore")
+        btn_pulisci.connect("clicked", self._on_pulisci)
+        hdr_box.pack_start(btn_pulisci, False, False, 0)
+
+        self.pack_start(hdr_box, False, False, 0)
+        self._in_pausa = False
 
         # Store: icona, op, src, dst, trasferito, velocità, pct(int)
         self._store = Gtk.ListStore(str, str, str, str, str, str, int)
@@ -615,6 +646,35 @@ class CodaWidget(Gtk.Box):
         it = self._store.get_iter(idx)
         self._store.set_value(it, 5, "✓ OK" if ok else f"✖ {msg}")
         self._store.set_value(it, 6, 100 if ok else 0)
+
+
+    def _on_pausa_riprendi(self, btn):
+        self._in_pausa = not self._in_pausa
+        self._btn_pausa.set_label("▶ Riprendi" if self._in_pausa else "⏸ Pausa")
+
+    def _on_annulla(self, btn):
+        """Marca il primo job 'In corso' come da annullare."""
+        for i, job in enumerate(self._jobs):
+            if job.stato == "In corso":
+                job.stato = "Annullato"
+                it = self._store.get_iter(i)
+                self._store.set_value(it, 5, "✖ Annullato")
+                break
+
+    def _on_pulisci(self, btn):
+        """Rimuove dalla vista i job completati/errore/annullati."""
+        to_remove = []
+        for i, job in enumerate(self._jobs):
+            if job.stato in ("Completato", "Errore", "Annullato"):
+                to_remove.append(i)
+        # Rimuovi in ordine inverso per non spostare gli indici
+        for i in reversed(to_remove):
+            it = self._store.get_iter(i)
+            self._store.remove(it)
+            self._jobs.pop(i)
+
+    def is_in_pausa(self) -> bool:
+        return self._in_pausa
 
 
 # ---------------------------------------------------------------------------
@@ -786,6 +846,79 @@ class WinScpWidget(Gtk.Box):
         if self._remote_panel:
             self._remote_panel.aggiorna()
 
+    def _accoda_download(self, sel: list):
+        """Aggiunge i file selezionati dal pannello remoto alla coda senza avviarli subito."""
+        if not self._sftp or not self._remote_panel:
+            return
+        jobs = []
+        for v in sel:
+            if not v["is_dir"]:
+                lpath = os.path.join(self._local_panel.path, v["nome"])
+                jobs.append(TransferJob("download", v["path"], lpath,
+                                        size=v["size"], nome=v["nome"]))
+        if jobs:
+            for j in jobs:
+                self._coda.aggiungi_job(j)
+            self._avvia_coda_se_idle()
+
+    def _accoda_upload(self, sel: list):
+        """Aggiunge i file selezionati dal pannello locale alla coda senza avviarli subito."""
+        if not self._sftp or not self._remote_panel:
+            return
+        jobs = []
+        for v in sel:
+            if not v["is_dir"]:
+                rpath = self._remote_panel.path.rstrip("/") + "/" + v["nome"]
+                jobs.append(TransferJob("upload", v["path"], rpath,
+                                        size=v["size"], nome=v["nome"]))
+        if jobs:
+            for j in jobs:
+                self._coda.aggiungi_job(j)
+            self._avvia_coda_se_idle()
+
+    def _avvia_coda_se_idle(self):
+        """Avvia il worker solo se non è già in esecuzione."""
+        if self._worker_thread and self._worker_thread.is_alive():
+            return
+        # Raccogli tutti i job in attesa
+        jobs_in_attesa = [(i, j) for i, j in enumerate(self._coda._jobs)
+                          if j.stato == "In attesa"]
+        if not jobs_in_attesa:
+            return
+
+        def run():
+            for idx, job in jobs_in_attesa:
+                # Rispetta la pausa
+                while self._coda.is_in_pausa():
+                    time.sleep(0.5)
+                if job.stato == "Annullato":
+                    continue
+                job.stato = "In corso"
+                job.t_inizio = time.time()
+                try:
+                    def cb(tx, tot, j=job, i=idx):
+                        j.trasferito = tx
+                        dt = time.time() - j.t_inizio
+                        j.velocita = int(tx / dt) if dt > 0 else 0
+                        GLib.idle_add(self._coda.aggiorna_progress, i, tx, tot or j.size)
+
+                    if job.op == "download":
+                        self._sftp.get(job.src, job.dst, callback=cb)
+                    else:
+                        self._sftp.put(job.src, job.dst, callback=cb)
+
+                    job.stato = "Completato"
+                    GLib.idle_add(self._coda.segna_completato, idx, True, "")
+                except Exception as e:
+                    job.stato = "Errore"
+                    job.errore = str(e)
+                    GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
+
+            GLib.idle_add(self._aggiorna_tutto)
+
+        self._worker_thread = threading.Thread(target=run, daemon=True)
+        self._worker_thread.start()
+
     # ------------------------------------------------------------------
     # Esecuzione job in thread
     # ------------------------------------------------------------------
@@ -814,6 +947,11 @@ class WinScpWidget(Gtk.Box):
 
         def run():
             for job, idx in zip(jobs, idxs):
+                # Rispetta pausa
+                while self._coda.is_in_pausa():
+                    time.sleep(0.5)
+                if job.stato == "Annullato":
+                    continue
                 job.stato = "In corso"
                 job.t_inizio = time.time()
                 try:
