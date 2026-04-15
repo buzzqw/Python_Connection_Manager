@@ -73,6 +73,6 @@ Per uso nativo su Wayland usare la versione GTK3 nella cartella [`../gtk3/`](../
 
 ## Autore
 
-**Andres Zanzani** — licenza [EUPL-1.2](../EUPL-1.2%20EN.txt) / AGPL-3.0
+**Andres Zanzani** — licenza [EUPL-1.2](../EUPL-1.2%20EN.txt)
 
 [GitHub](https://github.com/buzzqw/Python_Connection_Manager)
