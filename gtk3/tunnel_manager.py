@@ -2,16 +2,17 @@
 tunnel_manager.py - Gestore grafico SSH Tunnel per PCM (GTK3)
 
 Usa Gtk.TreeView + Gtk.ListStore al posto di QTableWidget.
+Aggiunto supporto a sshpass, campo Utente, e Log terminal integrato.
 """
 
 import os
 import signal
 import subprocess
-import shutil
+import fcntl
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, Gdk, GLib, Pango
 
 import config_manager
 
@@ -72,31 +73,42 @@ class TunnelEditDialog(Gtk.Dialog):
         self.combo_tipo.connect("changed", self._on_tipo_changed)
         row("Tipo:", self.combo_tipo, 1)
 
+        self.entry_user = Gtk.Entry()
+        self.entry_user.set_text(d.get("ssh_user", ""))
+        self.entry_user.set_placeholder_text("es. root")
+        row("Utente:", self.entry_user, 2)
+
         self.entry_host = Gtk.Entry()
         self.entry_host.set_text(d.get("ssh_host", ""))
-        self.entry_host.set_placeholder_text("user@server.example.com")
-        row("SSH host:", self.entry_host, 2)
+        self.entry_host.set_placeholder_text("server.example.com")
+        row("SSH host:", self.entry_host, 3)
 
         self.entry_ssh_port = Gtk.Entry()
         self.entry_ssh_port.set_text(str(d.get("ssh_port", "22")))
-        row("SSH porta:", self.entry_ssh_port, 3)
+        row("SSH porta:", self.entry_ssh_port, 4)
+
+        self.entry_pwd = Gtk.Entry()
+        self.entry_pwd.set_visibility(False)
+        self.entry_pwd.set_text(d.get("password", ""))
+        self.entry_pwd.set_placeholder_text("Vuoto = Chiavi SSH")
+        row("Password:", self.entry_pwd, 5)
 
         self.entry_lport = Gtk.Entry()
         self.entry_lport.set_text(str(d.get("local_port", "1080")))
-        row("Porta locale:", self.entry_lport, 4)
+        row("Porta locale:", self.entry_lport, 6)
 
         self.entry_rhost = Gtk.Entry()
         self.entry_rhost.set_text(d.get("remote_host", ""))
         self.entry_rhost.set_placeholder_text("host.interno (per -L/-R)")
-        row("Host remoto:", self.entry_rhost, 5)
+        row("Host remoto:", self.entry_rhost, 7)
 
         self.entry_rport = Gtk.Entry()
         self.entry_rport.set_text(str(d.get("remote_port", "")))
-        row("Porta remota:", self.entry_rport, 6)
+        row("Porta remota:", self.entry_rport, 8)
 
         self.chk_autostart = Gtk.CheckButton(label="Avvia automaticamente")
         self.chk_autostart.set_active(d.get("autostart", False))
-        grid.attach(self.chk_autostart, 0, 7, 2, 1)
+        grid.attach(self.chk_autostart, 0, 9, 2, 1)
 
         self._on_tipo_changed(self.combo_tipo)
 
@@ -109,8 +121,10 @@ class TunnelEditDialog(Gtk.Dialog):
         return {
             "nome":        self.entry_nome.get_text().strip(),
             "tipo":        self.combo_tipo.get_active_text(),
+            "ssh_user":    self.entry_user.get_text().strip(),
             "ssh_host":    self.entry_host.get_text().strip(),
             "ssh_port":    self.entry_ssh_port.get_text().strip() or "22",
+            "password":    self.entry_pwd.get_text(),
             "local_port":  self.entry_lport.get_text().strip() or "1080",
             "remote_host": self.entry_rhost.get_text().strip(),
             "remote_port": self.entry_rport.get_text().strip(),
@@ -132,13 +146,12 @@ class TunnelManagerDialog(Gtk.Dialog):
             modal=False,
             destroy_with_parent=True
         )
-        self.set_default_size(700, 420)
+        self.set_default_size(700, 550)
         self._tunnels: list[dict] = config_manager.load_tunnels()
         self._procs:   dict[int, subprocess.Popen] = {}  # idx → processo
         self._init_ui()
         self._ricarica()
         self.show_all()
-        # Polling stato ogni 3 secondi
         self._poll_source = GLib.timeout_add(3000, self._aggiorna_stati)
         self.connect("destroy", self._on_destroy)
 
@@ -148,10 +161,8 @@ class TunnelManagerDialog(Gtk.Dialog):
 
         # Toolbar pulsanti
         tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        tb.set_margin_start(8)
-        tb.set_margin_end(8)
-        tb.set_margin_top(8)
-        tb.set_margin_bottom(8)
+        tb.set_margin_start(8); tb.set_margin_end(8)
+        tb.set_margin_top(8); tb.set_margin_bottom(8)
         area.pack_start(tb, False, False, 0)
 
         for label, callback in [
@@ -173,18 +184,12 @@ class TunnelManagerDialog(Gtk.Dialog):
         self.btn_stop.connect("clicked", lambda b: self._on_ferma())
         tb.pack_start(self.btn_stop, False, False, 0)
 
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        area.pack_start(sep, False, False, 0)
-
-        # Tabella: nome, tipo, host, lport, rhost, rport, stato
+        # Tabella (Metà superiore)
         self._store = Gtk.ListStore(str, str, str, str, str, str, str, int)
-        # cols:       nome tipo host lport rhost rport stato idx_interno
-
         self._view = Gtk.TreeView(model=self._store)
         self._view.set_headers_visible(True)
 
-        headers = ["Nome", "Tipo", "SSH Host", "Porta locale",
-                   "Host remoto", "Porta remota", "Stato"]
+        headers = ["Nome", "Tipo", "Host", "Porta locale", "Host remoto", "Porta remota", "Stato"]
         for i, h in enumerate(headers):
             cell = Gtk.CellRendererText()
             col  = Gtk.TreeViewColumn(h, cell, text=i)
@@ -192,12 +197,29 @@ class TunnelManagerDialog(Gtk.Dialog):
             col.set_min_width(80)
             self._view.append_column(col)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_vexpand(True)
-        scroll.add(self._view)
-        area.pack_start(scroll, True, True, 0)
+        scroll_tabella = Gtk.ScrolledWindow()
+        scroll_tabella.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll_tabella.add(self._view)
 
+        # Terminale di Log (Metà inferiore)
+        self.log_buffer = Gtk.TextBuffer()
+        self.log_view = Gtk.TextView(buffer=self.log_buffer)
+        self.log_view.set_editable(False)
+        self.log_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.log_view.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.1, 0.1, 0.1, 1.0))
+        self.log_view.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.2, 1.0, 0.2, 1.0))
+        self.log_view.override_font(Pango.FontDescription('Monospace 10'))
+
+        scroll_log = Gtk.ScrolledWindow()
+        scroll_log.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll_log.add(self.log_view)
+
+        paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        paned.pack1(scroll_tabella, True, True)
+        paned.pack2(scroll_log, False, False)
+        paned.set_position(200)
+
+        area.pack_start(paned, True, True, 0)
         self.add_button("Chiudi", Gtk.ResponseType.CLOSE)
         self.connect("response", lambda d, r: d.destroy())
 
@@ -206,17 +228,12 @@ class TunnelManagerDialog(Gtk.Dialog):
     def _ricarica(self):
         self._store.clear()
         for i, t in enumerate(self._tunnels):
-            stato = "Attivo" if i in self._procs and self._procs[i].poll() is None \
-                    else "Fermo"
+            stato = "Attivo" if i in self._procs and self._procs[i].poll() is None else "Fermo"
+            target = f"{t.get('ssh_user', '')}@{t.get('ssh_host', '')}".strip("@")
             self._store.append([
-                t.get("nome", ""),
-                t.get("tipo", ""),
-                t.get("ssh_host", ""),
-                str(t.get("local_port", "")),
-                t.get("remote_host", ""),
-                str(t.get("remote_port", "")),
-                stato,
-                i
+                t.get("nome", ""), t.get("tipo", ""), target,
+                str(t.get("local_port", "")), t.get("remote_host", ""),
+                str(t.get("remote_port", "")), stato, i
             ])
 
     def _selected_idx(self) -> int | None:
@@ -236,8 +253,7 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     def _on_modifica(self):
         idx = self._selected_idx()
-        if idx is None:
-            return
+        if idx is None: return
         dlg = TunnelEditDialog(parent=self, dati=self._tunnels[idx])
         if dlg.run() == Gtk.ResponseType.OK:
             self._tunnels[idx] = dlg.get_data()
@@ -247,8 +263,7 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     def _on_elimina(self):
         idx = self._selected_idx()
-        if idx is None:
-            return
+        if idx is None: return
         self._on_ferma_idx(idx)
         self._tunnels.pop(idx)
         config_manager.save_tunnels(self._tunnels)
@@ -256,62 +271,124 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     def _on_avvia(self):
         idx = self._selected_idx()
-        if idx is None:
-            return
+        if idx is None: return
         self._avvia_tunnel(idx)
         self._ricarica()
 
     def _on_ferma(self):
         idx = self._selected_idx()
-        if idx is None:
-            return
+        if idx is None: return
         self._on_ferma_idx(idx)
         self._ricarica()
 
     def _avvia_tunnel(self, idx: int):
         if idx in self._procs and self._procs[idx].poll() is None:
-            return  # già attivo
+            return
+
         t = self._tunnels[idx]
         cmd = self._build_cmd(t)
+        pwd = t.get("password", "")
+
+        if pwd:
+            cmd = ["sshpass", "-p", pwd] + cmd
+
+        self._scrivi_log(f"\n[{t.get('nome', 'Tunnel')}] Esecuzione: {' '.join(cmd)}\n")
+
         try:
-            proc = subprocess.Popen(cmd, preexec_fn=os.setsid,
-                                    stdout=subprocess.DEVNULL,
-                                    stderr=subprocess.DEVNULL)
+            # Creiamo il processo catturando l'output
+            proc = subprocess.Popen(
+                cmd, 
+                preexec_fn=os.setsid,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+            )
             self._procs[idx] = proc
+
+            # Rendiamo l'output non-bloccante per leggerlo in tempo reale
+            fd = proc.stdout.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+            # Il listener aggiorna il log del terminale
+            GLib.io_add_watch(proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._leggi_output_processo)
+
+        except FileNotFoundError as e:
+            if "sshpass" in str(e) or cmd[0] == "sshpass":
+                self._scrivi_log("ERRORE: Devi installare 'sshpass'. Esegui: sudo apt install sshpass\n")
         except Exception as e:
-            print(f"[tunnel] Errore avvio: {e}")
+            self._scrivi_log(f"ERRORE CRITICO: {str(e)}\n")
+
+    def _leggi_output_processo(self, file_obj, condition):
+        """Legge l'output asincrono del processo e lo stampa nel terminalino"""
+        try:
+            data = file_obj.read()
+            if data:
+                text = data.decode('utf-8', errors='replace')
+                GLib.idle_add(self._scrivi_log, text)
+            
+            if condition & GLib.IO_HUP:
+                return False  # Fine stream
+            return True
+        except Exception:
+            return False
+
+    def _scrivi_log(self, testo: str):
+        end_iter = self.log_buffer.get_end_iter()
+        self.log_buffer.insert(end_iter, testo)
+        mark = self.log_buffer.get_insert()
+        self.log_view.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
 
     def _on_ferma_idx(self, idx: int):
         if idx in self._procs:
             proc = self._procs.pop(idx)
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
             except Exception:
                 pass
 
     @staticmethod
     def _build_cmd(t: dict) -> list:
         tipo  = t.get("tipo", "Proxy SOCKS (-D)")
+        user  = t.get("ssh_user", "")
         host  = t.get("ssh_host", "")
         sport = str(t.get("ssh_port", "22"))
         lport = str(t.get("local_port", "1080"))
         rhost = t.get("remote_host", "")
         rport = str(t.get("remote_port", ""))
+        pwd   = t.get("password", "")
 
-        cmd = ["ssh", "-N", "-p", sport]
+        target = f"{user}@{host}" if user else host
+
+        cmd = [
+            "ssh", "-N", 
+            "-p", sport,
+            "-o", "StrictHostKeyChecking=no",    
+            "-o", "ConnectTimeout=10",           
+            "-o", "ServerAliveInterval=60"       
+        ]
+        
+        # Vieta la richiesta interattiva se usiamo le chiavi SSH
+        if not pwd:
+            cmd += ["-o", "BatchMode=yes"]
+
         if "SOCKS" in tipo:
             cmd += ["-D", lport]
         elif "Locale" in tipo:
             cmd += ["-L", f"{lport}:{rhost}:{rport}"]
         elif "Remoto" in tipo:
             cmd += ["-R", f"{rport}:{rhost}:{lport}"]
-        cmd.append(host)
+            
+        cmd.append(target)
         return cmd
 
     def _aggiorna_stati(self) -> bool:
         self._ricarica()
-        return True  # continua il timer
+        return True
 
     def _on_destroy(self, *args):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
+        # Spegne i tunnel se chiudiamo la finestra (opzionale, ma pulito)
+        for idx in list(self._procs.keys()):
+            self._on_ferma_idx(idx)

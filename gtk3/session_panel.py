@@ -14,7 +14,7 @@ import os
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, Pango, GLib
 
 import config_manager
 from translations import t
@@ -70,7 +70,6 @@ class SessionPanel(Gtk.Box):
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
-
     def _init_ui(self):
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -120,7 +119,14 @@ class SessionPanel(Gtk.Box):
         col = Gtk.TreeViewColumn()
         cell_pix = Gtk.CellRendererPixbuf()
         cell_txt = Gtk.CellRendererText()
+        
+        # OTTIMIZZAZIONE LAYOUT: 
+        # 1. Troncamento testo troppo lungo
         cell_txt.set_property("ellipsize", Pango.EllipsizeMode.END)
+        # 2. Riduciamo il padding verticale della riga (compattezza estrema)
+        cell_txt.set_property("ypad", 1)  
+        cell_pix.set_property("ypad", 1)
+
         col.pack_start(cell_pix, False)
         col.pack_start(cell_txt, True)
         col.add_attribute(cell_pix, "pixbuf", 0)
@@ -175,10 +181,14 @@ class SessionPanel(Gtk.Box):
 
                 # Se user è cifrato (non ancora sbloccato) non mostrarlo
                 user_display = "" if user.startswith("ENC:") else user
-                sub = f"<small>{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}</small>"
+                
+                # OTTIMIZZAZIONE TESTO: Nessun "a capo" (\n), target sulla stessa riga e sbiadito
+                user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
+                sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
+                
                 markup = (
-                    f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span>  "
-                    f"{GLib.markup_escape_text(nome)}\n{sub}"
+                    f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
+                    f"{GLib.markup_escape_text(nome)}{sub}"
                 )
 
                 pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
@@ -256,9 +266,3 @@ class SessionPanel(Gtk.Box):
         dlg.destroy()
         if resp == Gtk.ResponseType.YES:
             self.emit("elimina", nome)
-
-
-# ---------------------------------------------------------------------------
-# GLib necessario per markup_escape_text
-# ---------------------------------------------------------------------------
-from gi.repository import GLib
