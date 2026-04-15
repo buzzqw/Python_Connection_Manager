@@ -1,5 +1,9 @@
 # PCM — Python Connection Manager
 
+  [![License](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](EUPL-1.2%20EN.txt)
+  [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
+  [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+EXTTO+Project)
+
 > Gestore grafico di connessioni remote per Linux, ispirato a MobaXterm.
 > Scritto in Python, disponibile in due versioni: **PyQt6** e **GTK3**.
 
@@ -73,7 +77,7 @@ Per la versione PyQt6 e le istruzioni complete vedi [`pyqt6/README.md`](./pyqt6/
 
 Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi offrire un caffè tramite PayPal. Ogni contributo, piccolo o grande, è molto apprezzato e aiuta a mantenere il progetto attivo e in continuo miglioramento!
 
-> ☕ [**Dona via PayPal** → azanzani@gmail.com](https://www.paypal.com/paypalme/azanzani)
+[![Dona con PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 *Grazie mille!* 🙏
 
@@ -164,7 +168,7 @@ For the PyQt6 version and full instructions see [`pyqt6/README.md`](./pyqt6/READ
 
 If you find PCM useful and want to thank the developer for his work, you can buy him a coffee via PayPal. Any contribution, big or small, is greatly appreciated and helps keep the project alive and actively developed!
 
-> ☕ [**Donate via PayPal** → azanzani@gmail.com](https://www.paypal.com/paypalme/azanzani)
+[![Donate witch PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 *Thank you so much!* 🙏
 
