@@ -70,6 +70,25 @@ Per la versione PyQt6 e le istruzioni complete vedi [`pyqt6/README.md`](./pyqt6/
 
 ---
 
+---
+
+## Supporta il progetto / Support the project
+
+Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi offrire un caffè tramite PayPal. Ogni contributo, piccolo o grande, è molto apprezzato e aiuta a mantenere il progetto attivo!
+
+**🇮🇹 Italiano** — Se hai trovato PCM utile, considera una donazione per sostenere lo sviluppo:
+
+> ☕ [**Dona via PayPal** → azanzani@gmail.com](https://www.paypal.com/paypalme/azanzani)
+
+---
+
+**🇬🇧 English** — If you find PCM useful, please consider supporting its development with a donation:
+
+> ☕ [**Donate via PayPal** → azanzani@gmail.com](https://www.paypal.com/paypalme/azanzani)
+
+*Grazie / Thank you!* 🙏
+
+
 ## Autore
 
 **Andres Zanzani** — licenza [EUPL-1.2](EUPL-1.2%20EN.txt)
