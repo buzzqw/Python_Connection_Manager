@@ -695,7 +695,9 @@ class WinScpWidget(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._profilo = profilo
         self._sftp    = None
+        self._sftp_transfer = None  # Connessione SFTP separata per i trasferimenti
         self._ssh     = None
+        self._ssh_transfer = None   # Connessione SSH separata per i trasferimenti
         self._worker_thread = None
 
         self._init_ui()
@@ -768,6 +770,7 @@ class WinScpWidget(Gtk.Box):
             pwd  = self._profilo.get("password", "")
             pkey = self._profilo.get("private_key", "")
 
+            # Connessione principale per navigazione
             self._ssh = paramiko.SSHClient()
             self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -779,6 +782,12 @@ class WinScpWidget(Gtk.Box):
 
             self._ssh.connect(**kw)
             self._sftp = self._ssh.open_sftp()
+
+            # Connessione separata per trasferimenti
+            self._ssh_transfer = paramiko.SSHClient()
+            self._ssh_transfer.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self._ssh_transfer.connect(**kw)
+            self._sftp_transfer = self._ssh_transfer.open_sftp()
 
             GLib.idle_add(self._on_connesso)
         except Exception as e:
@@ -978,9 +987,10 @@ class WinScpWidget(Gtk.Box):
         Trasferisce un file a chunk di CHUNK_SIZE byte.
         Controlla job.annulla e _coda.is_in_pausa() ad ogni chunk,
         permettendo interruzione e pausa reali durante il trasferimento.
+        Usa la connessione SFTP separata per i trasferimenti.
         """
         if job.op == "download":
-            remote_f = self._sftp.open(job.src, "rb")
+            remote_f = self._sftp_transfer.open(job.src, "rb")
             try:
                 with open(job.dst, "wb") as local_f:
                     tx = 0
@@ -1006,7 +1016,7 @@ class WinScpWidget(Gtk.Box):
             if not job.size:
                 job.size = size
             with open(job.src, "rb") as local_f:
-                remote_f = self._sftp.open(job.dst, "wb")
+                remote_f = self._sftp_transfer.open(job.dst, "wb")
                 try:
                     tx = 0
                     while True:
