@@ -248,12 +248,26 @@ class MainWindow(Gtk.ApplicationWindow):
         right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._paned.pack2(right_box, True, True)
 
-        # Notebook tab sessioni
+        # Paned terminali: supporta split verticale/orizzontale
+        self._paned_term = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self._paned_term.set_wide_handle(True)
+        right_box.pack_start(self._paned_term, True, True, 0)
+
+        # Notebook primario (sempre visibile)
         self._notebook = Gtk.Notebook()
         self._notebook.set_scrollable(True)
         self._notebook.set_show_border(False)
         self._notebook.connect("switch-page", self._on_switch_tab)
-        right_box.pack_start(self._notebook, True, True, 0)
+        self._notebook.connect("button-press-event", self._on_nb_button_press)
+        self._paned_term.pack1(self._notebook, True, True)
+
+        # Notebook secondario (split — inizialmente nascosto)
+        self._notebook2 = Gtk.Notebook()
+        self._notebook2.set_scrollable(True)
+        self._notebook2.set_show_border(False)
+        self._notebook2.set_no_show_all(True)
+        self._notebook2.connect("button-press-event", self._on_nb2_button_press)
+        self._paned_term.pack2(self._notebook2, True, True)
 
         # Barra inferiore: statusbar + pulsante Chiudi sessione
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -308,6 +322,23 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_tun.add(Gtk.Image.new_from_icon_name("network-wired-symbolic", Gtk.IconSize.BUTTON))
         btn_tun.connect("clicked", lambda b: self._on_tunnel_manager())
         hb.pack_start(btn_tun)
+
+        # Pulsante split
+        btn_split = Gtk.MenuButton()
+        btn_split.set_tooltip_text("Dividi pannello")
+        btn_split.add(Gtk.Image.new_from_icon_name("view-dual-symbolic", Gtk.IconSize.BUTTON))
+        split_menu = Gtk.Menu()
+        for label, cb in [
+            ("□  Pannello singolo",        self._split_singolo),
+            ("◫  Split verticale",         self._split_verticale),
+            ("⬒  Split orizzontale",       self._split_orizzontale),
+        ]:
+            mi = Gtk.MenuItem(label=label)
+            mi.connect("activate", lambda _, c=cb: c())
+            split_menu.append(mi)
+        split_menu.show_all()
+        btn_split.set_popup(split_menu)
+        hb.pack_start(btn_split)
 
         # Menu kebab (⋮) sul lato destro
         self._menu_btn = Gtk.MenuButton()
@@ -587,6 +618,99 @@ class MainWindow(Gtk.ApplicationWindow):
         self._notebook.set_tab_reorderable(widget, True)
         self._notebook.set_current_page(self._notebook.get_n_pages() - 1)
         return None  # nessun tab_label widget
+
+    # ------------------------------------------------------------------
+    # Split pannelli
+    # ------------------------------------------------------------------
+
+    def _split_singolo(self):
+        """Riporta tutto nel notebook primario e nasconde il secondario."""
+        while self._notebook2.get_n_pages() > 0:
+            self._sposta_tab(self._notebook2, self._notebook, 0)
+        self._notebook2.hide()
+
+    def _split_verticale(self):
+        """Due notebook affiancati."""
+        self._paned_term.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self._notebook2.show()
+        alloc = self._paned_term.get_allocation()
+        self._paned_term.set_position(max(200, alloc.width // 2))
+
+    def _split_orizzontale(self):
+        """Due notebook sovrapposti."""
+        self._paned_term.set_orientation(Gtk.Orientation.VERTICAL)
+        self._notebook2.show()
+        alloc = self._paned_term.get_allocation()
+        self._paned_term.set_position(max(100, alloc.height // 2))
+
+    def _sposta_tab(self, sorgente: Gtk.Notebook, destinazione: Gtk.Notebook, idx: int):
+        """Sposta il tab idx da sorgente a destinazione."""
+        if idx < 0 or idx >= sorgente.get_n_pages():
+            return
+        widget = sorgente.get_nth_page(idx)
+        nome   = sorgente.get_tab_label_text(widget)
+        sorgente.remove_page(idx)
+        destinazione.append_page(widget, Gtk.Label(label=nome or ""))
+        destinazione.set_tab_label_text(widget, nome or "")
+        destinazione.set_tab_reorderable(widget, True)
+        destinazione.set_current_page(destinazione.get_n_pages() - 1)
+        # Mostra nb2 se riceve tab
+        if destinazione is self._notebook2:
+            self._notebook2.show()
+        # Nasconde nb2 se rimane vuoto
+        if sorgente is self._notebook2 and sorgente.get_n_pages() == 0:
+            self._notebook2.hide()
+
+    def _menu_tab(self, notebook, idx, event):
+        """Menu tasto destro su un tab."""
+        if idx < 0:
+            return
+        menu = Gtk.Menu()
+        altra = self._notebook2 if notebook is self._notebook else self._notebook
+        altra_lbl = "secondo pannello" if notebook is self._notebook else "primo pannello"
+
+        mi_sposta = Gtk.MenuItem(label=f"↔  Sposta nel {altra_lbl}")
+        mi_sposta.connect("activate", lambda _: self._sposta_tab(notebook, altra, idx))
+        menu.append(mi_sposta)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        mi_chiudi = Gtk.MenuItem(label="✖  Chiudi tab")
+        mi_chiudi.connect("activate", lambda _: self._chiudi_tab(notebook.get_nth_page(idx)))
+        menu.append(mi_chiudi)
+
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def _on_nb_button_press(self, nb, event):
+        if event.button != 3:
+            return False
+        # Trova su quale tab è il click
+        for i in range(nb.get_n_pages()):
+            page = nb.get_nth_page(i)
+            lbl  = nb.get_tab_label(page)
+            if lbl and lbl.get_window():
+                alloc = lbl.get_allocation()
+                x, y  = lbl.translate_coordinates(nb, 0, 0)
+                if x <= event.x <= x + alloc.width and y <= event.y <= y + alloc.height:
+                    if i > 0:  # non mostrare menu su Home
+                        self._menu_tab(nb, i, event)
+                    return True
+        return False
+
+    def _on_nb2_button_press(self, nb, event):
+        if event.button != 3:
+            return False
+        for i in range(nb.get_n_pages()):
+            page = nb.get_nth_page(i)
+            lbl  = nb.get_tab_label(page)
+            if lbl and lbl.get_window():
+                alloc = lbl.get_allocation()
+                x, y  = lbl.translate_coordinates(nb, 0, 0)
+                if x <= event.x <= x + alloc.width and y <= event.y <= y + alloc.height:
+                    self._menu_tab(nb, i, event)
+                    return True
+        return False
 
     def _chiudi_tab_corrente(self):
         """Chiude la tab correntemente selezionata (qualsiasi tipo di sessione)."""
