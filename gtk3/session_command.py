@@ -7,6 +7,45 @@ import os
 import shutil
 import subprocess
 from typing import Optional, Tuple
+import config_manager
+
+
+# ---------------------------------------------------------------------------
+# Helper per il recupero dei percorsi personalizzati
+# ---------------------------------------------------------------------------
+
+def _get_tool(cmd_id: str) -> str:
+    """
+    Recupera il comando da eseguire:
+    1. Controlla se l'utente ha impostato un percorso custom (tool_paths).
+    2. Altrimenti usa shutil.which per trovare il path assoluto.
+    3. Fallback sul nome del comando stesso.
+    """
+    settings = config_manager.load_settings()
+    custom_paths = settings.get("tool_paths", {})
+
+    # Mappa gli alias: se PCM cerca "tigervnc", controlla se l'utente ha configurato "xtigervncviewer"
+    alias_map = {
+        "tigervnc": "xtigervncviewer",
+        "vncviewer": "xtigervncviewer"
+    }
+    lookup_id = alias_map.get(cmd_id, cmd_id)
+
+    if lookup_id in custom_paths and custom_paths[lookup_id].strip():
+        return custom_paths[lookup_id].strip()
+    
+    if cmd_id in custom_paths and custom_paths[cmd_id].strip():
+        return custom_paths[cmd_id].strip()
+
+    return shutil.which(cmd_id) or cmd_id
+
+
+def _tool_exists(cmd_id: str) -> bool:
+    """Controlla se lo strumento esiste (sia esso custom o di sistema)."""
+    tool = _get_tool(cmd_id)
+    if os.path.isabs(tool) and os.path.exists(tool):
+        return True
+    return shutil.which(tool) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -14,20 +53,7 @@ from typing import Optional, Tuple
 # ---------------------------------------------------------------------------
 
 def build_command(profilo: dict) -> Tuple[Optional[str], str]:
-    """
-    Restituisce (comando, modalità) dove modalità è:
-      'embedded'   -> aprire in TerminalWidget interno
-      'external'   -> lanciare in background (RDP, VNC standalone, ecc.)
-      'sftp_gui'   -> aprire con file manager grafico (thunar, nautilus…)
-      'sftp_panel' -> aprire SFTP browser interno via paramiko
-      'tunnel'     -> gestire come tunnel SSH
-      'serial'     -> connessione seriale
-      None         -> errore (comando None)
-
-    Se il profilo contiene 'pre_cmd' (comando locale), il comando finale viene
-    wrappato in: bash -c 'pre_cmd && cmd_connessione'
-    così il terminale mostra anche l'output del pre-comando.
-    """
+    """Restituisce (comando, modalità)"""
     proto = profilo.get("protocol", "ssh").lower()
 
     if proto == "ssh":
@@ -50,7 +76,7 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
             return _wrap_pre(_build_sftp_cli(profilo), profilo), "embedded"
         elif mode.startswith("Terminale esterno"):
             return _wrap_pre(_build_sftp_cli(profilo), profilo), "sftp_term_ext"
-        else:  # Browser interno (default)
+        else:  
             return _build_sftp(profilo), "sftp_panel"
     elif proto == "ftp":
         mode = profilo.get("ftp_open_mode", "Browser interno")
@@ -60,13 +86,11 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
             return _wrap_pre(_build_ftp(profilo, modalita="term_int"), profilo), "embedded"
         elif mode.startswith("Terminale esterno"):
             return _wrap_pre(_build_ftp(profilo, modalita="term_ext"), profilo), "ftp_term_ext"
-        else:  # Browser interno (default)
+        else:  
             return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
     elif proto == "rdp":
         mode = profilo.get("rdp_open_mode", "external")
-        # Supporta sia il valore canonico che i vecchi testi tradotti
         if mode == "internal" or "intern" in mode.lower() or "panel" in mode.lower():
-            # cmd=None: RdpEmbedWidget costruisce il comando internamente
             return None, "rdp_embedded"
         return _build_rdp(profilo), "external"
     elif proto == "vnc":
@@ -77,18 +101,7 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
         return None, "embedded"
 
 
-# ---------------------------------------------------------------------------
-# Helper: wrap comando con pre_cmd locale
-# ---------------------------------------------------------------------------
-
 def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
-    """
-    Se il profilo ha 'pre_cmd', avvolge il comando in:
-        bash -c 'echo ">>> pre_cmd..."; pre_cmd && cmd_connessione'
-    In questo modo il terminale mostra l'output del pre-comando prima
-    di avviare la connessione.  Se pre_cmd esce con codice != 0, la
-    connessione non parte e viene mostrato un messaggio di errore.
-    """
     if not cmd:
         return cmd
     pre = profilo.get("pre_cmd", "").strip()
@@ -107,7 +120,7 @@ def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# SSH
+# Protocol Builders 
 # ---------------------------------------------------------------------------
 
 def _build_ssh(p: dict) -> str:
@@ -116,28 +129,20 @@ def _build_ssh(p: dict) -> str:
     port  = p.get("port", "22")
     pwd   = p.get("password", "")
     pkey  = p.get("private_key", "")
-    x11   = p.get("x11", False)
-    comp  = p.get("compression", False)
-    ka    = p.get("keepalive", False)
     scmd  = p.get("startup_cmd", "")
-    jump  = p.get("jump_host", "")
-    juser = p.get("jump_user", "")
-    jport = p.get("jump_port", "22")
-
-    args = [f"-p {port}", "-o StrictHostKeyChecking=no",
-            "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
+    
+    args = [f"-p {port}", "-o StrictHostKeyChecking=no", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
 
     if pkey and os.path.exists(pkey):
         args.append(f"-i '{pkey}'")
-    if x11:
-        args.append("-X")
-    if comp:
-        args.append("-C")
-    if ka:
+    if p.get("x11"): args.append("-X")
+    if p.get("compression"): args.append("-C")
+    if p.get("keepalive"):
         args.append("-o ServerAliveInterval=60 -o ServerAliveCountMax=3")
-    if jump:
-        ju = f"{juser}@" if juser else ""
-        args.append(f"-J {ju}{jump}:{jport}")
+    
+    if p.get("jump_host"):
+        ju = f"{p.get('jump_user')}@" if p.get('jump_user') else ""
+        args.append(f"-J {ju}{p.get('jump_host')}:{p.get('jump_port', '22')}")
 
     # Compatibilità SSH legacy (server datati, router, NAS, Cisco, ecc.)
     if p.get("legacy_kex"):
@@ -153,67 +158,45 @@ def _build_ssh(p: dict) -> str:
 
     args_str = " ".join(args)
     target = f"{user}@{host}" if user else host
+    ssh_exe = _get_tool("ssh")
 
-    # comando base
     if pwd and not pkey:
-        if shutil.which("sshpass"):
-            base = f"sshpass -p '{_esc(pwd)}' ssh {args_str} {target}"
+        if _tool_exists("sshpass"):
+            sshpass_exe = _get_tool("sshpass")
+            base = f"\"{sshpass_exe}\" -p '{_esc(pwd)}' \"{ssh_exe}\" {args_str} {target}"
         else:
-            # fallback: ssh chiederà la password interattivamente
-            base = f"ssh {args_str} {target}"
+            base = f"\"{ssh_exe}\" {args_str} {target}"
     else:
-        base = f"ssh {args_str} {target}"
+        base = f"\"{ssh_exe}\" {args_str} {target}"
 
-    # comando di avvio remoto
     if scmd:
         base += f" -t '{_esc(scmd)}; exec $SHELL -l'"
-
     return base
 
-
-# ---------------------------------------------------------------------------
-# Telnet
-# ---------------------------------------------------------------------------
 
 def _build_telnet(p: dict) -> str:
     host = p.get("host", "")
     port = p.get("port", "23")
     user = p.get("user", "")
+    telnet_exe = _get_tool("telnet")
 
-    if not shutil.which("telnet"):
+    if not _tool_exists("telnet"):
         return f"bash -c 'echo \"telnet non trovato. Installa telnet.\"; sleep 5'"
 
-    cmd = f"telnet {host} {port}"
-    # alcuni server accettano -l per il login automatico
+    cmd = f"\"{telnet_exe}\" {host} {port}"
     if user:
-        cmd = f"telnet -l {user} {host} {port}"
+        cmd = f"\"{telnet_exe}\" -l {user} {host} {port}"
     return cmd
 
 
-# ---------------------------------------------------------------------------
-# SFTP (panel interno – paramiko)
-# ---------------------------------------------------------------------------
-
 def _build_sftp(p: dict) -> str:
-    """Per SFTP il pannello laterale usa paramiko; qui restituiamo un cmd di info."""
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
     return f"sftp://{user}@{host}:{port}"
 
 
-# ---------------------------------------------------------------------------
-# FTP / FTPS (browser interno via ftplib — comando usato solo come fallback CLI)
-# ---------------------------------------------------------------------------
-
 def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
-    """
-    Costruisce il comando/URI FTP in base alla modalità scelta:
-      browser_int  → URI ftp:// (usato da PCM per FtpWinScpWidget)
-      browser_ext  → comando file manager (nautilus/thunar/dolphin) con URI ftp://
-      term_int     → comando lftp/ftp per terminale interno (embedded xterm)
-      term_ext     → comando terminale esterno con lftp/ftp
-    """
     host   = p.get("host", "")
     port   = p.get("port", "21")
     user   = p.get("user", "")
@@ -221,70 +204,44 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     tls    = p.get("ftp_tls", False)
     schema = "ftps" if tls else "ftp"
 
-    if user:
-        uri = f"{schema}://{user}@{host}:{port}"
-    else:
-        uri = f"{schema}://{host}:{port}"
+    uri = f"{schema}://{user}@{host}:{port}" if user else f"{schema}://{host}:{port}"
 
     if modalita == "browser_ext":
         for fm in ("nautilus", "thunar", "dolphin", "nemo", "pcmanfm", "xdg-open"):
-            if shutil.which(fm):
-                return f"{fm} '{uri}'"
+            if _tool_exists(fm):
+                return f"\"{_get_tool(fm)}\" '{uri}'"
         return f"xdg-open '{uri}'"
 
     if modalita in ("term_int", "term_ext"):
-        # lftp con -e "open URI" si connette e autentica in automatico,
-        # poi cede il controllo alla shell interattiva di lftp.
-        if shutil.which("lftp"):
-            schema = "ftps" if tls else "ftp"
+        if _tool_exists("lftp"):
+            lftp_exe = _get_tool("lftp")
+            uri_cred = f"{schema}://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user and pwd else uri
+            return f"\"{lftp_exe}\" -e 'open {uri_cred}' {host}"
+        elif _tool_exists("ftp"):
+            ftp_exe = _get_tool("ftp")
             if user and pwd:
-                uri_cred = f"{schema}://{_esc(user)}:{_esc(pwd)}@{host}:{port}"
-            elif user:
-                uri_cred = f"{schema}://{_esc(user)}@{host}:{port}"
-            else:
-                uri_cred = f"{schema}://{host}:{port}"
-            return f"lftp -e 'open {uri_cred}' {host}"
-        elif shutil.which("ftp"):
-            if user and pwd:
-            # ftp non supporta password inline — avvisa e lascia prompt
-                return f"bash -c 'printf \"open {host} {port}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | ftp -n'"
-            return f"ftp {host} {port}"
+                return f"bash -c 'printf \"open {host} {port}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | \"{ftp_exe}\" -n'"
+            return f"\"{ftp_exe}\" {host} {port}"
         else:
-            return "bash -c 'echo \"lftp non trovato. Installa: sudo pacman -S lftp\"; sleep 5'"
-    # browser_int (default): restituisce l'URI — PCM aprirà FtpWinScpWidget
+            return "bash -c 'echo \"lftp non trovato.\"; sleep 5'"
     return uri
 
 
-# ---------------------------------------------------------------------------
-# SFTP esteso (browser esterno e CLI)
-# ---------------------------------------------------------------------------
-
 def _build_sftp_uri(p: dict, modalita: str = "browser_ext") -> str:
-    """URI sftp:// per il file manager di sistema."""
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
-    if user:
-        uri = f"sftp://{user}@{host}:{port}"
-    else:
-        uri = f"sftp://{host}:{port}"
+    uri = f"sftp://{user}@{host}:{port}" if user else f"sftp://{host}:{port}"
+    
     if modalita == "browser_ext":
         for fm in ("nautilus", "thunar", "dolphin", "nemo", "pcmanfm", "xdg-open"):
-            if shutil.which(fm):
-                return f"{fm} '{uri}'"
+            if _tool_exists(fm):
+                return f"\"{_get_tool(fm)}\" '{uri}'"
         return f"xdg-open '{uri}'"
     return uri
 
 
 def _build_sftp_cli(p: dict) -> str:
-    """
-    Comando sftp CLI per terminale interno/esterno.
-    Priorità autenticazione:
-      1. Chiave privata  → sftp -i chiave user@host
-      2. sshpass         → sshpass -p pwd sftp user@host
-      3. lftp (fallback) → lftp -e 'open sftp://user:pwd@host:port' host
-      4. sftp plain      → chiede password interattivamente
-    """
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
@@ -296,26 +253,20 @@ def _build_sftp_cli(p: dict) -> str:
         args.append(f"-i '{pkey}'")
     args_str = " ".join(args)
     target = f"{user}@{host}" if user else host
+    sftp_exe = _get_tool("sftp")
 
     if pkey and os.path.exists(pkey):
-        # Chiave privata: sftp la usa direttamente, nessuna password necessaria
-        return f"sftp {args_str} {target}"
+        return f"\"{sftp_exe}\" {args_str} {target}"
 
     if pwd:
-        if shutil.which("sshpass"):
-            return f"sshpass -p '{_esc(pwd)}' sftp {args_str} {target}"
-        elif shutil.which("lftp"):
-            # lftp supporta sftp con credenziali inline
+        if _tool_exists("sshpass"):
+            return f"\"{_get_tool('sshpass')}\" -p '{_esc(pwd)}' \"{sftp_exe}\" {args_str} {target}"
+        elif _tool_exists("lftp"):
             uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
-            return f"lftp -e 'open {uri_cred}' {host}"
+            return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"
 
-    # Fallback: sftp chiede la password interattivamente
-    return f"sftp {args_str} {target}"
+    return f"\"{sftp_exe}\" {args_str} {target}"
 
-
-# ---------------------------------------------------------------------------
-# RDP
-# ---------------------------------------------------------------------------
 
 def _build_rdp(p: dict) -> str:
     host   = p.get("host", "")
@@ -323,203 +274,164 @@ def _build_rdp(p: dict) -> str:
     user   = p.get("user", "")
     pwd    = p.get("password", "")
     domain = p.get("rdp_domain", "").strip()
-    client = p.get("rdp_client", "xfreerdp3")   # xfreerdp3 è il default attuale
-    fs     = p.get("fullscreen", False)
-    clips  = p.get("redirect_clipboard", True)
-    drives = p.get("redirect_drives", False)
+    client = p.get("rdp_client", "xfreerdp3")
+    
+    exe = _get_tool(client)
 
     if client in ("xfreerdp", "xfreerdp3"):
         args = [f"/v:{host}:{port}"]
-        if user:
-            args.append(f"/u:{user}")
-        if domain:
-            args.append(f"/d:{domain}")
-        if pwd:
-            args.append(f"/p:'{_esc(pwd)}'")
+        if user: args.append(f"/u:{user}")
+        if domain: args.append(f"/d:{domain}")
+        if pwd: args.append(f"/p:'{_esc(pwd)}'")
         args.append("/cert:ignore")
-        if fs:
-            args.append("/f")
-        if clips:
-            args.append("/clipboard")
-        if drives:
-            args.append("/drive:home,/home")
-        return f"{client} {' '.join(args)}"
+        if p.get("fullscreen"): args.append("/f")
+        if p.get("redirect_clipboard"): args.append("/clipboard")
+        if p.get("redirect_drives"): args.append("/drive:home,/home")
+        return f"\"{exe}\" {' '.join(args)}"
 
     elif client == "rdesktop":
         args = ["-a 16"]
-        if user:
-            args.append(f"-u {user}")
-        if domain:
-            args.append(f"-d {domain}")
-        if pwd:
-            args.append(f"-p '{_esc(pwd)}'")
-        if fs:
-            args.append("-f")
-        return f"rdesktop {' '.join(args)} {host}:{port}"
+        if user: args.append(f"-u {user}")
+        if domain: args.append(f"-d {domain}")
+        if pwd: args.append(f"-p '{_esc(pwd)}'")
+        if p.get("fullscreen"): args.append("-f")
+        return f"\"{exe}\" {' '.join(args)} {host}:{port}"
 
-    else:
-        return f"{client} {host}:{port}"
-
-
-# ---------------------------------------------------------------------------
-# VNC
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# VNC
-# ---------------------------------------------------------------------------
-
-# Path noti di RealVNC Viewer su Linux
-_REALVNC_PATHS = [
-    "/usr/bin/realvnc-viewer",
-    "/usr/bin/vncviewer-real",          # alcuni pacchetti AUR
-    "/opt/realvnc/VNC-Viewer/vncviewer",
-    "/opt/VNC/bin/vncviewer",
-    "/snap/bin/realvnc-viewer",
-]
+    return f"\"{exe}\" {host}:{port}"
 
 
 def _build_vnc(p: dict) -> str:
     host   = p.get("host", "")
     port   = p.get("port", "5900")
     pwd    = p.get("password", "")
-    client = p.get("vnc_client", "vncviewer")   # valore esatto dal combo
+    client = p.get("vnc_client", "vncviewer")
+    # vnc_color: 0=32bpp 1=16bpp 2=8bpp | vnc_quality: 0=best 1=good 2=fast
+    # _vnc_idx: gestisce valori legacy salvati come stringa (es. "Truecolor (32 bpp)")
+    def _vnc_idx(val, default=0):
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+    depth = {0: 32, 1: 16, 2: 8}.get(_vnc_idx(p.get("vnc_color",   0), 0), 32)
+    qual  = {0: 9,  1: 6,  2: 3}.get(_vnc_idx(p.get("vnc_quality",  2), 2),  6)
 
-    # --- RealVNC Viewer ---
+    def _passwd_wrap(exe, extra=""):
+        return (
+            f"bash -c 'TMP=$(mktemp); "
+            f"printf '%s' '{_esc(pwd)}' | vncpasswd -f > \"$TMP\"; "
+            f'"{exe}" {extra}-passwd "$TMP" {host}::{port}; '
+            f"rm -f '$TMP''"
+        )
+
     if client == "realvnc-viewer":
-        exe = _trova_realvnc()
-        # RealVNC accetta  host::port  (doppio colon = porta diretta)
-        cmd = f'"{exe}" {host}::{port}'
-        return cmd
+        exe    = _get_tool("realvnc-viewer")
+        if exe == "realvnc-viewer":
+            exe = _trova_realvnc()
+        qlevel = {9: "Full", 6: "Medium", 3: "Low"}.get(qual, "Full")
+        clevel = {32: "rgb888", 16: "rgb565", 8: "rgb332"}.get(depth, "rgb888")
+        extra  = f"-Quality={qlevel} -ColorLevel={clevel} "
+        return f'"{exe}" {extra}{host}::{port}'
 
-    # --- TigerVNC ---
-    elif client == "tigervnc":
-        exe = shutil.which("vncviewer") or "vncviewer"
+    elif client in ("tigervnc", "xtigervncviewer"):
+        exe   = _get_tool("xtigervncviewer")
+        extra = f"-depth {depth} -quality {qual} "
+        if pwd:
+            return _passwd_wrap(exe, extra)
+        return f'"{exe}" {extra}{host}::{port}'
+
+    elif client == "remmina":
+        return f'"{_get_tool("remmina")}" -c vnc://{host}:{port}'
+
+    elif client == "krdc":
+        return f'"{_get_tool("krdc")}" vnc://{host}:{port}'
+
+    else:
+        # vncviewer generico: può essere TigerVNC rinominato o altro.
+        # NON passare -depth/-quality: TigerVNC non li accetta (usa -FullColour
+        # e -CompressLevel internamente). Lasciamo solo host::port.
+        exe = _get_tool(client)
         if pwd:
             return (
-                f"bash -c '"
-                f"TMP=$(mktemp); "
-                f"printf \"%s\" \"{_esc(pwd)}\" | vncpasswd -f > \"$TMP\"; "
-                f"{exe} -passwd \"$TMP\" {host}::{port}; "
-                f"rm -f \"$TMP\"'"
+                f"bash -c 'TMP=$(mktemp); "
+                f"printf '%s' '{_esc(pwd)}' | vncpasswd -f > \"$TMP\" 2>/dev/null "
+                f"|| printf '%s' '{_esc(pwd)}' > \"$TMP\"; "
+                f'"{exe}" --PasswordFile="$TMP" {host}::{port} 2>/dev/null '
+                f'|| "{exe}" -passwd "$TMP" {host}::{port}; '
+                f"rm -f '$TMP''"
             )
-        return f"{exe} {host}::{port}"
+        return f'"{exe}" {host}::{port}'
 
-    # --- Remmina ---
-    elif client == "remmina":
-        exe = shutil.which("remmina") or "remmina"
-        return f"{exe} -c vnc://{host}:{port}"
 
-    # --- KRDC ---
-    elif client == "krdc":
-        exe = shutil.which("krdc") or "krdc"
-        return f"{exe} vnc://{host}:{port}"
-
-    # --- vncviewer generico (default) ---
-    else:
-        # usa il client esattamente come scritto nel campo
-        exe = shutil.which(client) or client
-        return f"{exe} {host}::{port}"
-
+_REALVNC_PATHS = [
+    "/usr/bin/realvnc-viewer",
+    "/usr/bin/vncviewer-real",
+    "/opt/realvnc/VNC-Viewer/vncviewer",
+    "/opt/VNC/bin/vncviewer",
+    "/snap/bin/realvnc-viewer",
+]
 
 def _trova_realvnc() -> str:
-    """
-    Cerca il binario di RealVNC Viewer nell'ordine:
-    1. Il nome 'realvnc-viewer' nel PATH (symlink da pacchetti AUR/deb)
-    2. Path noti di installazione
-    3. Fallback: 'realvnc-viewer' così com'è (darà errore chiaro se mancante)
-    """
-    # Prima prova: nome esatto nel PATH
     found = shutil.which("realvnc-viewer")
-    if found:
-        return found
-
-    # Seconda prova: path fissi
+    if found: return found
     for p in _REALVNC_PATHS:
-        if os.path.isfile(p) and os.access(p, os.X_OK):
-            return p
-
-    # Ultima spiaggia: restituisce il nome e lascia che la shell dia errore leggibile
+        if os.path.isfile(p) and os.access(p, os.X_OK): return p
     return "realvnc-viewer"
 
-
-
-# ---------------------------------------------------------------------------
-# Mosh
-# ---------------------------------------------------------------------------
 
 def _build_mosh(p: dict) -> str:
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
     pkey = p.get("private_key", "")
+    mosh_exe = _get_tool("mosh")
 
-    if not shutil.which("mosh"):
-        return f"bash -c 'echo \"mosh non trovato. Installa mosh.\"; sleep 5'"
+    if not _tool_exists("mosh"):
+        return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
-    args = [f"--ssh='ssh -p {port}'"]
+    args = [f"--ssh='{_get_tool('ssh')} -p {port}'"]
     if pkey and os.path.exists(pkey):
-        args.append(f"--ssh='ssh -p {port} -i {pkey}'")
+        args.append(f"--ssh='{_get_tool('ssh')} -p {port} -i {pkey}'")
 
     target = f"{user}@{host}" if user else host
-    return f"mosh {' '.join(args)} {target}"
+    return f"\"{mosh_exe}\" {' '.join(args)} {target}"
 
-
-# ---------------------------------------------------------------------------
-# Seriale (minicom / picocom / screen)
-# ---------------------------------------------------------------------------
 
 def _build_serial(p: dict) -> str:
     device = p.get("device", "/dev/ttyUSB0")
     baud   = p.get("baud", "115200")
 
-    if shutil.which("picocom"):
-        return f"picocom -b {baud} {device}"
-    elif shutil.which("minicom"):
-        return f"minicom -b {baud} -D {device}"
-    elif shutil.which("screen"):
-        return f"screen {device} {baud}"
+    if _tool_exists("picocom"):
+        return f"\"{_get_tool('picocom')}\" -b {baud} {device}"
+    elif _tool_exists("minicom"):
+        return f"\"{_get_tool('minicom')}\" -b {baud} -D {device}"
+    elif _tool_exists("screen"):
+        return f"\"{_get_tool('screen')}\" {device} {baud}"
     else:
-        return f"bash -c 'echo \"Nessun client seriale trovato (picocom/minicom/screen).\"; sleep 5'"
+        return f"bash -c 'echo \"Nessun client seriale trovato.\"; sleep 5'"
 
-
-# ---------------------------------------------------------------------------
-# Utility
-# ---------------------------------------------------------------------------
 
 def _esc(s: str) -> str:
-    """Escape semplice per singoli apici in shell."""
     return s.replace("'", "'\\''")
 
 
 def check_dipendenze() -> dict:
-    """
-    Controlla la disponibilita degli strumenti necessari.
-    Restituisce {nome: True/False} per gli strumenti obbligatori,
-    e raggruppa quelli opzionali (terminali, client RDP/VNC).
-    """
-    # Strumenti obbligatori / fortemente consigliati
     tools = {
-        "ssh":         shutil.which("ssh") is not None,
-        "sshpass":     shutil.which("sshpass") is not None,
-        "xdotool":     shutil.which("xdotool") is not None,
-        "xwininfo":    shutil.which("xwininfo") is not None,
-        "mosh":        shutil.which("mosh") is not None,
-        "telnet":      shutil.which("telnet") is not None,
-        "picocom":     shutil.which("picocom") is not None,
+        "ssh":         _tool_exists("ssh"),
+        "sshpass":     _tool_exists("sshpass"),
+        "xdotool":     _tool_exists("xdotool"),
+        "xwininfo":    _tool_exists("xwininfo"),
+        "mosh":        _tool_exists("mosh"),
+        "telnet":      _tool_exists("telnet"),
+        "picocom":     _tool_exists("picocom"),
     }
-    # Terminali grafici: almeno uno necessario per sessioni embedded
     _terminali = ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
                   "alacritty", "kitty", "terminator", "wezterm",
                   "foot", "tilix", "lxterminal", "mate-terminal", "st"]
-    for t in _terminali:
-        tools[t] = shutil.which(t) is not None
-    # Client RDP
-    for c in ["xfreerdp3", "xfreerdp", "rdesktop"]:
-        tools[c] = shutil.which(c) is not None
-    # Client VNC
-    for c in ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"]:
-        tools[c] = shutil.which(c) is not None
+    for t in _terminali: tools[t] = shutil.which(t) is not None
+    for c in ["xfreerdp3", "xfreerdp", "rdesktop"]: tools[c] = _tool_exists(c)
+    for c in ["vncviewer", "realvnc-viewer", "xtigervncviewer", "remmina", "krdc"]: 
+        tools[c] = _tool_exists(c)
+        
     try:
         import paramiko
         tools["paramiko"] = True
@@ -534,10 +446,6 @@ def check_dipendenze() -> dict:
 
 
 def installed_tools(category: str) -> list[str]:
-    """
-    Restituisce la lista degli strumenti installati per categoria.
-    category: "terminal" | "rdp" | "vnc"
-    """
     _map = {
         "terminal": ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
                      "alacritty", "kitty", "terminator", "wezterm",
@@ -546,4 +454,4 @@ def installed_tools(category: str) -> list[str]:
         "vnc":      ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"],
     }
     candidates = _map.get(category, [])
-    return [t for t in candidates if shutil.which(t)]
+    return [t for t in candidates if shutil.which(t) or _tool_exists(t)]

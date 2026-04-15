@@ -54,16 +54,20 @@ _KEY_SUPER = 0xffeb
 
 class _VncGtkVnc(Gtk.Box):
 
-    def __init__(self, host, port, password):
+    def __init__(self, host, port, password, color_depth=0, quality=2, on_save_password=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._host = host
         self._port = str(port)
         self._password = password
+        self._on_save_password = on_save_password
         self._closed = False
         self._scaling = True
-        self._pointer_local = True
+        self._pointer_local = False
         self._keyboard_grab = False
         self._read_only = False
+        # 0=32bpp, 1=16bpp, 2=8bpp  |  0=best, 1=good, 2=fast
+        self._color_depth = int(color_depth) if color_depth is not None else 0
+        self._quality = int(quality) if quality is not None else 2
         self._build()
 
     # ------------------------------------------------------------------
@@ -185,6 +189,7 @@ class _VncGtkVnc(Gtk.Box):
         self._display.set_pointer_local(self._pointer_local)
         self._display.set_keyboard_grab(self._keyboard_grab)
         self._display.set_read_only(self._read_only)
+        self._applica_depth_quality()
 
         self._display.connect("vnc-connected",       self._on_connected)
         self._display.connect("vnc-initialized",     self._on_initialized)
@@ -194,7 +199,26 @@ class _VncGtkVnc(Gtk.Box):
         self._display.connect("vnc-auth-failure",    self._on_auth_failure)
 
         self.pack_start(self._display, True, True, 0)
-        GLib.idle_add(self._connetti)
+        # Connetti solo dopo che il widget è realizzato
+        self._display.connect("realize", lambda w: self._connetti())
+
+    def _applica_depth_quality(self):
+        """Imposta color depth e qualità compressione sul display GtkVnc."""
+        # depth: 0→32bpp, 1→16bpp, 2→8bpp
+        depth_map = {0: 32, 1: 16, 2: 8}
+        depth_bits = depth_map.get(self._color_depth, 32)
+        try:
+            self._display.set_depth(GtkVnc.DisplayDepth(depth_bits))
+        except Exception:
+            try:
+                self._display.set_depth(depth_bits)
+            except Exception:
+                pass
+        # quality: usa lossy encoding solo in modalità fast
+        try:
+            self._display.set_lossy_encoding(self._quality == 2)
+        except Exception:
+            pass
 
     def _build_vt_menu(self) -> Gtk.Menu:
         menu = Gtk.Menu()
@@ -211,8 +235,13 @@ class _VncGtkVnc(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _connetti(self):
-        self._display.open_host(self._host, self._port)
-        return False
+        try:
+            # open_host() è il metodo corretto per connessioni TCP con GtkVnc.
+            # open_fd() con socket Python causa problemi di negoziazione del
+            # protocollo perché GtkVnc non controlla il fd direttamente.
+            self._display.open_host(self._host, str(self._port))
+        except Exception as e:
+            self._lbl.set_text(f"VNC — errore connessione: {e}")
 
     def _riconnetti(self):
         if not self._closed:
@@ -221,7 +250,7 @@ class _VncGtkVnc(Gtk.Box):
             except Exception:
                 pass
             self._lbl.set_text(f"VNC — {self._host}:{self._port}  riconnessione…")
-            GLib.timeout_add(800, self._connetti)
+            GLib.timeout_add(800, lambda: self._connetti() or False)
 
     # ------------------------------------------------------------------
     # Segnali GtkVnc
@@ -253,19 +282,71 @@ class _VncGtkVnc(Gtk.Box):
 
     def _on_auth(self, display, credlist):
         cred = GtkVnc.DisplayCredential
-        # credlist è un GLib.ValueArray, non iterabile con `in` direttamente
-        try:
-            n = credlist.n_values
-            vals = [credlist.get_nth(i) for i in range(n)]
-        except Exception:
-            try:
-                vals = list(credlist)
-            except Exception:
-                vals = []
-        if cred.PASSWORD in vals and self._password:
-            display.set_credential(cred.PASSWORD, self._password)
-        if cred.USERNAME in vals:
+        needs_password = False
+        needs_username = False
+        for i in range(credlist.n_values):
+            v = credlist.get_nth(i)
+            if v == cred.PASSWORD:
+                needs_password = True
+            elif v == cred.USERNAME:
+                needs_username = True
+        if needs_password:
+            pwd = self._password
+            if not pwd:
+                pwd = self._chiedi_password(display)
+            if pwd is not None:
+                display.set_credential(cred.PASSWORD, pwd)
+        if needs_username:
             display.set_credential(cred.USERNAME, "")
+
+    def _chiedi_password(self, display) -> str | None:
+        """Dialog modale che chiede la password VNC con opzione di salvataggio."""
+        toplevel = self.get_toplevel()
+        dlg = Gtk.Dialog(
+            title="Password VNC",
+            transient_for=toplevel if isinstance(toplevel, Gtk.Window) else None,
+            modal=True,
+        )
+        dlg.set_default_size(360, -1)
+        dlg.add_button("_Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button("_Connetti", Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+
+        box = dlg.get_content_area()
+        box.set_spacing(8)
+        box.set_margin_start(16)
+        box.set_margin_end(16)
+        box.set_margin_top(12)
+        box.set_margin_bottom(8)
+
+        lbl = Gtk.Label(label=f"Password per {self._host}:{self._port}")
+        lbl.set_xalign(0.0)
+        box.pack_start(lbl, False, False, 0)
+
+        entry = Gtk.Entry()
+        entry.set_visibility(False)
+        entry.set_activates_default(True)
+        box.pack_start(entry, False, False, 0)
+
+        chk = Gtk.CheckButton(label="Salva password nel profilo")
+        box.pack_start(chk, False, False, 0)
+
+        box.show_all()
+        risposta = dlg.run()
+        pwd = entry.get_text()
+        salva = chk.get_active()
+        dlg.destroy()
+
+        if risposta != Gtk.ResponseType.OK or not pwd:
+            return None
+
+        self._password = pwd
+        if salva and self._on_save_password:
+            try:
+                self._on_save_password(pwd)
+            except Exception:
+                pass
+        return pwd
 
     # ------------------------------------------------------------------
     # Azioni toolbar
@@ -536,15 +617,21 @@ class _VncNoDriver(Gtk.Box):
 # Factory pubblica
 # ---------------------------------------------------------------------------
 
-def VncWebWidget(host: str, port: str = "5900", password: str = ""):
+def VncWebWidget(host: str, port: str = "5900", password: str = "",
+                  color_depth: int = 0, quality: int = 2, on_save_password=None):
     """
     Restituisce il miglior widget VNC disponibile:
       1. gtk-vnc nativo (gir1.2-gtk-vnc-2.0)  — toolbar completa
       2. Gtk.Socket + client vncviewer         — embedding XEmbed
       3. Widget con istruzioni di installazione
+
+    color_depth: 0=32bpp, 1=16bpp, 2=8bpp
+    quality:     0=best,  1=good,  2=fast
     """
     if _GTKV_OK:
-        return _VncGtkVnc(host=host, port=port, password=password)
+        return _VncGtkVnc(host=host, port=port, password=password,
+                          color_depth=color_depth, quality=quality,
+                          on_save_password=on_save_password)
     if _find_vnc_client():
         return _VncSocket(host=host, port=port, password=password)
     return _VncNoDriver(host=host, port=port)

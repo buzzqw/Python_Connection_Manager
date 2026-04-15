@@ -99,8 +99,18 @@ class TerminalWidget(Gtk.Box):
         self._stato_testo = ""
         self._stato_terminato = False
 
-        # Segnale fine processo
+        # Segnale fine processo e selezione testo
         self._vte.connect("child-exited", self._on_child_exited)
+        self._vte.connect("selection-changed", self._on_selection_changed)
+        
+        # Clic destro → incolla; Ctrl+Shift+V → incolla esplicito
+        self._vte.connect("button-press-event", self._on_button_press)
+        self._vte.connect("key-press-event", self._on_key_press)
+        
+    def _on_selection_changed(self, terminal):
+        """Copia automaticamente il testo evidenziato nella clipboard principale."""
+        if terminal.get_has_selection():
+            terminal.copy_clipboard()    
 
     def get_stato(self) -> tuple[str, bool]:
         """Restituisce (testo_stato, è_terminato) per la statusbar di PCM."""
@@ -311,6 +321,30 @@ class TerminalWidget(Gtk.Box):
             return int(val)
         except (ValueError, TypeError):
             return default
+
+    def _on_button_press(self, terminal, event):
+        """Tasto destro → incolla dalla clipboard CLIPBOARD (stessa di Ctrl+V)."""
+        if event.button == 3:
+            self._incolla_clipboard()
+            return True   # blocca il menu contestuale VTE
+        return False
+
+    def _on_key_press(self, terminal, event):
+        """Ctrl+Shift+V → incolla esplicito (fallback se VTE non lo gestisce)."""
+        ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
+        key   = Gdk.keyval_name(event.keyval).upper()
+        if ctrl and shift and key == "V":
+            self._incolla_clipboard()
+            return True
+        return False
+
+    def _incolla_clipboard(self):
+        """Incolla dalla CLIPBOARD (Ctrl+C/Ctrl+X) nel terminale tramite feed_child."""
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        testo = clipboard.wait_for_text()
+        if testo:
+            self._vte.feed_child(testo.encode("utf-8"))
 
     @classmethod
     def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":

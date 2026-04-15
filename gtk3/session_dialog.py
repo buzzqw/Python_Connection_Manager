@@ -626,8 +626,11 @@ class SessionDialog(Gtk.Dialog):
         rdp_open = dati.get("rdp_open_mode", "external")
         self.combo_rdp_open.set_active(1 if rdp_open == "internal" else 0)
 
-        # VNC
-        self.chk_vnc_internal.set_active(dati.get("vnc_internal", True))
+        # VNC — lettura unica del flag, default False (esterno)
+        is_internal = dati.get("vnc_internal", False)
+        self.combo_vnc_mode.set_active(1 if is_internal else 0)
+        self.chk_vnc_internal.set_active(is_internal)
+        self.combo_vnc_client.set_visible(not is_internal)
         self._set_combo_active_text(self.combo_vnc_client, dati.get("vnc_client", "vncviewer"))
 
         # FTP
@@ -656,13 +659,6 @@ class SessionDialog(Gtk.Dialog):
             self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
         self.entry_log_dir.set_text(dati.get("log_dir", "/tmp/pcm_logs"))
-
-        # VNC
-        is_internal = dati.get("vnc_internal", False)
-        self.combo_vnc_mode.set_active(1 if is_internal else 0)
-        self.chk_vnc_internal.set_active(is_internal)
-        self.combo_vnc_client.set_visible(not is_internal)
-        self._set_combo_active_text(self.combo_vnc_client, dati.get("vnc_client", "vncviewer"))
 
         # Pre-cmd
         self.entry_pre_cmd.set_text(dati.get("pre_cmd", ""))

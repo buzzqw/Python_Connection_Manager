@@ -25,7 +25,7 @@ from datetime import datetime
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, GdkPixbuf, Pango
+from gi.repository import Gtk, GLib, GdkPixbuf, Pango, GObject
 
 try:
     import paramiko
@@ -129,7 +129,7 @@ class FilePanel(Gtk.Box):
 
         # TreeView
         # Store: nome_display, nome_raw, ext, size, mtime, attr, is_dir, path, size_int
-        self._store = Gtk.ListStore(str, str, str, str, str, str, bool, str, int)
+        self._store = Gtk.ListStore(str, str, str, str, str, str, bool, str, GObject.TYPE_INT64)
         self._sorted = Gtk.TreeModelSort(model=self._store)
         self._view = Gtk.TreeView(model=self._sorted)
         self._view.set_headers_visible(True)

@@ -493,24 +493,85 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_vnc(self, nome: str, dati: dict):
         if dati.get("vnc_internal", False):
-            # Viewer integrato noVNC via WebKit2
+            # Viewer integrato
+            def _salva_password_vnc(pwd: str):
+                """Callback chiamato da VncWebWidget se l'utente sceglie 'salva'."""
+                try:
+                    profili = config_manager.load_profiles()
+                    for gruppo in profili.values():
+                        if isinstance(gruppo, dict) and nome in gruppo:
+                            gruppo[nome]["password"] = pwd
+                            config_manager.save_profiles(profili)
+                            return
+                    if nome in profili:
+                        profili[nome]["password"] = pwd
+                        config_manager.save_profiles(profili)
+                except Exception:
+                    pass
+
             widget = VncWebWidget(
                 host=dati.get("host",""),
                 port=dati.get("port","5900"),
-                password=dati.get("password","")
+                password=dati.get("password",""),
+                color_depth=dati.get("vnc_color", 0),
+                quality=dati.get("vnc_quality", 2),
+                on_save_password=_salva_password_vnc,
             )
             widget.show_all()
             self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
         else:
-            # Client VNC esterno (vncviewer, tigervnc, remmina, krdc, ecc.)
-            # build_command usa _build_vnc che legge vnc_client dal profilo
+            # Client VNC esterno — con logging su /tmp/pcm_vnc.log
             cmd, _ = build_command(dati)
-            if cmd:
-                subprocess.Popen(cmd, shell=True,
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                self._status(f"VNC avviato: {nome}")
-            else:
-                self._warn("Comando VNC non disponibile — verifica il client installato.")
+            _VNC_LOG = "/tmp/pcm_vnc.log"
+            import shutil as _sh, datetime as _dt, shlex as _shlex
+
+            def _log(msg: str):
+                ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open(_VNC_LOG, "a") as _f:
+                    _f.write(f"[{ts}] {msg}\n")
+
+            _log(f"--- nuova connessione VNC: {nome} ---")
+            _log(f"host={dati.get('host')} port={dati.get('port')} "
+                 f"client={dati.get('vnc_client')} vnc_internal={dati.get('vnc_internal')}")
+
+            if not cmd:
+                _log("ERRORE: build_command ha restituito None")
+                self._warn(f"Comando VNC non disponibile.\nDettagli in {_VNC_LOG}")
+                return
+
+            _log(f"comando: {cmd}")
+
+            # Verifica eseguibile
+            try:
+                exe_token = _shlex.split(cmd)[0].strip('"').strip("'")
+                exe_found = _sh.which(exe_token) or (
+                    exe_token.startswith("/") and __import__("os").path.isfile(exe_token))
+                _log(f"eseguibile '{exe_token}': {'trovato' if exe_found else 'NON TROVATO'}")
+            except Exception as _e:
+                _log(f"warning verifica exe: {_e}")
+
+            try:
+                log_f = open(_VNC_LOG, "a")
+                proc = subprocess.Popen(
+                    cmd, shell=True,
+                    stdout=log_f, stderr=log_f,
+                    close_fds=True
+                )
+                _log(f"PID={proc.pid}")
+
+                def _check_exit(proc=proc, log_f=log_f):
+                    rc = proc.poll()
+                    if rc is not None:
+                        _log(f"ATTENZIONE: uscito subito con codice {rc}")
+                        GLib.idle_add(self._warn,
+                            f"VNC uscito subito (codice {rc}).\nVedi {_VNC_LOG}")
+                    log_f.close()
+                    return False
+                GLib.timeout_add(1500, _check_exit)
+                self._status(f"VNC avviato: {nome}  — log: {_VNC_LOG}")
+            except Exception as _e:
+                _log(f"ECCEZIONE Popen: {_e}")
+                self._warn(f"Errore avvio VNC: {_e}")
 
     # ------------------------------------------------------------------
     # Tab label con pulsante chiudi
@@ -734,38 +795,9 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _on_check_deps(self):
-        """Mostra un dialog con lo stato delle dipendenze di sistema."""
-        import shutil
-        tools = {
-            "ssh":        "SSH client",
-            "scp":        "SCP",
-            "sftp":       "SFTP client",
-            "telnet":     "Telnet",
-            "ftp":        "FTP client",
-            "xfreerdp3":  "FreeRDP 3.x (RDP)",
-            "xfreerdp":   "FreeRDP 2.x (RDP)",
-            "rdesktop":   "rdesktop (RDP)",
-            "vncviewer":  "VNC viewer",
-            "tigervnc":   "TigerVNC",
-            "mosh":       "Mosh",
-            "minicom":    "Minicom (seriale)",
-            "xdotool":    "xdotool",
-            "wol":        "Wake-on-LAN",
-        }
-        lines = []
-        for cmd, desc in tools.items():
-            found = shutil.which(cmd) is not None
-            icon = "✓" if found else "✗"
-            lines.append(f"{icon}  {desc}  ({cmd})")
-
-        dlg = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.CLOSE,
-            text=t("deps.title"),
-        )
-        dlg.format_secondary_text("\n".join(lines) + t("deps.install_hint"))
+        """Apre il pannello di configurazione dei percorsi eseguibili."""
+        from deps_dialog import DepsConfigDialog
+        dlg = DepsConfigDialog(parent=self)
         dlg.run()
         dlg.destroy()
 

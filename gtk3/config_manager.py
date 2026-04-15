@@ -197,6 +197,7 @@ DEFAULT_SETTINGS = {
     },
     "tunnels": [],
     "variables": {},   # variabili globali {NOME: valore}
+    "tool_paths": {},  # <--- ECCO LA RIGA DA AGGIUNGERE!
     "display": {
         "sidebar_visible": True,
         "toolbar_visible": True,
