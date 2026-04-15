@@ -1018,6 +1018,21 @@ class SessionDialog(Gtk.Dialog):
         self.chk_vnc_internal.set_active(is_internal)
         self.combo_vnc_client.set_visible(not is_internal)
         self._set_combo_active_text(self.combo_vnc_client, dati.get("vnc_client", "vncviewer"))
+        
+        # VNC color e quality - fix per persistenza impostazioni
+        vnc_color = dati.get("vnc_color", 0)
+        if isinstance(vnc_color, int):
+            self.combo_vnc_color.set_active(vnc_color)
+        else:
+            # Gestione valori legacy salvati come stringa
+            self.combo_vnc_color.set_active(0)  # default 32bpp
+            
+        vnc_quality = dati.get("vnc_quality", 2)
+        if isinstance(vnc_quality, int):
+            self.combo_vnc_quality.set_active(vnc_quality)
+        else:
+            # Gestione valori legacy salvati come stringa
+            self.combo_vnc_quality.set_active(2)  # default fast
 
         # FTP
         self.chk_ftp_tls.set_active(dati.get("ftp_tls", False))
