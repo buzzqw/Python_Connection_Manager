@@ -2,7 +2,7 @@
 
   [![License](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](EUPL-1.2%20EN.txt)
   [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
-  [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+EXTTO+Project)
+  [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 > Gestore grafico di connessioni remote per Linux, ispirato a MobaXterm.
 > Scritto in Python, disponibile in due versioni: **PyQt6** e **GTK3**.
