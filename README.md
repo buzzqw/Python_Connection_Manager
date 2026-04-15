@@ -17,7 +17,6 @@
 | Originale | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto |
 | GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo |
 
-La versione **GTK3** è quella attivamente sviluppata e raccomandata per nuove installazioni.
 
 ---
 
