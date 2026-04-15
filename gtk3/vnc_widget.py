@@ -189,7 +189,8 @@ class _VncGtkVnc(Gtk.Box):
         self._display.set_pointer_local(self._pointer_local)
         self._display.set_keyboard_grab(self._keyboard_grab)
         self._display.set_read_only(self._read_only)
-        self._applica_depth_quality()
+        # NON chiamare _applica_depth_quality qui: GtkVnc ignora set_depth
+        # prima di vnc-initialized. Viene chiamata in _on_initialized.
 
         self._display.connect("vnc-connected",       self._on_connected)
         self._display.connect("vnc-initialized",     self._on_initialized)
@@ -260,6 +261,9 @@ class _VncGtkVnc(Gtk.Box):
         self._lbl.set_text(f"VNC — {self._host}:{self._port}  autenticazione…")
 
     def _on_initialized(self, d):
+        # Applica depth/quality ora che la connessione è stabilita.
+        # GtkVnc ignora set_depth prima di questo segnale.
+        self._applica_depth_quality()
         nome = ""
         try:
             nome = self._display.get_name() or ""

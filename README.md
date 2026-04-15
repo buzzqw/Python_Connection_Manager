@@ -65,9 +65,11 @@
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
 cd Python_Connection_Manager/gtk3
-bash setup.sh          # installa automaticamente per Debian/Ubuntu/Arch/Fedora/openSUSE
+bash setup.sh          # installa automaticamente con uv per Debian/Ubuntu/Arch/Fedora/openSUSE
 python3 PCM.py
 ```
+
+> **Nota**: Il progetto utilizza [**uv**](https://github.com/astral-sh/uv) come gestore di pacchetti Python moderno e veloce invece di pip. Lo script `setup.sh` installa automaticamente uv e crea un ambiente virtuale ottimizzato.
 
 Per la versione PyQt6 e le istruzioni complete vedi [`pyqt6/README.md`](./pyqt6/README.md).
 
@@ -156,9 +158,11 @@ The **GTK3** version is the actively developed one and is recommended for new in
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
 cd Python_Connection_Manager/gtk3
-bash setup.sh          # automatically installs for Debian/Ubuntu/Arch/Fedora/openSUSE
+bash setup.sh          # automatically installs with uv for Debian/Ubuntu/Arch/Fedora/openSUSE
 python3 PCM.py
 ```
+
+> **Note**: The project uses [**uv**](https://github.com/astral-sh/uv) as a modern and fast Python package manager instead of pip. The `setup.sh` script automatically installs uv and creates an optimized virtual environment.
 
 For the PyQt6 version and full instructions see [`pyqt6/README.md`](./pyqt6/README.md).
 

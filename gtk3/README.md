@@ -115,7 +115,7 @@ cd Python_Connection_Manager/gtk3
 bash setup.sh
 ```
 
-Lo script rileva automaticamente la distribuzione e installa tutte le dipendenze.
+Lo script rileva automaticamente la distribuzione e installa tutte le dipendenze usando **uv** come gestore di pacchetti Python moderno.
 
 ### Installazione manuale
 
