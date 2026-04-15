@@ -183,9 +183,9 @@ class RdpEmbedWidget(Gtk.Box):
         if user:   args.append(f"/u:{user}")
         if domain:
             args.append(f"/d:{domain}")
-            # Disabilita Kerberos completamente: /sec:nla + /auth-pkg-list:ntlm
-            # evita il timeout di 60s quando il KDC non è raggiungibile
-            args += ["/sec:nla", "/auth-pkg-list:ntlm"]
+            # Forza NTLM: evita il timeout Kerberos quando il KDC non è
+            # raggiungibile (rete aziendale senza DNS Kerberos configurato)
+            args.append("/auth-pkg-list:ntlm")
         if pwd:    args.append(f"/p:{pwd}")
         if clips:  args.append("/clipboard")
         if drives: args.append("/drive:home,/home")
@@ -392,14 +392,19 @@ class RdpEmbedWidget(Gtk.Box):
             if result.returncode != 0:
                 raise RuntimeError(result.stderr.decode().strip())
 
-            # Posiziona e ridimensiona
-            subprocess.run(["xdotool", "windowmove", "--sync", wid_rdp, "0", "0"],
-                           timeout=3, capture_output=True)
-            subprocess.run(["xdotool", "windowsize", "--sync", wid_rdp, str(w), str(h)],
-                           timeout=3, capture_output=True)
+            time.sleep(0.1)
+
+            # Posiziona e ridimensiona (senza --sync: xfreerdp3 non emette
+            # l'evento X11 atteso da --sync dopo il reparent)
+            subprocess.Popen(["xdotool", "windowmove", wid_rdp, "0", "0"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(["xdotool", "windowsize", wid_rdp, str(w), str(h)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            time.sleep(0.1)
 
             # Rimappa
-            subprocess.run(["xdotool", "windowmap", "--sync", wid_rdp],
+            subprocess.run(["xdotool", "windowmap", wid_rdp],
                            timeout=3, capture_output=True)
 
             self._reparented = True
@@ -562,7 +567,7 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     if user:   args.append(f"/u:{user}")
     if domain:
         args.append(f"/d:{domain}")
-        args += ["/sec:nla", "/auth-pkg-list:ntlm"]
+        args.append("/auth-pkg-list:ntlm")
     if pwd:    args.append(f"/p:{pwd}")
     if fs:     args.append("/f")
     if clips:  args.append("/clipboard")
