@@ -61,6 +61,8 @@ def _fmt_attr(mode: int) -> str:
 # TransferJob — un singolo elemento di coda
 # ---------------------------------------------------------------------------
 
+CHUNK_SIZE = 32768  # 32 KB per chunk — permette controllo pausa/annulla
+
 class TransferJob:
     def __init__(self, op, src, dst, size=0, nome=""):
         self.op         = op        # 'upload' | 'download'
@@ -73,6 +75,7 @@ class TransferJob:
         self.errore     = ""
         self.velocita   = 0
         self.t_inizio   = 0.0
+        self.annulla    = False     # flag: interrompi trasferimento in corso
 
 
 # ---------------------------------------------------------------------------
@@ -653,9 +656,10 @@ class CodaWidget(Gtk.Box):
         self._btn_pausa.set_label("▶ Riprendi" if self._in_pausa else "⏸ Pausa")
 
     def _on_annulla(self, btn):
-        """Marca il primo job 'In corso' come da annullare."""
+        """Interrompe il trasferimento in corso impostando il flag job.annulla."""
         for i, job in enumerate(self._jobs):
             if job.stato == "In corso":
+                job.annulla = True   # il thread lo legge al prossimo chunk
                 job.stato = "Annullato"
                 it = self._store.get_iter(i)
                 self._store.set_value(it, 5, "✖ Annullato")
@@ -888,27 +892,20 @@ class WinScpWidget(Gtk.Box):
 
         def run():
             for idx, job in jobs_in_attesa:
-                # Rispetta la pausa
                 while self._coda.is_in_pausa():
-                    time.sleep(0.5)
-                if job.stato == "Annullato":
+                    time.sleep(0.3)
+                if job.annulla or job.stato == "Annullato":
                     continue
                 job.stato = "In corso"
                 job.t_inizio = time.time()
                 try:
-                    def cb(tx, tot, j=job, i=idx):
-                        j.trasferito = tx
-                        dt = time.time() - j.t_inizio
-                        j.velocita = int(tx / dt) if dt > 0 else 0
-                        GLib.idle_add(self._coda.aggiorna_progress, i, tx, tot or j.size)
-
-                    if job.op == "download":
-                        self._sftp.get(job.src, job.dst, callback=cb)
+                    self._trasferisci_chunk(job, idx)
+                    if job.annulla:
+                        job.stato = "Annullato"
+                        GLib.idle_add(self._coda.segna_completato, idx, False, "Annullato")
                     else:
-                        self._sftp.put(job.src, job.dst, callback=cb)
-
-                    job.stato = "Completato"
-                    GLib.idle_add(self._coda.segna_completato, idx, True, "")
+                        job.stato = "Completato"
+                        GLib.idle_add(self._coda.segna_completato, idx, True, "")
                 except Exception as e:
                     job.stato = "Errore"
                     job.errore = str(e)
@@ -947,37 +944,87 @@ class WinScpWidget(Gtk.Box):
 
         def run():
             for job, idx in zip(jobs, idxs):
-                # Rispetta pausa
+                # Rispetta pausa (tra job)
                 while self._coda.is_in_pausa():
-                    time.sleep(0.5)
-                if job.stato == "Annullato":
+                    time.sleep(0.3)
+                if job.annulla or job.stato == "Annullato":
                     continue
                 job.stato = "In corso"
                 job.t_inizio = time.time()
                 try:
-                    def cb(tx, tot, j=job, i=idx):
-                        j.trasferito = tx
-                        dt = time.time() - j.t_inizio
-                        j.velocita = int(tx / dt) if dt > 0 else 0
-                        GLib.idle_add(self._coda.aggiorna_progress, i, tx, tot or j.size)
-
-                    if job.op == "download":
-                        self._sftp.get(job.src, job.dst, callback=cb)
+                    self._trasferisci_chunk(job, idx)
+                    if job.annulla:
+                        job.stato = "Annullato"
+                        GLib.idle_add(self._coda.segna_completato, idx, False, "Annullato")
                     else:
-                        self._sftp.put(job.src, job.dst, callback=cb)
-
-                    job.stato = "Completato"
-                    GLib.idle_add(self._coda.segna_completato, idx, True, "")
+                        job.stato = "Completato"
+                        GLib.idle_add(self._coda.segna_completato, idx, True, "")
                 except Exception as e:
                     job.stato = "Errore"
                     job.errore = str(e)
                     GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
 
-            # Aggiorna pannelli dopo tutti i job
             GLib.idle_add(self._aggiorna_tutto)
 
         self._worker_thread = threading.Thread(target=run, daemon=True)
         self._worker_thread.start()
+
+    # ------------------------------------------------------------------
+    # Trasferimento a chunk (permette pausa/annulla)
+    # ------------------------------------------------------------------
+
+    def _trasferisci_chunk(self, job: TransferJob, idx: int):
+        """
+        Trasferisce un file a chunk di CHUNK_SIZE byte.
+        Controlla job.annulla e _coda.is_in_pausa() ad ogni chunk,
+        permettendo interruzione e pausa reali durante il trasferimento.
+        """
+        if job.op == "download":
+            remote_f = self._sftp.open(job.src, "rb")
+            try:
+                with open(job.dst, "wb") as local_f:
+                    tx = 0
+                    while True:
+                        # Pausa: aspetta senza consumare CPU
+                        while self._coda.is_in_pausa():
+                            time.sleep(0.3)
+                        if job.annulla:
+                            return
+                        chunk = remote_f.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        local_f.write(chunk)
+                        tx += len(chunk)
+                        job.trasferito = tx
+                        dt = time.time() - job.t_inizio
+                        job.velocita = int(tx / dt) if dt > 0 else 0
+                        GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+            finally:
+                remote_f.close()
+        else:  # upload
+            size = os.path.getsize(job.src)
+            if not job.size:
+                job.size = size
+            with open(job.src, "rb") as local_f:
+                remote_f = self._sftp.open(job.dst, "wb")
+                try:
+                    tx = 0
+                    while True:
+                        while self._coda.is_in_pausa():
+                            time.sleep(0.3)
+                        if job.annulla:
+                            return
+                        chunk = local_f.read(CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        remote_f.write(chunk)
+                        tx += len(chunk)
+                        job.trasferito = tx
+                        dt = time.time() - job.t_inizio
+                        job.velocita = int(tx / dt) if dt > 0 else 0
+                        GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                finally:
+                    remote_f.close()
 
     # ------------------------------------------------------------------
     # Cleanup

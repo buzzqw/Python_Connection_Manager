@@ -199,6 +199,72 @@ class SessionDialog(Gtk.Dialog):
         self._row_pkey = self._conn_row(t("sd.private_key"), pkey_box)
         vbox.pack_start(self._row_pkey, False, False, 0)
 
+        # ── Gestione chiavi SSH ───────────────────────────────────────
+        self._frame_chiavi = Gtk.Frame(label=" 🔑 Gestione chiavi SSH ")
+        self._frame_chiavi.set_label_align(0.02, 0.5)
+        self._frame_chiavi.set_margin_top(6)
+        chiavi_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        chiavi_vbox.set_margin_start(8); chiavi_vbox.set_margin_end(8)
+        chiavi_vbox.set_margin_top(6);   chiavi_vbox.set_margin_bottom(8)
+        self._frame_chiavi.add(chiavi_vbox)
+
+        # Riga 1: chiavi esistenti
+        riga1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        lbl_esistenti = Gtk.Label(label=t("sd.keys.existing") if not t("sd.keys.existing").startswith("sd.") else "Chiavi in ~/.ssh:")
+        lbl_esistenti.set_width_chars(16); lbl_esistenti.set_xalign(1.0)
+        self.combo_chiavi = Gtk.ComboBoxText()
+        self.combo_chiavi.set_hexpand(True)
+        self.combo_chiavi.connect("changed", self._on_chiave_selezionata)
+        btn_ricarica_chiavi = Gtk.Button(label="↺")
+        btn_ricarica_chiavi.set_tooltip_text("Ricarica lista chiavi")
+        btn_ricarica_chiavi.connect("clicked", lambda b: self._carica_chiavi_esistenti())
+        riga1.pack_start(lbl_esistenti, False, False, 0)
+        riga1.pack_start(self.combo_chiavi, True, True, 0)
+        riga1.pack_start(btn_ricarica_chiavi, False, False, 0)
+        chiavi_vbox.pack_start(riga1, False, False, 0)
+
+        # Riga 2: genera nuova
+        riga2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        lbl_genera = Gtk.Label(label=t("sd.keys.generate") if not t("sd.keys.generate").startswith("sd.") else "Genera nuova:")
+        lbl_genera.set_width_chars(16); lbl_genera.set_xalign(1.0)
+        self.combo_key_type = Gtk.ComboBoxText()
+        for kt in ["ed25519  (consigliata)", "rsa 4096", "ecdsa 521"]:
+            self.combo_key_type.append_text(kt)
+        self.combo_key_type.set_active(0)
+        self.combo_key_type.set_hexpand(True)
+        import socket as _socket
+        _default_comment = f"{os.environ.get('USER','user')}@{_socket.gethostname()}"
+        self.entry_key_comment = Gtk.Entry()
+        self.entry_key_comment.set_text(_default_comment)
+        self.entry_key_comment.set_placeholder_text("commento (es. utente@host)")
+        self.entry_key_comment.set_width_chars(20)
+        btn_genera_key = Gtk.Button(label="⚙ Genera")
+        btn_genera_key.set_tooltip_text("Genera nuova coppia di chiavi SSH")
+        btn_genera_key.connect("clicked", lambda b: self._genera_chiave_ssh())
+        riga2.pack_start(lbl_genera, False, False, 0)
+        riga2.pack_start(self.combo_key_type, True, True, 0)
+        riga2.pack_start(self.entry_key_comment, False, False, 0)
+        riga2.pack_start(btn_genera_key, False, False, 0)
+        chiavi_vbox.pack_start(riga2, False, False, 0)
+
+        # Riga 3: copia server + mostra pubblica
+        riga3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.btn_copia_server = Gtk.Button(label="📤 Copia chiave pubblica sul server")
+        self.btn_copia_server.set_hexpand(True)
+        self.btn_copia_server.set_tooltip_text("Invia la chiave pubblica al server con ssh-copy-id")
+        self.btn_copia_server.get_style_context().add_class("suggested-action")
+        self.btn_copia_server.connect("clicked", lambda b: self._copia_chiave_server())
+        self.btn_mostra_pub = Gtk.Button(label="👁 Mostra pubblica")
+        self.btn_mostra_pub.set_hexpand(True)
+        self.btn_mostra_pub.set_tooltip_text("Visualizza e copia la chiave pubblica")
+        self.btn_mostra_pub.connect("clicked", lambda b: self._mostra_chiave_pubblica())
+        riga3.pack_start(self.btn_copia_server, True, True, 0)
+        riga3.pack_start(self.btn_mostra_pub, True, True, 0)
+        chiavi_vbox.pack_start(riga3, False, False, 0)
+
+        vbox.pack_start(self._frame_chiavi, False, False, 0)
+        self._carica_chiavi_esistenti()
+
         # Seriale
         self.entry_serial_dev = _entry("/dev/ttyUSB0")
         self._row_serial_dev = self._conn_row(t("sd.serial.device"), self.entry_serial_dev)
@@ -504,6 +570,321 @@ class SessionDialog(Gtk.Dialog):
         self.combo_vnc_client.set_visible(is_external)
         self.chk_vnc_internal.set_active(not is_external)
 
+    # ------------------------------------------------------------------
+    # Gestione chiavi SSH
+    # ------------------------------------------------------------------
+
+    def _carica_chiavi_esistenti(self):
+        self.combo_chiavi.remove_all()
+        none_label = t("sd.keys.none") if not t("sd.keys.none").startswith("sd.") else "(nessuna — usa password)"
+        self.combo_chiavi.append_text(none_label)
+        ssh_dir = os.path.expanduser("~/.ssh")
+        if not os.path.isdir(ssh_dir):
+            self.combo_chiavi.set_active(0)
+            return
+        try:
+            for f in sorted(os.listdir(ssh_dir)):
+                path = os.path.join(ssh_dir, f)
+                if not os.path.isfile(path):
+                    continue
+                if any(f.endswith(e) or f == e for e in {".pub", "known_hosts", "known_hosts.old", "authorized_keys", "config"}):
+                    continue
+                try:
+                    with open(path, "r", errors="ignore") as fh:
+                        prima = fh.readline().strip()
+                    if "PRIVATE KEY" in prima or prima.startswith("-----BEGIN"):
+                        self.combo_chiavi.append_text(f"~/.ssh/{f}")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self.combo_chiavi.set_active(0)
+        # Seleziona la chiave già impostata in entry_pkey
+        pkey = self.entry_pkey.get_text().strip()
+        if pkey:
+            nome = "~/.ssh/" + os.path.basename(pkey)
+            model = self.combo_chiavi.get_model()
+            for i, row in enumerate(model):
+                if row[0] == nome:
+                    self.combo_chiavi.set_active(i)
+                    break
+
+    def _on_chiave_selezionata(self, combo):
+        testo = combo.get_active_text() or ""
+        none_label = t("sd.keys.none") if not t("sd.keys.none").startswith("sd.") else "(nessuna — usa password)"
+        if testo and testo != none_label:
+            path = os.path.expanduser(testo.replace("~", os.path.expanduser("~"), 1))
+            # normalizza ~/ prefix
+            if testo.startswith("~/.ssh/"):
+                path = os.path.join(os.path.expanduser("~/.ssh"), testo[7:])
+            self.entry_pkey.set_text(path)
+        else:
+            self.entry_pkey.set_text("")
+
+    def _genera_chiave_ssh(self):
+        if not shutil.which("ssh-keygen"):
+            self._alert("ssh-keygen non trovato. Installa openssh-client.")
+            return
+        tipo_raw = self.combo_key_type.get_active_text() or "ed25519"
+        if "ed25519" in tipo_raw:
+            tipo, bits = "ed25519", None
+        elif "rsa" in tipo_raw:
+            tipo, bits = "rsa", "4096"
+        else:
+            tipo, bits = "ecdsa", "521"
+
+        commento = self.entry_key_comment.get_text().strip() or "pcm-key"
+        ssh_dir  = os.path.expanduser("~/.ssh")
+        os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
+        nome_default = f"id_{tipo}_pcm"
+
+        # Dialog nome file
+        nome = self._chiedi_testo("Nome file chiave", f"Nome del file in ~/.ssh/:", nome_default)
+        if not nome:
+            return
+        percorso = os.path.join(ssh_dir, nome.strip())
+
+        if os.path.exists(percorso):
+            if not self._conferma(f"La chiave '{nome}' esiste già. Sovrascrivere?"):
+                return
+
+        # Dialog passphrase
+        passphrase = self._chiedi_password_dlg("Passphrase (vuoto = nessuna)")
+        if passphrase is None:
+            return
+
+        cmd = ["ssh-keygen", "-t", tipo, "-f", percorso, "-C", commento, "-N", passphrase or ""]
+        if bits:
+            cmd += ["-b", bits]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if result.returncode == 0:
+                os.chmod(percorso, 0o600)
+                self.entry_pkey.set_text(percorso)
+                self._carica_chiavi_esistenti()
+                # Seleziona la nuova chiave nel combo
+                nome_combo = f"~/.ssh/{nome.strip()}"
+                model = self.combo_chiavi.get_model()
+                for i, row in enumerate(model):
+                    if row[0] == nome_combo:
+                        self.combo_chiavi.set_active(i)
+                        break
+                self._alert(f"✓ Chiave generata!\n\nPrivata: {percorso}\nPubblica: {percorso}.pub")
+            else:
+                self._alert(f"Errore ssh-keygen:\n{result.stderr}")
+        except subprocess.TimeoutExpired:
+            self._alert("Timeout: ssh-keygen ha impiegato troppo.")
+        except Exception as e:
+            self._alert(str(e))
+
+    def _copia_chiave_server(self):
+        if not shutil.which("ssh-copy-id"):
+            self._alert("ssh-copy-id non trovato. Installa openssh-client.")
+            return
+        pkey = self.entry_pkey.get_text().strip()
+        if not pkey:
+            self._alert("Seleziona o genera prima una chiave SSH.")
+            return
+        pub_path = pkey + ".pub"
+        if not os.path.exists(pub_path):
+            self._alert(f"Chiave pubblica non trovata:\n{pub_path}")
+            return
+        host = self.entry_host.get_text().strip()
+        if not host:
+            self._alert("Inserisci prima l'host nel tab Connessione.")
+            return
+        user = self.entry_user.get_text().strip()
+        port = self.entry_port.get_text().strip() or "22"
+        target = f"{user}@{host}" if user else host
+
+        try:
+            with open(pub_path) as f:
+                pub_content = f.read().strip()
+        except Exception:
+            pub_content = "(impossibile leggere)"
+
+        # Dialog conferma con contenuto chiave pubblica
+        dlg = Gtk.Dialog(
+            title="Copia chiave pubblica sul server",
+            transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+            modal=True,
+        )
+        dlg.set_default_size(560, -1)
+        box = dlg.get_content_area()
+        box.set_spacing(8); box.set_margin_start(16); box.set_margin_end(16)
+        box.set_margin_top(12); box.set_margin_bottom(8)
+
+        lbl = Gtk.Label()
+        lbl.set_markup(f"Invierà la chiave pubblica a:\n<b>{target}</b>  porta {port}\n\nChiave: <tt>{pub_path}</tt>")
+        lbl.set_xalign(0.0); lbl.set_line_wrap(True)
+        box.pack_start(lbl, False, False, 0)
+
+        lbl_pub = Gtk.Label(label="Contenuto chiave pubblica:")
+        lbl_pub.set_xalign(0.0)
+        box.pack_start(lbl_pub, False, False, 0)
+
+        txt = Gtk.TextView()
+        txt.set_editable(False)
+        txt.get_buffer().set_text(pub_content)
+        txt.set_wrap_mode(Gtk.WrapMode.CHAR)
+        txt.set_monospace(True)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(60)
+        scroll.set_max_content_height(80)
+        scroll.add(txt)
+        box.pack_start(scroll, False, False, 0)
+
+        box.show_all()
+        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        btn_manuale = dlg.add_button("📋 Copia chiave", Gtk.ResponseType.APPLY)
+        dlg.add_button("📤 Esegui ssh-copy-id", Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+
+        resp = dlg.run()
+        dlg.destroy()
+
+        if resp == Gtk.ResponseType.APPLY:
+            clipboard = Gtk.Clipboard.get(self.get_display().get_default_seat().get_keyboard().get_surface() if False else self.get_display())
+            try:
+                clipboard = Gtk.Clipboard.get_for_display(self.get_display(), Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(pub_content, -1)
+            except Exception:
+                pass
+            return
+
+        if resp == Gtk.ResponseType.OK:
+            cmd_str = f"ssh-copy-id -i '{pub_path}' -p {port} {target}"
+            # Apri in terminale
+            for term in ["xterm", "gnome-terminal", "xfce4-terminal", "konsole"]:
+                if shutil.which(term):
+                    if term == "xterm":
+                        subprocess.Popen([term, "-title", "PCM — ssh-copy-id",
+                                         "-e", f"bash -c '{cmd_str}; echo; echo Premi Invio...; read'"])
+                    elif term in ("gnome-terminal", "xfce4-terminal"):
+                        subprocess.Popen([term, "--", "bash", "-c",
+                                         f"{cmd_str}; echo; echo 'Premi Invio...'; read"])
+                    else:
+                        subprocess.Popen([term, "-e", f"bash -c '{cmd_str}; read'"])
+                    break
+            else:
+                subprocess.Popen(["bash", "-c", cmd_str])
+
+    def _mostra_chiave_pubblica(self):
+        pkey = self.entry_pkey.get_text().strip()
+        if not pkey:
+            self._alert("Seleziona o genera prima una chiave SSH.")
+            return
+        pub_path = pkey + ".pub"
+        if not os.path.exists(pub_path):
+            self._alert(f"Chiave pubblica non trovata:\n{pub_path}")
+            return
+        try:
+            contenuto = open(pub_path).read().strip()
+        except Exception as e:
+            self._alert(str(e))
+            return
+
+        dlg = Gtk.Dialog(
+            title=f"Chiave pubblica — {os.path.basename(pub_path)}",
+            transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+            modal=True,
+        )
+        dlg.set_default_size(620, 200)
+        box = dlg.get_content_area()
+        box.set_margin_start(16); box.set_margin_end(16)
+        box.set_margin_top(12);   box.set_margin_bottom(8)
+
+        lbl = Gtk.Label()
+        lbl.set_markup(f"<b>{pub_path}</b>")
+        lbl.set_xalign(0.0)
+        box.pack_start(lbl, False, False, 4)
+
+        txt = Gtk.TextView()
+        txt.set_editable(False)
+        txt.get_buffer().set_text(contenuto)
+        txt.set_wrap_mode(Gtk.WrapMode.CHAR)
+        txt.set_monospace(True)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(80)
+        scroll.add(txt)
+        box.pack_start(scroll, True, True, 0)
+
+        box.show_all()
+        dlg.add_button("✖ Chiudi", Gtk.ResponseType.CLOSE)
+        btn_copia = dlg.add_button("📋 Copia negli appunti", Gtk.ResponseType.APPLY)
+
+        def _on_resp(d, r):
+            if r == Gtk.ResponseType.APPLY:
+                try:
+                    cb = Gtk.Clipboard.get_for_display(d.get_display(), Gdk.SELECTION_CLIPBOARD)
+                    cb.set_text(contenuto, -1)
+                    btn_copia.set_label("✅ Copiata!")
+                except Exception:
+                    pass
+                return
+            d.destroy()
+
+        dlg.connect("response", _on_resp)
+        dlg.run()
+
+    def _chiedi_testo(self, titolo: str, label: str, default: str = "") -> str | None:
+        dlg = Gtk.Dialog(title=titolo,
+                         transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+                         modal=True)
+        dlg.set_default_size(360, -1)
+        box = dlg.get_content_area()
+        box.set_spacing(6); box.set_margin_start(12); box.set_margin_end(12)
+        box.set_margin_top(8); box.set_margin_bottom(6)
+        lbl = Gtk.Label(label=label); lbl.set_xalign(0.0)
+        entry = Gtk.Entry(); entry.set_text(default); entry.set_activates_default(True)
+        box.pack_start(lbl, False, False, 0)
+        box.pack_start(entry, False, False, 0)
+        box.show_all()
+        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button("OK", Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        resp = dlg.run()
+        result = entry.get_text().strip() if resp == Gtk.ResponseType.OK else None
+        dlg.destroy()
+        return result
+
+    def _chiedi_password_dlg(self, label: str) -> str | None:
+        dlg = Gtk.Dialog(title="Passphrase chiave SSH",
+                         transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+                         modal=True)
+        dlg.set_default_size(360, -1)
+        box = dlg.get_content_area()
+        box.set_spacing(6); box.set_margin_start(12); box.set_margin_end(12)
+        box.set_margin_top(8); box.set_margin_bottom(6)
+        lbl = Gtk.Label(label=label); lbl.set_xalign(0.0)
+        entry = Gtk.Entry(); entry.set_visibility(False); entry.set_activates_default(True)
+        box.pack_start(lbl, False, False, 0)
+        box.pack_start(entry, False, False, 0)
+        box.show_all()
+        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button("OK", Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        resp = dlg.run()
+        result = entry.get_text() if resp == Gtk.ResponseType.OK else None
+        dlg.destroy()
+        return result
+
+    def _alert(self, msg: str):
+        dlg = Gtk.MessageDialog(
+            transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+            modal=True, message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK, text=msg)
+        dlg.run(); dlg.destroy()
+
+    def _conferma(self, msg: str) -> bool:
+        dlg = Gtk.MessageDialog(
+            transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
+            modal=True, message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO, text=msg)
+        resp = dlg.run(); dlg.destroy()
+        return resp == Gtk.ResponseType.YES
+
     def _sfoglia_pkey(self, btn):
         dlg = Gtk.FileChooserDialog(
             title=t("sd.browse_key"),
@@ -550,6 +931,7 @@ class SessionDialog(Gtk.Dialog):
         self._row_user.set_visible(is_net)
         self._row_password.set_visible(is_net)
         self._row_pkey.set_visible(has_pkey)
+        self._frame_chiavi.set_visible(has_pkey)
         self._row_serial_dev.set_visible(is_serial)
         self._row_baud.set_visible(is_serial)
         self._row_data_bits.set_visible(is_serial)
