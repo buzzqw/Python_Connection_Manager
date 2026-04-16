@@ -119,13 +119,23 @@ class WelcomeWidget(QWidget):
 
         layout.addLayout(pulsanti_layout)
 
-        # Info dipendenze
-        deps = check_dipendenze()
-        mancanti = [k for k, v in deps.items() if not v and k not in ("paramiko",)]
-        if mancanti:
-            avviso = QLabel(t("welcome.missing_tools", tools=", ".join(mancanti)))
+        # Info dipendenze - mostra solo quelle veramente critiche
+        from session_command import check_dipendenze_categorizzate
+        deps_cat = check_dipendenze_categorizzate()
+        
+        # Mostra solo dipendenze core mancanti e raccomandazioni importanti
+        missing_core = deps_cat.get("missing_core", [])
+        missing_recommended = deps_cat.get("missing_recommended", [])
+        
+        if missing_core:
+            avviso = QLabel(t("welcome.missing_critical_tools", tools=", ".join(missing_core)))
             avviso.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            avviso.setStyleSheet("color:#c9b458; font-size:11px; margin-top:20px;")
+            avviso.setStyleSheet("color:#e74c3c; font-size:11px; margin-top:20px; font-weight:bold;")
+            layout.addWidget(avviso)
+        elif missing_recommended:
+            avviso = QLabel(t("welcome.missing_recommended_tools", tools=", ".join(missing_recommended)))
+            avviso.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            avviso.setStyleSheet("color:#f39c12; font-size:11px; margin-top:20px;")
             layout.addWidget(avviso)
 
         # Footer

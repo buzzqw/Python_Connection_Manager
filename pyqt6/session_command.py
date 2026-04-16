@@ -534,8 +534,7 @@ def _esc(s: str) -> str:
 def check_dipendenze() -> dict:
     """
     Controlla la disponibilita degli strumenti necessari.
-    Restituisce {nome: True/False} per gli strumenti obbligatori,
-    e raggruppa quelli opzionali (terminali, client RDP/VNC).
+    Restituisce {nome: True/False} per tutti gli strumenti.
     """
     # Strumenti obbligatori / fortemente consigliati
     tools = {
@@ -570,6 +569,80 @@ def check_dipendenze() -> dict:
     except ImportError:
         tools["cryptography"] = False
     return tools
+
+
+def check_dipendenze_categorizzate() -> dict:
+    """
+    Controlla le dipendenze categorizzandole per importanza.
+    Restituisce un dizionario con le categorie:
+    - 'core': dipendenze essenziali per il funzionamento base
+    - 'recommended': dipendenze fortemente consigliate
+    - 'optional': dipendenze opzionali per funzionalità specifiche
+    - 'missing_core': lista delle dipendenze core mancanti
+    - 'missing_recommended': lista delle dipendenze consigliate mancanti
+    """
+    # Dipendenze core (essenziali)
+    core_deps = {
+        "ssh": shutil.which("ssh") is not None,
+        "paramiko": True,
+        "cryptography": True
+    }
+    
+    # Verifica librerie Python
+    try:
+        import paramiko
+        core_deps["paramiko"] = True
+    except ImportError:
+        core_deps["paramiko"] = False
+        
+    try:
+        import cryptography
+        core_deps["cryptography"] = True
+    except ImportError:
+        core_deps["cryptography"] = False
+    
+    # Dipendenze fortemente consigliate
+    recommended_deps = {
+        "xdotool": shutil.which("xdotool") is not None,
+        "terminal": False  # Almeno un terminale grafico
+    }
+    
+    # Controlla se c'è almeno un terminale disponibile
+    _terminali = ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
+                  "alacritty", "kitty", "terminator", "wezterm",
+                  "foot", "tilix", "lxterminal", "mate-terminal", "st"]
+    recommended_deps["terminal"] = any(shutil.which(t) for t in _terminali)
+    
+    # Dipendenze opzionali (per protocolli specifici)
+    optional_deps = {
+        "sshpass": shutil.which("sshpass") is not None,
+        "xwininfo": shutil.which("xwininfo") is not None,
+        "mosh": shutil.which("mosh") is not None,
+        "telnet": shutil.which("telnet") is not None,
+        "picocom": shutil.which("picocom") is not None,
+        "rdp_client": False,  # Almeno un client RDP
+        "vnc_client": False   # Almeno un client VNC
+    }
+    
+    # Controlla client RDP
+    rdp_clients = ["xfreerdp3", "xfreerdp", "rdesktop"]
+    optional_deps["rdp_client"] = any(shutil.which(c) for c in rdp_clients)
+    
+    # Controlla client VNC
+    vnc_clients = ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"]
+    optional_deps["vnc_client"] = any(shutil.which(c) for c in vnc_clients)
+    
+    # Calcola dipendenze mancanti
+    missing_core = [k for k, v in core_deps.items() if not v]
+    missing_recommended = [k for k, v in recommended_deps.items() if not v]
+    
+    return {
+        "core": core_deps,
+        "recommended": recommended_deps,
+        "optional": optional_deps,
+        "missing_core": missing_core,
+        "missing_recommended": missing_recommended
+    }
 
 
 def installed_tools(category: str) -> list[str]:
