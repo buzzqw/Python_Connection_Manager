@@ -146,7 +146,7 @@ class TunnelManagerDialog(Gtk.Dialog):
             modal=False,
             destroy_with_parent=True
         )
-        self.set_default_size(700, 550)
+        self.set_default_size(750, 550)
         self._tunnels: list[dict] = config_manager.load_tunnels()
         self._procs:   dict[int, subprocess.Popen] = {}  # idx → processo
         self._init_ui()

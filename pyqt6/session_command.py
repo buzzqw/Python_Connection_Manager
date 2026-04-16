@@ -7,6 +7,45 @@ import os
 import shutil
 import subprocess
 from typing import Optional, Tuple
+import config_manager
+
+
+# ---------------------------------------------------------------------------
+# Helper per il recupero dei percorsi personalizzati
+# ---------------------------------------------------------------------------
+
+def _get_tool(cmd_id: str) -> str:
+    """
+    Recupera il comando da eseguire:
+    1. Controlla se l'utente ha impostato un percorso custom (tool_paths).
+    2. Altrimenti usa shutil.which per trovare il path assoluto.
+    3. Fallback sul nome del comando stesso.
+    """
+    settings = config_manager.load_settings()
+    custom_paths = settings.get("tool_paths", {})
+
+    # Mappa gli alias: se PCM cerca "tigervnc", controlla se l'utente ha configurato "xtigervncviewer"
+    alias_map = {
+        "tigervnc": "xtigervncviewer",
+        "vncviewer": "xtigervncviewer"
+    }
+    lookup_id = alias_map.get(cmd_id, cmd_id)
+
+    if lookup_id in custom_paths and custom_paths[lookup_id].strip():
+        return custom_paths[lookup_id].strip()
+    
+    if cmd_id in custom_paths and custom_paths[cmd_id].strip():
+        return custom_paths[cmd_id].strip()
+
+    return shutil.which(cmd_id) or cmd_id
+
+
+def _tool_exists(cmd_id: str) -> bool:
+    """Controlla se lo strumento esiste (sia esso custom o di sistema)."""
+    tool = _get_tool(cmd_id)
+    if os.path.isabs(tool) and os.path.exists(tool):
+        return True
+    return shutil.which(tool) is not None
 
 
 # ---------------------------------------------------------------------------

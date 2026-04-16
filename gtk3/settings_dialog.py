@@ -176,8 +176,16 @@ class SettingsDialog(Gtk.Dialog):
         self.spin_font_size = Gtk.SpinButton.new_with_range(6, 32, 1)
         self._form_row(t("settings.terminal.font_size"), self.spin_font_size, grid, row); row += 1
 
+        # Scrollback infinito checkbox
+        self.chk_infinite_scrollback = Gtk.CheckButton(label=t("settings.terminal.infinite_scrollback"))
+        grid.attach(self.chk_infinite_scrollback, 0, row, 2, 1); row += 1
+        
+        # Scrollback lines (disabilitato se infinito è attivo)
         self.spin_scrollback = Gtk.SpinButton.new_with_range(100, 100000, 1000)
         self._form_row(t("settings.terminal.scrollback"), self.spin_scrollback, grid, row); row += 1
+        
+        # Connetti il segnale per abilitare/disabilitare lo spin button
+        self.chk_infinite_scrollback.connect("toggled", self._on_infinite_scrollback_toggled)
 
         self.chk_paste_right = Gtk.CheckButton(label=t("settings.terminal.paste_right"))
         grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
@@ -205,6 +213,11 @@ class SettingsDialog(Gtk.Dialog):
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sw.add(grid)
         return sw
+
+    def _on_infinite_scrollback_toggled(self, checkbox):
+        """Abilita/disabilita lo spin button quando il checkbox scrollback infinito viene attivato/disattivato."""
+        is_infinite = checkbox.get_active()
+        self.spin_scrollback.set_sensitive(not is_infinite)
 
     # ------------------------------------------------------------------
     # Tab SSH
@@ -287,7 +300,15 @@ class SettingsDialog(Gtk.Dialog):
         if font_child:
             font_child.set_text(term.get("default_font", "Monospace"))
         self.spin_font_size.set_value(term.get("default_font_size", 11))
-        self.spin_scrollback.set_value(term.get("scrollback_lines", 10000))
+        
+        # Gestione scrollback infinito
+        infinite_scrollback = term.get("infinite_scrollback", False)
+        self.chk_infinite_scrollback.set_active(infinite_scrollback)
+        if infinite_scrollback:
+            self.spin_scrollback.set_sensitive(False)
+        else:
+            self.spin_scrollback.set_value(term.get("scrollback_lines", 10000))
+        
         self.chk_paste_right.set_active(term.get("paste_on_right_click", False))
         self.chk_confirm_close.set_active(term.get("confirm_on_close", True))
         self.chk_warn_paste.set_active(term.get("warn_multiline_paste", True))
@@ -333,7 +354,11 @@ class SettingsDialog(Gtk.Dialog):
         font_child = self.combo_font.get_child()
         s["terminal"]["default_font"]         = font_child.get_text() if font_child else "Monospace"
         s["terminal"]["default_font_size"]    = int(self.spin_font_size.get_value())
-        s["terminal"]["scrollback_lines"]     = int(self.spin_scrollback.get_value())
+        # Gestione scrollback infinito nel salvataggio
+        s["terminal"]["infinite_scrollback"] = self.chk_infinite_scrollback.get_active()
+        if not self.chk_infinite_scrollback.get_active():
+            s["terminal"]["scrollback_lines"] = int(self.spin_scrollback.get_value())
+        
         s["terminal"]["paste_on_right_click"] = self.chk_paste_right.get_active()
         s["terminal"]["confirm_on_close"]     = self.chk_confirm_close.get_active()
         s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()

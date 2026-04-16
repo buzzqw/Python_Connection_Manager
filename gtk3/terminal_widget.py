@@ -86,7 +86,7 @@ class TerminalWidget(Gtk.Box):
     def _init_ui(self):
         # ── Terminale VTE (occupa tutta l'area) ──────────────────────
         self._vte = Vte.Terminal()
-        self._vte.set_scrollback_lines(10000)
+        self._vte.set_scrollback_lines(10000)  # Default, verrà sovrascritto da imposta_scrollback
         self._applica_tema()
         self._applica_font()
 

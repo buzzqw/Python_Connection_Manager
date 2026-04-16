@@ -8,7 +8,7 @@ Portato dalla versione GTK3
 import shutil
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
-    QPushButton, QScrollArea, QHeaderView, QLineEdit, QFileDialog
+    QPushButton, QScrollArea, QHeaderView, QLineEdit, QFileDialog, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
