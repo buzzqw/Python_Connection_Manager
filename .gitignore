@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 *.bak
 *.json
+TRANSLATION_REPORT.md

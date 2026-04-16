@@ -55,6 +55,8 @@ from session_panel import SessionPanel
 from tunnel_manager import TunnelManagerDialog
 from ftp_server_dialog import FtpServerDialog
 from settings_dialog import SettingsDialog
+from variables_dialog import VariablesDialog
+from deps_dialog import DepsConfigDialog
 from winscp_widget import apri_sessione_winscp, WinScpWidget, apri_sessione_ftp, FtpWinScpWidget
 
 # ---------------------------------------------------------------------------
@@ -1704,85 +1706,9 @@ class MainWindow(QMainWindow):
 
     def _apri_variabili(self):
         """Dialog per gestire le variabili globali {NOME} → valore."""
-        from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
-                                      QTableWidget, QTableWidgetItem,
-                                      QPushButton, QLabel, QDialogButtonBox,
-                                      QHeaderView, QLineEdit)
-
-        dlg = QDialog(self)
-        dlg.setWindowTitle(t("variables.title"))
-        dlg.setMinimumSize(480, 360)
-        layout = QVBoxLayout(dlg)
-
-        layout.addWidget(QLabel(t("variables.hint")))
-
-        tabella = QTableWidget(0, 2)
-        tabella.setHorizontalHeaderLabels([t("variables.col_name"), t("variables.col_value")])
-        tabella.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        tabella.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        tabella.verticalHeader().setVisible(False)
-        tabella.setAlternatingRowColors(True)
-        layout.addWidget(tabella, 1)
-
-        # Popola con variabili esistenti
-        vars_ = config_manager.load_variables()
-        for nome, valore in vars_.items():
-            r = tabella.rowCount()
-            tabella.insertRow(r)
-            tabella.setItem(r, 0, QTableWidgetItem(nome))
-            tabella.setItem(r, 1, QTableWidgetItem(valore))
-
-        # Riga di aggiunta rapida
-        riga_add = QHBoxLayout()
-        edit_nome = QLineEdit()
-        edit_nome.setPlaceholderText("NOME (es. SERVER_IP)")
-        edit_valore = QLineEdit()
-        edit_valore.setPlaceholderText("valore")
-        btn_add = QPushButton(t("variables.add"))
-        btn_del = QPushButton(t("variables.delete"))
-
-        def aggiungi():
-            n = edit_nome.text().strip().upper().replace(" ", "_")
-            v = edit_valore.text()
-            if not n:
-                return
-            r = tabella.rowCount()
-            tabella.insertRow(r)
-            tabella.setItem(r, 0, QTableWidgetItem(n))
-            tabella.setItem(r, 1, QTableWidgetItem(v))
-            edit_nome.clear()
-            edit_valore.clear()
-
-        def elimina():
-            for item in tabella.selectedItems():
-                tabella.removeRow(item.row())
-
-        btn_add.clicked.connect(aggiungi)
-        btn_del.clicked.connect(elimina)
-        edit_valore.returnPressed.connect(aggiungi)
-
-        riga_add.addWidget(edit_nome)
-        riga_add.addWidget(edit_valore, 1)
-        riga_add.addWidget(btn_add)
-        riga_add.addWidget(btn_del)
-        layout.addLayout(riga_add)
-
-        bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        bbox.accepted.connect(dlg.accept)
-        bbox.rejected.connect(dlg.reject)
-        layout.addWidget(bbox)
-
+        dlg = VariablesDialog(self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            nuove = {}
-            for r in range(tabella.rowCount()):
-                n = tabella.item(r, 0)
-                v = tabella.item(r, 1)
-                if n and n.text().strip():
-                    nuove[n.text().strip()] = v.text() if v else ""
-            config_manager.save_variables(nuove)
-            self._set_status(t("variables.saved", n=len(nuove)))
+            self._set_status("Variabili salvate")
 
     # ------------------------------------------------------------------
     # Riconnessione automatica
