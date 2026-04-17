@@ -9,7 +9,7 @@ import subprocess
 import shutil
 from datetime import datetime
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QApplication, QMessageBox, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QApplication, QMessageBox, QLabel, QPushButton
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from translations import t
 
@@ -84,17 +84,34 @@ class TerminalWidget(QWidget):
         )
         layout.addWidget(self.barra_info)
 
-        # Banner informativo selezione
+        # Banner informativo selezione (con pulsante X per chiuderlo)
+        self._banner = QWidget()
+        self._banner.setStyleSheet(
+            "background-color:#2a2a1a; border-bottom:1px solid #555;"
+        )
+        banner_layout = QHBoxLayout(self._banner)
+        banner_layout.setContentsMargins(6, 2, 4, 2)
+        banner_layout.setSpacing(4)
         self.lbl_scroll_hint = QLabel(
             "  ℹ  Limite xterm: la selezione è limitata alla videata corrente. "
-            "Per copiare più pagine: seleziona, scorri con la rotella, poi usa 'xterm -e cat' o il log di sessione."
+            "Per copiare più pagine usa il log di sessione."
         )
         self.lbl_scroll_hint.setStyleSheet(
-            "background-color:#2a2a1a; color:#aaa870; "
-            "font-size:10px; padding:2px 6px; border-bottom:1px solid #555;"
+            "background-color:transparent; color:#aaa870; "
+            "font-size:10px; border:none;"
         )
-        self.lbl_scroll_hint.setVisible(False)  # mostrato solo quando xterm è attivo
-        layout.addWidget(self.lbl_scroll_hint)
+        btn_close_banner = QPushButton("✕")
+        btn_close_banner.setFixedSize(16, 16)
+        btn_close_banner.setStyleSheet(
+            "QPushButton { background:transparent; color:#aaa870; border:none; "
+            "font-size:10px; padding:0; } "
+            "QPushButton:hover { color:#ffffff; }"
+        )
+        btn_close_banner.clicked.connect(lambda: self._banner.setVisible(False))
+        banner_layout.addWidget(self.lbl_scroll_hint, 1)
+        banner_layout.addWidget(btn_close_banner)
+        self._banner.setVisible(False)  # mostrato solo quando xterm è attivo
+        layout.addWidget(self._banner)
 
         # Contenitore xterm
         self.container = QWidget()
@@ -119,7 +136,7 @@ class TerminalWidget(QWidget):
         if _m:
             self._registra_comando(_m.group(1), sorgente="startup_cmd")
         self.show()
-        self.lbl_scroll_hint.setVisible(True)
+        self._banner.setVisible(True)
         QApplication.processEvents()
 
         if not shutil.which("xterm"):
@@ -315,7 +332,7 @@ class TerminalWidget(QWidget):
                 "font-family:monospace; font-size:11px; "
                 "border:none; border-bottom:1px solid #aa3333; padding:0 6px;"
             )
-            self.lbl_scroll_hint.setVisible(False)
+            self._banner.setVisible(False)
             self.barra_info.setText(t("terminal.session_ended"))
             self._process = None
             self.processo_terminato.emit()
