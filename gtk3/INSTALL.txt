@@ -1,62 +1,137 @@
-# PCM - Python Connection Manager (GTK3 port)
+# PCM - Python Connection Manager (GTK3)
 # Dipendenze di sistema
+
+# ===========================================================================
+# Installazione automatica (raccomandato)
+# ===========================================================================
+#
+#   git clone https://github.com/buzzqw/Python_Connection_Manager.git
+#   cd Python_Connection_Manager/gtk3
+#   bash setup.sh
+#
+# Lo script rileva automaticamente la distribuzione e installa tutte le
+# dipendenze. Su Debian e Fedora usa uv come gestore di pacchetti Python
+# (evita il blocco PEP-668); su Arch e FreeBSD usa i pacchetti di sistema.
+#
+# Verifica senza installare:
+#   bash setup.sh --check
+#
+# Avvio dopo installazione automatica:
+#   ./pcm
 
 # ===========================================================================
 # Debian / Ubuntu / Linux Mint
 # ===========================================================================
 #
 #   sudo apt install \
-#       python3-gi \
+#       python3 python3-venv curl \
+#       python3-gi python3-gi-cairo \
 #       gir1.2-gtk-3.0 \
 #       gir1.2-vte-2.91 \
 #       gir1.2-webkit2-4.1 \
-#       python3-paramiko \
-#       xterm \
+#       gir1.2-gtk-vnc-2.0 \
+#       gir1.2-gdkpixbuf-2.0 \
+#       openssh-client \
+#       freerdp3-x11 \
+#       tigervnc-viewer \
+#       mosh \
 #       xdotool \
-#       xclip
+#       xdg-utils \
+#       wakeonlan
 #
-# Opzionali (per embedding RDP in finestra interna):
-#   sudo apt install xfreerdp3
+# Pacchetti Python (tramite uv o pip):
+#   pip install --user cryptography paramiko pyftpdlib
 #
-# Opzionali (per VNC integrato via noVNC):
-#   sudo apt install novnc
+# Con uv (raccomandato su Debian):
+#   uv venv --system-site-packages
+#   uv pip install "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
+
+# ===========================================================================
+# Arch Linux
+# ===========================================================================
 #
-# Python packages (solo se non in apt):
-#   pip install cryptography
+#   sudo pacman -Sy --needed \
+#       python python-gobject gtk3 \
+#       vte3 gtk-vnc \
+#       openssh mosh freerdp tigervnc \
+#       xdotool xdg-utils wol \
+#       python-cryptography \
+#       python-paramiko \
+#       python-pyftpdlib
+#
+# Nessun pacchetto pip necessario: tutto gestito da pacman.
+
+# ===========================================================================
+# Fedora
+# ===========================================================================
+#
+#   sudo dnf install \
+#       python3 python3-devel curl \
+#       python3-gobject gtk3 \
+#       vte291 webkit2gtk4.1 gtk-vnc2 \
+#       openssh-clients mosh freerdp tigervnc \
+#       xdotool xdg-utils wol
+#
+# Pacchetti Python (tramite uv o pip):
+#   pip install --user cryptography paramiko pyftpdlib
+
+# ===========================================================================
+# openSUSE
+# ===========================================================================
+#
+#   sudo zypper install \
+#       python3 python3-pip python3-gobject \
+#       typelib-1_0-Gtk-3_0 \
+#       typelib-1_0-Vte-2.91 \
+#       typelib-1_0-GtkVnc-2_0 \
+#       openssh freerdp tigervnc \
+#       xdotool xdg-utils
+#
+#   pip install --user cryptography paramiko pyftpdlib
 
 # ===========================================================================
 # FreeBSD (pkg)
 # ===========================================================================
 #
-#   pkg install \
-#       py311-gobject3 \
-#       vte3 \
-#       webkit2-gtk3 \
+#   sudo pkg install \
+#       bash python3 curl \
+#       py311-gobject gtk3 vte3 \
+#       webkit2-gtk_41 gtk-vnc \
+#       mosh freerdp3 tigervnc-viewer \
+#       xdotool wakeonlan xdg-utils \
+#       py311-cryptography \
 #       py311-paramiko \
-#       xterm \
-#       xdotool \
-#       xclip
+#       py311-pyftpdlib
 #
-# Opzionali:
-#   pkg install freerdp novnc
-#   pip install cryptography
+# Nessun pacchetto pip necessario: tutto gestito da pkg.
+
+# ===========================================================================
+# Dipendenze opzionali
+# ===========================================================================
+#
+#   gir1.2-gtkvnc-2.0 / gtk-vnc   — VNC integrato nativo (raccomandato)
+#   tigervnc-viewer / xtightvncviewer — VNC via client esterno (fallback)
+#   freerdp3-x11 / xfreerdp        — RDP
+#   mosh                           — Connessioni Mosh
+#   minicom                        — Porte seriali
+#   xdotool                        — RDP in pannello interno (richiede XWayland)
+#   wakeonlan                      — Wake-on-LAN
 
 # ===========================================================================
 # Note Wayland
 # ===========================================================================
 #
-# GTK3 + VTE funziona nativamente su Wayland senza XWayland.
-# L'unico componente che richiede XWayland è rdp_widget.py in modalità
-# "internal" (embedding finestra xfreerdp nel pannello).
-# Per evitare XWayland, usare sempre rdp_open_mode = "external" nelle
-# sessioni RDP — xfreerdp aprirà la propria finestra nativa Wayland.
+# GTK3 + VTE funzionano nativamente su Wayland senza XWayland.
+# Il viewer VNC gtk-vnc funziona nativamente su Wayland.
 #
-# xterm (usato nella versione PyQt6 originale) NON è necessario in
-# questa versione: il terminale è completamente gestito da VTE.
-# xdotool è necessario SOLO per rdp_widget in modalità internal.
+# L'unico componente che richiede XWayland è la modalità RDP "pannello
+# interno" (embedding xfreerdp nel pannello tramite xdotool).
+# Per uso Wayland puro impostare RDP su "Finestra esterna": xfreerdp
+# aprirà la propria finestra nativa Wayland.
 
 # ===========================================================================
-# Avvio
+# Avvio manuale
 # ===========================================================================
 #
+#   cd gtk3/
 #   python3 PCM.py

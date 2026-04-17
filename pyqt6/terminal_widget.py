@@ -9,7 +9,7 @@ import subprocess
 import shutil
 from datetime import datetime
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QApplication, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QApplication, QMessageBox, QLabel
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from translations import t
 
@@ -84,6 +84,18 @@ class TerminalWidget(QWidget):
         )
         layout.addWidget(self.barra_info)
 
+        # Banner informativo selezione
+        self.lbl_scroll_hint = QLabel(
+            "  ℹ  Limite xterm: la selezione è limitata alla videata corrente. "
+            "Per copiare più pagine: seleziona, scorri con la rotella, poi usa 'xterm -e cat' o il log di sessione."
+        )
+        self.lbl_scroll_hint.setStyleSheet(
+            "background-color:#2a2a1a; color:#aaa870; "
+            "font-size:10px; padding:2px 6px; border-bottom:1px solid #555;"
+        )
+        self.lbl_scroll_hint.setVisible(False)  # mostrato solo quando xterm è attivo
+        layout.addWidget(self.lbl_scroll_hint)
+
         # Contenitore xterm
         self.container = QWidget()
         self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -107,6 +119,7 @@ class TerminalWidget(QWidget):
         if _m:
             self._registra_comando(_m.group(1), sorgente="startup_cmd")
         self.show()
+        self.lbl_scroll_hint.setVisible(True)
         QApplication.processEvents()
 
         if not shutil.which("xterm"):
@@ -302,6 +315,7 @@ class TerminalWidget(QWidget):
                 "font-family:monospace; font-size:11px; "
                 "border:none; border-bottom:1px solid #aa3333; padding:0 6px;"
             )
+            self.lbl_scroll_hint.setVisible(False)
             self.barra_info.setText(t("terminal.session_ended"))
             self._process = None
             self.processo_terminato.emit()
