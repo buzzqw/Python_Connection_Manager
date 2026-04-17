@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# setup.sh — Installazione dipendenze PCM (Multi-Strategy)
+# setup.sh — Installazione dipendenze PCM (PyQt6 Multi-Strategy)
+# Supporta: Debian/Ubuntu, Arch Linux, Fedora e FreeBSD 15
 #
 # Uso:
 #   bash setup.sh           # installa tutto
@@ -35,30 +36,32 @@ DISTRO=$(detect_distro)
 declare -A PKG
 
 if [[ "$DISTRO" == "debian" ]]; then
-    # Su Debian usiamo UV per i pacchetti Python (evita il blocco PEP-668)
-    PKG[sys]="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-webkit2-4.1 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
+    # Su Debian usiamo UV per PyQt6 e i moduli Python
+    PKG[sys]="python3 python3-venv curl openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils telnet"
     USE_UV=true
     
 elif [[ "$DISTRO" == "fedora" ]]; then
-    # Anche su Fedora usiamo UV per mantenere pulito il sistema
-    PKG[sys]="python3 python3-devel curl gtk3 vte291 webkit2gtk4.1 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
+    # Su Fedora usiamo UV
+    PKG[sys]="python3 python3-devel curl openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils telnet"
     USE_UV=true
 
 elif [[ "$DISTRO" == "arch" ]]; then
-    # Su Arch i pacchetti Python nativi sono eccellenti e aggiornati, niente UV!
-    PKG[sys]="python curl gtk3 vte3 webkit2gtk gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
+    # Su Arch Linux prendiamo tutto da pacman (PyQt6 e moduli)
+    PKG[sys]="python curl openssh mosh freerdp tigervnc xdotool wol xdg-utils inetutils python-pyqt6 python-pyqt6-webengine python-cryptography python-paramiko python-pyftpdlib"
     USE_UV=false
 
 elif [[ "$DISTRO" == "freebsd" ]]; then
-    # Su FreeBSD installiamo tutto nativamente con pkg, niente UV!
-    PKG[sys]="bash python3 curl py311-pygobject gtk3 vte3 webkit2-gtk_41 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py311-cryptography py311-paramiko py311-pyftpdlib"
+    # Su FreeBSD facciamo fare tutto a pkg.
+    # Nomi corretti per i binding PyQt6 su FreeBSD: py311-qt6-pyqt e py311-qt6-webengine
+    PKG[sys]="bash python3 curl mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py311-qt6-pyqt py311-qt6-webengine py311-cryptography py311-paramiko py311-pyftpdlib"
     USE_UV=false
 
 else
     USE_UV=false
 fi
 
-PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
+# Pacchetti Python per gli ambienti in cui usiamo UV (Debian/Fedora)
+PIP_PACKAGES=("PyQt6>=6.0.0" "PyQt6-WebEngine" "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
 
 # ── Funzioni ──────────────────────────────────────────────────────────────
 
@@ -91,7 +94,7 @@ setup_env() {
             ok "Ambiente .venv creato"
         fi
         
-        echo "  Installazione moduli Python nel venv..."
+        echo "  Installazione PyQt6 e moduli Python nel venv..."
         uv pip install "${PIP_PACKAGES[@]}"
         
         hdr "Creazione script launcher (Modalità VENV)"
@@ -104,7 +107,7 @@ LAUNCHER
     else
         # ── STRATEGIA PURE SYSTEM (Arch / FreeBSD) ──
         hdr "Configurazione Ambiente (Pure System)"
-        ok "Tutti i pacchetti Python sono stati gestiti nativamente da $DISTRO"
+        ok "Tutti i pacchetti (PyQt6 incluso) sono gestiti nativamente da $DISTRO"
         
         hdr "Creazione script launcher (Modalità System)"
         cat > pcm <<'LAUNCHER'
@@ -128,19 +131,19 @@ check_status() {
     if $PYTHON_CMD -c "import cryptography, paramiko, pyftpdlib" &>/dev/null; then
         ok "Moduli Python principali (cryptography, paramiko, pyftpdlib) trovati!"
     else
-        err "Alcuni moduli Python mancano."
+        err "Alcuni moduli Python principali mancano."
     fi
 
-    if $PYTHON_CMD -c "import gi; gi.require_version('Gtk', '3.0')" &>/dev/null; then
-        ok "GTK3 / GObject Introspection accessibile!"
+    if $PYTHON_CMD -c "from PyQt6.QtWidgets import QApplication" &>/dev/null; then
+        ok "PyQt6 accessibile!"
     else
-        err "GTK3 non accessibile da Python."
+        err "PyQt6 non accessibile da Python."
     fi
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────
 
-echo -e "\n${BOLD}PCM Setup${NC}"
+echo -e "\n${BOLD}PCM Setup (PyQt6 Edition)${NC}"
 
 if [[ "$MODE" == "check" ]]; then
     check_status
