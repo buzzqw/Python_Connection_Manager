@@ -781,9 +781,18 @@ class SessionDialog(QDialog):
         layout.setSpacing(10)
         layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
+        # Leggi default dalle impostazioni globali
+        import config_manager as _cm
+        _ts = _cm.load_settings().get('terminal', {})
+        _def_tema  = _ts.get('default_theme', 'Scuro (Default)')
+        _def_font  = _ts.get('default_font', 'Monospace')
+        _def_size  = _ts.get('default_font_size', 11)
+
         self.combo_tema = QComboBox()
         for tm in TERMINAL_THEMES.keys():
             self.combo_tema.addItem(tm)
+        idx_def = self.combo_tema.findText(_def_tema)
+        if idx_def >= 0: self.combo_tema.setCurrentIndex(idx_def)
         layout.addRow(t("sd.term.theme"), self.combo_tema)
 
         self.combo_font = QComboBox()
@@ -792,11 +801,13 @@ class SessionDialog(QDialog):
             "Fira Code", "Source Code Pro", "Inconsolata", "Terminus",
             "Noto Mono", "Roboto Mono"
         ])
+        idx_def_f = self.combo_font.findText(_def_font)
+        if idx_def_f >= 0: self.combo_font.setCurrentIndex(idx_def_f)
         layout.addRow(t("sd.term.font"), self.combo_font)
 
         self.spin_font_size = QSpinBox()
         self.spin_font_size.setRange(6, 32)
-        self.spin_font_size.setValue(11)
+        self.spin_font_size.setValue(_def_size)
         self.spin_font_size.setMaximumWidth(60)
         layout.addRow(t("sd.term.font_size"), self.spin_font_size)
 

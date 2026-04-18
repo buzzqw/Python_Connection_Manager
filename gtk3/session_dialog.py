@@ -310,15 +310,20 @@ class SessionDialog(Gtk.Dialog):
             self._set_combo_active_text(self.combo_tema, _def)
         _form_row(t("sd.term.theme"), self.combo_tema, grid, row); row += 1
 
+        _ts = config_manager.load_settings().get('terminal', {})
+        _def_font = _ts.get('default_font', 'Monospace')
+        _def_size = _ts.get('default_font_size', 11)
+
         self.combo_font = Gtk.ComboBoxText.new_with_entry()
         for f in ["Monospace","DejaVu Sans Mono","Hack","JetBrains Mono",
                   "Fira Code","Source Code Pro","Inconsolata","Terminus"]:
             self.combo_font.append_text(f)
+        self._set_combo_active_text(self.combo_font, _def_font)
         self.combo_font.set_hexpand(True)
         _form_row(t("sd.term.font"), self.combo_font, grid, row); row += 1
 
         self.spin_font_size = Gtk.SpinButton.new_with_range(6, 32, 1)
-        self.spin_font_size.set_value(11)
+        self.spin_font_size.set_value(_def_size)
         _form_row(t("sd.term.font_size"), self.spin_font_size, grid, row); row += 1
 
         self.chk_log = _check(t("sd.term.log"))

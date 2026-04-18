@@ -1,28 +1,206 @@
 """
-terminal_widget.py - Widget terminale xterm embedded per PCM
-Supporta: embedding xterm, resize, log output, tema colori, keepalive
+terminal_widget.py - Widget terminale per PCM
+Usa xterm.js via QWebEngineView — rendering perfetto, scroll nativo,
+selezione multi-pagina, colori veri, vim/htop/clear funzionanti.
 """
 
 import os
+import pty
 import signal
+import select
+import fcntl
+import struct
+import termios
+import base64
 import subprocess
 import shutil
 from datetime import datetime
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QApplication, QMessageBox, QLabel, QPushButton
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLineEdit, QHBoxLayout,
+                              QPushButton, QApplication, QMenu)
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, pyqtSlot, QObject
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebChannel import QWebChannel
+from PyQt6.QtGui import QAction
+
 from translations import t
 
+# ── HTML / xterm.js ───────────────────────────────────────────────────────────
+def _build_html(bg: str, fg: str, font: str, font_size: int,
+                paste_on_right_click: bool = True, scrollback_lines: int = 5000) -> str:
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<style>
+  body {{ margin:0; background:{bg}; overflow:hidden; height:100vh; }}
+  #terminal {{ height:100%; width:100%; padding:4px; box-sizing:border-box; }}
+</style>
+</head>
+<body>
+<div id="terminal"></div>
+<script>
+const term = new Terminal({{
+    theme: {{ background:'{bg}', foreground:'{fg}' }},
+    fontFamily: '{font}, monospace',
+    fontSize: {int(font_size * 1.35)},
+    cursorBlink: true,
+    allowProposedApi: true,
+    scrollback: {scrollback_lines}
+}});
+const fitAddon = new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+term.open(document.getElementById('terminal'));
 
+new QWebChannel(qt.webChannelTransport, function(channel) {{
+    window.backend = channel.objects.backend;
+
+    fitAddon.fit();
+    window.backend.resize(term.cols, term.rows);
+
+    term.onData(data => {{ window.backend.write(data); }});
+
+    new ResizeObserver(() => {{
+        fitAddon.fit();
+        window.backend.resize(term.cols, term.rows);
+    }}).observe(document.getElementById('terminal'));
+
+    // Auto-copia selezione in clipboard (come xterm)
+    term.onSelectionChange(() => {{
+        const sel = term.getSelection();
+        if (sel) window.backend.copyToClipboard(sel);
+    }});
+
+    // Ctrl+Shift+C → copia
+    // Ctrl+Shift+V → incolla
+    term.attachCustomKeyEventHandler(e => {{
+        if (e.type === 'keydown') {{
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyC') {{
+                const sel = term.getSelection();
+                if (sel) {{ window.backend.copyToClipboard(sel); term.clearSelection(); }}
+                return false;
+            }}
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyV') {{
+                window.backend.requestPaste();
+                return false;
+            }}
+        }}
+        return true;
+    }});
+
+    // Tasto destro: comportamento configurabile
+    window.addEventListener('contextmenu', e => {{
+        e.preventDefault();
+        const sel = term.getSelection();
+        if (sel) {{
+            // Se c'è selezione: copia sempre
+            window.backend.copyToClipboard(sel);
+            term.clearSelection();
+        }} else if ({'true' if paste_on_right_click else 'false'}) {{
+            // Incolla solo se l'opzione è attiva
+            window.backend.requestPaste();
+        }}
+    }});
+}});
+
+window.termWrite = function(b64) {{
+    const raw = atob(b64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    term.write(arr);
+}};
+</script>
+</body>
+</html>"""
+
+
+# ── Backend QWebChannel ───────────────────────────────────────────────────────
+class _Backend(QObject):
+    def __init__(self, get_fd, log_callback=None):
+        super().__init__()
+        self._get_fd   = get_fd        # callable → fd PTY
+        self._log_cb   = log_callback  # callable(data: bytes) per log su file
+
+    @pyqtSlot(str)
+    def write(self, data: str):
+        fd = self._get_fd()
+        if fd is not None:
+            raw = data.encode('utf-8')
+            if self._log_cb:
+                self._log_cb(raw)
+            try:
+                os.write(fd, raw)
+            except OSError:
+                pass
+
+    @pyqtSlot(int, int)
+    def resize(self, cols: int, rows: int):
+        fd = self._get_fd()
+        if fd is not None:
+            try:
+                fcntl.ioctl(fd, termios.TIOCSWINSZ,
+                            struct.pack("HHHH", rows, cols, 0, 0))
+            except OSError:
+                pass
+
+    @pyqtSlot(str)
+    def copyToClipboard(self, text: str):
+        QApplication.clipboard().setText(text)
+
+    @pyqtSlot()
+    def requestPaste(self):
+        text = QApplication.clipboard().text()
+        if text:
+            text = text.replace('\r\n', '\r').replace('\n', '\r')
+            fd = self._get_fd()
+            if fd is not None:
+                try:
+                    os.write(fd, text.encode('utf-8'))
+                except OSError:
+                    pass
+
+
+# ── Thread lettura PTY ────────────────────────────────────────────────────────
+class _PtyReader(QThread):
+    data_ready = pyqtSignal(bytes)
+    pty_closed  = pyqtSignal()
+
+    def __init__(self, fd: int):
+        super().__init__()
+        self.fd = fd
+        self._running = True
+
+    def run(self):
+        while self._running:
+            try:
+                r, _, _ = select.select([self.fd], [], [], 0.05)
+                if r:
+                    data = os.read(self.fd, 4096)
+                    if data:
+                        self.data_ready.emit(data)
+                    else:
+                        break
+            except OSError:
+                break
+        self.pty_closed.emit()
+
+    def stop(self):
+        self._running = False
+
+
+# ── TerminalWidget ────────────────────────────────────────────────────────────
 class TerminalWidget(QWidget):
     """
-    Incorpora un processo xterm all'interno di un QWidget Qt.
-    Gestisce resize dinamico, logging e invio comandi via xdotool.
+    Terminale per PCM basato su xterm.js + QWebEngineView.
+    API pubblica compatibile con la versione xterm embedded.
     """
 
     processo_terminato = pyqtSignal()
 
-    # Temi built-in
     TEMI = {
         "Scuro (Default)":  ("#1e1e1e", "#cccccc"),
         "Chiaro (B/W)":     ("#ffffff", "#1a1a1a"),
@@ -39,41 +217,46 @@ class TerminalWidget(QWidget):
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
-                 font_size=11, log_dir="", parent=None):
+                 font_size=11, log_dir="", paste_on_right_click=True,
+                 scrollback_lines=5000, parent=None):
         super().__init__(parent)
-        self._bg = bg
-        self._fg = fg
-        self._font = font
+        self._bg       = bg
+        self._fg       = fg
+        self._font     = font
         self._font_size = self._parse_int(font_size, 11)
-        self._log_dir = log_dir
-        self._process = None
+        self._log_dir  = log_dir
+        self._log_file = None
+        self._paste_on_right_click = paste_on_right_click
+        self._scrollback_lines     = scrollback_lines
+
+        self._master    = None
+        self._child_pid = None
+        self._reader    = None
+        self._pty_buffer = []   # dati arrivati prima che xterm.js sia pronto
+        self._xterm_ready = False
         self._comando_corrente = ""
-        self._keepalive_tick = 0
-        self._t_connessione = None   # datetime di connessione
-        self._char_inviati  = 0      # caratteri inviati via invia_testo
-        self._comandi_inviati: list  = []  # [(timestamp_iso, testo)] per replay export
+        self._keepalive_tick   = 0
+        self._t_connessione    = None
+        self._char_inviati     = 0
+        self._comandi_inviati  = []
+
+        # _process: compatibilità con PCM.py che controlla w._process
+        self._process = None
 
         self._init_ui()
 
-        self._resize_timer = QTimer(self)
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.timeout.connect(self._applica_resize)
-
-        # Timer keepalive visivo + statistiche: aggiorna ogni 3 secondi
         self._keepalive_timer = QTimer(self)
         self._keepalive_timer.timeout.connect(self._controlla_processo)
         self._keepalive_timer.start(3000)
 
-    # ------------------------------------------------------------------
-    # UI
-    # ------------------------------------------------------------------
+    # ── UI ────────────────────────────────────────────────────────────────────
 
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Barra comando (read-only, mostra il comando in esecuzione)
+        # Barra info (compatibile con PCM.py)
         self.barra_info = QLineEdit()
         self.barra_info.setReadOnly(True)
         self.barra_info.setFixedHeight(22)
@@ -84,339 +267,241 @@ class TerminalWidget(QWidget):
         )
         layout.addWidget(self.barra_info)
 
-        # Banner informativo selezione (con pulsante X per chiuderlo)
-        self._banner = QWidget()
-        self._banner.setStyleSheet(
-            "background-color:#2a2a1a; border-bottom:1px solid #555;"
-        )
-        banner_layout = QHBoxLayout(self._banner)
-        banner_layout.setContentsMargins(6, 2, 4, 2)
-        banner_layout.setSpacing(4)
-        self.lbl_scroll_hint = QLabel(
-            "  ℹ  Limite xterm: la selezione è limitata alla videata corrente. "
-            "Per copiare più pagine usa il log di sessione."
-        )
-        self.lbl_scroll_hint.setStyleSheet(
-            "background-color:transparent; color:#aaa870; "
-            "font-size:10px; border:none;"
-        )
-        btn_close_banner = QPushButton("✕")
-        btn_close_banner.setFixedSize(16, 16)
-        btn_close_banner.setStyleSheet(
-            "QPushButton { background:transparent; color:#aaa870; border:none; "
-            "font-size:10px; padding:0; } "
-            "QPushButton:hover { color:#ffffff; }"
-        )
-        btn_close_banner.clicked.connect(lambda: self._banner.setVisible(False))
-        banner_layout.addWidget(self.lbl_scroll_hint, 1)
-        banner_layout.addWidget(btn_close_banner)
-        self._banner.setVisible(False)  # mostrato solo quando xterm è attivo
-        layout.addWidget(self._banner)
+        # WebEngineView con xterm.js
+        self._view = QWebEngineView()
+        self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        layout.addWidget(self._view, 1)
 
-        # Contenitore xterm
-        self.container = QWidget()
-        self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.container.setStyleSheet(f"background-color:{self._bg};")
-        layout.addWidget(self.container, 1)
+        # WebChannel
+        self._channel = QWebChannel()
+        self._backend = _Backend(
+            get_fd=lambda: self._master,
+            log_callback=self._log_bytes
+        )
+        self._channel.registerObject("backend", self._backend)
+        self._view.page().setWebChannel(self._channel)
 
-    # ------------------------------------------------------------------
-    # Avvio terminale
-    # ------------------------------------------------------------------
+    # ── Factory ───────────────────────────────────────────────────────────────
+
+    @classmethod
+    def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
+        from themes import TERMINAL_THEMES
+        tema = profilo.get("term_theme", "Scuro (Default)")
+        bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
+        font = profilo.get("term_font", "Monospace")
+        size = profilo.get("term_size", 11)
+        from config_manager import load_settings
+        s = load_settings().get('terminal', {})
+        paste_right    = s.get('paste_on_right_click', True)
+        scrollback     = s.get('scrollback_lines', 5000)
+        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
+                   paste_on_right_click=paste_right, scrollback_lines=scrollback)
+
+    # ── Avvio ─────────────────────────────────────────────────────────────────
 
     def avvia(self, comando: str):
-        """Avvia xterm con il comando dato, embedded nel container Qt."""
         self._comando_corrente = comando
-        # Mostra la stringa censurata se fornita da PCM.py, altrimenti usa quella normale
         cmd_show = getattr(self, 'comando_display', comando)
         self.barra_info.setText(f"  ▶  {cmd_show}")
-        # Estrai startup_cmd remoto se presente nel comando SSH
-        # Formato: ssh ... -t 'CMD; exec $SHELL -l'
-        import re as _re
-        _m = _re.search(r"-t '(.+?);\s*exec \$SHELL", comando)
-        if _m:
-            self._registra_comando(_m.group(1), sorgente="startup_cmd")
-        self.show()
-        self._banner.setVisible(True)
-        QApplication.processEvents()
 
-        if not shutil.which("xterm"):
-            self._mostra_errore(t("terminal.xterm_missing"), t("terminal.xterm_install"))
-            return
-
-        w = max(self.container.width(), 400)
-        h = max(self.container.height(), 200)
-        cols, rows = self._calcola_dimensioni(w, h)
-        win_id = str(int(self.container.winId()))
-
-        # Gestione log
-        log_arg = ""
+        # Log
         if self._log_dir:
             os.makedirs(self._log_dir, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_file = os.path.join(self._log_dir, f"pcm_{ts}.log")
-            log_arg = f"-l -lf '{log_file}'"
+            try:
+                self._log_file = open(
+                    os.path.join(self._log_dir, f"pcm_{ts}.log"), "wb")
+            except OSError:
+                self._log_file = None
 
-        # Traduzioni xterm: Ctrl+Shift+V incolla, Ctrl+C copia se selezionato
-        traduz = (
-            "#override\\n"
-            "Ctrl Shift <Key>C: copy-selection(CLIPBOARD)\\n"
-            "Ctrl Shift <Key>V: insert-selection(CLIPBOARD)\\n"
-            "Ctrl <Key>v: insert-selection(CLIPBOARD)"
-        )
+        # PTY + fork
+        self._child_pid, self._master = pty.fork()
+        if self._child_pid == 0:
+            env = os.environ.copy()
+            env["TERM"] = "xterm-256color"
+            env["COLORTERM"] = "truecolor"
+            if isinstance(comando, str):
+                os.execvpe("/bin/sh", ["/bin/sh", "-c", comando], env)
+            else:
+                os.execvpe(comando[0], comando, env)
+            os._exit(1)
 
-        xterm_cmd = (
-            f"xterm "
-            f"-xrm 'XTerm.vt100.allowSendEvents: true' "
-            f"-xrm 'XTerm.vt100.selectToClipboard: true' "
-            f"-xrm 'XTerm.vt100.translations: {traduz}' "
-            f"-xrm 'XTerm.vt100.scrollBar: false' "
-            f"{log_arg} "
-            f"-geometry {cols}x{rows} "
-            f"-into {win_id} "
-            f"-bg '{self._bg}' -fg '{self._fg}' "
-            f"-fa '{self._font}' -fs {self._font_size} "
-            f"-e {comando}"
-        )
-
-        self._process = subprocess.Popen(
-            xterm_cmd, shell=True, preexec_fn=os.setsid
-        )
-        from datetime import datetime as _dt
-        self._t_connessione = _dt.now()
+        # _process per compatibilità PCM.py
+        self._process = self._child_pid
+        self._t_connessione = datetime.now()
         self._char_inviati  = 0
-        QTimer.singleShot(600, self._applica_resize)
+        self._pty_buffer    = []
+        self._xterm_ready   = False
+
+        # Carica HTML xterm.js
+        html = _build_html(self._bg, self._fg, self._font, self._font_size,
+                           self._paste_on_right_click, self._scrollback_lines)
+        self._view.setHtml(html)
+        # Quando la pagina è caricata, svuota il buffer
+        self._view.loadFinished.connect(self._on_page_loaded)
+
+        # Avvia reader PTY
+        self._reader = _PtyReader(self._master)
+        self._reader.data_ready.connect(self._on_pty_data)
+        self._reader.pty_closed.connect(self._on_pty_closed)
+        self._reader.start()
 
     def avvia_locale(self):
-        """Avvia una shell bash locale."""
         shell = os.environ.get("SHELL", "bash")
         self.avvia(shell)
 
-    # ------------------------------------------------------------------
-    # Resize
-    # ------------------------------------------------------------------
+    # ── Dati PTY → xterm.js ───────────────────────────────────────────────────
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._resize_timer.start(200)
-
-    def _applica_resize(self):
-        if not self._process:
+    @pyqtSlot(bytes)
+    def _on_pty_data(self, data: bytes):
+        if self._log_file:
+            self._log_bytes(data)
+        if not self._xterm_ready:
+            self._pty_buffer.append(data)
             return
-        w = self.container.width()
-        h = self.container.height()
-        wid = str(int(self.container.winId()))
+        self._send_to_xterm(data)
 
-        if not shutil.which("xdotool") or not shutil.which("xwininfo"):
-            return
+    def _send_to_xterm(self, data: bytes):
+        b64 = base64.b64encode(data).decode('ascii')
+        self._view.page().runJavaScript(f"window.termWrite('{b64}');")
 
-        cmd = (
-            f"CHILD=$(xwininfo -id {wid} -children 2>/dev/null "
-            f"| grep -E '^ *0x' | awk '{{print $1}}' | head -n 1);"
-            f"if [ -n \"$CHILD\" ]; then xdotool windowsize $CHILD {w} {h}; fi"
+    @pyqtSlot(bool)
+    def _on_page_loaded(self, ok: bool):
+        """Pagina xterm.js caricata: invia i dati bufferizzati."""
+        # Disconnetti per non chiamarla di nuovo su reload
+        try:
+            self._view.loadFinished.disconnect(self._on_page_loaded)
+        except Exception:
+            pass
+        # Aspetta 200ms che JS finisca l'init prima di inviare
+        QTimer.singleShot(200, self._flush_pty_buffer)
+
+    def _flush_pty_buffer(self):
+        self._xterm_ready = True
+        for data in self._pty_buffer:
+            self._send_to_xterm(data)
+        self._pty_buffer.clear()
+
+    def _log_bytes(self, data: bytes):
+        if self._log_file:
+            try:
+                self._log_file.write(data)
+                self._log_file.flush()
+            except OSError:
+                pass
+
+    @pyqtSlot()
+    def _on_pty_closed(self):
+        self._keepalive_timer.stop()
+        self.barra_info.setStyleSheet(
+            "background-color:#4a1a1a; color:#ff6b6b; "
+            "font-family:monospace; font-size:11px; "
+            "border:none; border-bottom:1px solid #aa3333; padding:0 6px;"
         )
-        subprocess.Popen(cmd, shell=True,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.barra_info.setText(t("terminal.session_ended"))
+        self._process  = None
+        self._child_pid = None
+        self.processo_terminato.emit()
 
-    def _calcola_dimensioni(self, w, h):
-        char_w = max(6, int(self._font_size * 0.62))
-        char_h = max(12, int(self._font_size * 1.75))
-        cols = max(40, int(w / char_w))
-        rows = max(10, int(h / char_h))
-        return cols, rows
-
-    # ------------------------------------------------------------------
-    # Invio comandi via xdotool
-    # ------------------------------------------------------------------
+    # ── Invio testo/macro ─────────────────────────────────────────────────────
 
     def _registra_comando(self, testo: str, sorgente: str = "macro"):
-        """Registra un comando inviato per il replay export."""
-        from datetime import datetime as _dt
         self._comandi_inviati.append({
-            "ts":       _dt.now().isoformat(timespec="seconds"),
+            "ts":       datetime.now().isoformat(timespec="seconds"),
             "cmd":      testo,
-            "sorgente": sorgente,   # "macro" | "multi_exec" | "startup_cmd"
+            "sorgente": sorgente,
         })
 
     def invia_testo(self, testo: str, invio=True, sorgente: str = "macro"):
-        """
-        Invia testo al terminale in modo istantaneo tramite clipboard X11.
-
-        Strategia:
-          1. Copia il testo nella CLIPBOARD di X11 con xclip/xsel (o QApplication).
-          2. Invia Ctrl+Shift+V al terminale xterm (già mappato come "incolla da CLIPBOARD").
-          3. Opzionalmente invia Return.
-
-        Questo è ordini di grandezza più veloce di 'xdotool type --delay N'
-        perché non simula la tastiera tasto per tasto.
-        """
         self._char_inviati += len(testo)
         self._registra_comando(testo, sorgente=sorgente)
-        if not shutil.which("xdotool") or not shutil.which("xwininfo"):
-            self._mostra_errore(
-                t("terminal.deps_missing"),
-                t("terminal.install_xdotool")
-            )
-            return
-
-        wid = str(int(self.container.winId()))
-
-        # --- Passo 1: metti il testo nella CLIPBOARD X11 ---
-        # Prima prova xclip (più diffuso), poi xsel, poi fallback PyQt6.
-        testo_bytes = testo.encode("utf-8")
-        clipboard_ok = False
-
-        if shutil.which("xclip"):
+        data = testo.encode("utf-8")
+        if invio:
+            data += b"\r"
+        if self._master is not None:
             try:
-                subprocess.run(
-                    ["xclip", "-selection", "clipboard"],
-                    input=testo_bytes, timeout=3,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                clipboard_ok = True
-            except Exception:
+                os.write(self._master, data)
+            except OSError:
                 pass
 
-        if not clipboard_ok and shutil.which("xsel"):
-            try:
-                subprocess.run(
-                    ["xsel", "--clipboard", "--input"],
-                    input=testo_bytes, timeout=3,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                clipboard_ok = True
-            except Exception:
-                pass
-
-        if not clipboard_ok:
-            # Fallback: usa QApplication.clipboard() (meno affidabile cross-window)
-            try:
-                from PyQt6.QtWidgets import QApplication
-                QApplication.clipboard().setText(testo)
-                clipboard_ok = True
-            except Exception:
-                pass
-
-        if not clipboard_ok:
-            self._mostra_errore(
-                t("terminal.clipboard_unavail"),
-                t("terminal.install_xclip")
-            )
-            return
-
-        # --- Passo 2: attiva xterm e incolla con Ctrl+Shift+V ---
-        invio_cmd = "xdotool key --window $CHILD Return" if invio else ""
-        cmd = f"""
-        CHILD=$(xwininfo -id {wid} -children 2>/dev/null | grep -E '^ *0x' | awk '{{print $1}}' | head -n 1)
-        if [ -n "$CHILD" ]; then
-            xdotool windowactivate --sync $CHILD
-            xdotool key --window $CHILD --clearmodifiers ctrl+shift+v
-            {invio_cmd}
-        fi
-        """
-        subprocess.Popen(cmd, shell=True)
-
-    # ------------------------------------------------------------------
-    # Cleanup
-    # ------------------------------------------------------------------
+    # ── Keepalive / barra stato ───────────────────────────────────────────────
 
     def _controlla_processo(self):
-        """Keepalive visivo + statistiche: aggiorna barra info ogni 3s."""
-        if not self._process:
+        if self._child_pid is None:
+            return
+        try:
+            pid, _ = os.waitpid(self._child_pid, os.WNOHANG)
+            if pid != 0:
+                self._on_pty_closed()
+                return
+        except ChildProcessError:
+            self._on_pty_closed()
             return
 
-        if self._process.poll() is not None:
-            # Processo terminato
-            self._keepalive_timer.stop()
-            self.barra_info.setStyleSheet(
-                "background-color:#4a1a1a; color:#ff6b6b; "
-                "font-family:monospace; font-size:11px; "
-                "border:none; border-bottom:1px solid #aa3333; padding:0 6px;"
-            )
-            self._banner.setVisible(False)
-            self.barra_info.setText(t("terminal.session_ended"))
-            self._process = None
-            self.processo_terminato.emit()
-            return
-
-        # Processo vivo: mostra statistiche + animazione
-        from datetime import datetime as _dt
         DOTS = ["●○○", "○●○", "○○●", "○●○"]
-        dot = DOTS[self._keepalive_tick % len(DOTS)]
+        dot  = DOTS[self._keepalive_tick % len(DOTS)]
         self._keepalive_tick += 1
 
-        # Durata connessione
         if self._t_connessione:
-            delta = int((_dt.now() - self._t_connessione).total_seconds())
-            if delta < 60:
-                durata = f"{delta}s"
-            elif delta < 3600:
-                durata = f"{delta//60}m{delta%60:02d}s"
-            else:
-                durata = f"{delta//3600}h{(delta%3600)//60:02d}m"
+            delta = int((datetime.now() - self._t_connessione).total_seconds())
+            if delta < 60:     durata = f"{delta}s"
+            elif delta < 3600: durata = f"{delta//60}m{delta%60:02d}s"
+            else:              durata = f"{delta//3600}h{(delta%3600)//60:02d}m"
         else:
             durata = ""
 
-        # Caratteri inviati (approssimazione output)
+        chars = ""
         if self._char_inviati > 0:
-            if self._char_inviati < 1024:
-                chars = f"  📤 {self._char_inviati}B"
-            else:
-                chars = f"  📤 {self._char_inviati/1024:.1f}KB"
-        else:
-            chars = ""
+            chars = (f"  📤 {self._char_inviati}B" if self._char_inviati < 1024
+                     else f"  📤 {self._char_inviati/1024:.1f}KB")
 
-        # Cerca prima la versione censurata, poi l'originale, infine il comando grezzo
-        cmd_show = getattr(self, 'comando_display', getattr(self, 'comando_originale', self._comando_corrente))
+        cmd_show = getattr(self, 'comando_display',
+                   getattr(self, 'comando_originale', self._comando_corrente))
         stat = f"  ⏱ {durata}{chars}" if durata else ""
         self.barra_info.setText(f"  {dot}  {cmd_show}{stat}")
+
+    # ── Cleanup ───────────────────────────────────────────────────────────────
 
     def chiudi_processo(self):
         if hasattr(self, '_keepalive_timer'):
             self._keepalive_timer.stop()
-        if self._process:
+
+        if self._reader is not None:
+            self._reader.stop()
+            self._reader.wait(500)
+            self._reader = None
+
+        if self._child_pid is not None:
             try:
-                pgid = os.getpgid(self._process.pid)
-
-                # 1. SIGTERM educato a tutto il process group (xterm + ssh + sshpass)
+                os.killpg(os.getpgid(self._child_pid), signal.SIGTERM)
                 try:
-                    os.killpg(pgid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass  # il gruppo è già morto, va bene
-
-                # 2. Aspettiamo che xterm termini (fino a 1 secondo)
-                try:
-                    self._process.wait(timeout=1.0)
-                except subprocess.TimeoutExpired:
-                    # 3. Se ancora vivo, SIGKILL senza pietà
-                    try:
-                        os.killpg(pgid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-                    try:
-                        self._process.wait(timeout=0.5)
-                    except subprocess.TimeoutExpired:
-                        pass
-
-                # 4. Raccoglie il processo comunque per evitare zombie
-                try:
-                    self._process.poll()
-                except Exception:
+                    os.waitpid(self._child_pid, 0)
+                except ChildProcessError:
                     pass
+            except (ProcessLookupError, OSError):
+                pass
+            self._child_pid = None
+            self._process   = None
 
-            except ProcessLookupError:
-                pass  # processo già terminato
-            except Exception as e:
-                print(f"Errore chiusura terminale: {e}")
-            finally:
-                self._process = None
+        if self._master is not None:
+            try:
+                os.close(self._master)
+            except OSError:
+                pass
+            self._master = None
+
+        if self._log_file is not None:
+            try:
+                self._log_file.close()
+            except OSError:
+                pass
+            self._log_file = None
 
     def closeEvent(self, event):
         self.chiudi_processo()
         super().closeEvent(event)
 
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
+    # ── Utility ───────────────────────────────────────────────────────────────
 
     @staticmethod
     def _parse_int(val, default):
@@ -426,15 +511,4 @@ class TerminalWidget(QWidget):
             return default
 
     def _mostra_errore(self, titolo, msg):
-        from PyQt6.QtWidgets import QLabel
         self.barra_info.setText(f"  ✖  {titolo}: {msg}")
-
-    @classmethod
-    def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
-        """Factory: crea un TerminalWidget dai parametri di un profilo sessione."""
-        from themes import TERMINAL_THEMES
-        tema = profilo.get("term_theme", "Scuro (Default)")
-        bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
-        font = profilo.get("term_font", "Monospace")
-        size = profilo.get("term_size", 11)
-        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir)

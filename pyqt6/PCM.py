@@ -1247,7 +1247,9 @@ class MainWindow(QMainWindow):
         term = TerminalWidget(
             bg=bg, fg=fg,
             font=s.get("default_font", "Monospace"),
-            font_size=s.get("default_font_size", 11)
+            font_size=s.get("default_font_size", 11),
+            paste_on_right_click=s.get("paste_on_right_click", True),
+            scrollback_lines=s.get("scrollback_lines", 5000)
         )
         self.tabs.setTabsClosable(True)
         idx = self.tabs.addTab(term, _qi("terminal.png"), t("tab.local"))
