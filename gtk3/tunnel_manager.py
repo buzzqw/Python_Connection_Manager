@@ -150,7 +150,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         self._tunnels: list[dict] = config_manager.load_tunnels()
         self._procs:   dict[int, subprocess.Popen] = {}  # idx → processo
         self._init_ui()
-        self._ricarica()
+        self._ricarica_e_riaggancia()
         self.show_all()
         self._poll_source = GLib.timeout_add(3000, self._aggiorna_stati)
         self.connect("destroy", self._on_destroy)
@@ -225,10 +225,40 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     # ------------------------------------------------------------------
 
+    def _processo_vivo(self, pid: int) -> bool:
+        """Controlla se un PID è ancora in esecuzione senza ucciderlo."""
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    def _ricarica_e_riaggancia(self):
+        """
+        Carica i tunnel dalla config e tenta di riagganciare i processi SSH
+        già in esecuzione (identificati dal PID salvato). Utile dopo
+        chiusura e riapertura della finestra.
+        """
+        for i, t in enumerate(self._tunnels):
+            pid = t.get("pid")
+            if pid and self._processo_vivo(pid):
+                # Crea un oggetto Popen "fantasma" per tracciare il PID
+                proxy = object.__new__(subprocess.Popen)
+                proxy.pid = pid
+                proxy.returncode = None
+                self._procs[i] = proxy
+                self._scrivi_log(f"[{t.get('nome')}] Riagganciato processo PID {pid}\n")
+            else:
+                # PID non valido: reset stato
+                if t.get("pid"):
+                    t["pid"] = None
+        self._ricarica()
+
     def _ricarica(self):
         self._store.clear()
         for i, t in enumerate(self._tunnels):
-            stato = "Attivo" if i in self._procs and self._procs[i].poll() is None else "Fermo"
+            vivo = i in self._procs and self._processo_vivo(self._procs[i].pid)
+            stato = "Attivo" if vivo else "Fermo"
             target = f"{t.get('ssh_user', '')}@{t.get('ssh_host', '')}".strip("@")
             self._store.append([
                 t.get("nome", ""), t.get("tipo", ""), target,
@@ -282,7 +312,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         self._ricarica()
 
     def _avvia_tunnel(self, idx: int):
-        if idx in self._procs and self._procs[idx].poll() is None:
+        if idx in self._procs and self._processo_vivo(self._procs[idx].pid):
             return
 
         t = self._tunnels[idx]
@@ -295,21 +325,21 @@ class TunnelManagerDialog(Gtk.Dialog):
         self._scrivi_log(f"\n[{t.get('nome', 'Tunnel')}] Esecuzione: {' '.join(cmd)}\n")
 
         try:
-            # Creiamo il processo catturando l'output
             proc = subprocess.Popen(
-                cmd, 
+                cmd,
                 preexec_fn=os.setsid,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT
             )
             self._procs[idx] = proc
+            self._tunnels[idx]["pid"] = proc.pid
+            config_manager.save_tunnels(self._tunnels)
 
             # Rendiamo l'output non-bloccante per leggerlo in tempo reale
             fd = proc.stdout.fileno()
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-            # Il listener aggiorna il log del terminale
             GLib.io_add_watch(proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._leggi_output_processo)
 
         except FileNotFoundError as e:
@@ -319,15 +349,15 @@ class TunnelManagerDialog(Gtk.Dialog):
             self._scrivi_log(f"ERRORE CRITICO: {str(e)}\n")
 
     def _leggi_output_processo(self, file_obj, condition):
-        """Legge l'output asincrono del processo e lo stampa nel terminalino"""
+        """Legge l'output asincrono del processo e lo stampa nel terminalino."""
         try:
             data = file_obj.read()
             if data:
                 text = data.decode('utf-8', errors='replace')
                 GLib.idle_add(self._scrivi_log, text)
-            
+
             if condition & GLib.IO_HUP:
-                return False  # Fine stream
+                return False
             return True
         except Exception:
             return False
@@ -346,6 +376,8 @@ class TunnelManagerDialog(Gtk.Dialog):
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
             except Exception:
                 pass
+            self._tunnels[idx]["pid"] = None
+            config_manager.save_tunnels(self._tunnels)
 
     @staticmethod
     def _build_cmd(t: dict) -> list:
@@ -361,14 +393,13 @@ class TunnelManagerDialog(Gtk.Dialog):
         target = f"{user}@{host}" if user else host
 
         cmd = [
-            "ssh", "-N", 
+            "ssh", "-N",
             "-p", sport,
-            "-o", "StrictHostKeyChecking=no",    
-            "-o", "ConnectTimeout=10",           
-            "-o", "ServerAliveInterval=60"       
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "ConnectTimeout=10",
+            "-o", "ServerAliveInterval=60"
         ]
-        
-        # Vieta la richiesta interattiva se usiamo le chiavi SSH
+
         if not pwd:
             cmd += ["-o", "BatchMode=yes"]
 
@@ -378,24 +409,35 @@ class TunnelManagerDialog(Gtk.Dialog):
             cmd += ["-L", f"{lport}:{rhost}:{rport}"]
         elif "Remoto" in tipo:
             cmd += ["-R", f"{rport}:{rhost}:{lport}"]
-            
+
         cmd.append(target)
         return cmd
 
     def _aggiorna_stati(self) -> bool:
-        """Aggiorna solo la colonna Stato senza ricostruire la lista
-        (evita la perdita della selezione ad ogni tick)."""
+        """Aggiorna solo la colonna Stato usando os.kill(0) per verificare
+        se il processo è vivo, senza ricostruire tutta la lista."""
         it = self._store.get_iter_first()
         while it:
             idx = self._store.get_value(it, 7)
-            stato = "Attivo" if idx in self._procs and self._procs[idx].poll() is None else "Fermo"
-            self._store.set_value(it, 6, stato)
+            vivo = idx in self._procs and self._processo_vivo(self._procs[idx].pid)
+            if not vivo and idx in self._procs:
+                # processo morto inaspettatamente: pulizia
+                self._procs.pop(idx)
+                self._tunnels[idx]["pid"] = None
+                config_manager.save_tunnels(self._tunnels)
+            self._store.set_value(it, 6, "Attivo" if vivo else "Fermo")
             it = self._store.iter_next(it)
-        return True
+        return True  # mantieni il timer attivo
 
     def _on_destroy(self, *args):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
-        # Spegne i tunnel se chiudiamo la finestra (opzionale, ma pulito)
+        # I tunnel SSH rimangono attivi dopo la chiusura della finestra.
+        # I processi sopravvivono grazie a os.setsid(); i PID sono salvati
+        # in config e verranno riagganciati alla prossima apertura.
+
+    def ferma_tutti_alla_chiusura(self):
+        """Chiama questo alla chiusura dell'app principale se vuoi
+        terminare tutti i tunnel attivi."""
         for idx in list(self._procs.keys()):
             self._on_ferma_idx(idx)

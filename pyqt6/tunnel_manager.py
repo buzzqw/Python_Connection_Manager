@@ -1,5 +1,5 @@
 """
-tunnel_manager.py - Gestore grafico di SSH Tunnel (port forwarding) per PCM.
+tunnel_manage-pyqt6.py - Gestore grafico di SSH Tunnel (port forwarding) per PCM.
 Stile MobaSSHTunnel di MobaXterm: tabella dei tunnel, avvio/stop, persistenza.
 """
 
@@ -131,6 +131,8 @@ class TunnelManagerDialog(QDialog):
     Finestra di gestione tunnel SSH stile MobaSSHTunnel.
     Mostra una tabella con tutti i tunnel configurati e permette
     di avviarli/fermarli individualmente.
+    I tunnel rimangono attivi anche dopo la chiusura della finestra;
+    alla riapertura vengono riagganciati tramite il PID salvato in config.
     """
 
     COLONNE = ["Nome", "Tipo", "SSH Host", "Porta locale", "Host remoto", "Stato"]
@@ -140,15 +142,47 @@ class TunnelManagerDialog(QDialog):
         self.setWindowTitle("Gestione Tunnel SSH")
         self.setMinimumSize(720, 400)
         self._tunnels = config_manager.load_tunnels()
-        self._processi = {}   # nome -> Popen
+        self._processi = {}   # nome -> Popen (o proxy con solo .pid)
 
         self._init_ui()
+        self._riaggancia_processi()
         self._aggiorna_tabella()
 
         # Timer di controllo stato
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._controlla_stati)
         self._timer.start(2000)
+
+    # ------------------------------------------------------------------
+    # Utilità PID
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _processo_vivo(pid: int) -> bool:
+        """Controlla se un PID è ancora in esecuzione senza ucciderlo."""
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    def _riaggancia_processi(self):
+        """
+        Alla riapertura della finestra, controlla quali tunnel hanno un PID
+        salvato in config e, se il processo è ancora vivo, lo riaggancia nel
+        dizionario _processi in modo da poterlo monitorare e fermare.
+        """
+        for t in self._tunnels:
+            pid  = t.get("pid")
+            nome = t.get("nome")
+            if pid and nome and self._processo_vivo(pid):
+                # Proxy leggero: non è un vero Popen ma ha .pid
+                proxy = _PidProxy(pid)
+                self._processi[nome] = proxy
+                t["attivo"] = True
+            else:
+                t["attivo"] = False
+                t["pid"]    = None
 
     # ------------------------------------------------------------------
     # UI
@@ -266,7 +300,6 @@ class TunnelManagerDialog(QDialog):
             attivo = t.get("attivo", False)
             stato_txt = "● Attivo" if attivo else "○ Fermo"
 
-            # Sfondo alternato neutro — stesso per tutte le celle
             bg_row = QColor("#2a2a2a") if r % 2 == 0 else QColor("#242424")
             fg_row = QColor("#dddddd")
 
@@ -282,7 +315,6 @@ class TunnelManagerDialog(QDialog):
                 item = QTableWidgetItem(testo)
                 item.setBackground(bg_row)
                 item.setForeground(fg_row)
-                # Colonna Stato (ultima): colore testo dedicato
                 if c == len(celle) - 1:
                     item.setForeground(QColor("#44dd66") if attivo else QColor("#888888"))
                     font = item.font()
@@ -372,13 +404,14 @@ class TunnelManagerDialog(QDialog):
             nome = t["nome"]
             self._processi[nome] = proc
             self._tunnels[idx]["attivo"] = True
-            self._tunnels[idx]["pid"] = proc.pid
+            self._tunnels[idx]["pid"]    = proc.pid
+            self._salva()
             self._aggiorna_tabella()
         except Exception as e:
             QMessageBox.critical(self, "Errore avvio tunnel", str(e))
 
     def _ferma_tunnel(self, idx: int):
-        t = self._tunnels[idx]
+        t    = self._tunnels[idx]
         nome = t.get("nome")
         proc = self._processi.get(nome)
         if proc:
@@ -388,7 +421,8 @@ class TunnelManagerDialog(QDialog):
                 pass
             del self._processi[nome]
         self._tunnels[idx]["attivo"] = False
-        self._tunnels[idx]["pid"] = None
+        self._tunnels[idx]["pid"]    = None
+        self._salva()
         self._aggiorna_tabella()
 
     def _avvia_selezionato(self):
@@ -420,18 +454,24 @@ class TunnelManagerDialog(QDialog):
                 self._ferma_tunnel(i)
 
     def _controlla_stati(self):
-        """Controlla se i processi dei tunnel sono ancora in esecuzione."""
+        """
+        Controlla se i processi dei tunnel sono ancora in esecuzione
+        usando os.kill(pid, 0) — funziona anche sui proxy riagganciati.
+        """
         aggiornato = False
         for i, t in enumerate(self._tunnels):
             nome = t.get("nome")
             proc = self._processi.get(nome)
-            if proc and proc.poll() is not None:
-                # processo terminato inaspettatamente
-                self._tunnels[i]["attivo"] = False
-                self._tunnels[i]["pid"] = None
-                del self._processi[nome]
-                aggiornato = True
+            if proc:
+                pid  = t.get("pid") or proc.pid
+                vivo = self._processo_vivo(pid) if pid else False
+                if not vivo:
+                    self._tunnels[i]["attivo"] = False
+                    self._tunnels[i]["pid"]    = None
+                    del self._processi[nome]
+                    aggiornato = True
         if aggiornato:
+            self._salva()
             self._aggiorna_tabella()
 
     # ------------------------------------------------------------------
@@ -442,10 +482,32 @@ class TunnelManagerDialog(QDialog):
         config_manager.save_tunnels(self._tunnels)
 
     def closeEvent(self, event):
+        """
+        Chiusura della finestra: ferma il timer ma lascia i processi SSH attivi.
+        I PID sono già salvati in config; alla prossima apertura verranno
+        riagganciati da _riaggancia_processi().
+        """
         self._timer.stop()
-        # I tunnel rimangono attivi anche dopo la chiusura della finestra
+        self._salva()
         super().closeEvent(event)
 
     def ferma_tutti_alla_chiusura(self):
-        """Chiama questo alla chiusura dell'app principale."""
+        """Chiama questo alla chiusura dell'app principale se vuoi
+        terminare tutti i tunnel attivi."""
         self._ferma_tutti()
+
+
+# ---------------------------------------------------------------------------
+# Proxy leggero per i processi riagganciati (non creati da questo Popen)
+# ---------------------------------------------------------------------------
+
+class _PidProxy:
+    """
+    Sostituisce un oggetto Popen per i processi SSH già in esecuzione
+    rilevati al riavvio della dialog. Espone solo .pid, usato da
+    os.killpg e _processo_vivo.
+    """
+    __slots__ = ("pid",)
+
+    def __init__(self, pid: int):
+        self.pid = pid
