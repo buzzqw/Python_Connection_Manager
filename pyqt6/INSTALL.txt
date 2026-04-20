@@ -1,0 +1,106 @@
+# PCM - Python Connection Manager (PyQt6)
+# Dipendenze di sistema
+
+# Nota: per nuove installazioni è raccomandata la versione GTK3 (../gtk3/).
+# Questa versione richiede X11 o XWayland per il terminale xterm embedded.
+
+# ===========================================================================
+# Installazione automatica (raccomandato)
+# ===========================================================================
+#
+#   git clone https://github.com/buzzqw/Python_Connection_Manager.git
+#   cd Python_Connection_Manager/pyqt6
+#   bash setup.sh
+#
+# Lo script rileva automaticamente la distribuzione e installa tutte le
+# dipendenze. Su Debian e Fedora usa uv come gestore di pacchetti Python
+# (evita il blocco PEP-668); su Arch e FreeBSD usa i pacchetti di sistema.
+#
+# Verifica senza installare:
+#   bash setup.sh --check
+#
+# Avvio dopo installazione automatica:
+#   ./pcm
+
+# ===========================================================================
+# Debian / Ubuntu / Linux Mint
+# ===========================================================================
+#
+#   sudo apt install \
+#       python3 python3-venv curl \
+#       openssh-client mosh \
+#       freerdp3-x11 tigervnc-viewer \
+#       xdotool wakeonlan xdg-utils \
+#       telnet
+#
+# Pacchetti Python (tramite uv — raccomandato):
+#   uv venv --system-site-packages
+#   uv pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
+#                  "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
+#
+# Oppure con pip:
+#   pip install --user PyQt6 PyQt6-WebEngine cryptography paramiko pyftpdlib
+
+# ===========================================================================
+# Arch Linux
+# ===========================================================================
+#
+#   sudo pacman -Sy --needed \
+#       python curl \
+#       openssh mosh freerdp tigervnc \
+#       xdotool xdg-utils wol inetutils \
+#       python-pyqt6 python-pyqt6-webengine \
+#       python-cryptography \
+#       python-paramiko \
+#       python-pyftpdlib
+#
+# Nessun pacchetto pip necessario: tutto gestito da pacman.
+
+# ===========================================================================
+# Fedora
+# ===========================================================================
+#
+#   sudo dnf install \
+#       python3 python3-devel curl \
+#       openssh-clients mosh freerdp tigervnc \
+#       xdotool xdg-utils wol \
+#       telnet
+#
+# Pacchetti Python (tramite uv — raccomandato):
+#   uv venv --system-site-packages
+#   uv pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
+#                  "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
+#
+# Oppure con pip:
+#   pip install --user PyQt6 PyQt6-WebEngine cryptography paramiko pyftpdlib
+
+# ===========================================================================
+# FreeBSD (pkg)
+# ===========================================================================
+#
+#   sudo pkg install \
+#       bash python3 curl \
+#       mosh freerdp3 tigervnc-viewer \
+#       xdotool wakeonlan xdg-utils \
+#       py311-qt6-pyqt \
+#       py311-qt6-webengine \
+#       py311-cryptography \
+#       py311-paramiko \
+#       py311-pyftpdlib
+#
+# Nessun pacchetto pip necessario: tutto gestito da pkg.
+
+# ===========================================================================
+# Note Wayland
+# ===========================================================================
+#
+# Questa versione usa xterm come terminale embedded, che richiede X11 o
+# XWayland. Non è possibile un uso Wayland puro.
+# Per terminale nativo su Wayland usare la versione GTK3 (../gtk3/).
+
+# ===========================================================================
+# Avvio manuale
+# ===========================================================================
+#
+#   cd pyqt6/
+#   python3 PCM.py
