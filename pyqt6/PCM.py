@@ -53,7 +53,7 @@ from session_dialog import SessionDialog
 from session_command import build_command, check_dipendenze
 from session_panel import SessionPanel
 from tunnel_manager import TunnelManagerDialog
-from ftp_server_dialog import FtpServerDialog
+from ftp_server_dialog import FtpServerfusioDialog
 from settings_dialog import SettingsDialog
 from variables_dialog import VariablesDialog
 from deps_dialog import DepsConfigDialog
@@ -68,7 +68,8 @@ def _qi(name: str) -> QIcon:
     """Carica icons/<name>.png con percorso assoluto."""
     path = os.path.join(_ICONS_DIR, name)
     return QIcon(path) if os.path.isfile(path) else QIcon()
-
+   
+   
 
 # ==============================================================================
 # Widget di benvenuto
@@ -143,7 +144,7 @@ class WelcomeWidget(QWidget):
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setStyleSheet("color:#444; font-size:11px; margin-top:30px;")
         layout.addWidget(footer)
-
+de
     def _crea_pulsante_grande(self, testo, colore):
         b = QPushButton(testo)
         b.setFixedSize(150, 120)
@@ -2479,6 +2480,7 @@ if __name__ == "__main__":
     _tr.init_from_settings()
 
     app = QApplication(sys.argv)
+    app.setWindowIcon(_qi("pcm_icon.png"))
     app.setStyle("Fusion")
     app.setApplicationName("PCM")
     app.setApplicationVersion("1.0")
