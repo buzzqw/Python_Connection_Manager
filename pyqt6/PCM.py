@@ -53,7 +53,7 @@ from session_dialog import SessionDialog
 from session_command import build_command, check_dipendenze
 from session_panel import SessionPanel
 from tunnel_manager import TunnelManagerDialog
-from ftp_server_dialog import FtpServerfusioDialog
+from ftp_server_dialog import FtpServerDialog
 from settings_dialog import SettingsDialog
 from variables_dialog import VariablesDialog
 from deps_dialog import DepsConfigDialog
@@ -144,7 +144,7 @@ class WelcomeWidget(QWidget):
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setStyleSheet("color:#444; font-size:11px; margin-top:30px;")
         layout.addWidget(footer)
-de
+
     def _crea_pulsante_grande(self, testo, colore):
         b = QPushButton(testo)
         b.setFixedSize(150, 120)
