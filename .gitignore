@@ -9,3 +9,5 @@ __pycache__/
 *.bak
 *.json
 TRANSLATION_REPORT.md
+.claude
+.venv
