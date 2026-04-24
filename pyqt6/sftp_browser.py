@@ -58,6 +58,29 @@ class SftpWorker(QObject):
             self.finished.emit(False, str(e))
 
 
+class FtpWorker(QObject):
+    finished = pyqtSignal(bool, str)
+
+    def __init__(self, ftp, operazione, src, dst):
+        super().__init__()
+        self._ftp = ftp
+        self._op  = operazione   # 'get' o 'put'
+        self._src = src
+        self._dst = dst
+
+    def run(self):
+        try:
+            if self._op == "get":
+                with open(self._dst, "wb") as fp:
+                    self._ftp.retrbinary(f"RETR {self._src}", fp.write)
+            else:
+                with open(self._src, "rb") as fp:
+                    self._ftp.storbinary(f"STOR {self._dst}", fp)
+            self.finished.emit(True, "OK")
+        except Exception as e:
+            self.finished.emit(False, str(e))
+
+
 # ---------------------------------------------------------------------------
 # Widget principale
 # ---------------------------------------------------------------------------
@@ -317,28 +340,80 @@ class SftpBrowserWidget(QWidget):
             return
         src = self._path_corrente.rstrip("/") + "/" + nome
         try:
-            self._set_status(f"⬇ Download {nome}…")
-            self._sftp.get(src, dst)
-            self._set_status(f"✔ Scaricato: {nome}")
-        except Exception as e:
-            QMessageBox.critical(self, "Errore download", str(e))
-            self._set_status(f"✖ Errore: {e}")
+            size = self._sftp.stat(src).st_size or 0
+        except Exception:
+            size = 0
+
+        progress = QProgressDialog(f"⬇ Download: {nome}", "Annulla", 0, 100, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(300)
+        self._set_status(f"⬇ Download {nome}…")
+
+        worker = SftpWorker(self._sftp, "get", src, dst, size)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(progress.setValue)
+        worker.finished.connect(
+            lambda ok, msg, n=nome, p=progress, t=thread:
+                self._on_sftp_done(ok, msg, n, "Scaricato", p, t, refresh=False)
+        )
+        thread.start()
 
     def _carica_file(self):
         if not self._sftp:
             return
         files, _ = QFileDialog.getOpenFileNames(self, "Seleziona file da caricare")
-        for local_path in files:
-            nome = os.path.basename(local_path)
-            remote_path = self._path_corrente.rstrip("/") + "/" + nome
-            try:
-                self._set_status(f"⬆ Upload {nome}…")
-                self._sftp.put(local_path, remote_path)
-                self._set_status(f"✔ Caricato: {nome}")
-            except Exception as e:
-                QMessageBox.critical(self, "Errore upload", str(e))
-                self._set_status(f"✖ Errore: {e}")
-        self._aggiorna()
+        if files:
+            self._carica_lista(list(files))
+
+    def _carica_lista(self, files: list):
+        if not files:
+            self._aggiorna()
+            return
+        local_path = files[0]
+        rimanenti  = files[1:]
+        nome = os.path.basename(local_path)
+        remote_path = self._path_corrente.rstrip("/") + "/" + nome
+
+        progress = QProgressDialog(f"⬆ Upload: {nome}", "Annulla", 0, 100, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(300)
+        self._set_status(f"⬆ Upload {nome}…")
+
+        worker = SftpWorker(self._sftp, "put", local_path, remote_path)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(progress.setValue)
+        worker.finished.connect(
+            lambda ok, msg, n=nome, p=progress, t=thread, r=rimanenti:
+                self._on_sftp_upload_done(ok, msg, n, p, t, r)
+        )
+        thread.start()
+
+    def _on_sftp_upload_done(self, ok, msg, nome, progress, thread, rimanenti):
+        progress.close()
+        thread.quit()
+        thread.wait()
+        if ok:
+            self._set_status(f"✔ Caricato: {nome}")
+        else:
+            QMessageBox.critical(self, "Errore upload", msg)
+            self._set_status(f"✖ Errore: {msg}")
+        self._carica_lista(rimanenti)
+
+    def _on_sftp_done(self, ok, msg, nome, azione, progress, thread, refresh=False):
+        progress.close()
+        thread.quit()
+        thread.wait()
+        if ok:
+            self._set_status(f"✔ {azione}: {nome}")
+        else:
+            QMessageBox.critical(self, f"Errore {azione.lower()}", msg)
+            self._set_status(f"✖ Errore: {msg}")
+        if refresh:
+            self._aggiorna()
 
     # ------------------------------------------------------------------
     # Operazioni file
@@ -731,31 +806,65 @@ class FtpBrowserWidget(QWidget):
         if not dst:
             return
         remote = self._path_corrente.rstrip("/") + "/" + nome
-        try:
-            self._set_status(f"⬇ Download {nome}…")
-            with open(dst, "wb") as fp:
-                self._ftp.retrbinary(f"RETR {remote}", fp.write)
-            self._set_status(f"✔ Scaricato: {nome}")
-        except Exception as e:
-            QMessageBox.critical(self, "Errore download", str(e))
-            self._set_status(f"✖ Errore: {e}")
+        self._set_status(f"⬇ Download {nome}…")
+
+        worker = FtpWorker(self._ftp, "get", remote, dst)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(
+            lambda ok, msg, n=nome, t=thread:
+                self._on_ftp_done(ok, msg, n, "Scaricato", t, refresh=False)
+        )
+        thread.start()
 
     def _carica_file(self):
         if not self._ftp:
             return
         files, _ = QFileDialog.getOpenFileNames(self, "Seleziona file da caricare")
-        for local_path in files:
-            nome = os.path.basename(local_path)
-            remote = self._path_corrente.rstrip("/") + "/" + nome
-            try:
-                self._set_status(f"⬆ Upload {nome}…")
-                with open(local_path, "rb") as fp:
-                    self._ftp.storbinary(f"STOR {remote}", fp)
-                self._set_status(f"✔ Caricato: {nome}")
-            except Exception as e:
-                QMessageBox.critical(self, "Errore upload", str(e))
-                self._set_status(f"✖ Errore: {e}")
-        self._aggiorna()
+        if files:
+            self._carica_ftp_lista(list(files))
+
+    def _carica_ftp_lista(self, files: list):
+        if not files:
+            self._aggiorna()
+            return
+        local_path = files[0]
+        rimanenti  = files[1:]
+        nome   = os.path.basename(local_path)
+        remote = self._path_corrente.rstrip("/") + "/" + nome
+        self._set_status(f"⬆ Upload {nome}…")
+
+        worker = FtpWorker(self._ftp, "put", local_path, remote)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(
+            lambda ok, msg, n=nome, t=thread, r=rimanenti:
+                self._on_ftp_upload_done(ok, msg, n, t, r)
+        )
+        thread.start()
+
+    def _on_ftp_upload_done(self, ok, msg, nome, thread, rimanenti):
+        thread.quit()
+        thread.wait()
+        if ok:
+            self._set_status(f"✔ Caricato: {nome}")
+        else:
+            QMessageBox.critical(self, "Errore upload", msg)
+            self._set_status(f"✖ Errore: {msg}")
+        self._carica_ftp_lista(rimanenti)
+
+    def _on_ftp_done(self, ok, msg, nome, azione, thread, refresh=False):
+        thread.quit()
+        thread.wait()
+        if ok:
+            self._set_status(f"✔ {azione}: {nome}")
+        else:
+            QMessageBox.critical(self, f"Errore {azione.lower()}", msg)
+            self._set_status(f"✖ Errore: {msg}")
+        if refresh:
+            self._aggiorna()
 
     # ------------------------------------------------------------------
     # Operazioni file

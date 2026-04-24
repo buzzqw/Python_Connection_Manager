@@ -21,6 +21,7 @@ import sys
 import os
 import subprocess
 import shutil
+import threading
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -410,20 +411,29 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_connetti(self, panel, nome: str, dati: dict):
         proto = dati.get("protocol", "ssh")
-
-        # Pre-cmd locale
         pre_cmd = dati.get("pre_cmd", "").strip()
-        if pre_cmd:
-            timeout = dati.get("pre_cmd_timeout", 15)
-            try:
-                subprocess.run(pre_cmd, shell=True, timeout=timeout)
-            except Exception as e:
-                self._warn(f"Pre-cmd fallito: {e}")
+        wol_mac = dati.get("wol_mac", "") if dati.get("wol_enabled") else ""
 
-        # Wake-on-LAN
-        if dati.get("wol_enabled") and dati.get("wol_mac"):
-            self._invia_wol(dati["wol_mac"], dati.get("wol_wait", 20))
+        if pre_cmd or wol_mac:
+            # Pre-cmd e WoL sono bloccanti: eseguiti in thread per non congelare la UI
+            def _bg():
+                if pre_cmd:
+                    timeout = dati.get("pre_cmd_timeout", 15)
+                    try:
+                        subprocess.run(pre_cmd, shell=True, timeout=timeout)
+                    except Exception as e:
+                        GLib.idle_add(self._warn, f"Pre-cmd fallito: {e}")
+                if wol_mac:
+                    err = self._invia_wol(wol_mac, dati.get("wol_wait", 20))
+                    if err:
+                        GLib.idle_add(self._warn, f"WoL fallito: {err}")
+                GLib.idle_add(self._apri_protocollo, proto, nome, dati)
+            threading.Thread(target=_bg, daemon=True).start()
+            return
 
+        self._apri_protocollo(proto, nome, dati)
+
+    def _apri_protocollo(self, proto: str, nome: str, dati: dict):
         if proto in ("ssh", "telnet", "mosh", "serial"):
             self._apri_terminale(nome, dati)
         elif proto == "sftp":
@@ -434,7 +444,6 @@ class MainWindow(Gtk.ApplicationWindow):
             self._apri_rdp(nome, dati)
         elif proto == "vnc":
             self._apri_vnc(nome, dati)
-
         self._status(f"Connesso: {nome}")
 
     def _apri_terminale(self, nome: str, dati: dict):
@@ -769,7 +778,7 @@ class MainWindow(Gtk.ApplicationWindow):
             profili = config_manager.load_profiles()
             profili[nome] = dati
             config_manager.save_profiles(profili)
-            self._pannello.aggiorna()
+            self._pannello.aggiorna(profili)
         dlg.destroy()
 
     def _on_terminale_locale(self):
@@ -788,7 +797,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 del profili[nome]
             profili[nuovo_nome] = nuovi_dati
             config_manager.save_profiles(profili)
-            self._pannello.aggiorna()
+            self._pannello.aggiorna(profili)
         dlg.destroy()
 
     def _on_elimina_sessione(self, panel, nome: str):
@@ -796,7 +805,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if nome in profili:
             del profili[nome]
             config_manager.save_profiles(profili)
-        self._pannello.aggiorna()
+            self._pannello.aggiorna(profili)
+        else:
+            self._pannello.aggiorna()
 
     def _on_duplica_sessione(self, panel, nome: str):
         profili = config_manager.load_profiles()
@@ -804,7 +815,9 @@ class MainWindow(Gtk.ApplicationWindow):
             nuovo_nome = f"{nome} (copia)"
             profili[nuovo_nome] = dict(profili[nome])
             config_manager.save_profiles(profili)
-        self._pannello.aggiorna()
+            self._pannello.aggiorna(profili)
+        else:
+            self._pannello.aggiorna()
 
     def _on_tunnel_manager(self):
         dlg = TunnelManagerDialog(parent=self)
@@ -1098,19 +1111,20 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.run()
         dlg.destroy()
 
-    def _invia_wol(self, mac: str, attesa: int):
-        """Invia magic packet Wake-on-LAN."""
+    def _invia_wol(self, mac: str, attesa: int) -> str:
+        """Invia magic packet WoL e attende. Restituisce stringa errore o "" se OK.
+        Thread-safe: non tocca la UI."""
+        import socket, time
         try:
-            import socket
             mac_clean = mac.replace(":", "").replace("-", "")
             payload = bytes.fromhex("F" * 12 + mac_clean * 16)
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 s.sendto(payload, ("<broadcast>", 9))
-            import time
             time.sleep(attesa)
+            return ""
         except Exception as e:
-            self._warn(f"WoL fallito: {e}")
+            return str(e)
 
 
 # ===========================================================================

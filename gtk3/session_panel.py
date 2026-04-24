@@ -145,8 +145,8 @@ class SessionPanel(Gtk.Box):
     # Aggiornamento modello
     # ------------------------------------------------------------------
 
-    def aggiorna(self):
-        self._profili = config_manager.load_profiles()
+    def aggiorna(self, profili=None):
+        self._profili = profili if profili is not None else config_manager.load_profiles()
         self._ricostruisci(self._search.get_text())
 
     def _ricostruisci(self, filtro: str = ""):
@@ -158,7 +158,7 @@ class SessionPanel(Gtk.Box):
         for nome, dati in self._profili.items():
             if filtro and filtro not in nome.lower():
                 host = dati.get("host", "")
-                user = dati.get("user", "")
+                user = str(dati.get("user") or "")
                 if filtro not in host.lower() and filtro not in user.lower():
                     continue
             gruppo = dati.get("group", "") or t("sidebar.no_group")
@@ -175,11 +175,10 @@ class SessionPanel(Gtk.Box):
                 dati = self._profili[nome]
                 proto = dati.get("protocol", "ssh")
                 host  = dati.get("host", "")
-                user  = dati.get("user", "")
+                user  = str(dati.get("user") or "")
                 color = PROTO_COLOR.get(proto, "#888888")
                 proto_lbl = PROTO_LABEL.get(proto, proto.upper())
 
-                # Se user è cifrato (non ancora sbloccato) non mostrarlo
                 user_display = "" if user.startswith("ENC:") else user
                 
                 # OTTIMIZZAZIONE TESTO: Nessun "a capo" (\n), target sulla stessa riga e sbiadito
