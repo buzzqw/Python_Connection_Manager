@@ -6,6 +6,7 @@ Aggiunto supporto a sshpass, campo Utente, e Log terminal integrato.
 """
 
 import os
+import shutil
 import signal
 import subprocess
 import fcntl
@@ -319,17 +320,23 @@ class TunnelManagerDialog(Gtk.Dialog):
         cmd = self._build_cmd(t)
         pwd = t.get("password", "")
 
-        if pwd:
-            cmd = ["sshpass", "-p", pwd] + cmd
-
         self._scrivi_log(f"\n[{t.get('nome', 'Tunnel')}] Esecuzione: {' '.join(cmd)}\n")
+
+        env = None
+        if pwd:
+            if not shutil.which("sshpass"):
+                self._scrivi_log("ERRORE: Devi installare 'sshpass'. Esegui: sudo apt install sshpass\n")
+                return
+            cmd = ["sshpass", "-e"] + cmd
+            env = {**os.environ, "SSHPASS": pwd}
 
         try:
             proc = subprocess.Popen(
                 cmd,
                 preexec_fn=os.setsid,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env,
             )
             self._procs[idx] = proc
             self._tunnels[idx]["pid"] = proc.pid
@@ -342,9 +349,6 @@ class TunnelManagerDialog(Gtk.Dialog):
 
             GLib.io_add_watch(proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._leggi_output_processo)
 
-        except FileNotFoundError as e:
-            if "sshpass" in str(e) or cmd[0] == "sshpass":
-                self._scrivi_log("ERRORE: Devi installare 'sshpass'. Esegui: sudo apt install sshpass\n")
         except Exception as e:
             self._scrivi_log(f"ERRORE CRITICO: {str(e)}\n")
 
@@ -395,7 +399,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         cmd = [
             "ssh", "-N",
             "-p", sport,
-            "-o", "StrictHostKeyChecking=no",
+            "-o", "StrictHostKeyChecking=accept-new",
             "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=60"
         ]

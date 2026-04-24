@@ -163,7 +163,7 @@ def _build_ssh(p: dict) -> str:
     juser = p.get("jump_user", "")
     jport = p.get("jump_port", "22")
 
-    args = [f"-p {port}", "-o StrictHostKeyChecking=no",
+    args = [f"-p {port}", "-o StrictHostKeyChecking=accept-new",
             "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
 
     if pkey and os.path.exists(pkey):
@@ -196,7 +196,7 @@ def _build_ssh(p: dict) -> str:
     # comando base
     if pwd and not pkey:
         if shutil.which("sshpass"):
-            base = f"sshpass -p '{_esc(pwd)}' ssh {args_str} {target}"
+            base = f"SSHPASS='{_esc(pwd)}' sshpass -e ssh {args_str} {target}"
         else:
             # fallback: ssh chiederà la password interattivamente
             base = f"ssh {args_str} {target}"
@@ -320,7 +320,7 @@ def _build_sftp_cli(p: dict) -> str:
     Comando sftp CLI per terminale interno/esterno.
     Priorità autenticazione:
       1. Chiave privata  → sftp -i chiave user@host
-      2. sshpass         → sshpass -p pwd sftp user@host
+      2. sshpass         → SSHPASS=pwd sshpass -e sftp user@host
       3. lftp (fallback) → lftp -e 'open sftp://user:pwd@host:port' host
       4. sftp plain      → chiede password interattivamente
     """
@@ -330,7 +330,7 @@ def _build_sftp_cli(p: dict) -> str:
     pkey = p.get("private_key", "").strip()
     pwd  = p.get("password", "")
 
-    args = [f"-P {port}", "-o StrictHostKeyChecking=no"]
+    args = [f"-P {port}", "-o StrictHostKeyChecking=accept-new"]
     if pkey and os.path.exists(pkey):
         args.append(f"-i '{pkey}'")
     args_str = " ".join(args)
@@ -342,7 +342,7 @@ def _build_sftp_cli(p: dict) -> str:
 
     if pwd:
         if shutil.which("sshpass"):
-            return f"sshpass -p '{_esc(pwd)}' sftp {args_str} {target}"
+            return f"SSHPASS='{_esc(pwd)}' sshpass -e sftp {args_str} {target}"
         elif shutil.which("lftp"):
             # lftp supporta sftp con credenziali inline
             uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"

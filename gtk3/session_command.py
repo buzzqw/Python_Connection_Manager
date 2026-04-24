@@ -131,7 +131,7 @@ def _build_ssh(p: dict) -> str:
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
     
-    args = [f"-p {port}", "-o StrictHostKeyChecking=no", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
+    args = [f"-p {port}", "-o StrictHostKeyChecking=accept-new", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
 
     if pkey and os.path.exists(pkey):
         args.append(f"-i '{pkey}'")
@@ -163,7 +163,7 @@ def _build_ssh(p: dict) -> str:
     if pwd and not pkey:
         if _tool_exists("sshpass"):
             sshpass_exe = _get_tool("sshpass")
-            base = f"\"{sshpass_exe}\" -p '{_esc(pwd)}' \"{ssh_exe}\" {args_str} {target}"
+            base = f"SSHPASS='{_esc(pwd)}' \"{sshpass_exe}\" -e \"{ssh_exe}\" {args_str} {target}"
         else:
             base = f"\"{ssh_exe}\" {args_str} {target}"
     else:
@@ -248,7 +248,7 @@ def _build_sftp_cli(p: dict) -> str:
     pkey = p.get("private_key", "").strip()
     pwd  = p.get("password", "")
 
-    args = [f"-P {port}", "-o StrictHostKeyChecking=no"]
+    args = [f"-P {port}", "-o StrictHostKeyChecking=accept-new"]
     if pkey and os.path.exists(pkey):
         args.append(f"-i '{pkey}'")
     args_str = " ".join(args)
@@ -260,7 +260,7 @@ def _build_sftp_cli(p: dict) -> str:
 
     if pwd:
         if _tool_exists("sshpass"):
-            return f"\"{_get_tool('sshpass')}\" -p '{_esc(pwd)}' \"{sftp_exe}\" {args_str} {target}"
+            return f"SSHPASS='{_esc(pwd)}' \"{_get_tool('sshpass')}\" -e \"{sftp_exe}\" {args_str} {target}"
         elif _tool_exists("lftp"):
             uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
             return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"

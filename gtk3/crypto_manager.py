@@ -40,6 +40,7 @@ API pubblica:
 import os
 import base64
 import secrets
+import threading
 
 # Importazione lazy di cryptography per dare errore chiaro se mancante
 def _get_fernet():
@@ -61,6 +62,7 @@ def _get_fernet():
 # ---------------------------------------------------------------------------
 
 _KEY: bytes | None = None          # chiave Fernet derivata dalla password
+_lock = threading.Lock()           # protegge l'accesso a _KEY
 _ENC_PREFIX = "ENC:"               # prefisso per valori cifrati
 _FIELDS_TO_ENCRYPT = ("user", "password")  # campi da cifrare nei profili
 
@@ -91,7 +93,8 @@ def is_enabled() -> bool:
 
 def is_unlocked() -> bool:
     """Restituisce True se la chiave è in memoria (app sbloccata)."""
-    return _KEY is not None
+    with _lock:
+        return _KEY is not None
 
 
 # ---------------------------------------------------------------------------
@@ -134,20 +137,19 @@ def setup(password: str):
     Fernet, _, __, ___ = _get_fernet()
 
     salt = secrets.token_bytes(32)
-    _KEY = _derive_key(password, salt)
+    key = _derive_key(password, salt)
+    f = Fernet(key)
 
-    # Verifica che la chiave sia valida
-    f = Fernet(_KEY)
-
-    # Salva salt e flag in settings
     s = _load_settings()
     s["crypto"] = {
         "enabled": True,
         "salt":    base64.b64encode(salt).decode("ascii"),
-        # token di verifica: cifriamo una stringa nota per verificare la password
         "verify":  f.encrypt(b"pcm-verify").decode("ascii"),
     }
     _save_settings(s)
+
+    with _lock:
+        _KEY = key
 
 
 def unlock(password: str) -> bool:
@@ -172,7 +174,8 @@ def unlock(password: str) -> bool:
         if decrypted != b"pcm-verify":
             return False
 
-        _KEY = key
+        with _lock:
+            _KEY = key
         return True
 
     except Exception:
@@ -182,7 +185,8 @@ def unlock(password: str) -> bool:
 def lock():
     """Rimuove la chiave dalla memoria (blocca l'app)."""
     global _KEY
-    _KEY = None
+    with _lock:
+        _KEY = None
 
 
 def change_password(old_password: str, new_password: str) -> bool:
@@ -234,7 +238,8 @@ def disable(password: str) -> bool:
     s.pop("crypto", None)
     _save_settings(s)
 
-    _KEY = None
+    with _lock:
+        _KEY = None
 
     # Salva profili in chiaro (save_profiles ora vede is_enabled()==False)
     config_manager.save_profiles(profili)
@@ -251,14 +256,14 @@ def encrypt_field(value: str) -> str:
     Restituisce "ENC:<base64>" oppure il valore originale se la chiave
     non è disponibile o il valore è già cifrato.
     """
-    if not value:
+    if not value or value.startswith(_ENC_PREFIX):
         return value
-    if value.startswith(_ENC_PREFIX):
-        return value   # già cifrato
-    if _KEY is None:
-        return value   # cifratura non sbloccata
+    with _lock:
+        key = _KEY
+    if key is None:
+        return value
     Fernet, _, __, ___ = _get_fernet()
-    f = Fernet(_KEY)
+    f = Fernet(key)
     token = f.encrypt(value.encode("utf-8")).decode("ascii")
     return _ENC_PREFIX + token
 
@@ -270,16 +275,18 @@ def decrypt_field(value: str) -> str:
     o se la chiave non è disponibile.
     """
     if not value or not value.startswith(_ENC_PREFIX):
-        return value   # già in chiaro
-    if _KEY is None:
-        return ""      # cifrato ma non sbloccato → restituisce stringa vuota
+        return value
+    with _lock:
+        key = _KEY
+    if key is None:
+        return ""
     try:
         Fernet, InvalidToken, _, __ = _get_fernet()
-        f = Fernet(_KEY)
+        f = Fernet(key)
         token = value[len(_ENC_PREFIX):].encode("ascii")
         return f.decrypt(token).decode("utf-8")
     except Exception:
-        return ""      # token corrotto o password sbagliata
+        return ""
 
 
 # ---------------------------------------------------------------------------

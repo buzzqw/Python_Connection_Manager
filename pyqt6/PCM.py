@@ -1210,7 +1210,7 @@ class MainWindow(QMainWindow):
         cmd_display = cmd
         if self._modalita_protetta:
             import re
-            cmd_display = re.sub(r"sshpass -p '[^']*'", "sshpass -p '****'", cmd_display)
+            cmd_display = re.sub(r"SSHPASS='[^']*'", "SSHPASS='****'", cmd_display)
             cmd_display = re.sub(r"/p:'[^']*'", "/p:'****'", cmd_display)
         
         # Comunichiamo al terminale la stringa sicura da mostrare sempre
@@ -1501,7 +1501,7 @@ class MainWindow(QMainWindow):
                     cmd_display = w.comando_originale
                     if attiva:
                         import re
-                        cmd_display = re.sub(r"sshpass -p '[^']*'", "sshpass -p '****'", cmd_display)
+                        cmd_display = re.sub(r"SSHPASS='[^']*'", "SSHPASS='****'", cmd_display)
                         cmd_display = re.sub(r"/p:'[^']*'", "/p:'****'", cmd_display)
                     w.comando_display = cmd_display
                     w.barra_info.setText(f"  ▶  {cmd_display}")
@@ -2242,7 +2242,7 @@ class MainWindow(QMainWindow):
 
             if proto == "SSH" and cmds:
                 pkey = profilo.get("private_key", "").strip()
-                ssh_args = [f"-p {port}", "-o StrictHostKeyChecking=no",
+                ssh_args = [f"-p {port}", "-o StrictHostKeyChecking=accept-new",
                             "-o ServerAliveInterval=15"]
                 if pkey and os.path.exists(pkey):
                     ssh_args.append(f"-i '{pkey}'")

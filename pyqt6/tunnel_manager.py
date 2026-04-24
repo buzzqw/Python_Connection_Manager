@@ -364,42 +364,47 @@ class TunnelManagerDialog(QDialog):
     # Avvio / Stop
     # ------------------------------------------------------------------
 
-    def _build_ssh_cmd(self, t: dict) -> str:
+    def _build_ssh_cmd(self, t: dict) -> list:
         host  = t.get("ssh_host", "")
-        port  = t.get("ssh_port", "22")
+        port  = str(t.get("ssh_port", "22"))
         user  = t.get("ssh_user", "")
-        pwd   = t.get("ssh_pwd", "")
         tipo  = t.get("tipo", "Proxy SOCKS (-D)")
-        lport = t.get("local_port", "1080")
+        lport = str(t.get("local_port", "1080"))
         rhost = t.get("remote_host", "")
-        rport = t.get("remote_port", "")
-
-        args = [f"-p {port}", "-N", "-o StrictHostKeyChecking=no",
-                "-o ExitOnForwardFailure=yes"]
-
-        if tipo == "Proxy SOCKS (-D)":
-            args.append(f"-D {lport}")
-        elif tipo == "Locale (-L)":
-            args.append(f"-L {lport}:{rhost}:{rport}")
-        elif tipo == "Remoto (-R)":
-            args.append(f"-R {lport}:{rhost}:{rport}")
+        rport = str(t.get("remote_port", ""))
 
         target = f"{user}@{host}" if user else host
-        args_str = " ".join(args)
 
-        if pwd and shutil.which("sshpass"):
-            return f"sshpass -p '{pwd}' ssh {args_str} {target}"
-        return f"ssh {args_str} {target}"
+        cmd = ["ssh", "-N",
+               "-p", port,
+               "-o", "StrictHostKeyChecking=accept-new",
+               "-o", "ExitOnForwardFailure=yes"]
+
+        if tipo == "Proxy SOCKS (-D)":
+            cmd += ["-D", lport]
+        elif tipo == "Locale (-L)":
+            cmd += ["-L", f"{lport}:{rhost}:{rport}"]
+        elif tipo == "Remoto (-R)":
+            cmd += ["-R", f"{lport}:{rhost}:{rport}"]
+
+        cmd.append(target)
+        return cmd
 
     def _avvia_tunnel(self, idx: int):
         t = self._tunnels[idx]
         if t.get("attivo"):
             return
         cmd = self._build_ssh_cmd(t)
+        pwd = t.get("ssh_pwd", "")
+        env = None
+        if pwd and shutil.which("sshpass"):
+            env = {**os.environ, "SSHPASS": pwd}
+            cmd = ["sshpass", "-e"] + cmd
         try:
             proc = subprocess.Popen(
-                cmd, shell=True, preexec_fn=os.setsid,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                cmd, preexec_fn=os.setsid,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env=env,
             )
             nome = t["nome"]
             self._processi[nome] = proc
