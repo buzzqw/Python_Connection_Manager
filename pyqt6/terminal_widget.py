@@ -471,24 +471,26 @@ class TerminalWidget(QWidget):
             self._reader.wait(500)
             self._reader = None
 
-        if self._child_pid is not None:
-            try:
-                os.killpg(os.getpgid(self._child_pid), signal.SIGTERM)
-                try:
-                    os.waitpid(self._child_pid, 0)
-                except ChildProcessError:
-                    pass
-            except (ProcessLookupError, OSError):
-                pass
-            self._child_pid = None
-            self._process   = None
-
+        # Chiude prima il master PTY: bash riceve EIO e termina senza aspettare
         if self._master is not None:
             try:
                 os.close(self._master)
             except OSError:
                 pass
             self._master = None
+
+        if self._child_pid is not None:
+            try:
+                os.killpg(os.getpgid(self._child_pid), signal.SIGKILL)
+            except (ProcessLookupError, OSError):
+                pass
+            try:
+                # WNOHANG: non blocca il main thread
+                os.waitpid(self._child_pid, os.WNOHANG)
+            except (ChildProcessError, OSError):
+                pass
+            self._child_pid = None
+            self._process   = None
 
         if self._log_file is not None:
             try:
