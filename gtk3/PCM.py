@@ -926,7 +926,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_gestione_crypto(self):
         """Dialog gestione password master / cifratura credenziali."""
-        from crypto_manager import CryptoManagerDialog
+        from crypto_manager_dialog import CryptoManagerDialog
         dlg = CryptoManagerDialog(parent=self)
         dlg.run()
         dlg.destroy()
