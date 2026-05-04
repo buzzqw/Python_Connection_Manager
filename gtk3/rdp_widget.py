@@ -106,8 +106,11 @@ class RdpEmbedWidget(Gtk.Box):
             self._socket.set_hexpand(True)
             self._socket.set_vexpand(True)
             self._socket.set_no_show_all(True)
-            self._socket.connect("plug-added",   self._on_plug_added)
-            self._socket.connect("plug-removed", self._on_plug_removed)
+            self._socket.set_can_focus(True)
+            self._socket.connect("plug-added",        self._on_plug_added)
+            self._socket.connect("plug-removed",      self._on_plug_removed)
+            self._socket.connect("button-press-event", self._on_socket_click)
+            self._socket.connect("focus-in-event",    self._on_socket_focus_in)
             self.pack_start(self._socket, True, True, 0)
         else:
             lbl = Gtk.Label(label="Sessione RDP avviata in finestra esterna.")
@@ -255,7 +258,7 @@ class RdpEmbedWidget(Gtk.Box):
         args = ["rdesktop",
                 f"-X{xid}",
                 f"-g{w}x{h}",
-                "-a16", "-DNK"]
+                "-a16", "-DN"]
         if user:   args.append(f"-u{user}")
         if domain: args.append(f"-d{domain}")
         if pwd:    args.append(f"-p{pwd}")
@@ -407,6 +410,13 @@ class RdpEmbedWidget(Gtk.Box):
             subprocess.run(["xdotool", "windowmap", wid_rdp],
                            timeout=3, capture_output=True)
 
+            time.sleep(0.15)
+
+            # Sposta il focus X11 sulla finestra embedded (senza XEMBED
+            # GTK non lo fa automaticamente e la tastiera non funziona)
+            subprocess.Popen(["xdotool", "windowfocus", wid_rdp],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
             self._reparented = True
             host = self._rdp_host
             self._info.set_text(f"  ●  RDP → {host}")
@@ -475,10 +485,27 @@ class RdpEmbedWidget(Gtk.Box):
 
     def _on_plug_added(self, socket):
         self._info.set_text(f"  ●  RDP → {self._rdp_host}")
+        # rdesktop usa XEMBED: appena il plug si connette, GTK può ricevere
+        # il focus e forwardarlo correttamente all'embedded window
+        GLib.idle_add(self._socket.grab_focus)
 
     def _on_plug_removed(self, socket):
         self._info.set_text(f"  ✖  RDP disconnesso")
         return True
+
+    def _on_socket_click(self, widget, event):
+        """Click sul socket → sposta il focus X11 alla finestra RDP embedded."""
+        if self._wid_rdp:
+            subprocess.Popen(["xdotool", "windowfocus", self._wid_rdp],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return False
+
+    def _on_socket_focus_in(self, widget, event):
+        """Il socket GTK riceve il focus → re-forwardalo alla finestra RDP."""
+        if self._wid_rdp:
+            subprocess.Popen(["xdotool", "windowfocus", self._wid_rdp],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return False
 
     # ------------------------------------------------------------------
     # Cleanup

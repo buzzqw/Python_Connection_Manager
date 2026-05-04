@@ -93,6 +93,7 @@ class RdpEmbedWidget(QWidget):
         self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.container.setStyleSheet("background:#000000;")
         self.container.setVisible(False)
+        self.container.installEventFilter(self)
         self._layout.addWidget(self.container, 1)
 
     # ------------------------------------------------------------------
@@ -228,7 +229,7 @@ class RdpEmbedWidget(QWidget):
                 f"-X{wid_container}",   # embedding nel container Qt
                 f"-g{w}x{h}",           # dimensioni
                 "-a16",                  # 16-bit colore
-                "-DNK",                  # no decorazioni, no grab kbd
+                "-DN",                   # no decorazioni
                 ]
         if user:
             args += [f"-u{user}"]
@@ -414,6 +415,13 @@ class RdpEmbedWidget(QWidget):
             subprocess.run(["xdotool", "windowmap", "--sync", wid_rdp],
                            timeout=3, capture_output=True)
 
+            time.sleep(0.15)
+
+            # Sposta il focus X11 sulla finestra embedded (senza XEMBED
+            # Qt non lo fa automaticamente e la tastiera non funziona)
+            subprocess.Popen(["xdotool", "windowfocus", wid_rdp],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
             self._reparented = True
             self.barra_info.setStyleSheet(
                 "background-color:#252525; color:#88cc88; "
@@ -531,6 +539,15 @@ class RdpEmbedWidget(QWidget):
     # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
+
+    def eventFilter(self, obj, event):
+        """Click sul container → ridà il focus X11 alla finestra RDP embedded."""
+        from PyQt6.QtCore import QEvent
+        if obj is self.container and event.type() == QEvent.Type.MouseButtonPress:
+            if self._wid_rdp:
+                subprocess.Popen(["xdotool", "windowfocus", self._wid_rdp],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return False
 
     def _mostra_errore(self, msg: str):
         self._lbl_attesa.setVisible(True)
