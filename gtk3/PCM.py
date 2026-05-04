@@ -268,9 +268,16 @@ class MainWindow(Gtk.ApplicationWindow):
         self._notebook2.set_show_border(False)
         self._notebook2.set_no_show_all(True)
         self._notebook2.connect("button-press-event", self._on_nb2_button_press)
+        self._notebook2.connect("switch-page", self._on_switch_tab)
         self._paned_term.pack2(self._notebook2, True, True)
 
-        # Barra inferiore: statusbar + pulsante Chiudi sessione
+        # Quale notebook è attivo (aggiornato da switch-page di entrambi)
+        self._notebook_attivo = self._notebook
+
+        # page_widget → Gtk.Label dentro la box del tab (per leggere/scrivere il nome)
+        self._tab_labels: dict = {}
+
+        # Barra inferiore: solo statusbar (la chiusura avviene con la X sul tab)
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         bottom_bar.get_style_context().add_class("bottom-bar")
 
@@ -278,19 +285,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self._statusbar_ctx = self._statusbar.get_context_id("main")
         self._statusbar.set_hexpand(True)
         bottom_bar.pack_start(self._statusbar, True, True, 0)
-
-        # Separatore verticale
-        sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        bottom_bar.pack_start(sep, False, False, 0)
-
-        # Pulsante Chiudi sessione — sempre visibile, agisce sulla tab corrente
-        self._btn_chiudi_sessione = Gtk.Button(label="✕  Chiudi sessione")
-        self._btn_chiudi_sessione.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_chiudi_sessione.set_tooltip_text(t("tab.close_session_tooltip"))
-        self._btn_chiudi_sessione.get_style_context().add_class("bottom-close-btn")
-        self._btn_chiudi_sessione.connect("clicked", lambda b: self._chiudi_tab_corrente())
-        self._btn_chiudi_sessione.set_sensitive(False)  # disabilitato sulla Home
-        bottom_bar.pack_start(self._btn_chiudi_sessione, False, False, 0)
 
         right_box.pack_start(bottom_bar, False, False, 0)
 
@@ -617,16 +611,45 @@ class MainWindow(Gtk.ApplicationWindow):
     # Tab label con pulsante chiudi
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Helper label tab
+    # ------------------------------------------------------------------
+
+    def _make_tab_label(self, nome: str, on_close) -> "tuple[Gtk.Box, Gtk.Label]":
+        """Crea la box label di un tab con nome + pulsante X."""
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        lbl = Gtk.Label(label=nome)
+        btn = Gtk.Button()
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.set_focus_on_click(False)
+        btn.set_tooltip_text(t("tab.close_session_tooltip"))
+        img = Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU)
+        btn.add(img)
+        btn.connect("clicked", lambda _b: on_close())
+        box.pack_start(lbl, True, True, 0)
+        box.pack_start(btn, False, False, 0)
+        box.show_all()
+        return box, lbl
+
+    def _get_tab_nome(self, widget) -> str:
+        """Legge il nome del tab da _tab_labels (o stringa vuota per la Home)."""
+        lbl = self._tab_labels.get(widget)
+        return lbl.get_text() if lbl else ""
+
+    def _set_tab_nome(self, widget, nome: str):
+        """Aggiorna il testo del label nel tab."""
+        lbl = self._tab_labels.get(widget)
+        if lbl:
+            lbl.set_text(nome)
+
     def _append_tab(self, widget, nome: str, on_close=None):
-        """Aggiunge un tab con nome testuale semplice.
-        Non usa widget custom come label (inaffidabili in GTK3):
-        il nome viene impostato con set_tab_label_text(), sempre funzionante.
-        La chiusura avviene tramite il pulsante 'Chiudi connessione' in barra."""
-        self._notebook.append_page(widget, None)
-        self._notebook.set_tab_label_text(widget, nome)
+        """Aggiunge un tab con label personalizzata (nome + pulsante X)."""
+        cb = on_close or (lambda: self._chiudi_tab(widget))
+        lbl_box, lbl = self._make_tab_label(nome, cb)
+        self._tab_labels[widget] = lbl
+        self._notebook.append_page(widget, lbl_box)
         self._notebook.set_tab_reorderable(widget, True)
         self._notebook.set_current_page(self._notebook.get_n_pages() - 1)
-        return None  # nessun tab_label widget
 
     # ------------------------------------------------------------------
     # Split pannelli
@@ -657,16 +680,16 @@ class MainWindow(Gtk.ApplicationWindow):
         if idx < 0 or idx >= sorgente.get_n_pages():
             return
         widget = sorgente.get_nth_page(idx)
-        nome   = sorgente.get_tab_label_text(widget)
+        nome   = self._get_tab_nome(widget)
         sorgente.remove_page(idx)
-        destinazione.append_page(widget, Gtk.Label(label=nome or ""))
-        destinazione.set_tab_label_text(widget, nome or "")
+        # Ricrea la label custom per il notebook di destinazione
+        lbl_box, lbl = self._make_tab_label(nome, lambda: self._chiudi_tab(widget))
+        self._tab_labels[widget] = lbl
+        destinazione.append_page(widget, lbl_box)
         destinazione.set_tab_reorderable(widget, True)
         destinazione.set_current_page(destinazione.get_n_pages() - 1)
-        # Mostra nb2 se riceve tab
         if destinazione is self._notebook2:
             self._notebook2.show()
-        # Nasconde nb2 se rimane vuoto
         if sorgente is self._notebook2 and sorgente.get_n_pages() == 0:
             self._notebook2.hide()
 
@@ -721,50 +744,64 @@ class MainWindow(Gtk.ApplicationWindow):
                     return True
         return False
 
+    def _trova_in_notebook(self, nb: "Gtk.Notebook", widget) -> "tuple[int, object]":
+        """Cerca widget (o il Paned che lo contiene) in nb.
+        Ritorna (idx, page_widget) se trovato, (-1, widget) altrimenti."""
+        idx = nb.page_num(widget)
+        if idx >= 0:
+            return idx, widget
+        for i in range(nb.get_n_pages()):
+            page = nb.get_nth_page(i)
+            if page is widget:
+                return i, widget
+            if hasattr(page, "get_child1"):
+                if page.get_child1() is widget or page.get_child2() is widget:
+                    return i, page
+        return -1, widget
+
     def _chiudi_tab_corrente(self):
-        """Chiude la tab correntemente selezionata (qualsiasi tipo di sessione)."""
-        idx = self._notebook.get_current_page()
-        if idx <= 0:   # 0 = Home, non chiudere
+        """Chiude la tab corrente nel notebook attivo (primo o secondo pannello)."""
+        nb  = self._notebook_attivo
+        idx = nb.get_current_page()
+        # Non chiudere la Home (sempre idx 0 nel notebook primario)
+        if nb is self._notebook and idx <= 0:
             return
-        widget = self._notebook.get_nth_page(idx)
+        widget = nb.get_nth_page(idx)
         if widget:
             self._chiudi_tab(widget)
 
     def _chiudi_tab(self, widget):
-        """Chiude la tab che contiene widget."""
-        idx = self._notebook.page_num(widget)
-        if idx < 0:
-            # Fallback: scansiona (es. widget dentro un Paned)
-            for i in range(self._notebook.get_n_pages()):
-                page = self._notebook.get_nth_page(i)
-                if page is widget:
-                    idx = i; break
-                if hasattr(page, "get_child1"):
-                    if page.get_child1() is widget or page.get_child2() is widget:
-                        idx = i; widget = page; break
-        if idx >= 0:
-            # Cleanup processi
-            if hasattr(widget, "chiudi_processo"):
-                widget.chiudi_processo()
-            elif hasattr(widget, "get_child1"):
-                for child in [widget.get_child1(), widget.get_child2()]:
-                    if child and hasattr(child, "chiudi_processo"):
-                        child.chiudi_processo()
-            self._notebook.remove_page(idx)
+        """Chiude la tab che contiene widget (cerca in entrambi i notebook)."""
+        nb = None
+        idx = -1
+        for candidate in (self._notebook, self._notebook2):
+            idx, widget = self._trova_in_notebook(candidate, widget)
+            if idx >= 0:
+                nb = candidate
+                break
+        if idx < 0 or nb is None:
+            return
+        # Cleanup processi
+        if hasattr(widget, "chiudi_processo"):
+            widget.chiudi_processo()
+        elif hasattr(widget, "get_child1"):
+            for child in [widget.get_child1(), widget.get_child2()]:
+                if child and hasattr(child, "chiudi_processo"):
+                    child.chiudi_processo()
+        nb.remove_page(idx)
+        self._tab_labels.pop(widget, None)
+        if nb is self._notebook2 and nb.get_n_pages() == 0:
+            self._notebook2.hide()
 
     def _on_processo_terminato(self, widget, tab_label=None):
-        """Marca la tab come terminata aggiungendo '✖' al nome."""
-        idx = self._notebook.page_num(widget)
-        if idx < 0 and hasattr(widget, "get_child1"):
-            # widget potrebbe essere un Paned
-            for i in range(self._notebook.get_n_pages()):
-                page = self._notebook.get_nth_page(i)
-                if hasattr(page, "get_child1") and page.get_child1() is widget:
-                    idx = i; widget = page; break
-        if idx >= 0:
-            nome = self._notebook.get_tab_label_text(widget) or ""
-            if not nome.startswith("✖"):
-                self._notebook.set_tab_label_text(widget, f"✖ {nome}")
+        """Marca la tab come terminata aggiungendo '✖' al nome (entrambi i notebook)."""
+        for nb in (self._notebook, self._notebook2):
+            idx, page = self._trova_in_notebook(nb, widget)
+            if idx >= 0:
+                nome = self._get_tab_nome(page)
+                if nome and not nome.startswith("✖"):
+                    self._set_tab_nome(page, f"✖ {nome}")
+                return
 
     # ------------------------------------------------------------------
     # Azioni menu / toolbar
@@ -1057,15 +1094,14 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _on_switch_tab(self, notebook, page, page_num):
-        """Aggiorna statusbar e pulsante Chiudi al cambio tab."""
-        nome = notebook.get_tab_label_text(page) or ""
-        is_home = not nome or nome == "Home"
+        """Aggiorna statusbar al cambio tab (entrambi i notebook)."""
+        self._notebook_attivo = notebook
+        is_home = page not in self._tab_labels
         if is_home:
             self._status("Pronto")
         else:
-            nome_pulito = nome.lstrip("✖ ")
+            nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
             self._status(f"Connesso: {nome_pulito}")
-        self._btn_chiudi_sessione.set_sensitive(not is_home)
 
     def _aggiorna_stato_live(self) -> bool:
         """Timer ogni 3s: aggiorna la statusbar con le stat live del terminale attivo."""
@@ -1088,8 +1124,7 @@ class MainWindow(Gtk.ApplicationWindow):
         stato, terminato = tw.get_stato()
         if not stato:
             return True
-        nome = self._notebook.get_tab_label_text(page) or ""
-        nome_pulito = nome.lstrip("✖ ")
+        nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
         if terminato:
             self._status(f"✖ Terminata: {nome_pulito}  —  {stato}")
         else:
