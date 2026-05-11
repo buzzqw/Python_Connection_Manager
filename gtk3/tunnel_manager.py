@@ -19,6 +19,28 @@ import config_manager
 
 
 # ---------------------------------------------------------------------------
+# Proxy leggero per tracciare processi riagganciati (solo PID)
+# ---------------------------------------------------------------------------
+
+class _PidProxy:
+    """Oggetto minimo compatibile con subprocess.Popen per tracciare un PID esterno."""
+    __slots__ = ("pid", "returncode")
+
+    def __init__(self, pid: int):
+        self.pid        = pid
+        self.returncode = None
+
+    def poll(self):
+        """Controlla se il processo è ancora vivo (compatibile con Popen.poll)."""
+        try:
+            os.kill(self.pid, 0)
+            return None  # ancora in vita
+        except (ProcessLookupError, OSError):
+            self.returncode = -1
+            return -1
+
+
+# ---------------------------------------------------------------------------
 # Dialog aggiungi/modifica tunnel
 # ---------------------------------------------------------------------------
 
@@ -243,10 +265,8 @@ class TunnelManagerDialog(Gtk.Dialog):
         for i, t in enumerate(self._tunnels):
             pid = t.get("pid")
             if pid and self._processo_vivo(pid):
-                # Crea un oggetto Popen "fantasma" per tracciare il PID
-                proxy = object.__new__(subprocess.Popen)
-                proxy.pid = pid
-                proxy.returncode = None
+                # Crea un oggetto proxy per tracciare il PID
+                proxy = _PidProxy(pid)
                 self._procs[i] = proxy
                 self._scrivi_log(f"[{t.get('nome')}] Riagganciato processo PID {pid}\n")
             else:

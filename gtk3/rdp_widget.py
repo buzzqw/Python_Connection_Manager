@@ -23,7 +23,6 @@ import re
 import signal
 import subprocess
 import shutil
-import time
 import datetime
 
 import gi
@@ -243,8 +242,7 @@ class RdpEmbedWidget(Gtk.Box):
         self._socket.show()
 
         # Forza la realizzazione del socket per ottenere l'XID
-        while Gtk.events_pending():
-            Gtk.main_iteration()
+        self._socket.realize()
 
         xid = self._socket.get_id()
         if not xid:
@@ -369,8 +367,8 @@ class RdpEmbedWidget(Gtk.Box):
         self._socket.set_visible(True)
         self._socket.show()
 
-        while Gtk.events_pending():
-            Gtk.main_iteration()
+        # Forza la realizzazione del socket per ottenere l'XID
+        self._socket.realize()
 
         xid = self._socket.get_id()
         if not xid:
@@ -381,52 +379,60 @@ class RdpEmbedWidget(Gtk.Box):
         w = max(alloc.width,  800)
         h = max(alloc.height, 600)
 
-        try:
-            # Nascondi prima del reparenting (evita flash)
-            subprocess.run(["xdotool", "windowunmap", wid_rdp],
-                           timeout=3, capture_output=True)
-            time.sleep(0.15)
+        # Esegui il reparenting in passi asincroni con GLib.timeout_add
+        # per evitare time.sleep() nel thread principale GTK
+        def _step1():
+            try:
+                subprocess.run(["xdotool", "windowunmap", wid_rdp],
+                               timeout=3, capture_output=True)
+            except Exception:
+                pass
+            GLib.timeout_add(150, _step2)
+            return False
 
-            # Reparenting dentro il socket GTK
-            result = subprocess.run(
-                ["xdotool", "windowreparent", wid_rdp, str(xid)],
-                timeout=3, capture_output=True
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr.decode().strip())
+        def _step2():
+            try:
+                result = subprocess.run(
+                    ["xdotool", "windowreparent", wid_rdp, str(xid)],
+                    timeout=3, capture_output=True
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(result.stderr.decode().strip())
+            except Exception as e:
+                print(f"[rdp_widget] reparent error: {e}")
+                GLib.idle_add(self._mostra_errore,
+                    f"{t('rdp.embed.reparent_failed')} — finestra RDP aperta esternamente")
+                return False
+            GLib.timeout_add(100, _step3)
+            return False
 
-            time.sleep(0.1)
-
-            # Posiziona e ridimensiona (senza --sync: xfreerdp3 non emette
-            # l'evento X11 atteso da --sync dopo il reparent)
+        def _step3():
             subprocess.Popen(["xdotool", "windowmove", wid_rdp, "0", "0"],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.Popen(["xdotool", "windowsize", wid_rdp, str(w), str(h)],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            GLib.timeout_add(100, _step4)
+            return False
 
-            time.sleep(0.1)
+        def _step4():
+            try:
+                subprocess.run(["xdotool", "windowmap", wid_rdp],
+                               timeout=3, capture_output=True)
+            except Exception:
+                pass
+            GLib.timeout_add(150, _step5)
+            return False
 
-            # Rimappa
-            subprocess.run(["xdotool", "windowmap", wid_rdp],
-                           timeout=3, capture_output=True)
-
-            time.sleep(0.15)
-
-            # Sposta il focus X11 sulla finestra embedded (senza XEMBED
-            # GTK non lo fa automaticamente e la tastiera non funziona)
+        def _step5():
             subprocess.Popen(["xdotool", "windowfocus", wid_rdp],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
             self._reparented = True
             host = self._rdp_host
             self._info.set_text(f"  ●  RDP → {host}")
             self._info.get_style_context().add_class("rdp-connected")
+            return False
 
-        except Exception as e:
-            print(f"[rdp_widget] reparent error: {e}")
-            self._mostra_errore(
-                f"{t('rdp.embed.reparent_failed')} — finestra RDP aperta esternamente"
-            )
+        GLib.idle_add(_step1)
 
     # ------------------------------------------------------------------
     # Resize

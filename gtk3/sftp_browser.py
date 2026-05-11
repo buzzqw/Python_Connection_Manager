@@ -49,6 +49,8 @@ class SftpBrowserWidget(Gtk.Box):
         self._cwd     = "/"
         self._init_ui()
 
+        self.connect("destroy", lambda w: self.chiudi())
+
         if PARAMIKO_OK:
             threading.Thread(target=self._connetti, daemon=True).start()
         else:

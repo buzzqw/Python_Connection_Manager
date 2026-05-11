@@ -1152,7 +1152,7 @@ class MainWindow(Gtk.ApplicationWindow):
         import socket, time
         try:
             mac_clean = mac.replace(":", "").replace("-", "")
-            payload = bytes.fromhex("F" * 12 + mac_clean * 16)
+            payload = bytes.fromhex("FF" * 6 + mac_clean * 16)
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 s.sendto(payload, ("<broadcast>", 9))

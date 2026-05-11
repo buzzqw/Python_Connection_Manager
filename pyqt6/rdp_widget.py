@@ -513,6 +513,12 @@ class RdpEmbedWidget(QWidget):
             self._poll_timer.stop()
         if hasattr(self, "_resize_timer"):
             self._resize_timer.stop()
+        if getattr(self, "_stderr_file", None) is not None:
+            try:
+                self._stderr_file.close()
+            except OSError:
+                pass
+            self._stderr_file = None
         if self._process:
             try:
                 pgid = os.getpgid(self._process.pid)

@@ -392,6 +392,9 @@ class TerminalWidget(QWidget):
 
     @pyqtSlot()
     def _on_pty_closed(self):
+        if getattr(self, '_pty_chiuso', False):
+            return
+        self._pty_chiuso = True
         self._keepalive_timer.stop()
         self.barra_info.setStyleSheet(
             "background-color:#4a1a1a; color:#ff6b6b; "

@@ -173,7 +173,7 @@ def _build_ssh(p: dict) -> str:
     if comp:
         args.append("-C")
     if ka:
-        args.append("-o ServerAliveInterval=60 -o ServerAliveCountMax=3")
+        args.append("-o ServerAliveInterval=60")
     if jump:
         ju = f"{juser}@" if juser else ""
         args.append(f"-J {ju}{jump}:{jport}")
@@ -285,7 +285,7 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
             return f"lftp -e 'open {uri_cred}' {host}"
         elif shutil.which("ftp"):
             if user and pwd:
-            # ftp non supporta password inline — avvisa e lascia prompt
+                # ftp non supporta password inline — avvisa e lascia prompt
                 return f"bash -c 'printf \"open {host} {port}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | ftp -n'"
             return f"ftp {host} {port}"
         else:
@@ -404,10 +404,6 @@ def _build_rdp(p: dict) -> str:
 # VNC
 # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# VNC
-# ---------------------------------------------------------------------------
-
 # Path noti di RealVNC Viewer su Linux
 _REALVNC_PATHS = [
     "/usr/bin/realvnc-viewer",
@@ -496,9 +492,10 @@ def _build_mosh(p: dict) -> str:
     if not shutil.which("mosh"):
         return f"bash -c 'echo \"mosh non trovato. Installa mosh.\"; sleep 5'"
 
-    args = [f"--ssh='ssh -p {port}'"]
     if pkey and os.path.exists(pkey):
-        args.append(f"--ssh='ssh -p {port} -i {pkey}'")
+        args = [f"--ssh='ssh -p {port} -i {pkey}'"]
+    else:
+        args = [f"--ssh='ssh -p {port}'"]
 
     target = f"{user}@{host}" if user else host
     return f"mosh {' '.join(args)} {target}"

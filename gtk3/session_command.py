@@ -138,7 +138,7 @@ def _build_ssh(p: dict) -> str:
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
     if p.get("keepalive"):
-        args.append("-o ServerAliveInterval=60 -o ServerAliveCountMax=3")
+        args.append("-o ServerAliveInterval=60")
     
     if p.get("jump_host"):
         ju = f"{p.get('jump_user')}@" if p.get('jump_user') else ""
@@ -388,9 +388,10 @@ def _build_mosh(p: dict) -> str:
     if not _tool_exists("mosh"):
         return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
-    args = [f"--ssh='{_get_tool('ssh')} -p {port}'"]
     if pkey and os.path.exists(pkey):
-        args.append(f"--ssh='{_get_tool('ssh')} -p {port} -i {pkey}'")
+        args = [f"--ssh='{_get_tool('ssh')} -p {port} -i {pkey}'"]
+    else:
+        args = [f"--ssh='{_get_tool('ssh')} -p {port}'"]
 
     target = f"{user}@{host}" if user else host
     return f"\"{mosh_exe}\" {' '.join(args)} {target}"

@@ -299,13 +299,15 @@ class TerminalWidget(Gtk.Box):
                 try:
                     os.killpg(pgid, signal.SIGTERM)
                 except ProcessLookupError:
-                    pass
-                import time
-                time.sleep(0.5)
-                try:
-                    os.killpg(pgid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+                    pgid = None
+                if pgid is not None:
+                    def _sigkill(gid):
+                        try:
+                            os.killpg(gid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        return False  # non ripetere
+                    GLib.timeout_add(500, _sigkill, pgid)
             except Exception as e:
                 print(f"[terminal] Errore chiusura: {e}")
             finally:
