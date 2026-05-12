@@ -52,8 +52,6 @@ class SettingsDialog(Gtk.Dialog):
         area.pack_start(self._notebook, True, True, 0)
 
         self._notebook.append_page(self._build_generale(),    Gtk.Label(label=t("settings.tab.general")))
-        self._notebook.append_page(self._build_terminale(),   Gtk.Label(label=t("settings.tab.terminal")))
-        self._notebook.append_page(self._build_ssh(),         Gtk.Label(label=t("settings.tab.ssh")))
         self._notebook.append_page(self._build_scorciatoie(), Gtk.Label(label=t("settings.tab.shortcuts")))
         self._notebook.append_page(self._build_strumenti(),   Gtk.Label(label=t("settings.tab.tools")))
 
@@ -445,31 +443,6 @@ class SettingsDialog(Gtk.Dialog):
         if lang_code in self._lang_codes:
             self.combo_lingua.set_active(self._lang_codes.index(lang_code))
 
-        term = self._settings.get("terminal", {})
-        self._set_combo_text(self.combo_tema, term.get("default_theme", "Dark (Default)"))
-        font_child = self.combo_font.get_child()
-        if font_child:
-            font_child.set_text(term.get("default_font", "Monospace"))
-        self.spin_font_size.set_value(term.get("default_font_size", 11))
-        
-        # Gestione scrollback infinito
-        infinite_scrollback = term.get("infinite_scrollback", False)
-        self.chk_infinite_scrollback.set_active(infinite_scrollback)
-        if infinite_scrollback:
-            self.spin_scrollback.set_sensitive(False)
-        else:
-            self.spin_scrollback.set_value(term.get("scrollback_lines", 10000))
-        
-        self.chk_confirm_close.set_active(term.get("confirm_on_close", True))
-        self.chk_warn_paste.set_active(term.get("warn_multiline_paste", True))
-        self.chk_log.set_active(term.get("log_output", False))
-        self.entry_log_dir.set_text(term.get("log_dir", "/tmp/pcm_logs"))
-
-        ssh = self._settings.get("ssh", {})
-        self.spin_ka.set_value(ssh.get("keepalive_interval", 60))
-        self.chk_strict.set_active(ssh.get("strict_host_check", False))
-        self.chk_sftp_auto.set_active(ssh.get("default_sftp_browser", True))
-
         sc = self._settings.get("shortcuts", {})
         for key, entry in self._shortcut_entries.items():
             entry.set_text(sc.get(key, ""))
@@ -505,24 +478,6 @@ class SettingsDialog(Gtk.Dialog):
             lang = self._lang_codes[idx_lang]
             s["general"]["language"] = lang
             set_lang(lang)
-
-        s["terminal"]["default_theme"]        = self.combo_tema.get_active_text() or "Dark (Default)"
-        font_child = self.combo_font.get_child()
-        s["terminal"]["default_font"]         = font_child.get_text() if font_child else "Monospace"
-        s["terminal"]["default_font_size"]    = int(self.spin_font_size.get_value())
-        # Gestione scrollback infinito nel salvataggio
-        s["terminal"]["infinite_scrollback"] = self.chk_infinite_scrollback.get_active()
-        if not self.chk_infinite_scrollback.get_active():
-            s["terminal"]["scrollback_lines"] = int(self.spin_scrollback.get_value())
-        
-        s["terminal"]["confirm_on_close"]     = self.chk_confirm_close.get_active()
-        s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
-        s["terminal"]["log_output"]           = self.chk_log.get_active()
-        s["terminal"]["log_dir"]              = self.entry_log_dir.get_text().strip()
-
-        s["ssh"]["keepalive_interval"]   = int(self.spin_ka.get_value())
-        s["ssh"]["strict_host_check"]    = self.chk_strict.get_active()
-        s["ssh"]["default_sftp_browser"] = self.chk_sftp_auto.get_active()
 
         for key, entry in self._shortcut_entries.items():
             s["shortcuts"][key] = entry.get_text().strip()

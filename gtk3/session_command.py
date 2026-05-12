@@ -76,8 +76,31 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
             return _wrap_pre(_build_sftp_cli(profilo), profilo), "embedded"
         elif mode.startswith("Terminale esterno"):
             return _wrap_pre(_build_sftp_cli(profilo), profilo), "sftp_term_ext"
-        else:  
+        else:
             return _build_sftp(profilo), "sftp_panel"
+    elif proto == "file_transfer":
+        ft_sub = profilo.get("ft_protocol", "SFTP").upper()
+        if ft_sub == "SFTP":
+            mode = profilo.get("sftp_open_mode", "Browser interno")
+            if mode.startswith("Browser esterno"):
+                return _build_sftp_uri(profilo, "browser_ext"), "sftp_external"
+            elif mode.startswith("Terminale interno"):
+                return _wrap_pre(_build_sftp_cli(profilo), profilo), "embedded"
+            elif mode.startswith("Terminale esterno"):
+                return _wrap_pre(_build_sftp_cli(profilo), profilo), "sftp_term_ext"
+            else:
+                return _build_sftp(profilo), "sftp_panel"
+        else:
+            # FTP / FTPS
+            mode = profilo.get("ftp_open_mode", "Browser interno")
+            if mode.startswith("Browser esterno"):
+                return _build_ftp(profilo, modalita="browser_ext"), "ftp_external"
+            elif mode.startswith("Terminale interno"):
+                return _wrap_pre(_build_ftp(profilo, modalita="term_int"), profilo), "embedded"
+            elif mode.startswith("Terminale esterno"):
+                return _wrap_pre(_build_ftp(profilo, modalita="term_ext"), profilo), "ftp_term_ext"
+            else:
+                return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
     elif proto == "ftp":
         mode = profilo.get("ftp_open_mode", "Browser interno")
         if mode.startswith("Browser esterno"):
@@ -201,7 +224,7 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     port   = p.get("port", "21")
     user   = p.get("user", "")
     pwd    = p.get("password", "")
-    tls    = p.get("ftp_tls", False)
+    tls    = p.get("ftp_tls", False) or p.get("ft_protocol", "").upper() == "FTPS"
     schema = "ftps" if tls else "ftp"
 
     uri = f"{schema}://{user}@{host}:{port}" if user else f"{schema}://{host}:{port}"

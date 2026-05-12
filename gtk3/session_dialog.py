@@ -20,11 +20,10 @@ from session_command import installed_tools as _installed_tools
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _ICONS_DIR = os.path.join(_HERE, "icons")
 
-PROTOCOLLI = ["ssh", "telnet", "sftp", "ftp", "rdp", "vnc", "mosh", "serial"]
+PROTOCOLLI = ["ssh", "telnet", "file_transfer", "rdp", "vnc", "mosh", "serial"]
 PROTO_LABEL = {
-    "ssh": "SSH", "telnet": "Telnet", "sftp": "SFTP",
-    "ftp": "FTP / FTPS", "rdp": "RDP", "vnc": "VNC",
-    "mosh": "Mosh", "serial": "Seriale",
+    "ssh": "SSH", "telnet": "Telnet", "file_transfer": "FTP / FTPS / SFTP",
+    "rdp": "RDP", "vnc": "VNC", "mosh": "Mosh", "serial": "Seriale",
 }
 
 
@@ -199,6 +198,12 @@ class SessionDialog(Gtk.Dialog):
         self._row_pkey = self._conn_row(t("sd.private_key"), pkey_box)
         vbox.pack_start(self._row_pkey, False, False, 0)
 
+        # Sub-protocol selector for file_transfer
+        self.combo_ft_proto = _combo("SFTP", "FTP", "FTPS")
+        self.combo_ft_proto.connect("changed", self._on_ft_proto_changed)
+        self._row_ft_proto = self._conn_row("Protocollo:", self.combo_ft_proto)
+        vbox.pack_start(self._row_ft_proto, False, False, 0)
+
         # ── Gestione chiavi SSH ───────────────────────────────────────
         self._frame_chiavi = Gtk.Frame(label=t("sd.keys.frame_label"))
         self._frame_chiavi.set_label_align(0.02, 0.5)
@@ -326,6 +331,22 @@ class SessionDialog(Gtk.Dialog):
         self.spin_font_size.set_value(_def_size)
         _form_row(t("sd.term.font_size"), self.spin_font_size, grid, row); row += 1
 
+        self.chk_infinite_scrollback = _check(t("settings.terminal.infinite_scrollback") if not t("settings.terminal.infinite_scrollback").startswith("settings.") else "Scrollback illimitato")
+        grid.attach(self.chk_infinite_scrollback, 0, row, 2, 1); row += 1
+        self.chk_infinite_scrollback.connect("toggled", lambda c: self.spin_scrollback_lines.set_sensitive(not c.get_active()))
+
+        self.spin_scrollback_lines = Gtk.SpinButton.new_with_range(100, 100000, 1000)
+        self.spin_scrollback_lines.set_value(10000)
+        _form_row("Righe scrollback:", self.spin_scrollback_lines, grid, row); row += 1
+
+        self.chk_confirm_close = _check("Conferma chiusura tab con processo attivo")
+        self.chk_confirm_close.set_active(True)
+        grid.attach(self.chk_confirm_close, 0, row, 2, 1); row += 1
+
+        self.chk_warn_paste = _check("Avvisa prima di incollare più righe")
+        self.chk_warn_paste.set_active(True)
+        grid.attach(self.chk_warn_paste, 0, row, 2, 1); row += 1
+
         self.chk_log = _check(t("sd.term.log"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
@@ -349,17 +370,27 @@ class SessionDialog(Gtk.Dialog):
         _form_row(t("sd.terminal_lbl"), self.combo_term_ext, grid, row); row += 1
 
         # Modalità apertura SSH
+        self._lbl_ssh_open = Gtk.Label(label=t("sd.grp.ssh_open"))
+        self._lbl_ssh_open.set_xalign(1.0)
+        self._lbl_ssh_open.set_margin_end(6)
         self.combo_ssh_open = _combo(t("sd.rdp.open_int"), t("sd.rdp.open_ext"))
-        _form_row(t("sd.grp.ssh_open"), self.combo_ssh_open, grid, row); row += 1
+        grid.attach(self._lbl_ssh_open, 0, row, 1, 1)
+        grid.attach(self.combo_ssh_open, 1, row, 1, 1)
+        row += 1
 
         # Modalità apertura SFTP
+        self._lbl_sftp_open = Gtk.Label(label=t("sd.grp.sftp_open"))
+        self._lbl_sftp_open.set_xalign(1.0)
+        self._lbl_sftp_open.set_margin_end(6)
         self.combo_sftp_open = _combo(
             t("sd.open_int"),
             t("sd.open_browser_ext"),
             t("sd.sftp.open_term_int"),
             t("sd.sftp.open_term_ext"),
         )
-        _form_row(t("sd.grp.sftp_open"), self.combo_sftp_open, grid, row); row += 1
+        grid.attach(self._lbl_sftp_open, 0, row, 1, 1)
+        grid.attach(self.combo_sftp_open, 1, row, 1, 1)
+        row += 1
 
         return grid
 
@@ -403,6 +434,9 @@ class SessionDialog(Gtk.Dialog):
         for chk in [self.chk_x11, self.chk_compression, self.chk_keepalive,
                     self.chk_strict_host, self.chk_sftp_browser]:
             vbox.pack_start(chk, False, False, 0)
+        self.spin_keepalive_interval = Gtk.SpinButton.new_with_range(0, 3600, 10)
+        self.spin_keepalive_interval.set_value(60)
+        vbox.pack_start(self._adv_row("Keepalive (sec):", self.spin_keepalive_interval), False, False, 0)
         self.entry_startup_cmd = _entry("es. htop")
         self.entry_jump_host   = _entry("jump.example.com")
         self.entry_jump_user   = _entry()
@@ -453,21 +487,24 @@ class SessionDialog(Gtk.Dialog):
         self.chk_vnc_internal = _check("")
         self.chk_vnc_internal.set_no_show_all(True)
 
-        # ── FTP / FTPS ───────────────────────────────────────────────
-        self._frame_ftp, vbox = self._section_frame("FTP / FTPS")
+        # ── File Transfer (FTP / FTPS / SFTP) ───────────────────────
+        self._frame_ftp, vbox = self._section_frame("File Transfer")
         outer.pack_start(self._frame_ftp, False, False, 0)
+        self._ftp_chk_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.chk_ftp_tls     = _check(t("sd.ftp.tls"))
         self.chk_ftp_passive = _check(t("sd.ftp.passive"))
         self.chk_ftp_passive.set_active(True)
+        self._ftp_chk_box.pack_start(self.chk_ftp_tls, False, False, 0)
+        self._ftp_chk_box.pack_start(self.chk_ftp_passive, False, False, 0)
+        vbox.pack_start(self._ftp_chk_box, False, False, 0)
         self.combo_ftp_open = _combo(
             t("sd.open_int"),
             t("sd.open_browser_ext"),
             t("sd.ftp.open_term_int"),
             t("sd.ftp.open_term_ext"),
         )
-        for chk in [self.chk_ftp_tls, self.chk_ftp_passive]:
-            vbox.pack_start(chk, False, False, 0)
-        vbox.pack_start(self._adv_row(t("sd.grp.ftp_open"), self.combo_ftp_open), False, False, 0)
+        self._row_ftp_open = self._adv_row(t("sd.grp.ftp_open"), self.combo_ftp_open)
+        vbox.pack_start(self._row_ftp_open, False, False, 0)
 
         # ── Wake-on-LAN ──────────────────────────────────────────────
         self._frame_wol, vbox = self._section_frame("Wake-on-LAN")
@@ -944,41 +981,69 @@ class SessionDialog(Gtk.Dialog):
         self._aggiorna_proto_fields()
         self._proto_changed_by_user = False
 
+    def _on_ft_proto_changed(self, combo):
+        self._aggiorna_proto_fields()
+
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
         proto = PROTOCOLLI[self.combo_proto.get_active()]
         is_serial = proto == "serial"
         is_net    = not is_serial
-        has_pkey  = proto in ("ssh", "sftp", "mosh")
 
-        # Tab Connessione: righe rete vs seriale
+        ft_proto = ""
+        if proto == "file_transfer" and hasattr(self, "combo_ft_proto"):
+            ft_proto = self.combo_ft_proto.get_active_text() or "SFTP"
+        is_ft_sftp = proto == "file_transfer" and ft_proto == "SFTP"
+        is_ft_ftp  = proto == "file_transfer" and ft_proto in ("FTP", "FTPS")
+        has_pkey   = proto in ("ssh", "mosh") or is_ft_sftp
+
+        # Connection tab rows
         self._row_host.set_visible(is_net)
         self._row_port.set_visible(is_net)
         self._row_user.set_visible(is_net)
         self._row_password.set_visible(is_net)
         self._row_pkey.set_visible(has_pkey)
         self._frame_chiavi.set_visible(has_pkey)
+        self._row_ft_proto.set_visible(proto == "file_transfer")
         self._row_serial_dev.set_visible(is_serial)
         self._row_baud.set_visible(is_serial)
         self._row_data_bits.set_visible(is_serial)
         self._row_parity.set_visible(is_serial)
         self._row_stop_bits.set_visible(is_serial)
 
-        # Tab Avanzate: mostra solo il/i frame pertinente/i al protocollo
-        self._frame_ssh.set_visible(proto in ("ssh","mosh","telnet","sftp","serial"))
+        # Advanced frames
+        self._frame_ssh.set_visible(proto in ("ssh", "mosh", "telnet", "serial"))
         self._frame_rdp.set_visible(proto == "rdp")
         self._frame_vnc.set_visible(proto == "vnc")
-        self._frame_ftp.set_visible(proto in ("ftp","sftp"))
+        self._frame_ftp.set_visible(proto == "file_transfer")
         self._frame_wol.set_visible(is_net)
         self._frame_precmd.set_visible(True)
-        # Porta di default
-        default_port = {
-            "ssh":"22","telnet":"23","sftp":"22","ftp":"21",
-            "rdp":"3389","vnc":"5900","mosh":"22","serial":""
-        }
-        # Aggiorna porta: sempre se nuova sessione o se l'utente ha cambiato protocollo manualmente
+
+        # File transfer frame internal visibility
+        if proto == "file_transfer":
+            self._ftp_chk_box.set_visible(is_ft_ftp)
+            self._row_ftp_open.set_visible(is_ft_ftp)
+
+        # Terminal tab open-mode combos
+        if hasattr(self, "_lbl_sftp_open"):
+            self._lbl_sftp_open.set_visible(is_ft_sftp)
+            self.combo_sftp_open.set_visible(is_ft_sftp)
+        if hasattr(self, "_lbl_ssh_open"):
+            ssh_visible = proto in ("ssh", "mosh")
+            self._lbl_ssh_open.set_visible(ssh_visible)
+            self.combo_ssh_open.set_visible(ssh_visible)
+
+        # Port defaults
         if getattr(self, "_proto_changed_by_user", False) or getattr(self, "_is_new", True):
-            self.entry_port.set_text(default_port.get(proto, ""))
+            if proto == "file_transfer":
+                port = "22" if ft_proto in ("", "SFTP") else "21"
+            else:
+                default_port = {
+                    "ssh": "22", "telnet": "23", "rdp": "3389",
+                    "vnc": "5900", "mosh": "22", "serial": ""
+                }
+                port = default_port.get(proto, "")
+            self.entry_port.set_text(port)
 
     def _set_combo_active_text(self, combo: Gtk.ComboBoxText, text: str):
         model = combo.get_model()
@@ -1000,8 +1065,20 @@ class SessionDialog(Gtk.Dialog):
             child.set_text(gruppo)
 
         proto = dati.get("protocol", "ssh")
+        # Backward compat: map old sftp/ftp to file_transfer
+        if proto == "sftp":
+            proto = "file_transfer"
+            ft_proto_default = "SFTP"
+        elif proto == "ftp":
+            proto = "file_transfer"
+            ft_proto_default = "FTPS" if dati.get("ftp_tls") else "FTP"
+        else:
+            ft_proto_default = dati.get("ft_protocol", "SFTP")
+
         if proto in PROTOCOLLI:
             self.combo_proto.set_active(PROTOCOLLI.index(proto))
+        # Set ft_protocol
+        self._set_combo_active_text(self.combo_ft_proto, ft_proto_default)
 
         self.entry_host.set_text(dati.get("host", ""))
         self.entry_port.set_text(str(dati.get("port", "")))
@@ -1015,12 +1092,18 @@ class SessionDialog(Gtk.Dialog):
         if font_child:
             font_child.set_text(dati.get("term_font", "Monospace"))
         self.spin_font_size.set_value(int(dati.get("term_size", 11)))
+        self.spin_scrollback_lines.set_value(int(dati.get("term_scrollback_lines", 10000)))
+        self.chk_infinite_scrollback.set_active(dati.get("term_infinite_scrollback", False))
+        self.spin_scrollback_lines.set_sensitive(not dati.get("term_infinite_scrollback", False))
+        self.chk_confirm_close.set_active(dati.get("term_confirm_close", True))
+        self.chk_warn_paste.set_active(dati.get("term_warn_paste", True))
         self.entry_startup_cmd.set_text(dati.get("startup_cmd", ""))
 
         # Avanzate SSH
         self.chk_x11.set_active(dati.get("x11", False))
         self.chk_compression.set_active(dati.get("compression", False))
         self.chk_keepalive.set_active(dati.get("keepalive", False))
+        self.spin_keepalive_interval.set_value(int(dati.get("keepalive_interval", 60)))
         self.chk_strict_host.set_active(dati.get("strict_host", False))
         self.chk_sftp_browser.set_active(dati.get("sftp_browser", True))
 
@@ -1146,9 +1229,14 @@ class SessionDialog(Gtk.Dialog):
             "log_output":     self.chk_log.get_active(),
             "log_dir":        self.entry_log_dir.get_text().strip(),
             "paste_on_right_click": self.chk_paste_right.get_active(),
+            "term_scrollback_lines": int(self.spin_scrollback_lines.get_value()),
+            "term_infinite_scrollback": self.chk_infinite_scrollback.get_active(),
+            "term_confirm_close": self.chk_confirm_close.get_active(),
+            "term_warn_paste": self.chk_warn_paste.get_active(),
             "x11":            self.chk_x11.get_active(),
             "compression":    self.chk_compression.get_active(),
             "keepalive":      self.chk_keepalive.get_active(),
+            "keepalive_interval": int(self.spin_keepalive_interval.get_value()),
             "strict_host":    self.chk_strict_host.get_active(),
             "rdp_client":     self.combo_rdp_client.get_active_text() or "xfreerdp",
             "rdp_auth":       "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
@@ -1164,6 +1252,7 @@ class SessionDialog(Gtk.Dialog):
             "ssh_open_mode":  "internal" if self.combo_ssh_open.get_active() == 0 else "external",
             "sftp_open_mode": self.combo_sftp_open.get_active_text() or t("sd.open_int"),
             "ftp_open_mode":  self.combo_ftp_open.get_active_text() or t("sd.open_int"),
+            "ft_protocol":    self.combo_ft_proto.get_active_text() or "SFTP",
             "ftp_tls":        self.chk_ftp_tls.get_active(),
             "ftp_passive":    self.chk_ftp_passive.get_active(),
             "tunnel_type":    self.combo_tunnel_type.get_active_text() or "Proxy SOCKS (-D)",

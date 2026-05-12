@@ -430,9 +430,9 @@ class MainWindow(Gtk.ApplicationWindow):
     def _apri_protocollo(self, proto: str, nome: str, dati: dict):
         if proto in ("ssh", "telnet", "mosh", "serial"):
             self._apri_terminale(nome, dati)
-        elif proto == "sftp":
+        elif proto == "sftp" or (proto == "file_transfer" and dati.get("ft_protocol", "SFTP") == "SFTP"):
             self._apri_sftp(nome, dati)
-        elif proto == "ftp":
+        elif proto in ("ftp", "file_transfer"):
             self._apri_ftp(nome, dati)
         elif proto == "rdp":
             self._apri_rdp(nome, dati)
@@ -441,9 +441,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._status(f"Connesso: {nome}")
 
     def _apri_terminale(self, nome: str, dati: dict):
-        settings = config_manager.load_settings()
-        log_dir  = settings.get("terminal", {}).get("log_dir", "") \
-                   if settings.get("terminal", {}).get("log_output") else ""
+        log_dir = dati.get("log_dir", "") if dati.get("log_output") else ""
 
         cmd, modalita = build_command(dati)
 
@@ -497,6 +495,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         container.show_all()
         self._append_tab(container, nome)
+        GLib.idle_add(widget.grab_focus)
 
         widget.avvia(cmd)
         widget.connect("processo-terminato",
@@ -650,6 +649,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._notebook.append_page(widget, lbl_box)
         self._notebook.set_tab_reorderable(widget, True)
         self._notebook.set_current_page(self._notebook.get_n_pages() - 1)
+        GLib.idle_add(widget.grab_focus)
 
     # ------------------------------------------------------------------
     # Split pannelli

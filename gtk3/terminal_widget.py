@@ -237,6 +237,9 @@ class TerminalWidget(Gtk.Box):
     def imposta_scrollback(self, righe: int):
         self._vte.set_scrollback_lines(righe)
 
+    def grab_focus(self):
+        self._vte.grab_focus()
+
     # ------------------------------------------------------------------
     # Keepalive / statistiche
     # ------------------------------------------------------------------
@@ -354,14 +357,20 @@ class TerminalWidget(Gtk.Box):
     def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
         """Factory: crea un TerminalWidget dai parametri di un profilo sessione."""
         from themes import TERMINAL_THEMES
-        from config_manager import load_settings
         tema = profilo.get("term_theme", "Scuro (Default)")
         bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
         font = profilo.get("term_font", "Monospace")
         size = profilo.get("term_size", 11)
         paste_right = profilo.get("paste_on_right_click", False)
-        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
-                   paste_on_right_click=paste_right)
+        scrollback = profilo.get("term_scrollback_lines", 10000)
+        infinite_sb = profilo.get("term_infinite_scrollback", False)
+        widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
+                     paste_on_right_click=paste_right)
+        if infinite_sb:
+            widget.imposta_scrollback(-1)
+        else:
+            widget.imposta_scrollback(scrollback)
+        return widget
 
 
 # ---------------------------------------------------------------------------

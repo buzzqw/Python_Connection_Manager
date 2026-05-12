@@ -119,7 +119,8 @@ def _create_default_sessions():
             "notes": ""
         },
         "Esempio SFTP": {
-            "protocol": "sftp",
+            "protocol": "file_transfer",
+            "ft_protocol": "SFTP",
             "host": "192.168.1.100",
             "port": "22",
             "user": "utente",
@@ -128,7 +129,8 @@ def _create_default_sessions():
             "notes": ""
         },
         "Esempio FTP": {
-            "protocol": "ftp",
+            "protocol": "file_transfer",
+            "ft_protocol": "FTP",
             "host": "192.168.1.100",
             "port": "21",
             "user": "utente",
