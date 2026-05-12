@@ -364,7 +364,7 @@
 <div class="header">
   <h1>🚀 PCM — Python Connection Manager</h1>
   <p class="sub">Guida completa &nbsp;·&nbsp; Gestore sessioni remote multi-protocollo per Linux</p>
-  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale</p>
+  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale &nbsp;·&nbsp; Versione GTK3 (sviluppo attivo)</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════ INDICE -->
@@ -582,7 +582,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   <p class="proto-title"><span class="badge b-vnc">VNC</span> Virtual Network Computing</p>
   <p class="proto-desc">Desktop remoto multipiattaforma (Linux, Windows, macOS) tramite protocollo RFB.</p>
   <ul>
-    <li><b>VNC integrato in scheda</b> — usa noVNC per mostrare il desktop direttamente in una scheda PCM (richiede PyQt6-WebEngine)</li>
+    <li><b>VNC integrato in scheda</b> — usa noVNC per mostrare il desktop direttamente in una scheda PCM (richiede WebKitGTK / webkit2gtk)</li>
     <li><b>Client esterno</b> — vncviewer, realvnc-viewer, tigervnc, remmina, krdc</li>
     <li>Porta default 5900; display :1 = porta 5901, :2 = 5902…</li>
     <li>Password VNC separata dalla password di sistema</li>
@@ -686,12 +686,13 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
 <!-- ══════════════════════════════════════════════════ TERMINALE -->
 <h2 id="terminale">⌨ Terminale integrato</h2>
 
-<p>PCM usa <b>xterm</b> come motore del terminale, embedded direttamente nelle schede. È uno dei terminali più veloci e compatibili su Linux.</p>
+<p>PCM usa <b>VTE</b> (Virtual Terminal Emulator) come motore del terminale — il terminale nativo GTK3 usato da GNOME Terminal. Rendering font ottimale, supporto Wayland nativo, nessun layer di compatibilità.</p>
 
 <h3>Copia e incolla</h3>
 <ul>
   <li><b>Copia</b> — seleziona il testo con il mouse (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> per la clipboard)</li>
   <li><b>Incolla</b> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> oppure tasto centrale del mouse</li>
+  <li><b>Incolla con tasto destro</b> — abilitabile per singola sessione nel tab Terminale</li>
 </ul>
 
 <h3>Temi colore disponibili</h3>
@@ -711,7 +712,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
 </table>
 
 <h3>Log output del terminale</h3>
-<p>Abilitando <b>"Registra output su file"</b> nel tab Terminale del profilo, xterm salva
+<p>Abilitando <b>"Registra output su file"</b> nel tab Terminale del profilo, VTE salva
 automaticamente tutto l'output in un file <code>pcm_YYYYMMDD_HHMMSS.log</code> nella cartella configurata.</p>
 <div class="tip">
   💡 Il log è indispensabile per la funzione <b>Esporta comandi.sh</b>: senza log attivo,
@@ -1250,19 +1251,19 @@ exit
 <pre>ssh-keygen -R hostname</pre>
 <p>Oppure disabilita StrictHostKeyChecking nel profilo (tab Avanzate) o nelle impostazioni globali.</p>
 
-<h4>xterm non si apre / errore "cannot open display"</h4>
-<p>xterm richiede un display X11. Verifica di essere in una sessione grafica. Controlla che xterm sia installato: <code>which xterm</code>.</p>
+<h4>Il terminale non si apre / errore "cannot open display"</h4>
+<p>La versione GTK3 usa VTE che funziona sia su X11 che su Wayland nativamente. Se si verificano problemi, verifica di essere in una sessione grafica e che le librerie GTK3 siano installate: <code>python3 -c "import gi; gi.require_version('Vte', '2.91')"</code>.</p>
 
 <h4>RDP si apre ma lo schermo è nero</h4>
 <p>Prova a cambiare client da xfreerdp3 a xfreerdp nel profilo. Su alcune versioni di Windows Server potrebbe servire aggiungere <code>/sec:rdp</code> tra le opzioni avanzate.</p>
 
 <h4>Il browser SFTP non si connette</h4>
 <p>Il browser SFTP usa <code>paramiko</code>. Verifica l'installazione:<br>
-<code>.venv/bin/python -c "import paramiko"</code><br>
-Se manca: <code>uv pip install --python .venv/bin/python paramiko</code></p>
+<code>.venv/bin/python3 -c "import paramiko"</code><br>
+Se manca: <code>uv pip install paramiko</code> dalla cartella gtk3.</p>
 
 <h4>Le macro sono lente / arrivano con ritardo</h4>
-<p>PCM invia le macro tramite clipboard X11 (<code>xclip</code> o <code>xsel</code>) invece di simulare la tastiera tasto per tasto — è istantaneo indipendentemente dalla lunghezza del comando. Se riscontri ritardi, verifica che <code>xclip</code> sia installato: <code>which xclip</code>. Se manca: <code>sudo apt install xclip</code>.</p>
+<p>PCM invia le macro tramite la clipboard GDK (nativa GTK3) in modo istantaneo, indipendentemente dalla lunghezza del comando. Se su sessioni X11 riscontri problemi di clipboard, verifica che <code>xclip</code> sia installato: <code>which xclip</code>. Su Wayland la clipboard è gestita nativamente senza dipendenze esterne.</p>
 
 <h4>"Esporta comandi.sh" non trova comandi</h4>
 <p>I comandi digitati direttamente in xterm vengono catturati solo attraverso il <b>log xterm</b>. Assicurati che nel profilo della sessione sia attivo "Registra output su file" e che la sessione sia stata riconnessa dopo aver abilitato il log. I comandi inviati tramite macro e multi-exec sono sempre tracciati indipendentemente dal log.</p>

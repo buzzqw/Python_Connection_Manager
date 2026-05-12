@@ -305,8 +305,7 @@ def _build_vnc(p: dict) -> str:
     port   = p.get("port", "5900")
     pwd    = p.get("password", "")
     client = p.get("vnc_client", "vncviewer")
-    # vnc_color: 0=32bpp 1=16bpp 2=8bpp | vnc_quality: 0=best 1=good 2=fast
-    # _vnc_idx: gestisce valori legacy salvati come stringa (es. "Truecolor (32 bpp)")
+
     def _vnc_idx(val, default=0):
         try:
             return int(val)
@@ -322,6 +321,18 @@ def _build_vnc(p: dict) -> str:
             f'"{exe}" {extra}-passwd "$TMP" {host}::{port}; '
             f"rm -f '$TMP''"
         )
+
+    # Tool personalizzato
+    custom = _get_custom_tool("vnc", client)
+    if custom:
+        exe    = custom["path"]
+        syntax = custom.get("syntax", "")
+        if syntax == "TigerVNC":
+            extra = f"-depth {depth} -quality {qual} "
+            if pwd:
+                return _passwd_wrap(exe, extra)
+            return f'"{exe}" {extra}{host}::{port}'
+        return f'"{exe}" {host}::{port}'
 
     if client == "realvnc-viewer":
         exe    = _get_tool("realvnc-viewer")
@@ -446,6 +457,53 @@ def check_dipendenze() -> dict:
     return tools
 
 
+def check_dipendenze_categorizzate() -> dict:
+    """Controlla le dipendenze categorizzandole per importanza."""
+    core_deps = {"ssh": _tool_exists("ssh"), "paramiko": True, "cryptography": True}
+    try:
+        import paramiko
+        core_deps["paramiko"] = True
+    except ImportError:
+        core_deps["paramiko"] = False
+    try:
+        import cryptography
+        core_deps["cryptography"] = True
+    except ImportError:
+        core_deps["cryptography"] = False
+
+    _terminali = ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
+                  "alacritty", "kitty", "terminator", "wezterm",
+                  "foot", "tilix", "lxterminal", "mate-terminal", "st"]
+    recommended_deps = {
+        "terminal": any(shutil.which(t) for t in _terminali),
+    }
+    optional_deps = {
+        "sshpass":   _tool_exists("sshpass"),
+        "xwininfo":  _tool_exists("xwininfo"),
+        "mosh":      _tool_exists("mosh"),
+        "telnet":    _tool_exists("telnet"),
+        "picocom":   _tool_exists("picocom"),
+        "rdp_client": any(_tool_exists(c) for c in ["xfreerdp3", "xfreerdp", "rdesktop"]),
+        "vnc_client": any(_tool_exists(c) for c in ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"]),
+    }
+    return {
+        "core":                 core_deps,
+        "recommended":          recommended_deps,
+        "optional":             optional_deps,
+        "missing_core":         [k for k, v in core_deps.items() if not v],
+        "missing_recommended":  [k for k, v in recommended_deps.items() if not v],
+    }
+
+
+def _get_custom_tool(category: str, label: str) -> dict | None:
+    """Restituisce il dizionario {label, path, syntax} del tool personalizzato, o None."""
+    ct = config_manager.load_custom_tools()
+    for entry in ct.get(category, []):
+        if entry.get("label") == label:
+            return entry
+    return None
+
+
 def installed_tools(category: str) -> list[str]:
     _map = {
         "terminal": ["xterm", "xfce4-terminal", "gnome-terminal", "konsole",
@@ -455,4 +513,13 @@ def installed_tools(category: str) -> list[str]:
         "vnc":      ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"],
     }
     candidates = _map.get(category, [])
-    return [t for t in candidates if shutil.which(t) or _tool_exists(t)]
+    result = [t for t in candidates if shutil.which(t) or _tool_exists(t)]
+    # Aggiungi client personalizzati
+    if category in ("vnc", "rdp"):
+        ct = config_manager.load_custom_tools()
+        for entry in ct.get(category, []):
+            label = entry.get("label", "").strip()
+            path  = entry.get("path", "").strip()
+            if label and path and label not in result:
+                result.append(label)
+    return result

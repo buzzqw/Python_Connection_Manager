@@ -5,12 +5,7 @@
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 > Gestore grafico di connessioni remote per Linux, ispirato a MobaXterm.
-> Scritto in Python, disponibile in due versioni: **PyQt6** (attiva) e **GTK3** (stabile/manutenzione).
-
----
-
-![PCM Main Window](immagini/pcm1.png)
-*Schermata principale — sidebar sessioni con tutti i protocolli, quick connect, schermata di benvenuto*
+> Scritto in Python, disponibile in due versioni: **GTK3** (sviluppo attivo) e **PyQt6** (manutenzione).
 
 ---
 
@@ -18,10 +13,12 @@
 
 | Versione | Cartella | Framework | Terminale | Wayland | Stato |
 |---|---|---|---|---|---|
-| **PyQt6** | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto | **Sviluppo attivo** |
-| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo | Stabile — solo bugfix critici |
+| **GTK3** | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo | **Sviluppo attivo** |
+| PyQt6 | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto | Solo bugfix critici |
 
-> **Nota sulla versione GTK3**: la versione GTK3 è considerata **stabile e completa**. Non è previsto ulteriore sviluppo di nuove funzionalità; verranno applicati esclusivamente bugfix critici. La versione **PyQt6** è quella attivamente sviluppata e raccomandata per nuove installazioni.
+> **Versione in sviluppo: GTK3.** La versione GTK3 è quella attivamente sviluppata: nuove funzionalità, miglioramenti e allineamento alle feature sono concentrati qui. Il terminale nativo VTE garantisce rendering dei font perfetto e supporto Wayland nativo senza strati di compatibilità.
+>
+> **Versione PyQt6: manutenzione.** La versione PyQt6 riceve esclusivamente bugfix critici. Non sono previste nuove funzionalità. È consigliata per chi la usa già; le nuove installazioni dovrebbero preferire GTK3.
 
 ---
 
@@ -35,9 +32,9 @@
 
 - **Sessioni organizzate per gruppo** con ricerca istantanea
 - **Quick Connect** dalla toolbar — `utente@host:porta`
-- **Cifratura credenziali** AES-256 (PBKDF2-SHA256, 480k iterazioni)
+- **Cifratura credenziali** AES-256 (PBKDF2-SHA256, 480k iterazioni) con master password
 - **Browser FTP/SFTP** dual-pane stile WinSCP con coda trasferimenti
-- **Tunnel SSH** gestiti graficamente (SOCKS, locale, remoto)
+- **SSH Tunnel** gestiti graficamente (SOCKS, locale, remoto)
 - **Split terminale** verticale/orizzontale — più sessioni in parallelo
 - **Macro per sessione** e **Multi-exec** su più server contemporaneamente
 - **Wake-on-LAN** integrato prima della connessione
@@ -51,7 +48,50 @@
 
 ---
 
-## Screenshot — Versione PyQt6
+## Screenshot — Versione GTK3 (sviluppo attivo)
+
+### Dialogo nuova sessione — SSH
+
+| | |
+|---|---|
+| ![SSH Connection GTK3](immagini/pcm41.png) | ![SSH Terminal GTK3](immagini/pcm42.png) |
+| *Tab Connessione SSH — host, porta, utente, chiave privata, gestione chiavi SSH (genera ed25519/RSA, copia sul server, mostra pubblica)* | *Tab Terminale — tema, font, dimensione, log su file, incolla con tasto destro, modalità apertura SSH/SFTP* |
+
+| | |
+|---|---|
+| ![SSH Advanced GTK3](immagini/pcm43.png) | ![SSH Tunnel tab GTK3](immagini/pcm44.png) |
+| *Tab Avanzate — X11 forwarding, compressione, keepalive, strict host, browser SFTP automatico, startup command, jump host, FTP/FTPS (TLS, PASV), Wake-on-LAN, pre-comando locale* | *Tab Tunnel — configurazione SOCKS proxy (-D) o port forwarding direttamente nella sessione* |
+
+---
+
+### Dialogo nuova sessione — RDP
+
+| | |
+|---|---|
+| ![RDP Connection GTK3](immagini/pcm46.png) | ![RDP Advanced GTK3](immagini/pcm47.png) |
+| *Tab Connessione RDP — host, porta 3389, utente, password* | *Tab Avanzate RDP — client xfreerdp3, autenticazione NTLM/Kerberos, dominio, fullscreen, clipboard, cartelle locali, Wake-on-LAN, pre-comando locale* |
+
+---
+
+### Dialogo nuova sessione — VNC e Seriale
+
+| | |
+|---|---|
+| ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
+| *Tab Avanzate VNC — apertura con noVNC embedded (WebKit) o client esterno, profondità colore, qualità, Wake-on-LAN, pre-comando locale* | *Connessione Seriale — device (/dev/ttyUSB0), baud rate, data bit, parity, stop bit* |
+
+---
+
+### SSH Tunnel Manager e sblocco credenziali
+
+| | |
+|---|---|
+| ![SSH Tunnel Manager GTK3](immagini/pcm45.png) | ![Unlock Credentials GTK3](immagini/pcm40.png) |
+| *SSH Tunnel Manager — elenco tunnel con tipo, host, porte, stato; pulsanti Add/Edit/Delete/Start/Stop; log output integrato* | *Sblocco credenziali — master password per decifrare le credenziali salvate (AES-256)* |
+
+---
+
+## Screenshot — Versione PyQt6 (manutenzione)
 
 ### Finestra principale e menu Tools
 
@@ -65,7 +105,7 @@
 
 ---
 
-### Dialogo nuova sessione — SSH
+### Dialogo nuova sessione — SSH (PyQt6)
 
 | | |
 |---|---|
@@ -74,11 +114,11 @@
 | ![SSH Terminal](immagini/pcm22.png) | ![SSH Advanced](immagini/pcm23.png) |
 | *Tab Terminale — tema, font, startup command, pre-cmd VPN, log su file, incolla con tasto destro* | *Tab Avanzate — X11 forwarding, compressione, keepalive, strict host, modalità apertura* |
 | ![SSH Notes](immagini/pcm24.png) | ![SSH Macros](immagini/pcm25.png) |
-| *Tab Note — annotazioni libere per sessione* | *Tab Macro — comandi a un clic, riordinabili, con Add/Update/Delete* |
+| *Tab Note — annotazioni libere per sessione* | *Tab Macro — comandi a un clic, riordinabili* |
 
 ---
 
-### Dialogo nuova sessione — FTP/FTPS
+### Dialogo nuova sessione — FTP/FTPS (PyQt6)
 
 | | |
 |---|---|
@@ -87,23 +127,19 @@
 
 ---
 
-### Dialogo nuova sessione — RDP
+### Dialogo nuova sessione — RDP e Seriale (PyQt6)
 
 | | |
 |---|---|
 | ![RDP Connection](immagini/pcm30.png) | ![RDP Auth](immagini/pcm31.png) |
 | *RDP — client xfreerdp3, dominio, fullscreen, clipboard, cartelle locali, autenticazione NTLM/Kerberos, WoL* | *Autenticazione RDP — password Windows con visualizzazione toggle* |
 
----
-
-### Dialogo nuova sessione — Seriale
-
 ![Serial Connection](immagini/pcm32.png)
 *Connessione seriale — device, baud rate, data bit, parity, stop bit*
 
 ---
 
-### Browser SFTP/FTP e strumenti
+### Browser SFTP/FTP e strumenti (PyQt6)
 
 ![SFTP Browser](immagini/pcm11.png)
 *Browser SFTP/FTP dual-pane — navigazione locale e remota con coda trasferimenti*
@@ -115,16 +151,7 @@
 
 ---
 
-## Installazione rapida (PyQt6)
-
-```bash
-git clone https://github.com/buzzqw/Python_Connection_Manager.git
-cd Python_Connection_Manager/pyqt6
-pip install PyQt6
-python3 PCM.py
-```
-
-### Installazione GTK3 (stabile)
+## Installazione rapida (GTK3 — versione raccomandata)
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -134,6 +161,15 @@ python3 PCM.py
 ```
 
 > Il progetto GTK3 utilizza [**uv**](https://github.com/astral-sh/uv) come gestore di pacchetti Python. Lo script `setup.sh` installa automaticamente uv e crea un ambiente virtuale ottimizzato.
+
+### Installazione PyQt6 (manutenzione)
+
+```bash
+git clone https://github.com/buzzqw/Python_Connection_Manager.git
+cd Python_Connection_Manager/pyqt6
+pip install PyQt6
+python3 PCM.py
+```
 
 ---
 
@@ -159,12 +195,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 # PCM — Python Connection Manager 🇬🇧
 
 > Graphical remote connection manager for Linux, inspired by MobaXterm.
-> Written in Python, available in two versions: **PyQt6** (active) and **GTK3** (stable/maintenance).
-
----
-
-![PCM Main Window](immagini/pcm1.png)
-*Main window — session sidebar with all protocols, quick connect, welcome screen*
+> Written in Python, available in two versions: **GTK3** (active development) and **PyQt6** (maintenance).
 
 ---
 
@@ -172,10 +203,12 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 | Version | Folder | Framework | Terminal | Wayland | Status |
 |---|---|---|---|---|---|
-| **PyQt6** | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland required | **Active development** |
-| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | Native VTE | ✅ Native | Stable — critical bugfixes only |
+| **GTK3** | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | Native VTE | ✅ Native | **Active development** |
+| PyQt6 | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland required | Critical bugfixes only |
 
-> **Note on the GTK3 version**: the GTK3 version is considered **stable and feature-complete**. No new features are planned; only critical bugfixes will be applied. The **PyQt6** version is the actively developed one and is recommended for new installations.
+> **Active development: GTK3.** The GTK3 version is where all new features and improvements are concentrated. The native VTE terminal delivers perfect font rendering and full Wayland support with no compatibility layers.
+>
+> **PyQt6: maintenance only.** The PyQt6 version receives critical bugfixes only. No new features are planned. Existing users can stay on it; new installations should prefer GTK3.
 
 ---
 
@@ -189,7 +222,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 - **Sessions organized by group** with instant search
 - **Quick Connect** from toolbar — `user@host:port`
-- **Credential encryption** AES-256 (PBKDF2-SHA256, 480k iterations)
+- **Credential encryption** AES-256 (PBKDF2-SHA256, 480k iterations) with master password
 - **FTP/SFTP dual-pane browser** WinSCP-style with transfer queue
 - **SSH Tunnels** managed graphically (SOCKS, local, remote)
 - **Split terminal** vertical/horizontal — multiple sessions in parallel
@@ -205,7 +238,50 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 ---
 
-## Screenshots — PyQt6 version
+## Screenshots — GTK3 version (active development)
+
+### New session dialog — SSH
+
+| | |
+|---|---|
+| ![SSH Connection GTK3](immagini/pcm41.png) | ![SSH Terminal GTK3](immagini/pcm42.png) |
+| *Connection tab — host, port, user, private key, SSH key management (generate ed25519/RSA, copy to server, show public key)* | *Terminal tab — theme, font, size, file logging, paste with right-click, SSH/SFTP open mode* |
+
+| | |
+|---|---|
+| ![SSH Advanced GTK3](immagini/pcm43.png) | ![SSH Tunnel tab GTK3](immagini/pcm44.png) |
+| *Advanced tab — X11 forwarding, compression, keepalive, strict host, auto-open SFTP browser, startup command, jump host, FTP/FTPS (TLS, PASV), Wake-on-LAN, local pre-command* | *Tunnel tab — SOCKS proxy (-D) or port forwarding configured directly inside the session* |
+
+---
+
+### New session dialog — RDP
+
+| | |
+|---|---|
+| ![RDP Connection GTK3](immagini/pcm46.png) | ![RDP Advanced GTK3](immagini/pcm47.png) |
+| *Connection tab — host, port 3389, user, password* | *Advanced tab — xfreerdp3 client, NTLM/Kerberos auth, domain, fullscreen, clipboard, local folders, Wake-on-LAN, local pre-command* |
+
+---
+
+### New session dialog — VNC and Serial
+
+| | |
+|---|---|
+| ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
+| *VNC Advanced tab — open with embedded noVNC (WebKit) or external client, color depth, quality, Wake-on-LAN, local pre-command* | *Serial connection — device (/dev/ttyUSB0), baud rate, data bits, parity, stop bits* |
+
+---
+
+### SSH Tunnel Manager and credential unlock
+
+| | |
+|---|---|
+| ![SSH Tunnel Manager GTK3](immagini/pcm45.png) | ![Unlock Credentials GTK3](immagini/pcm40.png) |
+| *SSH Tunnel Manager — tunnel list with type, host, ports, status; Add/Edit/Delete/Start/Stop buttons; integrated output log* | *Credential unlock — master password to decrypt saved credentials (AES-256)* |
+
+---
+
+## Screenshots — PyQt6 version (maintenance)
 
 ### Main window and Tools menu
 
@@ -219,7 +295,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 ---
 
-### New session dialog — SSH
+### New session dialog — SSH (PyQt6)
 
 | | |
 |---|---|
@@ -228,11 +304,11 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 | ![SSH Terminal](immagini/pcm22.png) | ![SSH Advanced](immagini/pcm23.png) |
 | *Terminal tab — theme, font, startup command, VPN pre-cmd, file logging, paste with right-click* | *Advanced tab — X11 forwarding, compression, keepalive, strict host, open mode* |
 | ![SSH Notes](immagini/pcm24.png) | ![SSH Macros](immagini/pcm25.png) |
-| *Notes tab — free-form notes per session* | *Macros tab — one-click commands, reorderable, with Add/Update/Delete* |
+| *Notes tab — free-form notes per session* | *Macros tab — one-click commands, reorderable* |
 
 ---
 
-### New session dialog — FTP/FTPS
+### New session dialog — FTP/FTPS (PyQt6)
 
 | | |
 |---|---|
@@ -241,23 +317,19 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 ---
 
-### New session dialog — RDP
+### New session dialog — RDP and Serial (PyQt6)
 
 | | |
 |---|---|
 | ![RDP Connection](immagini/pcm30.png) | ![RDP Auth](immagini/pcm31.png) |
 | *RDP — xfreerdp3 client, domain, fullscreen, clipboard, local folders, NTLM/Kerberos auth, WoL* | *RDP Authentication — Windows password with show/hide toggle* |
 
----
-
-### New session dialog — Serial
-
 ![Serial Connection](immagini/pcm32.png)
 *Serial connection — device, baud rate, data bits, parity, stop bits*
 
 ---
 
-### SFTP/FTP browser and tools
+### SFTP/FTP browser and tools (PyQt6)
 
 ![SFTP Browser](immagini/pcm11.png)
 *SFTP/FTP dual-pane browser — local and remote navigation with transfer queue*
@@ -269,16 +341,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 ---
 
-## Quick install (PyQt6)
-
-```bash
-git clone https://github.com/buzzqw/Python_Connection_Manager.git
-cd Python_Connection_Manager/pyqt6
-pip install PyQt6
-python3 PCM.py
-```
-
-### GTK3 install (stable)
+## Quick install (GTK3 — recommended)
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -288,6 +351,15 @@ python3 PCM.py
 ```
 
 > The GTK3 project uses [**uv**](https://github.com/astral-sh/uv) as a modern Python package manager. The `setup.sh` script automatically installs uv and creates an optimized virtual environment.
+
+### PyQt6 install (maintenance)
+
+```bash
+git clone https://github.com/buzzqw/Python_Connection_Manager.git
+cd Python_Connection_Manager/pyqt6
+pip install PyQt6
+python3 PCM.py
+```
 
 ---
 

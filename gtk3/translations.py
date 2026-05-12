@@ -373,6 +373,23 @@ _T: dict[str, dict[str, str]] = {
     "settings.tab.terminal":  {"it": "⌨ Terminale",    "en": "⌨ Terminal",    "de": "⌨ Terminal",    "fr": "⌨ Terminal",    "es": "⌨ Terminal"},
     "settings.tab.ssh":       {"it": "🔐 SSH",          "en": "🔐 SSH",         "de": "🔐 SSH",         "fr": "🔐 SSH",         "es": "🔐 SSH"},
     "settings.tab.shortcuts": {"it": "⌨ Scorciatoie", "en": "⌨ Shortcuts",   "de": "⌨ Tastenkürzel","fr": "⌨ Raccourcis",  "es": "⌨ Atajos"},
+    "settings.tab.tools":     {"it": "🔧 Strumenti",   "en": "🔧 Tools",       "de": "🔧 Werkzeuge",   "fr": "🔧 Outils",      "es": "🔧 Herramientas"},
+
+    # ─ Strumenti (VNC/RDP custom tools) ─
+    "settings.tools.vnc_group":    {"it": "Strumenti VNC personalizzati",  "en": "Custom VNC tools",  "de": "Benutzerdefinierte VNC-Tools",  "fr": "Outils VNC personnalisés",  "es": "Herramientas VNC personalizadas"},
+    "settings.tools.rdp_group":    {"it": "Strumenti RDP personalizzati",  "en": "Custom RDP tools",  "de": "Benutzerdefinierte RDP-Tools",  "fr": "Outils RDP personnalisés",  "es": "Herramientas RDP personalizadas"},
+    "settings.tools.col_label":    {"it": "Etichetta",   "en": "Label",    "de": "Bezeichnung", "fr": "Étiquette",  "es": "Etiqueta"},
+    "settings.tools.col_path":     {"it": "Percorso",    "en": "Path",     "de": "Pfad",        "fr": "Chemin",     "es": "Ruta"},
+    "settings.tools.col_syntax":   {"it": "Sintassi",    "en": "Syntax",   "de": "Syntax",      "fr": "Syntaxe",    "es": "Sintaxis"},
+    "settings.tools.add":          {"it": "➕ Aggiungi", "en": "➕ Add",    "de": "➕ Hinzufügen","fr": "➕ Ajouter",  "es": "➕ Añadir"},
+    "settings.tools.remove":       {"it": "🗑 Rimuovi",  "en": "🗑 Remove", "de": "🗑 Entfernen", "fr": "🗑 Supprimer","es": "🗑 Eliminar"},
+    "settings.tools.note":         {"it": "Nota: usa {host}, {port}, {user} come segnaposto nel campo Sintassi.", "en": "Note: use {host}, {port}, {user} as placeholders in the Syntax field.", "de": "Hinweis: Verwende {host}, {port}, {user} als Platzhalter im Feld Syntax.", "fr": "Remarque : utilisez {host}, {port}, {user} comme espaces réservés dans le champ Syntaxe.", "es": "Nota: usa {host}, {port}, {user} como marcadores en el campo Sintaxis."},
+    "settings.tools.dlg_title_vnc":{"it": "Aggiungi strumento VNC",  "en": "Add VNC tool",  "de": "VNC-Tool hinzufügen",  "fr": "Ajouter un outil VNC",  "es": "Añadir herramienta VNC"},
+    "settings.tools.dlg_title_rdp":{"it": "Aggiungi strumento RDP",  "en": "Add RDP tool",  "de": "RDP-Tool hinzufügen",  "fr": "Ajouter un outil RDP",  "es": "Añadir herramienta RDP"},
+    "settings.tools.lbl_label":    {"it": "Etichetta:",  "en": "Label:",   "de": "Bezeichnung:", "fr": "Étiquette :", "es": "Etiqueta:"},
+    "settings.tools.lbl_path":     {"it": "Percorso:",   "en": "Path:",    "de": "Pfad:",        "fr": "Chemin :",    "es": "Ruta:"},
+    "settings.tools.lbl_syntax":   {"it": "Sintassi:",   "en": "Syntax:",  "de": "Syntax:",      "fr": "Syntaxe :",   "es": "Sintaxis:"},
+    "settings.tools.browse":       {"it": "Sfoglia…",    "en": "Browse…",  "de": "Durchsuchen…", "fr": "Parcourir…",  "es": "Explorar…"},
 
     # ─ Generale ─
     "settings.general.home_dir":      {"it": "Home directory:", "en": "Home directory:", "de": "Home-Verzeichnis:", "fr": "Répertoire personnel :", "es": "Directorio home:"},
@@ -1096,6 +1113,16 @@ _T: dict[str, dict[str, str]] = {
     "winscp.dlg_upload":    {"it": "Upload",                             "en": "Upload",                          "de": "Hochladen",                       "fr": "Téléversement",                    "es": "Subida"},
     "winscp.dlg_download":  {"it": "Download",                           "en": "Download",                        "de": "Herunterladen",                   "fr": "Téléchargement",                   "es": "Descarga"},
     "winscp.dlg_queue":     {"it": "Coda",                               "en": "Queue",                           "de": "Warteschlange",                   "fr": "File d'attente",                   "es": "Cola"},
+    "winscp.status_cancelled": {"it": "Annullato",                       "en": "Cancelled",                       "de": "Abgebrochen",                     "fr": "Annulé",                           "es": "Cancelado"},
+    "winscp.btn_upload":       {"it": "⬆ Upload",                        "en": "⬆ Upload",                        "de": "⬆ Hochladen",                     "fr": "⬆ Envoyer",                        "es": "⬆ Subir"},
+    "winscp.btn_download":     {"it": "⬇ Download",                      "en": "⬇ Download",                      "de": "⬇ Herunterladen",                 "fr": "⬇ Télécharger",                    "es": "⬇ Descargar"},
+    "winscp.btn_delete":       {"it": "🗑 Elimina",                       "en": "🗑 Delete",                        "de": "🗑 Löschen",                       "fr": "🗑 Supprimer",                      "es": "🗑 Eliminar"},
+    "winscp.btn_refresh":      {"it": "↺ Aggiorna",                      "en": "↺ Refresh",                       "de": "↺ Aktualisieren",                 "fr": "↺ Actualiser",                     "es": "↺ Actualizar"},
+    "winscp.btn_new_folder_r": {"it": "📁+ Cartella",                    "en": "📁+ Folder",                      "de": "📁+ Ordner",                      "fr": "📁+ Dossier",                      "es": "📁+ Carpeta"},
+    "winscp.tooltip_upload":   {"it": "Carica i file selezionati sul server remoto", "en": "Upload selected files to remote server", "de": "Ausgewählte Dateien auf Remote-Server hochladen", "fr": "Envoyer les fichiers sélectionnés vers le serveur distant", "es": "Subir los archivos seleccionados al servidor remoto"},
+    "winscp.tooltip_download": {"it": "Scarica i file selezionati in locale", "en": "Download selected files to local", "de": "Ausgewählte Dateien lokal herunterladen", "fr": "Télécharger les fichiers sélectionnés en local", "es": "Descargar los archivos seleccionados en local"},
+    "winscp.tooltip_delete":   {"it": "Elimina la selezione (locale o remota)", "en": "Delete selection (local or remote)", "de": "Auswahl löschen (lokal oder remote)", "fr": "Supprimer la sélection (local ou distant)", "es": "Eliminar la selección (local o remota)"},
+    "winscp.tooltip_cancel_all":{"it":"Annulla il trasferimento in corso e tutti quelli in attesa", "en": "Cancel running and all pending transfers", "de": "Laufende und ausstehende Übertragungen abbrechen", "fr": "Annuler le transfert en cours et tous les transferts en attente", "es": "Cancelar la transferencia en curso y todas las pendientes"},
 
     # ── session_dialog — SSH key management (stringhe prima hardcoded) ───────
     "sd.keys.type_ed25519":  {"it": "ed25519  (consigliata)",              "en": "ed25519  (recommended)",            "de": "ed25519  (empfohlen)",             "fr": "ed25519  (recommandé)",            "es": "ed25519  (recomendado)"},

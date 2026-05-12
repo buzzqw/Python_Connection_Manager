@@ -536,6 +536,7 @@ class SessionDialog(Gtk.Dialog):
         for i, title in enumerate([t("sd.macro.name"), t("sd.macro.cmd")]):
             cell = Gtk.CellRendererText()
             cell.set_property("editable", True)
+            cell.connect("edited", self._on_macro_cell_edited, i)
             col = Gtk.TreeViewColumn(title, cell, text=i)
             col.set_expand(True)
             self._macro_view.append_column(col)
@@ -558,8 +559,15 @@ class SessionDialog(Gtk.Dialog):
 
         return box
 
+    def _on_macro_cell_edited(self, cell, path, new_text, col):
+        it = self._macro_store.get_iter_from_string(path)
+        if it is not None:
+            self._macro_store.set_value(it, col, new_text)
+
     def _macro_aggiungi(self, btn):
-        self._macro_store.append([t("sd.macro.name"), ""])
+        it = self._macro_store.append(["", ""])
+        path = self._macro_store.get_path(it)
+        self._macro_view.set_cursor(path, self._macro_view.get_column(0), True)
 
     def _macro_rimuovi(self, btn):
         sel = self._macro_view.get_selection()

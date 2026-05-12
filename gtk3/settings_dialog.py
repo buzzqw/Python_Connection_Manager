@@ -55,6 +55,7 @@ class SettingsDialog(Gtk.Dialog):
         self._notebook.append_page(self._build_terminale(),   Gtk.Label(label=t("settings.tab.terminal")))
         self._notebook.append_page(self._build_ssh(),         Gtk.Label(label=t("settings.tab.ssh")))
         self._notebook.append_page(self._build_scorciatoie(), Gtk.Label(label=t("settings.tab.shortcuts")))
+        self._notebook.append_page(self._build_strumenti(),   Gtk.Label(label=t("settings.tab.tools")))
 
         self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
         ok_btn = self.add_button("OK", Gtk.ResponseType.OK)
@@ -236,6 +237,159 @@ class SettingsDialog(Gtk.Dialog):
         return grid
 
     # ------------------------------------------------------------------
+    # Tab Strumenti personalizzati (VNC / RDP)
+    # ------------------------------------------------------------------
+
+    def _build_strumenti(self) -> Gtk.Widget:
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer.set_margin_start(12); outer.set_margin_end(12)
+        outer.set_margin_top(12);   outer.set_margin_bottom(12)
+
+        for category, label in [("vnc", t("settings.tools.vnc_group")),
+                                 ("rdp", t("settings.tools.rdp_group"))]:
+            grp = Gtk.Frame()
+            grp_lbl = Gtk.Label(label=f"<b>{label}</b>")
+            grp_lbl.set_use_markup(True)
+            grp.set_label_widget(grp_lbl)
+            grp_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            grp_box.set_margin_start(8); grp_box.set_margin_end(8)
+            grp_box.set_margin_top(4);   grp_box.set_margin_bottom(8)
+
+            # TreeView: Etichetta, Percorso, Sintassi
+            store = Gtk.ListStore(str, str, str)
+            view  = Gtk.TreeView(model=store)
+            view.set_headers_visible(True)
+            view.set_size_request(-1, 110)
+
+            for i, col_title in enumerate([t("settings.tools.col_label"),
+                                           t("settings.tools.col_path"),
+                                           t("settings.tools.col_syntax")]):
+                cell = Gtk.CellRendererText()
+                cell.set_property("editable", True)
+                cell.connect("edited", self._on_tool_cell_edited, store, i)
+                col = Gtk.TreeViewColumn(col_title, cell, text=i)
+                col.set_expand(i == 1)
+                col.set_resizable(True)
+                view.append_column(col)
+
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scroll.add(view)
+            grp_box.pack_start(scroll, True, True, 0)
+
+            # Toolbar
+            tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            btn_add = Gtk.Button(label=t("settings.tools.add"))
+            btn_rem = Gtk.Button(label=t("settings.tools.remove"))
+            btn_add.connect("clicked", lambda b, s=store, c=category: self._aggiungi_tool(s, c))
+            btn_rem.connect("clicked", lambda b, v=view, s=store: self._rimuovi_tool(v, s))
+            tb.pack_start(btn_add, False, False, 0)
+            tb.pack_start(btn_rem, False, False, 0)
+            grp_box.pack_start(tb, False, False, 0)
+
+            grp.add(grp_box)
+            outer.pack_start(grp, False, False, 0)
+
+            # Salva riferimento store per popola/salva
+            if category == "vnc":
+                self._store_vnc = store
+            else:
+                self._store_rdp = store
+
+        nota = Gtk.Label(label=t("settings.tools.note"))
+        nota.set_xalign(0.0)
+        nota.get_style_context().add_class("dim-label")
+        nota.set_line_wrap(True)
+        outer.pack_start(nota, False, False, 0)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sw.add(outer)
+        return sw
+
+    def _on_tool_cell_edited(self, cell, path, new_text, store, col):
+        it = store.get_iter_from_string(path)
+        if it is not None:
+            store.set_value(it, col, new_text)
+
+    def _aggiungi_tool(self, store: Gtk.ListStore, category: str):
+        syntaxes_vnc = ["TigerVNC", "RealVNC", "Remmina", "Generico"]
+        syntaxes_rdp = ["xfreerdp", "rdesktop", "Generico"]
+        syntaxes = syntaxes_vnc if category == "vnc" else syntaxes_rdp
+        title_key = "settings.tools.dlg_title_vnc" if category == "vnc" else "settings.tools.dlg_title_rdp"
+
+        dlg = Gtk.Dialog(title=t(title_key), transient_for=self, modal=True)
+        dlg.set_default_size(400, -1)
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_start(12); area.set_margin_end(12)
+        area.set_margin_top(12);   area.set_margin_bottom(8)
+
+        grid = Gtk.Grid()
+        grid.set_row_spacing(8)
+        grid.set_column_spacing(8)
+
+        def _lbl(txt):
+            l = Gtk.Label(label=txt)
+            l.set_xalign(1.0)
+            return l
+
+        entry_label = Gtk.Entry()
+        entry_label.set_hexpand(True)
+        entry_label.set_placeholder_text("UltraVNC, AnyDesk…")
+        grid.attach(_lbl(t("settings.tools.lbl_label")), 0, 0, 1, 1)
+        grid.attach(entry_label, 1, 0, 1, 1)
+
+        path_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        entry_path = Gtk.Entry()
+        entry_path.set_hexpand(True)
+        entry_path.set_placeholder_text("/usr/bin/vncviewer")
+        btn_browse = Gtk.Button(label="…")
+        btn_browse.connect("clicked", lambda b: self._browse_exe(entry_path))
+        path_box.pack_start(entry_path,  True,  True,  0)
+        path_box.pack_start(btn_browse,  False, False, 0)
+        grid.attach(_lbl(t("settings.tools.lbl_path")), 0, 1, 1, 1)
+        grid.attach(path_box, 1, 1, 1, 1)
+
+        combo_syntax = Gtk.ComboBoxText()
+        for s in syntaxes:
+            combo_syntax.append_text(s)
+        combo_syntax.set_active(0)
+        combo_syntax.set_hexpand(True)
+        grid.attach(_lbl(t("settings.tools.lbl_syntax")), 0, 2, 1, 1)
+        grid.attach(combo_syntax, 1, 2, 1, 1)
+
+        area.pack_start(grid, False, False, 0)
+        area.show_all()
+
+        dlg.add_buttons(t("sd.cancel"), Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
+        if dlg.run() == Gtk.ResponseType.OK:
+            label   = entry_label.get_text().strip()
+            path    = entry_path.get_text().strip()
+            syntax  = combo_syntax.get_active_text() or syntaxes[0]
+            if label and path:
+                store.append([label, path, syntax])
+        dlg.destroy()
+
+    def _rimuovi_tool(self, view: Gtk.TreeView, store: Gtk.ListStore):
+        sel = view.get_selection()
+        model, it = sel.get_selected()
+        if it:
+            store.remove(it)
+
+    def _browse_exe(self, entry: Gtk.Entry):
+        dlg = Gtk.FileChooserDialog(
+            title=t("settings.tools.browse"),
+            transient_for=self,
+            action=Gtk.FileChooserAction.OPEN
+        )
+        dlg.add_buttons(t("sd.cancel"), Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
+        dlg.set_current_folder("/usr/bin")
+        if dlg.run() == Gtk.ResponseType.OK:
+            entry.set_text(dlg.get_filename())
+        dlg.destroy()
+
+    # ------------------------------------------------------------------
     # Tab Scorciatoie
     # ------------------------------------------------------------------
 
@@ -320,6 +474,12 @@ class SettingsDialog(Gtk.Dialog):
         for key, entry in self._shortcut_entries.items():
             entry.set_text(sc.get(key, ""))
 
+        ct = self._settings.get("custom_tools", {"vnc": [], "rdp": []})
+        for store, key in [(self._store_vnc, "vnc"), (self._store_rdp, "rdp")]:
+            store.clear()
+            for e in ct.get(key, []):
+                store.append([e.get("label", ""), e.get("path", ""), e.get("syntax", "")])
+
     @staticmethod
     def _set_combo_text(combo: Gtk.ComboBoxText, value: str):
         model = combo.get_model()
@@ -366,5 +526,12 @@ class SettingsDialog(Gtk.Dialog):
 
         for key, entry in self._shortcut_entries.items():
             s["shortcuts"][key] = entry.get_text().strip()
+
+        s["custom_tools"] = {
+            "vnc": [{"label": r[0], "path": r[1], "syntax": r[2]}
+                    for r in self._store_vnc if r[0] and r[1]],
+            "rdp": [{"label": r[0], "path": r[1], "syntax": r[2]}
+                    for r in self._store_rdp if r[0] and r[1]],
+        }
 
         config_manager.save_settings(s)
