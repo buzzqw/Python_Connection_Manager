@@ -12,7 +12,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QLineEdit, QLabel, QMenu, QFileDialog, QMessageBox,
-    QProgressDialog, QApplication, QToolButton, QFrame
+    QProgressDialog, QApplication, QToolButton, QFrame, QStyle
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject
 from PyQt6.QtGui import QIcon, QFont
@@ -269,20 +269,23 @@ class SftpBrowserWidget(QWidget):
                 key=lambda x: x.filename.lower()
             )
 
+            _ico_dir  = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
+            _ico_file = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+
             # ".." per salire
-            item_su = QListWidgetItem("📁  ..")
+            item_su = QListWidgetItem(_ico_dir, "..")
             item_su.setData(Qt.ItemDataRole.UserRole, "..")
             self.lista.addItem(item_su)
 
             for v in cartelle:
-                item = QListWidgetItem(f"📁  {v.filename}")
+                item = QListWidgetItem(_ico_dir, v.filename)
                 item.setData(Qt.ItemDataRole.UserRole, ("dir", v.filename))
                 item.setForeground(QColor("#1a5ca8"))
                 self.lista.addItem(item)
 
             for v in file:
                 size_str = self._fmt_size(v.st_size)
-                item = QListWidgetItem(f"📄  {v.filename}  ({size_str})")
+                item = QListWidgetItem(_ico_file, f"{v.filename}  ({size_str})")
                 item.setData(Qt.ItemDataRole.UserRole, ("file", v.filename))
                 self.lista.addItem(item)
 
@@ -733,8 +736,11 @@ class FtpBrowserWidget(QWidget):
 
             self.lista.clear()
 
+            _ico_dir  = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
+            _ico_file = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+
             # ".." per salire
-            item_su = QListWidgetItem("📁  ..")
+            item_su = QListWidgetItem(_ico_dir, "..")
             item_su.setData(Qt.ItemDataRole.UserRole, "..")
             self.lista.addItem(item_su)
 
@@ -742,13 +748,13 @@ class FtpBrowserWidget(QWidget):
             file_voci = sorted([(n, s) for n, d, s in voci if not d], key=lambda x: x[0].lower())
 
             for nome, _ in cartelle:
-                item = QListWidgetItem(f"📁  {nome}")
+                item = QListWidgetItem(_ico_dir, nome)
                 item.setData(Qt.ItemDataRole.UserRole, ("dir", nome))
                 item.setForeground(QColor("#b87a00"))
                 self.lista.addItem(item)
 
             for nome, size in file_voci:
-                item = QListWidgetItem(f"📄  {nome}  ({SftpBrowserWidget._fmt_size(size)})")
+                item = QListWidgetItem(_ico_file, f"{nome}  ({SftpBrowserWidget._fmt_size(size)})")
                 item.setData(Qt.ItemDataRole.UserRole, ("file", nome))
                 self.lista.addItem(item)
 

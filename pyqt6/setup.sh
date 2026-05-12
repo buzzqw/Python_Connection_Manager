@@ -37,23 +37,23 @@ declare -A PKG
 
 if [[ "$DISTRO" == "debian" ]]; then
     # Su Debian usiamo UV per PyQt6 e i moduli Python
-    PKG[sys]="python3 python3-venv curl openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils telnet"
+    PKG[sys]="python3 python3-venv curl openssh-client mosh freerdp3-x11 tigervnc-viewer novnc websockify xdotool wakeonlan xdg-utils telnet"
     USE_UV=true
     
 elif [[ "$DISTRO" == "fedora" ]]; then
     # Su Fedora usiamo UV
-    PKG[sys]="python3 python3-devel curl openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils telnet"
+    PKG[sys]="python3 python3-devel curl openssh-clients mosh freerdp tigervnc novnc python3-websockify xdotool wol xdg-utils telnet"
     USE_UV=true
 
 elif [[ "$DISTRO" == "arch" ]]; then
     # Su Arch Linux prendiamo tutto da pacman (PyQt6 e moduli)
-    PKG[sys]="python curl openssh mosh freerdp tigervnc xdotool wol xdg-utils inetutils python-pyqt6 python-pyqt6-webengine python-cryptography python-paramiko python-pyftpdlib"
+    PKG[sys]="python curl openssh mosh freerdp tigervnc novnc python-websockify xdotool wol xdg-utils inetutils python-pyqt6 python-pyqt6-webengine python-cryptography python-paramiko python-pyftpdlib"
     USE_UV=false
 
 elif [[ "$DISTRO" == "freebsd" ]]; then
     # Su FreeBSD facciamo fare tutto a pkg.
     # Nomi corretti per i binding PyQt6 su FreeBSD: py311-qt6-pyqt e py311-qt6-webengine
-    PKG[sys]="bash python3 curl mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py311-qt6-pyqt py311-qt6-webengine py311-cryptography py311-paramiko py311-pyftpdlib"
+    PKG[sys]="bash python3 curl mosh freerdp3 tigervnc-viewer novnc py311-websockify xdotool wakeonlan xdg-utils py311-qt6-pyqt py311-qt6-webengine py311-cryptography py311-paramiko py311-pyftpdlib"
     USE_UV=false
 
 else

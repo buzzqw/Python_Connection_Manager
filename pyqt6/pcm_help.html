@@ -1106,6 +1106,38 @@ ssh -p 22 -o StrictHostKeyChecking=no <a href="/cdn-cgi/l/email-protection" clas
 
 <hr>
 
+<!-- ── CLIENT VNC/RDP PERSONALIZZATI ── -->
+<div class="new-feature">
+  <div class="nf-title">Client VNC e RDP personalizzati</div>
+  <p>Aggiungi qualsiasi client VNC o RDP al menu di sessione, anche se non è nel PATH di sistema. La configurazione avviene da <b>Impostazioni → Strumenti</b>.</p>
+</div>
+
+<h3>Come aggiungere un client personalizzato</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Apri <b>Impostazioni → tab Strumenti</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Clicca <b>+ Aggiungi</b> nella sezione VNC o RDP</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Inserisci un'<b>etichetta</b> (es. <i>UltraVNC</i>), il <b>percorso completo</b> dell'eseguibile (es. <code>/opt/ultravnc/vncviewer</code>) e scegli la <b>sintassi</b> più vicina al client usato</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Salva — l'etichetta appare immediatamente nei combo "Client VNC" e "Client RDP" di tutte le sessioni</div></div>
+
+<div class="tip">💡 La sintassi "Generico" passa semplicemente <code>host porta</code> come argomenti — adatta per qualsiasi client che accetta questi parametri in posizione.</div>
+
+<hr>
+
+<!-- ── TERMINALE XTERM.JS CON WEBGL ── -->
+<div class="new-feature">
+  <div class="nf-title">Terminale SSH — Rendering WebGL (xterm.js)</div>
+  <p>Il terminale delle sessioni SSH ora usa <b>xterm.js con renderer WebGL</b>, che produce testo nitido come il rendering nativo GTK, eliminando la sfocatura del precedente canvas 2D.</p>
+</div>
+
+<h3>Miglioramenti del terminale</h3>
+<ul>
+  <li><b>Renderer WebGL</b> — accelerazione GPU per testo pixel-perfect, identico alla versione GTK3</li>
+  <li><b>File locali</b> — xterm.js, addon-fit e addon-webgl sono distribuiti insieme a PCM (<code>static/</code>); nessuna dipendenza da CDN esterne, nessun rischio MITM</li>
+  <li><b>Dimensione font corretta</b> — i pt specificati nel profilo vengono passati direttamente senza moltiplicatori</li>
+  <li><b>Pronto all'uso</b> — il buffer PTY viene svuotato solo quando xterm.js segnala di essere pronto (evento resize dal WebChannel), non al semplice caricamento della pagina HTML</li>
+</ul>
+
+<hr>
+
 <!-- ── ESPORTA COMANDI.SH ── -->
 <div class="new-feature">
   <div class="nf-title">Esporta comandi.sh</div>
@@ -1208,35 +1240,50 @@ exit
 <!-- ══════════════════════════════════════════════════ IMPOSTAZIONI -->
 <h2 id="impostazioni">🛠 Impostazioni globali</h2>
 
-<p>Da <b>Toolbar → Impostazioni</b> (o <b>File → Impostazioni</b>) — quattro tab:</p>
+<p>Da <b>Toolbar → Impostazioni</b> (o <b>File → Impostazioni</b>) — tre tab:</p>
+
+<div class="info">ℹ️ Tutte le opzioni di terminale e SSH (tema, font, keepalive, StrictHostKeyChecking, ecc.) si configurano <b>per singola sessione</b> nel relativo dialog di creazione/modifica. Le impostazioni globali riguardano solo aspetti generali dell'applicazione, scorciatoie e strumenti VNC/RDP aggiuntivi.</div>
 
 <h3>Tab Generale</h3>
 <ul>
   <li><b>Home directory</b> — cartella di partenza per i file dialog</li>
-  <li><b>Editor di testo</b> — usato per aprire file di configurazione (nano, vim, gedit, code…)</li>
-  <li><b>Conferma alla chiusura</b> — chiede cosa fare quando ci sono sessioni attive</li>
-</ul>
-
-<h3>Tab Terminale</h3>
-<ul>
-  <li><b>Tema predefinito</b> — schema colori per tutte le nuove sessioni (sovrascrivibile per singola sessione)</li>
-  <li><b>Font predefinito</b> e <b>Dimensione font</b></li>
-  <li><b>Righe scrollback</b> — quante righe mantenere in memoria (100–100.000)</li>
-  <li><b>Incolla con tasto destro</b></li>
-  <li><b>Conferma chiusura tab</b> — avvisa prima di chiudere un tab con processo attivo</li>
-  <li><b>Avviso paste multiriga</b> — evita esecuzioni accidentali</li>
-  <li><b>Registra output su file</b> + <b>Cartella log</b> — globale per tutte le sessioni che non hanno un log specifico</li>
-</ul>
-
-<h3>Tab SSH</h3>
-<ul>
-  <li><b>Keepalive interval</b> — secondi tra i pacchetti keepalive (0 = disabilitato)</li>
-  <li><b>StrictHostKeyChecking</b> — verifica impronta del server SSH</li>
-  <li><b>Apri browser SFTP automaticamente</b> — popola il tab SFTP della sidebar a ogni connessione SSH</li>
+  <li><b>Conferma alla chiusura</b> — chiede conferma prima di uscire se ci sono sessioni attive</li>
+  <li><b>Language / Lingua</b> — lingua dell'interfaccia (Italiano, English, Deutsch, Français, Español). Effetto immediato al salvataggio.</li>
 </ul>
 
 <h3>Tab Scorciatoie</h3>
 <p>Personalizza tutte le scorciatoie. Formato: <code>Ctrl+Shift+X</code>, <code>F5</code>, ecc. Le modifiche hanno effetto al prossimo avvio.</p>
+
+<h3>Tab Strumenti <span class="new-badge">NOVITÀ</span></h3>
+<p>Aggiungi client VNC e RDP <b>non rilevati automaticamente</b> oppure configurati con parametri personalizzati.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Client VNC aggiuntivi</h4>
+    <p>Per ogni entry: <b>Etichetta</b> (nome nel menu), <b>Percorso</b> (es. <code>/opt/ultravnc/vncviewer</code>), <b>Sintassi</b> (TigerVNC, RealVNC, Remmina, Generico).</p>
+  </div>
+  <div class="card">
+    <h4>Client RDP aggiuntivi</h4>
+    <p>Stessa struttura: Etichetta, Percorso, Sintassi (xfreerdp, rdesktop, Generico). PCM costruisce il comando con i flag appropriati per la sintassi scelta.</p>
+  </div>
+</div>
+
+<p>Una volta aggiunto, il client compare automaticamente nei combo <b>Client VNC</b> e <b>Client RDP</b> di ogni sessione — senza bisogno di installarlo nel PATH di sistema.</p>
+
+<table>
+  <tr><th>Sintassi VNC</th><th>Comando generato</th></tr>
+  <tr><td>TigerVNC</td><td><code>/percorso/vncviewer -passwd /tmp/pcm_vnc.pass host:porta</code></td></tr>
+  <tr><td>RealVNC</td><td><code>/percorso/vncviewer host::porta</code></td></tr>
+  <tr><td>Remmina</td><td><code>/percorso/remmina -c vnc://host:porta</code></td></tr>
+  <tr><td>Generico</td><td><code>/percorso/client host porta</code></td></tr>
+</table>
+
+<table>
+  <tr><th>Sintassi RDP</th><th>Comando generato</th></tr>
+  <tr><td>xfreerdp</td><td><code>/percorso/xfreerdp /v:host /u:utente /p:password …</code></td></tr>
+  <tr><td>rdesktop</td><td><code>/percorso/rdesktop -u utente -p password host:porta</code></td></tr>
+  <tr><td>Generico</td><td><code>/percorso/client host porta</code></td></tr>
+</table>
 
 
 <!-- ══════════════════════════════════════════════════ FAQ -->
@@ -1282,7 +1329,27 @@ Se manca: <code>uv pip install --python .venv/bin/python paramiko</code></p>
 <h4>Dove sono salvate le impostazioni?</h4>
 <ul>
   <li><code>connections.json</code> — tutte le sessioni (in chiaro, JSON modificabile)</li>
-  <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, sessioni recenti</li>
+  <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, strumenti VNC/RDP, sessioni recenti</li>
   <li><code>/tmp/pcm_logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
 </ul>
-<p>
+
+<h4>Il terminale SSH mostra caratteri sfocati rispetto al GTK3</h4>
+<p>PCM usa xterm.js con renderer WebGL che produce testo nitido come il rendering nativo. Se vedi ancora sfocatura, verifica che i file nella cartella <code>static/</code> siano presenti (<code>addon-webgl.js</code> in particolare) e che il driver grafico supporti WebGL in QWebEngine.</p>
+
+<h4>Ho aggiunto un client VNC/RDP ma non compare nel combo sessione</h4>
+<p>Chiudi e riapri il dialog di modifica sessione — i client personalizzati vengono letti al momento dell'apertura del dialog, non in tempo reale. Verifica anche che il percorso inserito in <b>Impostazioni → Strumenti</b> sia assoluto e che il file esista.</p>
+
+<h4>La chiave SSH non viene salvata / al riavvio mostra "none"</h4>
+<p>PCM espande automaticamente percorsi relativi (es. <code>.ssh/id_rsa</code> diventa <code>/home/utente/.ssh/id_rsa</code>) al momento del salvataggio. Dopo aver inserito il percorso della chiave e cliccato OK, riaprendo il profilo il combo "Chiavi in ~/.ssh:" mostra la chiave corrispondente selezionata.</p>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  PCM — Python Connection Manager &nbsp;·&nbsp; Guida utente &nbsp;·&nbsp;
+  Sorgente: <code>pcm_help.html</code> &nbsp;·&nbsp;
+  <a href="https://github.com/buzzqw/PCM">github.com/buzzqw/PCM</a>
+</div>
+
+</body>
+</html>

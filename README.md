@@ -1,11 +1,11 @@
 # PCM — Python Connection Manager
 
-  [![License](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](EUPL-1.2%20EN.txt)
-  [![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
-  [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
+[![License](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](EUPL-1.2%20EN.txt)
+[![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg)](https://www.python.org/)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 > Gestore grafico di connessioni remote per Linux, ispirato a MobaXterm.
-> Scritto in Python, disponibile in due versioni: **PyQt6** e **GTK3**.
+> Scritto in Python, disponibile in due versioni: **PyQt6** (attiva) e **GTK3** (stabile/manutenzione).
 
 ---
 
@@ -16,11 +16,12 @@
 
 ## Versioni disponibili
 
-| Versione | Cartella | Framework | Terminale | Wayland |
-|---|---|---|---|---|
-| Originale | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto |
-| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo |
+| Versione | Cartella | Framework | Terminale | Wayland | Stato |
+|---|---|---|---|---|---|
+| **PyQt6** | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto | **Sviluppo attivo** |
+| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo | Stabile — solo bugfix critici |
 
+> **Nota sulla versione GTK3**: la versione GTK3 è considerata **stabile e completa**. Non è previsto ulteriore sviluppo di nuove funzionalità; verranno applicati esclusivamente bugfix critici. La versione **PyQt6** è quella attivamente sviluppata e raccomandata per nuove installazioni.
 
 ---
 
@@ -32,38 +33,98 @@
 
 ## Funzionalità principali
 
-- 🖥 **Sessioni organizzate per gruppo** con ricerca istantanea
-- ⚡ **Quick Connect** dalla toolbar — `utente@host:porta`
-- 🔐 **Cifratura credenziali** AES-256 (PBKDF2-SHA256, 480k iterazioni)
-- 📂 **Browser FTP/SFTP** dual-pane stile WinSCP con coda trasferimenti
-- 🔀 **Tunnel SSH** gestiti graficamente (SOCKS, locale, remoto)
-- 💻 **Split terminale** verticale/orizzontale — più sessioni in parallelo
-- ⚡ **Macro per sessione** e **Multi-exec** su più server contemporaneamente
-- 🌐 **Wake-on-LAN** integrato prima della connessione
-- 📥 **Import** da Remmina e Remote Desktop Manager
-- 🔑 **Gestione chiavi SSH**: genera, copia, mostra pubblica
-- 🖧 **Server FTP locale** integrato (pyftpdlib)
-- 🌍 **5 lingue**: Italiano · English · Deutsch · Français · Español
+- **Sessioni organizzate per gruppo** con ricerca istantanea
+- **Quick Connect** dalla toolbar — `utente@host:porta`
+- **Cifratura credenziali** AES-256 (PBKDF2-SHA256, 480k iterazioni)
+- **Browser FTP/SFTP** dual-pane stile WinSCP con coda trasferimenti
+- **Tunnel SSH** gestiti graficamente (SOCKS, locale, remoto)
+- **Split terminale** verticale/orizzontale — più sessioni in parallelo
+- **Macro per sessione** e **Multi-exec** su più server contemporaneamente
+- **Wake-on-LAN** integrato prima della connessione
+- **Import** da Remmina e Remote Desktop Manager
+- **Gestione chiavi SSH**: genera, copia sul server, mostra chiave pubblica
+- **Jump Host (Bastion)** con supporto trasparente `ssh -J`
+- **Pre-comando locale** (es. `wg-quick up vpn0`) prima della connessione
+- **Server FTP locale** integrato (pyftpdlib) con gestione utenti e permessi
+- **Modalità protetta** — nasconde le password nell'interfaccia
+- **5 lingue**: Italiano · English · Deutsch · Français · Español
 
 ---
 
-## Screenshot
+## Screenshot — Versione PyQt6
+
+### Finestra principale e menu Tools
+
+![PCM Main Window](immagini/pcm1.png)
+*Finestra principale — sidebar con gruppi e sessioni, quick connect, benvenuto*
 
 | | |
 |---|---|
-| ![SSH](immagini/pcm2.png) | ![Terminal](immagini/pcm13.png) |
-| *Connessione SSH — gestione chiavi (genera, copia pubblica, mostra)* | *Opzioni terminale — tema, font, log, paste con tasto destro* |
-| ![Advanced](immagini/pcm03.png) | ![Tunnel](immagini/pcm04.png) |
-| *SSH Avanzato — Wake-on-LAN, jump host, startup command, pre-cmd VPN* | *Tunnel SSH — SOCKS proxy, forwarding porte locale/remoto* |
-| ![RDP](immagini/pcm06.png) | ![VNC](immagini/pcm05.png) |
-| *RDP — xfreerdp3, autenticazione NLA, fullscreen, clipboard, cartelle* | *VNC — client esterno, profondità colore, qualità* |
+| ![Tools menu](immagini/pcm34.png) | ![Import submenu](immagini/pcm39.png) |
+| *Menu Tools — Tunnel Manager, Multi-exec, variabili globali, server FTP locale, modalità protetta* | *Import da Remmina e Remote Desktop Manager (XML/JSON)* |
+
+---
+
+### Dialogo nuova sessione — SSH
+
+| | |
+|---|---|
+| ![SSH Connection](immagini/pcm20.png) | ![SSH Authentication](immagini/pcm21.png) |
+| *Tab Connessione SSH — host, porta, utente, Wake-on-LAN integrato* | *Tab Autenticazione — password, chiave privata, generazione chiavi SSH, jump host (bastion)* |
+| ![SSH Terminal](immagini/pcm22.png) | ![SSH Advanced](immagini/pcm23.png) |
+| *Tab Terminale — tema, font, startup command, pre-cmd VPN, log su file, incolla con tasto destro* | *Tab Avanzate — X11 forwarding, compressione, keepalive, strict host, modalità apertura* |
+| ![SSH Notes](immagini/pcm24.png) | ![SSH Macros](immagini/pcm25.png) |
+| *Tab Note — annotazioni libere per sessione* | *Tab Macro — comandi a un clic, riordinabili, con Add/Update/Delete* |
+
+---
+
+### Dialogo nuova sessione — FTP/FTPS
+
+| | |
+|---|---|
+| ![FTP Connection](immagini/pcm27.png) | ![FTP Advanced](immagini/pcm29.png) |
+| *FTP/FTPS — TLS esplicito, modalità passiva PASV, nota informativa* | *Avanzate FTP — modalità apertura (browser interno/esterno, lftp CLI)* |
+
+---
+
+### Dialogo nuova sessione — RDP
+
+| | |
+|---|---|
+| ![RDP Connection](immagini/pcm30.png) | ![RDP Auth](immagini/pcm31.png) |
+| *RDP — client xfreerdp3, dominio, fullscreen, clipboard, cartelle locali, autenticazione NTLM/Kerberos, WoL* | *Autenticazione RDP — password Windows con visualizzazione toggle* |
+
+---
+
+### Dialogo nuova sessione — Seriale
+
+![Serial Connection](immagini/pcm32.png)
+*Connessione seriale — device, baud rate, data bit, parity, stop bit*
+
+---
+
+### Browser SFTP/FTP e strumenti
 
 ![SFTP Browser](immagini/pcm11.png)
 *Browser SFTP/FTP dual-pane — navigazione locale e remota con coda trasferimenti*
 
+| | |
+|---|---|
+| ![SSH Tunnel Manager](immagini/pcm37.png) | ![Local FTP Server](immagini/pcm36.png) |
+| *SSH Tunnel Manager — SOCKS proxy, port forwarding locale/remoto, avvio/arresto per tunnel* | *Server FTP locale — gestione utenti, permessi granulari, log connessioni* |
+
 ---
 
-## Installazione rapida (GTK3)
+## Installazione rapida (PyQt6)
+
+```bash
+git clone https://github.com/buzzqw/Python_Connection_Manager.git
+cd Python_Connection_Manager/pyqt6
+pip install PyQt6
+python3 PCM.py
+```
+
+### Installazione GTK3 (stabile)
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -72,19 +133,17 @@ bash setup.sh          # installa automaticamente con uv per Debian/Ubuntu/Arch/
 python3 PCM.py
 ```
 
-> **Nota**: Il progetto utilizza [**uv**](https://github.com/astral-sh/uv) come gestore di pacchetti Python moderno e veloce invece di pip. Lo script `setup.sh` installa automaticamente uv e crea un ambiente virtuale ottimizzato.
-
-Per la versione PyQt6 e le istruzioni complete vedi [`pyqt6/README.md`](./pyqt6/README.md).
+> Il progetto GTK3 utilizza [**uv**](https://github.com/astral-sh/uv) come gestore di pacchetti Python. Lo script `setup.sh` installa automaticamente uv e crea un ambiente virtuale ottimizzato.
 
 ---
 
 ## Supporta il progetto
 
-Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi offrire un caffè tramite PayPal. Ogni contributo, piccolo o grande, è molto apprezzato e aiuta a mantenere il progetto attivo e in continuo miglioramento!
+Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tramite PayPal. Ogni contributo è molto apprezzato e aiuta a mantenere il progetto attivo!
 
 [![Dona con PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
-*Grazie mille!* 🙏
+*Grazie mille!*
 
 ---
 
@@ -100,7 +159,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi of
 # PCM — Python Connection Manager 🇬🇧
 
 > Graphical remote connection manager for Linux, inspired by MobaXterm.
-> Written in Python, available in two versions: **PyQt6** and **GTK3**.
+> Written in Python, available in two versions: **PyQt6** (active) and **GTK3** (stable/maintenance).
 
 ---
 
@@ -111,12 +170,12 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi of
 
 ## Available versions
 
-| Version | Folder | Framework | Terminal | Wayland |
-|---|---|---|---|---|
-| Original | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland required |
-| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | Native VTE | ✅ Native |
+| Version | Folder | Framework | Terminal | Wayland | Status |
+|---|---|---|---|---|---|
+| **PyQt6** | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland required | **Active development** |
+| GTK3 | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | Native VTE | ✅ Native | Stable — critical bugfixes only |
 
-The **GTK3** version is the actively developed one and is recommended for new installations.
+> **Note on the GTK3 version**: the GTK3 version is considered **stable and feature-complete**. No new features are planned; only critical bugfixes will be applied. The **PyQt6** version is the actively developed one and is recommended for new installations.
 
 ---
 
@@ -128,38 +187,98 @@ The **GTK3** version is the actively developed one and is recommended for new in
 
 ## Key features
 
-- 🖥 **Sessions organized by group** with instant search
-- ⚡ **Quick Connect** from toolbar — `user@host:port`
-- 🔐 **Credential encryption** AES-256 (PBKDF2-SHA256, 480k iterations)
-- 📂 **FTP/SFTP dual-pane browser** WinSCP-style with transfer queue
-- 🔀 **SSH Tunnels** managed graphically (SOCKS, local, remote)
-- 💻 **Split terminal** vertical/horizontal — multiple sessions in parallel
-- ⚡ **Per-session macros** and **Multi-exec** on multiple servers simultaneously
-- 🌐 **Wake-on-LAN** integrated before connection
-- 📥 **Import** from Remmina and Remote Desktop Manager
-- 🔑 **SSH key management**: generate, copy, show public key
-- 🖧 **Integrated local FTP server** (pyftpdlib)
-- 🌍 **5 languages**: Italiano · English · Deutsch · Français · Español
+- **Sessions organized by group** with instant search
+- **Quick Connect** from toolbar — `user@host:port`
+- **Credential encryption** AES-256 (PBKDF2-SHA256, 480k iterations)
+- **FTP/SFTP dual-pane browser** WinSCP-style with transfer queue
+- **SSH Tunnels** managed graphically (SOCKS, local, remote)
+- **Split terminal** vertical/horizontal — multiple sessions in parallel
+- **Per-session macros** and **Multi-exec** on multiple servers simultaneously
+- **Wake-on-LAN** integrated before connection
+- **Import** from Remmina and Remote Desktop Manager
+- **SSH key management**: generate, copy to server, show public key
+- **Jump Host (Bastion)** with transparent `ssh -J` support
+- **Local pre-command** (e.g. `wg-quick up vpn0`) before connecting
+- **Integrated local FTP server** (pyftpdlib) with user management and permissions
+- **Protected mode** — hides passwords in the UI
+- **5 languages**: Italiano · English · Deutsch · Français · Español
 
 ---
 
-## Screenshots
+## Screenshots — PyQt6 version
+
+### Main window and Tools menu
+
+![PCM Main Window](immagini/pcm1.png)
+*Main window — session sidebar with groups, quick connect, welcome panel*
 
 | | |
 |---|---|
-| ![SSH](immagini/pcm2.png) | ![Terminal](immagini/pcm13.png) |
-| *SSH connection — key management (generate, copy public key, show)* | *Terminal options — theme, font, logging, paste with right-click* |
-| ![Advanced](immagini/pcm03.png) | ![Tunnel](immagini/pcm04.png) |
-| *SSH Advanced — Wake-on-LAN, jump host, startup command, VPN pre-cmd* | *SSH Tunnel — SOCKS proxy, local/remote port forwarding* |
-| ![RDP](immagini/pcm06.png) | ![VNC](immagini/pcm05.png) |
-| *RDP — xfreerdp3, NLA auth, fullscreen, clipboard, folder sharing* | *VNC — external client, color depth, quality settings* |
+| ![Tools menu](immagini/pcm34.png) | ![Import submenu](immagini/pcm39.png) |
+| *Tools menu — Tunnel Manager, Multi-exec, global variables, local FTP server, protected mode* | *Import from Remmina and Remote Desktop Manager (XML/JSON)* |
+
+---
+
+### New session dialog — SSH
+
+| | |
+|---|---|
+| ![SSH Connection](immagini/pcm20.png) | ![SSH Authentication](immagini/pcm21.png) |
+| *Connection tab — host, port, user, integrated Wake-on-LAN* | *Authentication tab — password, private key, SSH key generation, jump host (bastion)* |
+| ![SSH Terminal](immagini/pcm22.png) | ![SSH Advanced](immagini/pcm23.png) |
+| *Terminal tab — theme, font, startup command, VPN pre-cmd, file logging, paste with right-click* | *Advanced tab — X11 forwarding, compression, keepalive, strict host, open mode* |
+| ![SSH Notes](immagini/pcm24.png) | ![SSH Macros](immagini/pcm25.png) |
+| *Notes tab — free-form notes per session* | *Macros tab — one-click commands, reorderable, with Add/Update/Delete* |
+
+---
+
+### New session dialog — FTP/FTPS
+
+| | |
+|---|---|
+| ![FTP Connection](immagini/pcm27.png) | ![FTP Advanced](immagini/pcm29.png) |
+| *FTP/FTPS — explicit TLS, PASV passive mode, informational note* | *FTP Advanced — open mode (internal browser, external, lftp CLI)* |
+
+---
+
+### New session dialog — RDP
+
+| | |
+|---|---|
+| ![RDP Connection](immagini/pcm30.png) | ![RDP Auth](immagini/pcm31.png) |
+| *RDP — xfreerdp3 client, domain, fullscreen, clipboard, local folders, NTLM/Kerberos auth, WoL* | *RDP Authentication — Windows password with show/hide toggle* |
+
+---
+
+### New session dialog — Serial
+
+![Serial Connection](immagini/pcm32.png)
+*Serial connection — device, baud rate, data bits, parity, stop bits*
+
+---
+
+### SFTP/FTP browser and tools
 
 ![SFTP Browser](immagini/pcm11.png)
 *SFTP/FTP dual-pane browser — local and remote navigation with transfer queue*
 
+| | |
+|---|---|
+| ![SSH Tunnel Manager](immagini/pcm37.png) | ![Local FTP Server](immagini/pcm36.png) |
+| *SSH Tunnel Manager — SOCKS proxy, local/remote port forwarding, per-tunnel start/stop* | *Local FTP server — user management, granular permissions, connection log* |
+
 ---
 
-## Quick install (GTK3)
+## Quick install (PyQt6)
+
+```bash
+git clone https://github.com/buzzqw/Python_Connection_Manager.git
+cd Python_Connection_Manager/pyqt6
+pip install PyQt6
+python3 PCM.py
+```
+
+### GTK3 install (stable)
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -168,19 +287,17 @@ bash setup.sh          # automatically installs with uv for Debian/Ubuntu/Arch/F
 python3 PCM.py
 ```
 
-> **Note**: The project uses [**uv**](https://github.com/astral-sh/uv) as a modern and fast Python package manager instead of pip. The `setup.sh` script automatically installs uv and creates an optimized virtual environment.
-
-For the PyQt6 version and full instructions see [`pyqt6/README.md`](./pyqt6/README.md).
+> The GTK3 project uses [**uv**](https://github.com/astral-sh/uv) as a modern Python package manager. The `setup.sh` script automatically installs uv and creates an optimized virtual environment.
 
 ---
 
 ## Support the project
 
-If you find PCM useful and want to thank the developer for his work, you can buy him a coffee via PayPal. Any contribution, big or small, is greatly appreciated and helps keep the project alive and actively developed!
+If you find PCM useful and want to thank the developer, you can buy him a coffee via PayPal. Any contribution is greatly appreciated and helps keep the project alive!
 
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
-*Thank you so much!* 🙏
+*Thank you so much!*
 
 ---
 

@@ -396,6 +396,41 @@ def _build_rdp(p: dict) -> str:
             args.append("-f")
         return f"rdesktop {' '.join(args)} {host}:{port}"
 
+    # --- Tool personalizzato RDP ---
+    custom = _get_custom_tool("rdp", client)
+    if custom:
+        exe    = custom["path"]
+        syntax = custom["syntax"]
+        if syntax == "xfreerdp":
+            args = [f"/v:{host}:{port}"]
+            if user:
+                args.append(f"/u:{user}")
+            if domain:
+                args.append(f"/d:{domain}")
+            if pwd:
+                args.append(f"/p:'{_esc(pwd)}'")
+            args.append("/cert:ignore")
+            if fs:
+                args.append("/f")
+            if clips:
+                args.append("/clipboard")
+            if drives:
+                args.append("/drive:home,/home")
+            return f'"{exe}" {" ".join(args)}'
+        elif syntax == "rdesktop":
+            args = ["-a 16"]
+            if user:
+                args.append(f"-u {user}")
+            if domain:
+                args.append(f"-d {domain}")
+            if pwd:
+                args.append(f"-p '{_esc(pwd)}'")
+            if fs:
+                args.append("-f")
+            return f'"{exe}" {" ".join(args)} {host}:{port}'
+        else:  # Generico
+            return f'"{exe}" {host}:{port}'
+
     else:
         return f"{client} {host}:{port}"
 
@@ -414,16 +449,46 @@ _REALVNC_PATHS = [
 ]
 
 
+def _get_custom_tool(category: str, label: str) -> dict | None:
+    """Restituisce il dizionario {label, path, syntax} del tool personalizzato, o None."""
+    ct = config_manager.load_custom_tools()
+    for entry in ct.get(category, []):
+        if entry.get("label") == label:
+            return entry
+    return None
+
+
 def _build_vnc(p: dict) -> str:
     host   = p.get("host", "")
     port   = p.get("port", "5900")
     pwd    = p.get("password", "")
     client = p.get("vnc_client", "vncviewer")   # valore esatto dal combo
 
+    # --- Tool personalizzato ---
+    custom = _get_custom_tool("vnc", client)
+    if custom:
+        exe    = custom["path"]
+        syntax = custom["syntax"]
+        if syntax == "TigerVNC":
+            if pwd:
+                return (
+                    f"bash -c '"
+                    f"TMP=$(mktemp); "
+                    f"printf \"%s\" \"{_esc(pwd)}\" | vncpasswd -f > \"$TMP\"; "
+                    f"\"{exe}\" -passwd \"$TMP\" {host}::{port}; "
+                    f"rm -f \"$TMP\"'"
+                )
+            return f'"{exe}" {host}::{port}'
+        elif syntax == "RealVNC":
+            return f'"{exe}" {host}::{port}'
+        elif syntax == "Remmina":
+            return f'"{exe}" -c vnc://{host}:{port}'
+        else:  # Generico
+            return f'"{exe}" {host}:{port}'
+
     # --- RealVNC Viewer ---
     if client == "realvnc-viewer":
         exe = _trova_realvnc()
-        # RealVNC accetta  host::port  (doppio colon = porta diretta)
         cmd = f'"{exe}" {host}::{port}'
         return cmd
 
@@ -452,7 +517,6 @@ def _build_vnc(p: dict) -> str:
 
     # --- vncviewer generico (default) ---
     else:
-        # usa il client esattamente come scritto nel campo
         exe = shutil.which(client) or client
         return f"{exe} {host}::{port}"
 
@@ -644,7 +708,8 @@ def check_dipendenze_categorizzate() -> dict:
 
 def installed_tools(category: str) -> list[str]:
     """
-    Restituisce la lista degli strumenti installati per categoria.
+    Restituisce la lista degli strumenti installati per categoria,
+    più i client personalizzati configurati dall'utente.
     category: "terminal" | "rdp" | "vnc"
     """
     _map = {
@@ -655,4 +720,15 @@ def installed_tools(category: str) -> list[str]:
         "vnc":      ["vncviewer", "realvnc-viewer", "tigervnc", "remmina", "krdc"],
     }
     candidates = _map.get(category, [])
-    return [t for t in candidates if shutil.which(t)]
+    result = [c for c in candidates if shutil.which(c)]
+
+    # Aggiungi client personalizzati (sono identificati dalla loro etichetta)
+    if category in ("vnc", "rdp"):
+        ct = config_manager.load_custom_tools()
+        for entry in ct.get(category, []):
+            label = entry.get("label", "").strip()
+            path  = entry.get("path", "").strip()
+            if label and path and label not in result:
+                result.append(label)
+
+    return result

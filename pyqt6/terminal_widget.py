@@ -32,13 +32,17 @@ def _build_html(bg: str, fg: str, font: str, font_size: int,
 <html>
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<link rel="stylesheet" href="xterm.css"/>
+<script src="xterm.js"></script>
+<script src="xterm-addon-fit.js"></script>
+<script src="addon-webgl.js"></script>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <style>
-  body {{ margin:0; background:{bg}; overflow:hidden; height:100vh; }}
+  body {{ margin:0; background:{bg}; overflow:hidden; height:100vh;
+         -webkit-font-smoothing: subpixel-antialiased;
+         text-rendering: optimizeLegibility; }}
   #terminal {{ height:100%; width:100%; padding:4px; box-sizing:border-box; }}
+  canvas {{ image-rendering: pixelated; }}
 </style>
 </head>
 <body>
@@ -47,13 +51,17 @@ def _build_html(bg: str, fg: str, font: str, font_size: int,
 const term = new Terminal({{
     theme: {{ background:'{bg}', foreground:'{fg}' }},
     fontFamily: '{font}, monospace',
-    fontSize: {int(font_size * 1.35)},
+    fontSize: {font_size},
     cursorBlink: true,
     allowProposedApi: true,
     scrollback: {scrollback_lines}
 }});
 const fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
+// WebGL renderer: testo GPU-accelerato, molto più nitido del canvas
+const webglAddon = new WebglAddon.WebglAddon();
+webglAddon.onContextLoss(() => {{ webglAddon.dispose(); }});
+term.loadAddon(webglAddon);
 term.open(document.getElementById('terminal'));
 
 new QWebChannel(qt.webChannelTransport, function(channel) {{
@@ -120,10 +128,14 @@ window.termWrite = function(b64) {{
 
 # ── Backend QWebChannel ───────────────────────────────────────────────────────
 class _Backend(QObject):
+    # Emesso al primo resize() da JS: xterm.js + WebChannel sono entrambi pronti
+    xterm_ready = pyqtSignal()
+
     def __init__(self, get_fd, log_callback=None):
         super().__init__()
-        self._get_fd   = get_fd        # callable → fd PTY
-        self._log_cb   = log_callback  # callable(data: bytes) per log su file
+        self._get_fd        = get_fd
+        self._log_cb        = log_callback
+        self._ready_emitted = False
 
     @pyqtSlot(str)
     def write(self, data: str):
@@ -146,6 +158,10 @@ class _Backend(QObject):
                             struct.pack("HHHH", rows, cols, 0, 0))
             except OSError:
                 pass
+        # Prima resize = xterm.js e WebChannel pronti
+        if not self._ready_emitted:
+            self._ready_emitted = True
+            self.xterm_ready.emit()
 
     @pyqtSlot(str)
     def copyToClipboard(self, text: str):
@@ -336,9 +352,23 @@ class TerminalWidget(QWidget):
         # Carica HTML xterm.js
         html = _build_html(self._bg, self._fg, self._font, self._font_size,
                            self._paste_on_right_click, self._scrollback_lines)
-        self._view.setHtml(html)
-        # Quando la pagina è caricata, svuota il buffer
-        self._view.loadFinished.connect(self._on_page_loaded)
+        # base_url consente i file locali static/ come risorse relative
+        from PyQt6.QtCore import QUrl
+        base_url = QUrl.fromLocalFile(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "")
+        )
+        self._view.setHtml(html, base_url)
+
+        # Segnale "pronto" dal JS (primo resize via WebChannel) — più affidabile
+        # di loadFinished che scatta quando l'HTML è parsato ma prima che gli
+        # script CDN siano eseguiti.
+        self._backend.xterm_ready.connect(self._flush_pty_buffer)
+
+        # Timer d'emergenza: se dopo 15s xterm.js non risponde, svuota comunque
+        self._ready_timer = QTimer(self)
+        self._ready_timer.setSingleShot(True)
+        self._ready_timer.timeout.connect(self._flush_pty_buffer)
+        self._ready_timer.start(15000)
 
         # Avvia reader PTY
         self._reader = _PtyReader(self._master)
@@ -365,19 +395,18 @@ class TerminalWidget(QWidget):
         b64 = base64.b64encode(data).decode('ascii')
         self._view.page().runJavaScript(f"window.termWrite('{b64}');")
 
-    @pyqtSlot(bool)
-    def _on_page_loaded(self, ok: bool):
-        """Pagina xterm.js caricata: invia i dati bufferizzati."""
-        # Disconnetti per non chiamarla di nuovo su reload
+    def _flush_pty_buffer(self):
+        if self._xterm_ready:
+            return  # già svuotato, evita doppia esecuzione
+        self._xterm_ready = True
+        # Ferma il timer d'emergenza se ancora attivo
+        if hasattr(self, '_ready_timer') and self._ready_timer.isActive():
+            self._ready_timer.stop()
+        # Disconnetti il segnale per non richiamare flush su resize successivi
         try:
-            self._view.loadFinished.disconnect(self._on_page_loaded)
+            self._backend.xterm_ready.disconnect(self._flush_pty_buffer)
         except Exception:
             pass
-        # Aspetta 200ms che JS finisca l'init prima di inviare
-        QTimer.singleShot(200, self._flush_pty_buffer)
-
-    def _flush_pty_buffer(self):
-        self._xterm_ready = True
         for data in self._pty_buffer:
             self._send_to_xterm(data)
         self._pty_buffer.clear()

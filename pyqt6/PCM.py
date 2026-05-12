@@ -1220,7 +1220,7 @@ class MainWindow(QMainWindow):
 
         # Apri SFTP browser automaticamente per SSH
         if proto == "ssh" and profilo.get("sftp_browser",
-                                           self._settings.get("ssh", {}).get("default_sftp_browser", True)):
+                                           True):
             QTimer.singleShot(1500, lambda: self._connetti_sftp_browser(profilo))
 
         self._aggiorna_status()
@@ -1242,16 +1242,9 @@ class MainWindow(QMainWindow):
 
     def _terminale_locale(self):
         self._rimuovi_welcome_se_presente()
-        s = self._settings.get("terminal", {})
         from themes import TERMINAL_THEMES
-        bg, fg = TERMINAL_THEMES.get(s.get("default_theme", "Scuro (Default)"), ("#1e1e1e", "#cccccc"))
-        term = TerminalWidget(
-            bg=bg, fg=fg,
-            font=s.get("default_font", "Monospace"),
-            font_size=s.get("default_font_size", 11),
-            paste_on_right_click=s.get("paste_on_right_click", False),
-            scrollback_lines=s.get("scrollback_lines", 5000)
-        )
+        bg, fg = TERMINAL_THEMES.get("Scuro (Default)", ("#1e1e1e", "#cccccc"))
+        term = TerminalWidget(bg=bg, fg=fg)
         self.tabs.setTabsClosable(True)
         idx = self.tabs.addTab(term, _qi("terminal.png"), t("tab.local"))
         self.tabs.setCurrentIndex(idx)
@@ -1289,9 +1282,9 @@ class MainWindow(QMainWindow):
             "port": porta,
             "user": user,
             "password": "",
-            "term_theme": self._settings.get("terminal", {}).get("default_theme", "Scuro (Default)"),
-            "term_font":  self._settings.get("terminal", {}).get("default_font", "Monospace"),
-            "term_size":  self._settings.get("terminal", {}).get("default_font_size", 11),
+            "term_theme": "Scuro (Default)",
+            "term_font":  "Monospace",
+            "term_size":  11,
         }
 
         nome_qc = f"{user}@{host}:{porta}"
@@ -1316,7 +1309,7 @@ class MainWindow(QMainWindow):
 
             # Conferma per sessioni attive
             ha_processo = hasattr(w, "chiudi_processo") or hasattr(w, "chiudi_connessione")
-            if ha_processo and self._settings.get("terminal", {}).get("confirm_on_close", True):
+            if ha_processo:
                 nome_tab = self.tabs.tabText(index).strip()
                 risposta = QMessageBox.question(
                     self, t("tab.close_confirm_title"),

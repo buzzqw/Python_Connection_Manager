@@ -310,8 +310,14 @@ class FilePanel(QWidget):
             nome = v["nome"]
             is_dir = v["is_dir"]
 
-            # Colore directory
-            col_nome = QTableWidgetItem(("📁 " if is_dir else "📄 ") + nome)
+            # Icona cartella/file via Qt standard icons (nessun emoji → nessun quadratino)
+            col_nome = QTableWidgetItem(nome)
+            style = QApplication.style()
+            ico = style.standardIcon(
+                QStyle.StandardPixmap.SP_DirIcon if is_dir
+                else QStyle.StandardPixmap.SP_FileIcon
+            )
+            col_nome.setIcon(ico)
             col_nome.setData(Qt.ItemDataRole.UserRole, v)
             if is_dir:
                 # Colore blu solo quando NON selezionato; la selezione usa lo stylesheet

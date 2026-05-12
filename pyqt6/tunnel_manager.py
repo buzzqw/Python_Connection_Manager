@@ -243,6 +243,11 @@ class TunnelManagerDialog(QDialog):
         self.tabella.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabella.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabella.setAlternatingRowColors(True)
+        self.tabella.setStyleSheet(
+            "QTableWidget { gridline-color:#3a3a3a; }"
+            "QTableWidget::item:selected { background:#4e7abc; color:#ffffff; }"
+            "QTableWidget::item:selected:!focus { background:#3a5f8a; color:#ffffff; }"
+        )
         self.tabella.verticalHeader().setVisible(False)
         self.tabella.doubleClicked.connect(self._toggle_selezionato)
         layout.addWidget(self.tabella, 1)

@@ -36,22 +36,22 @@ declare -A PKG
 
 if [[ "$DISTRO" == "debian" ]]; then
     # Su Debian usiamo UV per i pacchetti Python (evita il blocco PEP-668)
-    PKG[sys]="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-webkit2-4.1 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
+    PKG[sys]="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-webkit2-4.1 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer novnc websockify xdotool wakeonlan xdg-utils"
     USE_UV=true
     
 elif [[ "$DISTRO" == "fedora" ]]; then
     # Anche su Fedora usiamo UV per mantenere pulito il sistema
-    PKG[sys]="python3 python3-devel curl gtk3 vte291 webkit2gtk4.1 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
+    PKG[sys]="python3 python3-devel curl gtk3 vte291 webkit2gtk4.1 gtk-vnc2 openssh-clients mosh freerdp tigervnc novnc python3-websockify xdotool wol xdg-utils"
     USE_UV=true
 
 elif [[ "$DISTRO" == "arch" ]]; then
     # Su Arch i pacchetti Python nativi sono eccellenti e aggiornati, niente UV!
-    PKG[sys]="python curl gtk3 vte3 webkit2gtk gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
+    PKG[sys]="python curl gtk3 vte3 webkit2gtk gtk-vnc openssh mosh freerdp tigervnc novnc python-websockify xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
     USE_UV=false
 
 elif [[ "$DISTRO" == "freebsd" ]]; then
     # Su FreeBSD installiamo tutto nativamente con pkg, niente UV!
-    PKG[sys]="bash python3 curl py311-pygobject gtk3 vte3 webkit2-gtk_41 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py311-cryptography py311-paramiko py311-pyftpdlib"
+    PKG[sys]="bash python3 curl py311-pygobject gtk3 vte3 webkit2-gtk_41 gtk-vnc mosh freerdp3 tigervnc-viewer novnc py311-websockify xdotool wakeonlan xdg-utils py311-cryptography py311-paramiko py311-pyftpdlib"
     USE_UV=false
 
 else

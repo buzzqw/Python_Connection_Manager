@@ -196,7 +196,10 @@ DEFAULT_SETTINGS = {
     },
     "tunnels": [],
     "variables": {},   # variabili globali {NOME: valore}
-    "tool_paths": {},  # <--- ECCO LA RIGA DA AGGIUNGERE!
+    "custom_tools": {
+        "vnc": [],   # [{label, path, syntax}]
+        "rdp": [],
+    },
     "display": {
         "sidebar_visible": True,
         "toolbar_visible": True,
@@ -289,6 +292,21 @@ def expand_variables(testo: str) -> str:
     for nome, valore in vars_.items():
         testo = testo.replace(f"{{{nome}}}", valore)
     return testo
+
+
+# ---------------------------------------------------------------------------
+# Strumenti personalizzati (VNC / RDP)
+# ---------------------------------------------------------------------------
+
+def load_custom_tools() -> dict:
+    """Restituisce {"vnc": [...], "rdp": [...]} con i client personalizzati."""
+    return load_settings().get("custom_tools", {"vnc": [], "rdp": []})
+
+
+def save_custom_tools(custom_tools: dict):
+    s = load_settings()
+    s["custom_tools"] = custom_tools
+    save_settings(s)
 
 
 if __name__ == "__main__":

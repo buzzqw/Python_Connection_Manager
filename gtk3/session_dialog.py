@@ -353,7 +353,12 @@ class SessionDialog(Gtk.Dialog):
         _form_row(t("sd.grp.ssh_open"), self.combo_ssh_open, grid, row); row += 1
 
         # Modalità apertura SFTP
-        self.combo_sftp_open = _combo(t("sd.open_int"), t("sd.open_ext"))
+        self.combo_sftp_open = _combo(
+            t("sd.open_int"),
+            t("sd.open_browser_ext"),
+            t("sd.sftp.open_term_int"),
+            t("sd.sftp.open_term_ext"),
+        )
         _form_row(t("sd.grp.sftp_open"), self.combo_sftp_open, grid, row); row += 1
 
         return grid
@@ -412,7 +417,7 @@ class SessionDialog(Gtk.Dialog):
         outer.pack_start(self._frame_rdp, False, False, 0)
         rdp_clients = _available_tools(["xfreerdp3","xfreerdp","rdesktop"])
         self.combo_rdp_client = _combo(*rdp_clients)
-        self.combo_rdp_auth   = _combo("NLA (default)","TLS","RDP classic")
+        self.combo_rdp_auth = _combo(t("sd.rdp.auth_ntlm"), t("sd.rdp.auth_kerberos"))
         self.entry_rdp_domain = _entry()
         self.chk_rdp_fs       = _check(t("sd.rdp.fullscreen"))
         self.chk_rdp_clip     = _check(t("sd.rdp.clipboard"))
@@ -454,7 +459,12 @@ class SessionDialog(Gtk.Dialog):
         self.chk_ftp_tls     = _check(t("sd.ftp.tls"))
         self.chk_ftp_passive = _check(t("sd.ftp.passive"))
         self.chk_ftp_passive.set_active(True)
-        self.combo_ftp_open  = _combo(t("sd.open_int"), t("sd.open_ext_client"))
+        self.combo_ftp_open = _combo(
+            t("sd.open_int"),
+            t("sd.open_browser_ext"),
+            t("sd.ftp.open_term_int"),
+            t("sd.ftp.open_term_ext"),
+        )
         for chk in [self.chk_ftp_tls, self.chk_ftp_passive]:
             vbox.pack_start(chk, False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.grp.ftp_open"), self.combo_ftp_open), False, False, 0)
@@ -1013,6 +1023,8 @@ class SessionDialog(Gtk.Dialog):
 
         # RDP
         self._set_combo_active_text(self.combo_rdp_client, dati.get("rdp_client", "xfreerdp"))
+        rdp_auth = dati.get("rdp_auth", "ntlm")
+        self.combo_rdp_auth.set_active(1 if rdp_auth == "kerberos" else 0)
         self.chk_rdp_fs.set_active(dati.get("fullscreen", True))
         self.chk_rdp_clip.set_active(dati.get("redirect_clipboard", True))
         self.chk_rdp_drives.set_active(dati.get("redirect_drives", False))
@@ -1026,25 +1038,15 @@ class SessionDialog(Gtk.Dialog):
         self.chk_vnc_internal.set_active(is_internal)
         self.combo_vnc_client.set_visible(not is_internal)
         self._set_combo_active_text(self.combo_vnc_client, dati.get("vnc_client", "vncviewer"))
-        
-        # VNC color e quality - fix per persistenza impostazioni
         vnc_color = dati.get("vnc_color", 0)
-        if isinstance(vnc_color, int):
-            self.combo_vnc_color.set_active(vnc_color)
-        else:
-            # Gestione valori legacy salvati come stringa
-            self.combo_vnc_color.set_active(0)  # default 32bpp
-            
+        self.combo_vnc_color.set_active(vnc_color if isinstance(vnc_color, int) else 0)
         vnc_quality = dati.get("vnc_quality", 2)
-        if isinstance(vnc_quality, int):
-            self.combo_vnc_quality.set_active(vnc_quality)
-        else:
-            # Gestione valori legacy salvati come stringa
-            self.combo_vnc_quality.set_active(2)  # default fast
+        self.combo_vnc_quality.set_active(vnc_quality if isinstance(vnc_quality, int) else 2)
 
         # FTP
         self.chk_ftp_tls.set_active(dati.get("ftp_tls", False))
         self.chk_ftp_passive.set_active(dati.get("ftp_passive", True))
+        self._set_combo_active_text(self.combo_ftp_open, dati.get("ftp_open_mode", t("sd.open_int")))
 
         # WoL
         self.chk_wol.set_active(dati.get("wol_enabled", False))
@@ -1063,7 +1065,7 @@ class SessionDialog(Gtk.Dialog):
 
         # Modalità apertura (tab Terminale)
         self.combo_ssh_open.set_active(0 if dati.get("ssh_open_mode", "internal") == "internal" else 1)
-        self.combo_sftp_open.set_active(0 if dati.get("sftp_open_mode", "internal") == "internal" else 1)
+        self._set_combo_active_text(self.combo_sftp_open, dati.get("sftp_open_mode", t("sd.open_int")))
         self._set_combo_active_text(
             self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
@@ -1141,7 +1143,7 @@ class SessionDialog(Gtk.Dialog):
             "keepalive":      self.chk_keepalive.get_active(),
             "strict_host":    self.chk_strict_host.get_active(),
             "rdp_client":     self.combo_rdp_client.get_active_text() or "xfreerdp",
-            "rdp_auth":       ["ntlm","tls","rdp"][self.combo_rdp_auth.get_active()],
+            "rdp_auth":       "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
             "fullscreen":     self.chk_rdp_fs.get_active(),
             "redirect_clipboard": self.chk_rdp_clip.get_active(),
             "redirect_drives":    self.chk_rdp_drives.get_active(),
@@ -1152,8 +1154,8 @@ class SessionDialog(Gtk.Dialog):
             "vnc_color":      self.combo_vnc_color.get_active(),
             "vnc_quality":    self.combo_vnc_quality.get_active(),
             "ssh_open_mode":  "internal" if self.combo_ssh_open.get_active() == 0 else "external",
-            "sftp_open_mode": "internal" if self.combo_sftp_open.get_active() == 0 else "external",
-            "ftp_open_mode":  "internal" if self.combo_ftp_open.get_active() == 0 else "external",
+            "sftp_open_mode": self.combo_sftp_open.get_active_text() or t("sd.open_int"),
+            "ftp_open_mode":  self.combo_ftp_open.get_active_text() or t("sd.open_int"),
             "ftp_tls":        self.chk_ftp_tls.get_active(),
             "ftp_passive":    self.chk_ftp_passive.get_active(),
             "tunnel_type":    self.combo_tunnel_type.get_active_text() or "Proxy SOCKS (-D)",

@@ -346,10 +346,11 @@ class SessionDialog(QDialog):
         self.combo_vnc_client.addItems(_vnc_tools)
         vnc_layout.addRow(t("sd.vnc.client"), self.combo_vnc_client)
         self.combo_vnc_color = QComboBox()
-        self.combo_vnc_color.addItems(["Truecolor (32 bpp)", "Highcolor (16 bpp)", "256 colori"])
+        self.combo_vnc_color.addItems([t("sd.vnc.color_32"), t("sd.vnc.color_16"), t("sd.vnc.color_8")])
         vnc_layout.addRow(t("sd.vnc.color"), self.combo_vnc_color)
         self.combo_vnc_quality = QComboBox()
-        self.combo_vnc_quality.addItems(["Auto", "Alta", "Buona", "Bassa"])
+        self.combo_vnc_quality.addItems([t("sd.vnc.q_best"), t("sd.vnc.q_good"), t("sd.vnc.q_fast")])
+        self.combo_vnc_quality.setCurrentIndex(2)
         vnc_layout.addRow(t("sd.vnc.quality"), self.combo_vnc_quality)
         layout.addRow(self.grp_vnc)
 
@@ -404,7 +405,7 @@ class SessionDialog(QDialog):
         self.combo_parity.addItems(["None","Even","Odd","Mark","Space"])
         ser_layout.addRow(t("sd.serial.parity"), self.combo_parity)
         self.combo_stop_bits = QComboBox()
-        self.combo_stop_bits.addItems(["1","2"])
+        self.combo_stop_bits.addItems(["1","1.5","2"])
         ser_layout.addRow(t("sd.serial.stopbits"), self.combo_stop_bits)
         layout.addRow(self.grp_serial)
 
@@ -888,10 +889,10 @@ class SessionDialog(QDialog):
         sftp_open_layout = QFormLayout(self.grp_sftp_open)
         self.combo_sftp_open = QComboBox()
         self.combo_sftp_open.addItems([
-            "Browser interno",
-            "Browser esterno (Nemo / Thunar / Dolphin)",
-            "Terminale interno (sftp CLI embedded)",
-            "Terminale esterno (sftp CLI in finestra separata)",
+            t("sd.open_int"),
+            t("sd.open_browser_ext"),
+            t("sd.sftp.open_term_int"),
+            t("sd.sftp.open_term_ext"),
         ])
         sftp_open_layout.addRow(t("sd.open_with"), self.combo_sftp_open)
         layout.addRow(self.grp_sftp_open)
@@ -900,10 +901,10 @@ class SessionDialog(QDialog):
         ftp_open_layout = QFormLayout(self.grp_ftp_open)
         self.combo_ftp_open = QComboBox()
         self.combo_ftp_open.addItems([
-            "Browser interno",
-            "Browser esterno (Nemo / Thunar / Dolphin)",
-            "Terminale interno (lftp embedded)",
-            "Terminale esterno (lftp in finestra separata)",
+            t("sd.open_int"),
+            t("sd.open_browser_ext"),
+            t("sd.ftp.open_term_int"),
+            t("sd.ftp.open_term_ext"),
         ])
         ftp_open_layout.addRow(t("sd.open_with"), self.combo_ftp_open)
         layout.addRow(self.grp_ftp_open)
@@ -1088,7 +1089,7 @@ class SessionDialog(QDialog):
                     break
 
         # WoL: visibile solo per protocolli di rete (non seriale, non tunnel)
-        self.grp_wol.setVisible(proto in ("ssh", "mosh", "rdp", "vnc", "telnet"))
+        self.grp_wol.setVisible(proto in ("ssh", "mosh", "rdp", "vnc", "telnet", "sftp", "ftp"))
 
         # Mostra/nascondi tab terminale
         show_term = proto in ("ssh", "telnet", "mosh", "serial")
@@ -1178,7 +1179,18 @@ class SessionDialog(QDialog):
         self.edit_port.setText(str(dati.get("port", "")))
         self.edit_user.setText(dati.get("user", ""))
         self.edit_password.setText(dati.get("password", ""))
-        self.edit_pkey.setText(dati.get("private_key", ""))
+        pkey_val = dati.get("private_key", "")
+        self.edit_pkey.setText(pkey_val)
+        # Sync the combo_chiavi dropdown to show the matching key
+        matched = False
+        for i in range(self.combo_chiavi.count()):
+            if self.combo_chiavi.itemData(i) == pkey_val or \
+               (pkey_val and os.path.expanduser(self.combo_chiavi.itemData(i) or "") == os.path.expanduser(pkey_val)):
+                self.combo_chiavi.setCurrentIndex(i)
+                matched = True
+                break
+        if not matched:
+            self.combo_chiavi.setCurrentIndex(0)
 
         # Jump
         self.edit_jump_host.setText(dati.get("jump_host", ""))
@@ -1195,6 +1207,8 @@ class SessionDialog(QDialog):
         idx_f = self.combo_font.findText(font)
         if idx_f >= 0:
             self.combo_font.setCurrentIndex(idx_f)
+        else:
+            self.combo_font.setCurrentIndex(0)
 
         try:
             self.spin_font_size.setValue(int(dati.get("term_size", 11)))
@@ -1247,6 +1261,10 @@ class SessionDialog(QDialog):
 
         # VNC
         self.chk_vnc_internal.setChecked(dati.get("vnc_internal", True))
+        vnc_color = dati.get("vnc_color", 0)
+        self.combo_vnc_color.setCurrentIndex(vnc_color if isinstance(vnc_color, int) else 0)
+        vnc_quality = dati.get("vnc_quality", 2)
+        self.combo_vnc_quality.setCurrentIndex(vnc_quality if isinstance(vnc_quality, int) else 2)
 
         # SSH modalità apertura
         ssh_open = dati.get("ssh_open_mode", "Terminale interno")
@@ -1296,6 +1314,15 @@ class SessionDialog(QDialog):
         idx_b = self.combo_baud.findText(baud)
         if idx_b >= 0:
             self.combo_baud.setCurrentIndex(idx_b)
+        idx_db = self.combo_data_bits.findText(str(dati.get("data_bits", "8")))
+        if idx_db >= 0:
+            self.combo_data_bits.setCurrentIndex(idx_db)
+        idx_p = self.combo_parity.findText(str(dati.get("parity", "None")))
+        if idx_p >= 0:
+            self.combo_parity.setCurrentIndex(idx_p)
+        idx_sb = self.combo_stop_bits.findText(str(dati.get("stop_bits", "1")))
+        if idx_sb >= 0:
+            self.combo_stop_bits.setCurrentIndex(idx_sb)
 
         # Terminale esterno
         te = dati.get("terminal_type", "Terminale Interno")
@@ -1353,7 +1380,7 @@ class SessionDialog(QDialog):
             "port":           self.edit_port.text().strip(),
             "user":           self.edit_user.text().strip(),
             "password":       self.edit_password.text(),
-            "private_key":    self.edit_pkey.text().strip(),
+            "private_key":    os.path.expanduser(self.edit_pkey.text().strip()),
             "jump_host":      self.edit_jump_host.text().strip(),
             "jump_user":      self.edit_jump_user.text().strip(),
             "jump_port":      self.edit_jump_port.text().strip(),
@@ -1378,8 +1405,8 @@ class SessionDialog(QDialog):
             "rdp_open_mode": self.combo_rdp_open.currentData() or "external",
             "vnc_internal":   self.chk_vnc_internal.isChecked(), 
             "vnc_client":     self.combo_vnc_client.currentText(),
-            "vnc_color":      self.combo_vnc_color.currentText(),
-            "vnc_quality":    self.combo_vnc_quality.currentText(),
+            "vnc_color":      self.combo_vnc_color.currentIndex(),
+            "vnc_quality":    self.combo_vnc_quality.currentIndex(),
             "ssh_open_mode":  self.combo_ssh_open.currentText(),
             "sftp_open_mode": self.combo_sftp_open.currentText(),
             "ftp_open_mode":  self.combo_ftp_open.currentText(),

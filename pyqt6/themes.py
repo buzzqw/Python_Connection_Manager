@@ -46,14 +46,20 @@ QToolBar {{ background-color: #e8e8e8; border-bottom: 1px solid #ccc; }}
 QToolBar QToolButton {{ color: #111111; }}
 QToolBar QToolButton:hover {{ background-color: #d0d0d0; border-radius: 3px; }}
 
-QTreeWidget, QListWidget {{
+QTreeWidget, QListWidget, QTableWidget, QTableView {{
     background-color: #ffffff;
     color: #111111;
     border: 1px solid #ccc;
     font-size: 13px;
 }}
-QTreeWidget::item:selected, QListWidget::item:selected {{
+QTreeWidget::item:selected, QListWidget::item:selected,
+QTableWidget::item:selected, QTableView::item:selected {{
     background-color: #4e7abc;
+    color: #ffffff;
+}}
+QTreeWidget::item:selected:!active, QListWidget::item:selected:!active,
+QTableWidget::item:selected:!active, QTableView::item:selected:!active {{
+    background-color: #3a5f8a;
     color: #ffffff;
 }}
 
