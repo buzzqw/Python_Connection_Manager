@@ -48,6 +48,8 @@ try:
 except ImportError:
     PARAMIKO_OK = False
 
+from translations import t
+
 
 def _fmt_size(n: int) -> str:
     """Formatta dimensione in byte in stringa leggibile."""
