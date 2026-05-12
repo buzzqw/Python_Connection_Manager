@@ -836,6 +836,9 @@ class SessionDialog(QDialog):
         self.chk_log = QCheckBox(t("sd.term.log"))
         layout.addRow("", self.chk_log)
 
+        self.chk_paste_right = QCheckBox(t("sd.term.paste_right"))
+        layout.addRow("", self.chk_paste_right)
+
         log_row = QHBoxLayout()
         self.edit_log_dir = QLineEdit("/tmp/pcm_logs")
         self.btn_log_browse = QPushButton("...")
@@ -1202,6 +1205,7 @@ class SessionDialog(QDialog):
         self.chk_sftp_browser.setChecked(dati.get("sftp_browser", True))
         self.chk_log.setChecked(dati.get("log_output", False))
         self.edit_log_dir.setText(dati.get("log_dir", "/tmp/pcm_logs"))
+        self.chk_paste_right.setChecked(dati.get("paste_on_right_click", False))
 
         # SSH avanzate
         self.chk_x11.setChecked(dati.get("x11", False))
@@ -1360,6 +1364,7 @@ class SessionDialog(QDialog):
             "sftp_browser":   self.chk_sftp_browser.isChecked(),
             "log_output":     self.chk_log.isChecked(),
             "log_dir":        self.edit_log_dir.text().strip(),
+            "paste_on_right_click": self.chk_paste_right.isChecked(),
             "x11":            self.chk_x11.isChecked(),
             "compression":    self.chk_compression.isChecked(),
             "keepalive":      self.chk_keepalive.isChecked(),

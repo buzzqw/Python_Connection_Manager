@@ -136,9 +136,6 @@ class SettingsDialog(QDialog):
         self.spin_scrollback.setMaximumWidth(90)
         layout.addRow(t("settings.terminal.scrollback"), self.spin_scrollback)
 
-        self.chk_paste_right = QCheckBox(t("settings.terminal.paste_right"))
-        layout.addRow("", self.chk_paste_right)
-
         self.chk_confirm_close = QCheckBox(t("settings.terminal.confirm_close"))
         layout.addRow("", self.chk_confirm_close)
 
@@ -250,7 +247,6 @@ class SettingsDialog(QDialog):
             self.combo_def_font.setCurrentIndex(idx)
         self.spin_def_size.setValue(t_.get("default_font_size", 11))
         self.spin_scrollback.setValue(t_.get("scrollback_lines", 10000))
-        self.chk_paste_right.setChecked(t_.get("paste_on_right_click", False))
         self.chk_confirm_close.setChecked(t_.get("confirm_on_close", True))
         self.chk_warn_paste.setChecked(t_.get("warn_multiline_paste", True))
         self.chk_log.setChecked(t_.get("log_output", False))
@@ -281,7 +277,6 @@ class SettingsDialog(QDialog):
         s["terminal"]["default_font"]        = self.combo_def_font.currentText()
         s["terminal"]["default_font_size"]   = self.spin_def_size.value()
         s["terminal"]["scrollback_lines"]    = self.spin_scrollback.value()
-        s["terminal"]["paste_on_right_click"]= self.chk_paste_right.isChecked()
         s["terminal"]["confirm_on_close"]    = self.chk_confirm_close.isChecked()
         s["terminal"]["warn_multiline_paste"]= self.chk_warn_paste.isChecked()
         s["terminal"]["log_output"]          = self.chk_log.isChecked()

@@ -329,6 +329,9 @@ class SessionDialog(Gtk.Dialog):
         self.chk_log = _check(t("sd.term.log"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
+        self.chk_paste_right = _check(t("sd.term.paste_right"))
+        grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
+
         log_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_log_dir = _entry("/tmp/pcm_logs")
         btn_log = Gtk.Button(label="…")
@@ -1065,6 +1068,7 @@ class SessionDialog(Gtk.Dialog):
             self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
         self.entry_log_dir.set_text(dati.get("log_dir", "/tmp/pcm_logs"))
+        self.chk_paste_right.set_active(dati.get("paste_on_right_click", False))
 
         # Pre-cmd
         self.entry_pre_cmd.set_text(dati.get("pre_cmd", ""))
@@ -1131,6 +1135,7 @@ class SessionDialog(Gtk.Dialog):
             "sftp_browser":   self.chk_sftp_browser.get_active(),
             "log_output":     self.chk_log.get_active(),
             "log_dir":        self.entry_log_dir.get_text().strip(),
+            "paste_on_right_click": self.chk_paste_right.get_active(),
             "x11":            self.chk_x11.get_active(),
             "compression":    self.chk_compression.get_active(),
             "keepalive":      self.chk_keepalive.get_active(),

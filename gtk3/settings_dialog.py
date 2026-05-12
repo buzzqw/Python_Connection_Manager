@@ -187,9 +187,6 @@ class SettingsDialog(Gtk.Dialog):
         # Connetti il segnale per abilitare/disabilitare lo spin button
         self.chk_infinite_scrollback.connect("toggled", self._on_infinite_scrollback_toggled)
 
-        self.chk_paste_right = Gtk.CheckButton(label=t("settings.terminal.paste_right"))
-        grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
-
         self.chk_confirm_close = Gtk.CheckButton(label=t("settings.terminal.confirm_close"))
         grid.attach(self.chk_confirm_close, 0, row, 2, 1); row += 1
 
@@ -309,7 +306,6 @@ class SettingsDialog(Gtk.Dialog):
         else:
             self.spin_scrollback.set_value(term.get("scrollback_lines", 10000))
         
-        self.chk_paste_right.set_active(term.get("paste_on_right_click", False))
         self.chk_confirm_close.set_active(term.get("confirm_on_close", True))
         self.chk_warn_paste.set_active(term.get("warn_multiline_paste", True))
         self.chk_log.set_active(term.get("log_output", False))
@@ -359,7 +355,6 @@ class SettingsDialog(Gtk.Dialog):
         if not self.chk_infinite_scrollback.get_active():
             s["terminal"]["scrollback_lines"] = int(self.spin_scrollback.get_value())
         
-        s["terminal"]["paste_on_right_click"] = self.chk_paste_right.get_active()
         s["terminal"]["confirm_on_close"]     = self.chk_confirm_close.get_active()
         s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
         s["terminal"]["log_output"]           = self.chk_log.get_active()

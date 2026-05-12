@@ -359,8 +359,7 @@ class TerminalWidget(Gtk.Box):
         bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
         font = profilo.get("term_font", "Monospace")
         size = profilo.get("term_size", 11)
-        s = load_settings().get("terminal", {})
-        paste_right = s.get("paste_on_right_click", False)
+        paste_right = profilo.get("paste_on_right_click", False)
         return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
                    paste_on_right_click=paste_right)
 

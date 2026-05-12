@@ -183,7 +183,6 @@ DEFAULT_SETTINGS = {
         "default_font": "Monospace",
         "default_font_size": 11,
         "scrollback_lines": 10000,
-        "paste_on_right_click": False,
         "confirm_on_close": True,
         "log_output": False,
         "log_dir": "/tmp/pcm_logs",

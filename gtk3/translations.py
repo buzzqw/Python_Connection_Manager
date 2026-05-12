@@ -652,6 +652,7 @@ _T: dict[str, dict[str, str]] = {
     "sd.term.sftp_auto":    {"it": "Apri browser SFTP laterale dopo la connessione SSH", "en": "Open side SFTP browser after SSH connection", "de": "Seitliches SFTP-Browser nach SSH-Verbindung öffnen", "fr": "Ouvrir le navigateur SFTP latéral après la connexion SSH", "es": "Abrir navegador SFTP lateral tras la conexión SSH"},
     "sd.term.log":          {"it": "Registra output su file", "en": "Log output to file", "de": "Ausgabe in Datei protokollieren", "fr": "Enregistrer la sortie dans un fichier", "es": "Registrar salida en archivo"},
     "sd.term.log_dir":      {"it": "Cartella log:",       "en": "Log folder:",         "de": "Log-Ordner:",         "fr": "Dossier de logs :",     "es": "Carpeta de logs:"},
+    "sd.term.paste_right":  {"it": "Incolla con tasto destro", "en": "Paste with right-click", "de": "Mit Rechtsklick einfügen", "fr": "Coller avec clic droit", "es": "Pegar con clic derecho"},
 
     # ─ Tab Avanzate ─
     "sd.grp.ssh_adv":     {"it": "Opzioni SSH",           "en": "SSH options",          "de": "SSH-Optionen",           "fr": "Options SSH",           "es": "Opciones SSH"},

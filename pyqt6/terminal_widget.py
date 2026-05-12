@@ -292,7 +292,7 @@ class TerminalWidget(QWidget):
         size = profilo.get("term_size", 11)
         from config_manager import load_settings
         s = load_settings().get('terminal', {})
-        paste_right    = s.get('paste_on_right_click', False)
+        paste_right    = profilo.get('paste_on_right_click', False)
         scrollback     = s.get('scrollback_lines', 5000)
         return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
                    paste_on_right_click=paste_right, scrollback_lines=scrollback)
