@@ -74,7 +74,7 @@ class SftpBrowserWidget(Gtk.Box):
 
         btn_up = Gtk.Button()
         btn_up.add(Gtk.Image.new_from_icon_name("go-up-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
-        btn_up.set_tooltip_text("Su")
+        btn_up.set_tooltip_text(t("sftp.tooltip_up"))
         btn_up.connect("clicked", lambda b: self._naviga_su())
 
         btn_ref = Gtk.Button()
@@ -348,7 +348,7 @@ class SftpBrowserWidget(Gtk.Box):
             self._sftp.get(remote, local)
             GLib.idle_add(self._set_status, t("sftp.download_done"))
         except Exception as e:
-            GLib.idle_add(self._set_status, t("sftp.err_delete").replace("Errore eliminazione", "Download errore") + f": {e}")
+            GLib.idle_add(self._set_status, t("sftp.download_err_detail").format(e=e))
 
     def _on_mkdir(self):
         if not self._sftp:
@@ -490,12 +490,12 @@ class FtpBrowserWidget(Gtk.Box):
 
         btn_up = Gtk.Button()
         btn_up.add(Gtk.Image.new_from_icon_name("go-up-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
-        btn_up.set_tooltip_text("Su")
+        btn_up.set_tooltip_text(t("sftp.tooltip_up"))
         btn_up.connect("clicked", lambda b: self._naviga_su())
 
         btn_ref = Gtk.Button()
         btn_ref.add(Gtk.Image.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
-        btn_ref.set_tooltip_text("Aggiorna")
+        btn_ref.set_tooltip_text(t("sftp.refresh"))
         btn_ref.connect("clicked", lambda b: self._naviga(self._cwd))
 
         nav_box.pack_start(self._path_entry, True, True, 0)
@@ -557,7 +557,7 @@ class FtpBrowserWidget(Gtk.Box):
         scroll.add(self._view)
         self.pack_start(scroll, True, True, 0)
 
-        self._status_lbl = Gtk.Label(label="Connessione FTP in corso…")
+        self._status_lbl = Gtk.Label(label=t("sftp.connecting"))
         self._status_lbl.set_xalign(0.0)
         self._status_lbl.set_margin_start(6)
         self._status_lbl.set_margin_top(2)
@@ -591,7 +591,7 @@ class FtpBrowserWidget(Gtk.Box):
             cwd = ftp.pwd()
             GLib.idle_add(self._on_connesso, cwd)
         except Exception as e:
-            GLib.idle_add(self._set_status, f"✖ Errore FTP: {e}")
+            GLib.idle_add(self._set_status, t("sftp.ftp_err").format(e=e))
 
     def _on_connesso(self, cwd: str):
         proto = "FTPS" if self._profilo.get("ftp_tls") else "FTP"
@@ -677,7 +677,7 @@ class FtpBrowserWidget(Gtk.Box):
             self._store.append([file_pb, nome, _SftpBrowserWidget_fmt_size(size), False])
 
         self._path_entry.set_text(path)
-        self._set_status(f"{len(dirs)} cartelle, {len(files)} file — {path}")
+        self._set_status(t("sftp.ftp_dir_summary").format(dirs=len(dirs), files=len(files), path=path))
 
     # ------------------------------------------------------------------
     # Interazioni
@@ -725,7 +725,7 @@ class FtpBrowserWidget(Gtk.Box):
         _mi(t("sftp.upload"),  self._on_upload)
         _mi(t("sftp.mkdir"),   self._on_mkdir)
         menu.append(Gtk.SeparatorMenuItem())
-        _mi("Aggiorna", lambda: self._naviga(self._cwd))
+        _mi(t("sftp.refresh"), lambda: self._naviga(self._cwd))
 
         menu.show_all()
         menu.popup_at_pointer(event)
@@ -756,9 +756,9 @@ class FtpBrowserWidget(Gtk.Box):
             with open(local, "rb") as fp:
                 self._ftp.storbinary(f"STOR {remote}", fp)
             GLib.idle_add(self._naviga, self._cwd)
-            GLib.idle_add(self._set_status, f"✔ Caricato: {os.path.basename(local)}")
+            GLib.idle_add(self._set_status, t("sftp.upload_done").format(name=os.path.basename(local)))
         except Exception as e:
-            GLib.idle_add(self._set_status, f"✖ Upload errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.upload_err_detail").format(e=e))
 
     def _on_download(self, nome: str | None = None):
         if not self._ftp:
@@ -788,9 +788,9 @@ class FtpBrowserWidget(Gtk.Box):
         try:
             with open(local, "wb") as fp:
                 self._ftp.retrbinary(f"RETR {remote}", fp.write)
-            GLib.idle_add(self._set_status, f"✔ Scaricato: {os.path.basename(local)}")
+            GLib.idle_add(self._set_status, t("sftp.download_done_name").format(name=os.path.basename(local)))
         except Exception as e:
-            GLib.idle_add(self._set_status, f"✖ Download errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.download_err_detail").format(e=e))
 
     def _on_mkdir(self):
         if not self._ftp:
@@ -848,7 +848,7 @@ class FtpBrowserWidget(Gtk.Box):
                     self._ftp.delete(path)
                 self._naviga(self._cwd)
             except Exception as e:
-                self._set_status(f"✖ Errore eliminazione: {e}")
+                self._set_status(t("sftp.err_delete").format(e=e))
         confirm.destroy()
 
     def _on_rename(self, nome: str):
@@ -874,7 +874,7 @@ class FtpBrowserWidget(Gtk.Box):
                     )
                     self._naviga(self._cwd)
                 except Exception as e:
-                    self._set_status(f"✖ Errore rinomina: {e}")
+                    self._set_status(t("sftp.err_rename").format(e=e))
         dlg.destroy()
 
     # ------------------------------------------------------------------

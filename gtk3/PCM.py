@@ -22,6 +22,8 @@ import os
 import subprocess
 import shutil
 import threading
+import tempfile
+import contextlib
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -445,6 +447,25 @@ class MainWindow(Gtk.ApplicationWindow):
 
         cmd, modalita = build_command(dati)
 
+        # Password via FIFO anonimo: evita SSHPASS in env var e cmdline
+        env_extra = {}
+        pwd  = dati.get("password", "")
+        pkey = dati.get("private_key", "")
+        if pwd and not pkey and shutil.which("sshpass"):
+            fifo = tempfile.mktemp(prefix=".pcm_ssh_", dir="/tmp")
+            os.mkfifo(fifo, 0o600)
+            def _scrivi_pwd(fp=fifo, p=pwd):
+                try:
+                    with open(fp, "w") as fh:
+                        fh.write(p + "\n")
+                except Exception:
+                    pass
+                finally:
+                    with contextlib.suppress(Exception):
+                        os.unlink(fp)
+            threading.Thread(target=_scrivi_pwd, daemon=True).start()
+            env_extra["PCM_PWD_FIFO"] = fifo
+
         # Modalità terminale ESTERNO: lancia nel terminal emulator scelto
         if modalita and modalita.endswith("_term_ext"):
             term = dati.get("terminal_type", "Terminale Interno")
@@ -497,7 +518,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._append_tab(container, nome)
         GLib.idle_add(widget.grab_focus)
 
-        widget.avvia(cmd)
+        widget.avvia(cmd, env_extra=env_extra)
         widget.connect("processo-terminato",
                        lambda w: self._on_processo_terminato(w))
 

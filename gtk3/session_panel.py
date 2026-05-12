@@ -37,16 +37,19 @@ PROTO_COLOR = {
     "ssh":    "#4ec9b0", "telnet": "#c9b458", "sftp":   "#6ab187",
     "ftp":    "#b87a00", "rdp":    "#0078d4", "vnc":    "#e8a020",
     "mosh":   "#5aadad", "serial": "#888888",
+    "file_transfer": "#6ab187",
 }
 PROTO_ICON_FILE = {
     "ssh":    "ssh.png",    "telnet": "network.png", "sftp":  "folder.png",
     "ftp":    "folder.png", "rdp":    "monitor.png", "vnc":   "vnc.png",
     "mosh":   "flash.png",  "serial": "cable.png",
+    "file_transfer": "folder.png",
 }
 PROTO_LABEL = {
     "ssh": "SSH", "telnet": "Telnet", "sftp": "SFTP",
     "ftp": "FTP", "rdp": "RDP",       "vnc":  "VNC",
     "mosh": "Mosh", "serial": "Seriale",
+    "file_transfer": "FTP/SFTP",
 }
 
 

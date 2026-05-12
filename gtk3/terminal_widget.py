@@ -123,10 +123,11 @@ class TerminalWidget(Gtk.Box):
     # Avvio
     # ------------------------------------------------------------------
 
-    def avvia(self, comando: str):
+    def avvia(self, comando: str, env_extra: dict = None):
         """
         Avvia il comando nella VTE.
         Il comando viene passato a /bin/sh -c per supportare pipeline e opzioni.
+        env_extra: variabili d'ambiente aggiuntive da iniettare (es. PCM_PWD_FIFO).
         """
         self._comando_corrente = comando
         cmd_show = getattr(self, "comando_display", comando)
@@ -145,6 +146,8 @@ class TerminalWidget(Gtk.Box):
 
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
+        if env_extra:
+            env.update(env_extra)
 
         try:
             result = self._vte.spawn_sync(

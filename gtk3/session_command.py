@@ -186,7 +186,7 @@ def _build_ssh(p: dict) -> str:
     if pwd and not pkey:
         if _tool_exists("sshpass"):
             sshpass_exe = _get_tool("sshpass")
-            base = f"SSHPASS='{_esc(pwd)}' \"{sshpass_exe}\" -e \"{ssh_exe}\" {args_str} {target}"
+            base = f"\"{sshpass_exe}\" -f \"$PCM_PWD_FIFO\" \"{ssh_exe}\" {args_str} {target}"
         else:
             base = f"\"{ssh_exe}\" {args_str} {target}"
     else:
@@ -283,7 +283,7 @@ def _build_sftp_cli(p: dict) -> str:
 
     if pwd:
         if _tool_exists("sshpass"):
-            return f"SSHPASS='{_esc(pwd)}' \"{_get_tool('sshpass')}\" -e \"{sftp_exe}\" {args_str} {target}"
+            return f"\"{_get_tool('sshpass')}\" -f \"$PCM_PWD_FIFO\" \"{sftp_exe}\" {args_str} {target}"
         elif _tool_exists("lftp"):
             uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
             return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"
