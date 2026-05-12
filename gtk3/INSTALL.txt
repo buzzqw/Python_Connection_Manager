@@ -113,7 +113,10 @@
 #   tigervnc-viewer / xtightvncviewer — VNC via client esterno (fallback)
 #   freerdp3-x11 / xfreerdp        — RDP
 #   mosh                           — Connessioni Mosh
-#   minicom                        — Porte seriali
+#   picocom                        — Porte seriali (prima scelta)
+#   minicom                        — Porte seriali (fallback)
+#   screen                         — Porte seriali (fallback)
+#   sshpass                        — SSH con password da riga di comando
 #   xdotool                        — RDP in pannello interno (richiede XWayland)
 #   wakeonlan                      — Wake-on-LAN
 
