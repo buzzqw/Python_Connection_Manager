@@ -10,7 +10,7 @@
 ---
 
 ![PCM Main Window](immagini/pcm1.png)
-*Schermata principale — sidebar sessioni, quick connect, terminale VTE integrato*
+*Schermata principale — sidebar sessioni con tutti i protocolli, quick connect, schermata di benvenuto*
 
 ---
 
@@ -51,12 +51,15 @@
 
 | | |
 |---|---|
-| ![SSH](immagini/pcm2.png) | ![Auth](immagini/pcm3.png) |
-| *Configurazione sessione SSH con Wake-on-LAN* | *Autenticazione SSH e gestione chiavi* |
-| ![Terminal](immagini/pcm4.png) | ![Advanced](immagini/pcm5.png) |
-| *Opzioni terminale, pre-cmd VPN, log* | *Opzioni avanzate SSH, modalità apertura* |
-| ![RDP](immagini/pcm6.png) | ![FTP Browser](immagini/pcm10.png) |
-| *Configurazione RDP* | *Browser FTP dual-pane integrato* |
+| ![SSH](immagini/pcm2.png) | ![Terminal](immagini/pcm13.png) |
+| *Connessione SSH — gestione chiavi (genera, copia pubblica, mostra)* | *Opzioni terminale — tema, font, log, paste con tasto destro* |
+| ![Advanced](immagini/pcm03.png) | ![Tunnel](immagini/pcm04.png) |
+| *SSH Avanzato — Wake-on-LAN, jump host, startup command, pre-cmd VPN* | *Tunnel SSH — SOCKS proxy, forwarding porte locale/remoto* |
+| ![RDP](immagini/pcm06.png) | ![VNC](immagini/pcm05.png) |
+| *RDP — xfreerdp3, autenticazione NLA, fullscreen, clipboard, cartelle* | *VNC — client esterno, profondità colore, qualità* |
+
+![SFTP Browser](immagini/pcm11.png)
+*Browser SFTP/FTP dual-pane — navigazione locale e remota con coda trasferimenti*
 
 ---
 
@@ -102,7 +105,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore per il suo lavoro, puoi of
 ---
 
 ![PCM Main Window](immagini/pcm1.png)
-*Main window — session sidebar, quick connect, integrated VTE terminal*
+*Main window — session sidebar with all protocols, quick connect, welcome screen*
 
 ---
 
@@ -144,12 +147,15 @@ The **GTK3** version is the actively developed one and is recommended for new in
 
 | | |
 |---|---|
-| ![SSH](immagini/pcm2.png) | ![Auth](immagini/pcm3.png) |
-| *SSH session configuration with Wake-on-LAN* | *SSH authentication and key management* |
-| ![Terminal](immagini/pcm4.png) | ![Advanced](immagini/pcm5.png) |
-| *Terminal options, VPN pre-cmd, logging* | *Advanced SSH options, open mode* |
-| ![RDP](immagini/pcm6.png) | ![FTP Browser](immagini/pcm10.png) |
-| *RDP configuration* | *Integrated dual-pane FTP browser* |
+| ![SSH](immagini/pcm2.png) | ![Terminal](immagini/pcm13.png) |
+| *SSH connection — key management (generate, copy public key, show)* | *Terminal options — theme, font, logging, paste with right-click* |
+| ![Advanced](immagini/pcm03.png) | ![Tunnel](immagini/pcm04.png) |
+| *SSH Advanced — Wake-on-LAN, jump host, startup command, VPN pre-cmd* | *SSH Tunnel — SOCKS proxy, local/remote port forwarding* |
+| ![RDP](immagini/pcm06.png) | ![VNC](immagini/pcm05.png) |
+| *RDP — xfreerdp3, NLA auth, fullscreen, clipboard, folder sharing* | *VNC — external client, color depth, quality settings* |
+
+![SFTP Browser](immagini/pcm11.png)
+*SFTP/FTP dual-pane browser — local and remote navigation with transfer queue*
 
 ---
 
