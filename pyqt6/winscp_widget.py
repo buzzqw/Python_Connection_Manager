@@ -76,7 +76,7 @@ class TransferJob:
         self.size  = size
         self.nome  = nome or os.path.basename(src)
         self.trasferito = 0
-        self.stato = "In attesa"   # In attesa | In corso | Completato | Errore
+        self.stato = t("winscp.status_wait")   # In attesa | In corso | Completato | Errore
         self.errore = ""
         self.velocita = 0
         self.t_inizio = 0.0
@@ -109,7 +109,7 @@ class TransferWorker(QObject):
         for idx, job in enumerate(self._jobs):
             if self._stop:
                 break
-            job.stato   = "In corso"
+            job.stato   = t("winscp.status_running")
             job.t_inizio = time.time()
             self.job_iniziato.emit(idx)
             try:
@@ -117,10 +117,10 @@ class TransferWorker(QObject):
                     self._download(idx, job)
                 else:
                     self._upload(idx, job)
-                job.stato = "Completato"
+                job.stato = t("winscp.status_done")
                 self.job_finito.emit(idx, True, "")
             except Exception as e:
-                job.stato  = "Errore"
+                job.stato  = t("winscp.status_err")
                 job.errore = str(e)
                 self.job_finito.emit(idx, False, str(e))
         self.tutti_finiti.emit()
@@ -147,7 +147,7 @@ class TransferWorker(QObject):
 # ============================================================================
 
 COL_NOME, COL_EXT, COL_SIZE, COL_DATA, COL_ATTR = 0, 1, 2, 3, 4
-COLONNE = ["Nome", "Ext", "Dimensione", "Modificato", "Attributi"]
+COLONNE = [t("winscp.col_name"), t("winscp.col_ext"), t("winscp.col_size"), t("winscp.col_modified"), t("winscp.col_attrs")]
 
 
 class FilePanel(QWidget):
@@ -191,21 +191,21 @@ class FilePanel(QWidget):
 
         self.btn_su = QToolButton()
         self.btn_su.setText("⬆")
-        self.btn_su.setToolTip("Cartella superiore")
+        self.btn_su.setToolTip(t("sftp.parent_folder"))
         self.btn_su.setFixedHeight(22)
         self.btn_su.clicked.connect(self.vai_su)
         self.btn_su.setStyleSheet(self._btn_stile())
 
         self.btn_home = QToolButton()
         self.btn_home.setText("🏠")
-        self.btn_home.setToolTip("Home")
+        self.btn_home.setToolTip(t("winscp.tooltip_home"))
         self.btn_home.setFixedHeight(22)
         self.btn_home.clicked.connect(self.vai_home)
         self.btn_home.setStyleSheet(self._btn_stile())
 
         self.btn_aggiorna = QToolButton()
         self.btn_aggiorna.setText("↺")
-        self.btn_aggiorna.setToolTip("Aggiorna")
+        self.btn_aggiorna.setToolTip(t("winscp.tooltip_refresh"))
         self.btn_aggiorna.setFixedHeight(22)
         self.btn_aggiorna.clicked.connect(self.aggiorna)
         self.btn_aggiorna.setStyleSheet(self._btn_stile())
@@ -403,7 +403,7 @@ class FilePanel(QWidget):
         drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
 
     def _panel_tipo(self) -> str:
-        return "locale"  # override nelle sottoclassi
+        return t("winscp.local_panel")  # override nelle sottoclassi
 
     # ------------------------------------------------------------------
     # Drag & Drop (overridati nelle sottoclassi)
@@ -594,15 +594,15 @@ class LocalPanel(FilePanel):
             menu.addAction(f"⬆  Carica su remoto ({len(sel)} elementi)",
                            lambda: self.parent().parent()._upload_selezione())
         menu.addSeparator()
-        menu.addAction("📁+  Nuova cartella", self._nuova_cartella_locale)
+        menu.addAction(t("winscp.new_folder"), self._nuova_cartella_locale)
         if sel and not sel[0]["is_dir"]:
-            menu.addAction("🗑  Elimina", lambda: self._elimina_locale(sel))
+            menu.addAction(t("winscp.ctx_delete"), lambda: self._elimina_locale(sel))
         menu.addSeparator()
-        menu.addAction("↺  Aggiorna", self.aggiorna)
+        menu.addAction(t("winscp.ctx_refresh"), self.aggiorna)
         menu.exec(self.tabella.mapToGlobal(pos))
 
     def _nuova_cartella_locale(self):
-        nome, ok = QInputDialog.getText(self, "Nuova cartella", "Nome:")
+        nome, ok = QInputDialog.getText(self, t("winscp.new_folder"), t("winscp.field_name"))
         if ok and nome:
             try:
                 os.makedirs(os.path.join(self.path, nome), exist_ok=True)
@@ -612,7 +612,7 @@ class LocalPanel(FilePanel):
 
     def _elimina_locale(self, sel):
         nomi = ", ".join(v["nome"] for v in sel)
-        if QMessageBox.question(self, "Elimina", f"Eliminare: {nomi}?") \
+        if QMessageBox.question(self, t("winscp.dlg_delete"), t("winscp.dlg_delete_confirm").format(names=nomi)) \
                 == QMessageBox.StandardButton.Yes:
             for v in sel:
                 try:
@@ -621,7 +621,7 @@ class LocalPanel(FilePanel):
                     else:
                         os.remove(v["path"])
                 except Exception as e:
-                    QMessageBox.critical(self, "Errore", str(e))
+                    QMessageBox.critical(self, t("winscp.err_generic2"), str(e))
             self.aggiorna()
 
 
@@ -645,7 +645,7 @@ class RemotePanel(FilePanel):
         try:
             self.naviga(home)
         except Exception as e:
-            self.lbl_status.setText(f"  ✖ Errore navigazione: {e}")
+            self.lbl_status.setText(t("winscp.err_nav").format(e=e))
 
     def _panel_tipo(self) -> str:
         return "remoto"
@@ -665,7 +665,7 @@ class RemotePanel(FilePanel):
     def _drop_event(self, ev):
         """Drop sul pannello remoto = upload dal locale."""
         txt = ev.mimeData().text() if ev.mimeData().hasText() else ""
-        if not txt.startswith("pcm_files:locale"):
+        if not txt.startswith("pcm_files:" + t("winscp.local_panel")):
             ev.ignore()
             return
         righe = txt.split("\n")[1:]
@@ -750,28 +750,28 @@ class RemotePanel(FilePanel):
             "QMenu::item:selected { background:#4e7abc; color:#fff; }"
         )
         if sel:
-            menu.addAction(f"⬇  Scarica in locale ({len(sel)} elementi)",
+            menu.addAction(t("winscp.ctx_dl_local").format(n=len(sel)),
                            lambda: self.parent().parent()._download_selezione())
         menu.addSeparator()
-        menu.addAction("📁+  Nuova cartella", self._nuova_cartella_remota)
+        menu.addAction(t("winscp.new_folder"), self._nuova_cartella_remota)
         if sel:
-            menu.addAction("✏  Rinomina", lambda: self._rinomina(sel[0]))
-            menu.addAction("🗑  Elimina", lambda: self._elimina(sel))
+            menu.addAction(t("winscp.ctx_rename"), lambda: self._rinomina(sel[0]))
+            menu.addAction(t("winscp.ctx_delete"), lambda: self._elimina(sel))
         menu.addSeparator()
-        menu.addAction("↺  Aggiorna", self.aggiorna)
+        menu.addAction(t("winscp.ctx_refresh"), self.aggiorna)
         menu.exec(self.tabella.mapToGlobal(pos))
 
     def _nuova_cartella_remota(self):
-        nome, ok = QInputDialog.getText(self, "Nuova cartella", "Nome:")
+        nome, ok = QInputDialog.getText(self, t("winscp.new_folder"), t("winscp.field_name"))
         if ok and nome:
             try:
                 self._sftp.mkdir(self.path.rstrip("/") + "/" + nome)
                 self.aggiorna()
             except Exception as e:
-                QMessageBox.critical(self, "Errore", str(e))
+                QMessageBox.critical(self, t("winscp.err_generic2"), str(e))
 
     def _rinomina(self, v):
-        nuovo, ok = QInputDialog.getText(self, "Rinomina", "Nuovo nome:", text=v["nome"])
+        nuovo, ok = QInputDialog.getText(self, t("winscp.rename"), t("winscp.dlg_rename_input"), text=v["nome"])
         if ok and nuovo and nuovo != v["nome"]:
             src = v["path"]
             dst = self.path.rstrip("/") + "/" + nuovo
@@ -779,11 +779,11 @@ class RemotePanel(FilePanel):
                 self._sftp.rename(src, dst)
                 self.aggiorna()
             except Exception as e:
-                QMessageBox.critical(self, "Errore rinomina", str(e))
+                QMessageBox.critical(self, t("winscp.err_rename"), str(e))
 
     def _elimina(self, sel):
         nomi = ", ".join(v["nome"] for v in sel)
-        if QMessageBox.question(self, "Elimina remoto", f"Eliminare: {nomi}?") \
+        if QMessageBox.question(self, t("winscp.dlg_delete_remote"), t("winscp.dlg_delete_confirm").format(names=nomi)) \
                 != QMessageBox.StandardButton.Yes:
             return
         for v in sel:
@@ -793,7 +793,7 @@ class RemotePanel(FilePanel):
                 else:
                     self._sftp.remove(v["path"])
             except Exception as e:
-                QMessageBox.critical(self, "Errore", str(e))
+                QMessageBox.critical(self, t("winscp.err_generic2"), str(e))
         self.aggiorna()
 
     def _rmdir_ricorsivo(self, path):
@@ -813,8 +813,8 @@ class RemotePanel(FilePanel):
 class CodaWidget(QWidget):
     """Tabella in basso con la coda dei trasferimenti."""
 
-    COLONNE = ["", "Operazione", "Sorgente", "Destinazione",
-               "Trasferito", "Tempo/Velocità", "Progresso"]
+    COLONNE = ["", t("winscp.col_operation"), t("winscp.col_src"), t("winscp.col_dst"),
+               t("winscp.col_transferred"), t("winscp.col_time_speed"), t("winscp.col_progress")]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -827,7 +827,7 @@ class CodaWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        hdr = QLabel("  📋  Coda trasferimenti")
+        hdr = QLabel(f"  {t('winscp.queue_title')}")
         hdr.setFixedHeight(22)
         hdr.setStyleSheet(
             "background:#f0f0f0; color:#555555; font-size:11px; "
@@ -867,7 +867,7 @@ class CodaWidget(QWidget):
         self.tabella.setItem(r, 2, QTableWidgetItem(job.src))
         self.tabella.setItem(r, 3, QTableWidgetItem(job.dst))
         self.tabella.setItem(r, 4, QTableWidgetItem("—"))
-        self.tabella.setItem(r, 5, QTableWidgetItem("In attesa"))
+        self.tabella.setItem(r, 5, QTableWidgetItem(t("winscp.status_wait_lbl")))
 
         bar = QProgressBar()
         bar.setRange(0, 100)
@@ -905,7 +905,7 @@ class CodaWidget(QWidget):
                 bar.setStyleSheet(bar.styleSheet().replace("#4e7abc", "#2d7a2d"))
             else:
                 bar.setStyleSheet(bar.styleSheet().replace("#4e7abc", "#7a2d2d"))
-        stato = "✔ Completato" if ok else f"✖ {msg}"
+        stato = "✔ " + t("winscp.status_done") if ok else f"✖ {msg}"
         self.tabella.item(idx, 5).setText(stato)
 
     def aggiungi_in_attesa(self, job: TransferJob) -> int:
@@ -1062,8 +1062,8 @@ class WinScpWidget(QWidget):
         tb.addSeparator()
         # Bottone Avvia coda
         self._btn_avvia_coda = QToolButton()
-        self._btn_avvia_coda.setText("▶  Avvia coda")
-        self._btn_avvia_coda.setToolTip("Avvia tutti i trasferimenti in coda")
+        self._btn_avvia_coda.setText(t("winscp.tooltip_btn_start"))
+        self._btn_avvia_coda.setToolTip(t("winscp.tooltip_start_all"))
         self._btn_avvia_coda.setStyleSheet(
             "QToolButton { color:#2d7a2d; font-weight:bold; background:transparent; "
             "border:1px solid #2d7a2d; border-radius:3px; padding:3px 8px; font-size:12px; }"
@@ -1073,15 +1073,15 @@ class WinScpWidget(QWidget):
         self._btn_avvia_coda.clicked.connect(self._avvia_coda)
         tb.addWidget(self._btn_avvia_coda)
         tb.addSeparator()
-        _a("📁+  Nuova cartella remota", "Crea nuova cartella sul server remoto",
+        _a(t("winscp.new_folder_remote"), t("winscp.tooltip_new_folder"),
            lambda: self.panel_remoto._nuova_cartella_remota(), "F7")
-        _a("🗑  Elimina remoto", "Elimina gli elementi selezionati sul remoto",
+        _a(t("winscp.ctx_delete"), t("winscp.tooltip_delete_remote"),
            lambda: self.panel_remoto._elimina(self.panel_remoto.selezione()))
         tb.addSeparator()
-        _a("↺  Aggiorna", "Aggiorna entrambi i pannelli",
+        _a(t("winscp.ctx_refresh"), t("winscp.tooltip_refresh_both"),
            self._aggiorna_tutto, "F2")
         tb.addSeparator()
-        _a("🧹  Pulisci coda", "Svuota la coda trasferimenti", self.coda.pulisci)
+        _a(t("winscp.btn_clear"), t("winscp.tooltip_clear_queue"), self.coda.pulisci)
 
         root.addWidget(tb)
 
@@ -1093,7 +1093,7 @@ class WinScpWidget(QWidget):
         """Carica i file selezionati dal pannello locale al pannello remoto."""
         sel = self.panel_locale.selezione()
         if not sel:
-            QMessageBox.information(self, "Upload", "Seleziona almeno un file nel pannello locale.")
+            QMessageBox.information(self, t("winscp.dlg_upload"), t("winscp.no_local_sel"))
             return
         dest_base = self.panel_remoto.path.rstrip("/")
         jobs = []
@@ -1116,7 +1116,7 @@ class WinScpWidget(QWidget):
         """Scarica i file selezionati dal pannello remoto al pannello locale."""
         sel = self.panel_remoto.selezione()
         if not sel:
-            QMessageBox.information(self, "Download", "Seleziona almeno un file nel pannello remoto.")
+            QMessageBox.information(self, t("winscp.dlg_download"), t("winscp.no_remote_sel"))
             return
         dest_base = self.panel_locale.path
         jobs = []
@@ -1183,7 +1183,7 @@ class WinScpWidget(QWidget):
         """Aggiunge i file selezionati alla coda senza avviarla."""
         sel = self.panel_locale.selezione()
         if not sel:
-            QMessageBox.information(self, "Coda", "Seleziona almeno un file nel pannello locale.")
+            QMessageBox.information(self, t("winscp.dlg_queue"), t("winscp.no_local_sel"))
             return
         dest_base = self.panel_remoto.path.rstrip("/")
         jobs = []
@@ -1200,13 +1200,13 @@ class WinScpWidget(QWidget):
                 ))
         for job in jobs:
             self.coda.aggiungi_in_attesa(job)
-        self._set_status(f"📋 {len(jobs)} file aggiunti in coda ({self.coda.n_in_attesa()} totali in attesa)")
+        self._set_status(t("winscp.queue_count").format(n=len(jobs), m=self.coda.n_in_attesa()))
 
     def _accoda_download(self):
         """Aggiunge i file selezionati alla coda senza avviarla."""
         sel = self.panel_remoto.selezione()
         if not sel:
-            QMessageBox.information(self, "Coda", "Seleziona almeno un file nel pannello remoto.")
+            QMessageBox.information(self, t("winscp.dlg_queue"), t("winscp.no_remote_sel"))
             return
         dest_base = self.panel_locale.path
         jobs = []
@@ -1223,21 +1223,20 @@ class WinScpWidget(QWidget):
                 ))
         for job in jobs:
             self.coda.aggiungi_in_attesa(job)
-        self._set_status(f"📋 {len(jobs)} file aggiunti in coda ({self.coda.n_in_attesa()} totali in attesa)")
+        self._set_status(t("winscp.queue_count").format(n=len(jobs), m=self.coda.n_in_attesa()))
 
     def _avvia_coda(self):
         """Avvia tutti i job in attesa nella coda."""
         jobs = self.coda.prendi_jobs_in_attesa()
         if not jobs:
-            self._set_status("Nessun job in coda da avviare.")
+            self._set_status(t("winscp.no_jobs"))
             return
         self._esegui_jobs(jobs, dalla_coda=True)
 
     def _esegui_jobs(self, jobs: list, dalla_coda: bool = False):
         """Aggiunge i jobs alla coda e avvia il thread di trasferimento."""
         if self._transfer_thread and self._transfer_thread.isRunning():
-            QMessageBox.warning(self, "Trasferimento in corso",
-                                "Attendi il completamento del trasferimento corrente.")
+            QMessageBox.warning(self, t("winscp.transfer_running"), t("winscp.transfer_wait"))
             return
 
         self._worker = TransferWorker(self._sftp)
@@ -1266,7 +1265,7 @@ class WinScpWidget(QWidget):
         self._transfer_thread.started.connect(self._worker.run)
         self._transfer_thread.start()
 
-        self._set_status(f"⏳ Trasferimento di {len(jobs)} file in corso…")
+        self._set_status(t("winscp.transferring").format(n=len(jobs)))
 
     def _job_finito(self, coda_idx, ok, msg):
         self.coda.segna_completato(coda_idx, ok, msg)
@@ -1542,7 +1541,7 @@ class FtpTransferWorker(QObject):
         for idx, job in enumerate(self._jobs):
             if self._stop:
                 break
-            job.stato    = "In corso"
+            job.stato    = t("winscp.status_running")
             job.t_inizio = time.time()
             self.job_iniziato.emit(idx)
             try:
@@ -1550,10 +1549,10 @@ class FtpTransferWorker(QObject):
                     self._download(ftp, idx, job)
                 else:
                     self._upload(ftp, idx, job)
-                job.stato = "Completato"
+                job.stato = t("winscp.status_done")
                 self.job_finito.emit(idx, True, "")
             except Exception as e:
-                job.stato  = "Errore"
+                job.stato  = t("winscp.status_err")
                 job.errore = str(e)
                 self.job_finito.emit(idx, False, str(e))
 
@@ -1780,30 +1779,30 @@ class FtpRemotePanel(FilePanel):
             "QMenu::item:selected { background:#b87a00; color:#fff; }"
         )
         if sel:
-            menu.addAction(f"⬇  Scarica in locale ({len(sel)} elementi)",
+            menu.addAction(t("winscp.ctx_dl_local").format(n=len(sel)),
                            lambda: self._trova_ftp_widget()._download_selezione()
                            if self._trova_ftp_widget() else None)
         menu.addSeparator()
-        menu.addAction("📁+  Nuova cartella", self._nuova_cartella_remota)
+        menu.addAction(t("winscp.ctx_mkdir_remote"), self._nuova_cartella_remota)
         if sel:
-            menu.addAction("✏  Rinomina", lambda: self._rinomina(sel[0]))
-            menu.addAction("🗑  Elimina",  lambda: self._elimina(sel))
+            menu.addAction(t("winscp.ctx_rename"), lambda: self._rinomina(sel[0]))
+            menu.addAction(t("winscp.ctx_delete"),  lambda: self._elimina(sel))
         menu.addSeparator()
-        menu.addAction("↺  Aggiorna", self.aggiorna)
+        menu.addAction(t("winscp.ctx_refresh"), self.aggiorna)
         menu.exec(self.tabella.mapToGlobal(pos))
 
     def _nuova_cartella_remota(self):
-        nome, ok = QInputDialog.getText(self, "Nuova cartella", "Nome:")
+        nome, ok = QInputDialog.getText(self, t("winscp.new_folder"), t("winscp.field_name"))
         if ok and nome:
             path = self.path.rstrip("/") + "/" + nome
             try:
                 self._ftp.mkd(path)
                 self.aggiorna()
             except Exception as e:
-                QMessageBox.critical(self, "Errore", str(e))
+                QMessageBox.critical(self, t("winscp.err_generic2"), str(e))
 
     def _rinomina(self, v):
-        nuovo, ok = QInputDialog.getText(self, "Rinomina", "Nuovo nome:", text=v["nome"])
+        nuovo, ok = QInputDialog.getText(self, t("winscp.dlg_rename"), t("winscp.dlg_rename_input"), text=v["nome"])
         if ok and nuovo and nuovo != v["nome"]:
             src = v["path"]
             dst = self.path.rstrip("/") + "/" + nuovo
@@ -1811,11 +1810,11 @@ class FtpRemotePanel(FilePanel):
                 self._ftp.rename(src, dst)
                 self.aggiorna()
             except Exception as e:
-                QMessageBox.critical(self, "Errore rinomina", str(e))
+                QMessageBox.critical(self, t("winscp.err_rename"), str(e))
 
     def _elimina(self, sel):
         nomi = ", ".join(v["nome"] for v in sel)
-        if QMessageBox.question(self, "Elimina", f"Eliminare: {nomi}?") \
+        if QMessageBox.question(self, t("winscp.dlg_delete"), t("winscp.dlg_delete_confirm").format(names=nomi)) \
                 != QMessageBox.StandardButton.Yes:
             return
         for v in sel:
@@ -1825,7 +1824,7 @@ class FtpRemotePanel(FilePanel):
                 else:
                     self._ftp.delete(v["path"])
             except Exception as e:
-                QMessageBox.critical(self, "Errore", str(e))
+                QMessageBox.critical(self, t("winscp.err_generic2"), str(e))
         self.aggiorna()
 
     def _rmdir_ricorsivo(self, path):
@@ -1982,8 +1981,8 @@ class FtpWinScpWidget(QWidget):
                    "F6")
         tb.addSeparator()
         self._btn_avvia_coda = QToolButton()
-        self._btn_avvia_coda.setText("▶  Avvia coda")
-        self._btn_avvia_coda.setToolTip("Avvia tutti i trasferimenti in coda")
+        self._btn_avvia_coda.setText(t("winscp.tooltip_btn_start"))
+        self._btn_avvia_coda.setToolTip(t("winscp.tooltip_start_all"))
         self._btn_avvia_coda.setStyleSheet(
             "QToolButton { color:#2d7a2d; font-weight:bold; background:transparent; "
             "border:1px solid #2d7a2d; border-radius:3px; padding:3px 8px; font-size:12px; }"
@@ -1993,14 +1992,14 @@ class FtpWinScpWidget(QWidget):
         self._btn_avvia_coda.clicked.connect(self._avvia_coda)
         tb.addWidget(self._btn_avvia_coda)
         tb.addSeparator()
-        _a("📁+  Nuova cartella", "Crea nuova cartella remota",
+        _a(t("winscp.ctx_mkdir_remote"), t("winscp.tooltip_new_folder"),
            lambda: self.panel_remoto._nuova_cartella_remota(), "F7")
-        _a("🗑  Elimina", "Elimina selezione remota",
+        _a(t("winscp.ctx_delete"), t("winscp.tooltip_delete_remote"),
            lambda: self.panel_remoto._elimina(self.panel_remoto.selezione()))
         tb.addSeparator()
-        _a("↺  Aggiorna", "Aggiorna entrambi i pannelli", self._aggiorna_tutto, "F2")
+        _a(t("winscp.ctx_refresh"), t("winscp.tooltip_refresh_both"), self._aggiorna_tutto, "F2")
         tb.addSeparator()
-        _a("🧹  Pulisci coda", "Svuota la coda trasferimenti", self.coda.pulisci)
+        _a(t("winscp.btn_clear"), t("winscp.tooltip_clear_queue"), self.coda.pulisci)
 
         root.addWidget(tb)
 
@@ -2011,7 +2010,7 @@ class FtpWinScpWidget(QWidget):
     def _upload_selezione(self):
         sel = self.panel_locale.selezione()
         if not sel:
-            QMessageBox.information(self, "Upload", "Seleziona almeno un file nel pannello locale.")
+            QMessageBox.information(self, t("winscp.dlg_upload"), t("winscp.no_local_sel"))
             return
         dest_base = self.panel_remoto.path.rstrip("/")
         jobs = []
@@ -2033,7 +2032,7 @@ class FtpWinScpWidget(QWidget):
     def _download_selezione(self):
         sel = self.panel_remoto.selezione()
         if not sel:
-            QMessageBox.information(self, "Download", "Seleziona almeno un file nel pannello remoto.")
+            QMessageBox.information(self, t("winscp.dlg_download"), t("winscp.no_remote_sel"))
             return
         dest_base = self.panel_locale.path
         jobs = []
@@ -2115,7 +2114,7 @@ class FtpWinScpWidget(QWidget):
     def _accoda_upload(self):
         sel = self.panel_locale.selezione()
         if not sel:
-            QMessageBox.information(self, "Coda", "Seleziona almeno un file nel pannello locale.")
+            QMessageBox.information(self, t("winscp.dlg_queue"), t("winscp.no_local_sel"))
             return
         dest_base = self.panel_remoto.path.rstrip("/")
         jobs = []
@@ -2132,12 +2131,12 @@ class FtpWinScpWidget(QWidget):
                 ))
         for job in jobs:
             self.coda.aggiungi_in_attesa(job)
-        self._set_status(f"📋 {len(jobs)} file aggiunti in coda ({self.coda.n_in_attesa()} totali in attesa)")
+        self._set_status(t("winscp.queue_count").format(n=len(jobs), m=self.coda.n_in_attesa()))
 
     def _accoda_download(self):
         sel = self.panel_remoto.selezione()
         if not sel:
-            QMessageBox.information(self, "Coda", "Seleziona almeno un file nel pannello remoto.")
+            QMessageBox.information(self, t("winscp.dlg_queue"), t("winscp.no_remote_sel"))
             return
         dest_base = self.panel_locale.path
         jobs = []
@@ -2154,19 +2153,18 @@ class FtpWinScpWidget(QWidget):
                 ))
         for job in jobs:
             self.coda.aggiungi_in_attesa(job)
-        self._set_status(f"📋 {len(jobs)} file aggiunti in coda ({self.coda.n_in_attesa()} totali in attesa)")
+        self._set_status(t("winscp.queue_count").format(n=len(jobs), m=self.coda.n_in_attesa()))
 
     def _avvia_coda(self):
         jobs = self.coda.prendi_jobs_in_attesa()
         if not jobs:
-            self._set_status("Nessun job in coda da avviare.")
+            self._set_status(t("winscp.no_jobs"))
             return
         self._esegui_jobs(jobs, dalla_coda=True)
 
     def _esegui_jobs(self, jobs: list, dalla_coda: bool = False):
         if self._transfer_thread and self._transfer_thread.isRunning():
-            QMessageBox.warning(self, "Trasferimento in corso",
-                                "Attendi il completamento del trasferimento corrente.")
+            QMessageBox.warning(self, t("winscp.transfer_running"), t("winscp.transfer_wait"))
             return
 
         self._worker = FtpTransferWorker(self._ftp_factory)
@@ -2194,7 +2192,7 @@ class FtpWinScpWidget(QWidget):
         self._transfer_thread.started.connect(self._worker.run)
         self._transfer_thread.start()
 
-        self._set_status(f"⏳ Trasferimento di {len(jobs)} file in corso…")
+        self._set_status(t("winscp.transferring").format(n=len(jobs)))
 
     def _job_finito(self, coda_idx, ok, msg):
         self.coda.segna_completato(coda_idx, ok, msg)

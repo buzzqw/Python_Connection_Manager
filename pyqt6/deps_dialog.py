@@ -20,7 +20,7 @@ from translations import t
 class DepsConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configurazione Dipendenze")
+        self.setWindowTitle(t("deps.title"))
         self.setModal(True)
         self.resize(600, 400)
         
@@ -41,7 +41,7 @@ class DepsConfigDialog(QDialog):
 
         # Tabella dipendenze
         self._tree = QTreeWidget()
-        self._tree.setHeaderLabels(["Status", "Componente", "Comando Default", "Percorso Personalizzato"])
+        self._tree.setHeaderLabels([t("deps.col_status"), t("deps.col_component"), t("deps.col_default"), t("deps.col_custom_qt")])
         self._tree.setRootIsDecorated(False)
         self._tree.setAlternatingRowColors(True)
         
@@ -58,11 +58,11 @@ class DepsConfigDialog(QDialog):
         # Pulsanti azione
         btn_layout = QHBoxLayout()
         
-        btn_browse = QPushButton("📁 Sfoglia...")
+        btn_browse = QPushButton(t("deps.btn_browse"))
         btn_browse.clicked.connect(self._browse_path)
         btn_layout.addWidget(btn_browse)
         
-        btn_reset = QPushButton("🔄 Reset")
+        btn_reset = QPushButton(t("deps.btn_reset"))
         btn_reset.clicked.connect(self._reset_path)
         btn_layout.addWidget(btn_reset)
         
@@ -73,7 +73,7 @@ class DepsConfigDialog(QDialog):
         dialog_layout = QHBoxLayout()
         dialog_layout.addStretch()
         
-        btn_cancel = QPushButton("Annulla")
+        btn_cancel = QPushButton(t("sd.cancel"))
         btn_cancel.clicked.connect(self.reject)
         dialog_layout.addWidget(btn_cancel)
         
@@ -102,7 +102,7 @@ class DepsConfigDialog(QDialog):
                 effective_path = detected_path
             else:
                 status = "❌"
-                effective_path = "Non trovato"
+                effective_path = t("deps.not_found")
             
             item = QTreeWidgetItem([
                 status,
@@ -128,7 +128,7 @@ class DepsConfigDialog(QDialog):
             
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            f"Seleziona percorso per {tool_id}",
+            t("deps.browse_title").format(tool=tool_id),
             "",
             "Eseguibili (*)"
         )

@@ -16,6 +16,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
+from translations import t
+
 try:
     from pyftpdlib.handlers   import FTPHandler
     from pyftpdlib.servers    import FTPServer
@@ -132,7 +134,7 @@ class FtpServerDialog(Gtk.Dialog):
 
     def __init__(self, parent=None):
         super().__init__(
-            title="Server FTP locale",
+            title=t("ftp.title"),
             transient_for=parent,
             modal=False,
             destroy_with_parent=True
@@ -163,9 +165,9 @@ class FtpServerDialog(Gtk.Dialog):
         nb = Gtk.Notebook()
         area.pack_start(nb, True, True, 0)
 
-        nb.append_page(self._build_tab_server(),  Gtk.Label(label="Server"))
-        nb.append_page(self._build_tab_utenti(),  Gtk.Label(label="Utenti"))
-        nb.append_page(self._build_tab_log(),     Gtk.Label(label="Log"))
+        nb.append_page(self._build_tab_server(),  Gtk.Label(label=t("ftp.tab_server")))
+        nb.append_page(self._build_tab_utenti(),  Gtk.Label(label=t("ftp.tab_users")))
+        nb.append_page(self._build_tab_log(),     Gtk.Label(label=t("ftp.tab_log")))
 
         # Pulsanti
         bbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -173,15 +175,15 @@ class FtpServerDialog(Gtk.Dialog):
         bbox.set_margin_top(8);   bbox.set_margin_bottom(8)
         area.pack_start(bbox, False, False, 0)
 
-        self.btn_avvia = Gtk.Button(label="▶  Avvia server")
+        self.btn_avvia = Gtk.Button(label=t("ftp.btn_start"))
         self.btn_avvia.get_style_context().add_class("connect-button")
         self.btn_avvia.connect("clicked", lambda b: self._on_avvia())
 
-        self.btn_ferma = Gtk.Button(label="■  Ferma server")
+        self.btn_ferma = Gtk.Button(label=t("ftp.btn_stop"))
         self.btn_ferma.set_sensitive(False)
         self.btn_ferma.connect("clicked", lambda b: self._on_ferma())
 
-        self.btn_chiudi = Gtk.Button(label="Chiudi")
+        self.btn_chiudi = Gtk.Button(label=t("ftp.btn_close"))
         self.btn_chiudi.connect("clicked", lambda b: self.destroy())
 
         bbox.pack_start(self.btn_avvia,  False, False, 0)
@@ -210,28 +212,28 @@ class FtpServerDialog(Gtk.Dialog):
 
         self.spin_porta = Gtk.SpinButton.new_with_range(1, 65535, 1)
         self.spin_porta.set_value(2121)  # default >1024 per non richiedere root
-        row("Porta:", self.spin_porta, 0)
+        row(t("ftp.label_port"), self.spin_porta, 0)
 
         self.entry_bind = Gtk.Entry()
         self.entry_bind.set_text("0.0.0.0")
-        row("Bind IP:", self.entry_bind, 1)
+        row(t("ftp.label_bind"), self.entry_bind, 1)
 
         self.spin_pasv_min = Gtk.SpinButton.new_with_range(1024, 65000, 1)
         self.spin_pasv_min.set_value(60000)
-        row("Passive ports min:", self.spin_pasv_min, 2)
+        row(t("ftp.label_pasv_min"), self.spin_pasv_min, 2)
 
         self.spin_pasv_max = Gtk.SpinButton.new_with_range(1025, 65535, 1)
         self.spin_pasv_max.set_value(60100)
-        row("Passive ports max:", self.spin_pasv_max, 3)
+        row(t("ftp.label_pasv_max"), self.spin_pasv_max, 3)
 
-        self.chk_tls = Gtk.CheckButton(label="Abilita TLS (FTPS — richiede certificato)")
+        self.chk_tls = Gtk.CheckButton(label=t("ftp.chk_tls"))
         grid.attach(self.chk_tls, 0, 4, 2, 1)
 
         sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         grid.attach(sep, 0, 5, 2, 1)
 
         # Stato server
-        self.lbl_stato = Gtk.Label(label="● Server fermo")
+        self.lbl_stato = Gtk.Label(label=t("ftp.status_idle"))
         self.lbl_stato.set_xalign(0.0)
         grid.attach(self.lbl_stato, 0, 6, 2, 1)
 
@@ -256,9 +258,9 @@ class FtpServerDialog(Gtk.Dialog):
 
         # Toolbar utenti
         tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        for label, cb in [("Aggiungi", self._on_aggiungi_utente),
-                           ("Modifica", self._on_modifica_utente),
-                           ("Rimuovi",  self._on_rimuovi_utente)]:
+        for label, cb in [(t("ftp.btn_add_user"), self._on_aggiungi_utente),
+                           (t("ftp.btn_edit_user"), self._on_modifica_utente),
+                           (t("ftp.btn_remove_user"),  self._on_rimuovi_utente)]:
             btn = Gtk.Button(label=label)
             btn.connect("clicked", lambda b, c=cb: c())
             tb.pack_start(btn, False, False, 0)
@@ -269,7 +271,7 @@ class FtpServerDialog(Gtk.Dialog):
         self._utenti_view  = Gtk.TreeView(model=self._utenti_store)
         self._utenti_view.set_headers_visible(True)
 
-        for i, h in enumerate(["Tipo", "Nome/Utente", "Cartella", "Permessi"]):
+        for i, h in enumerate([t("ftp.col_type"), t("ftp.col_name"), t("ftp.col_folder"), t("ftp.col_perms")]):
             cell = Gtk.CellRendererText()
             col  = Gtk.TreeViewColumn(h, cell, text=i)
             col.set_resizable(True)
@@ -294,7 +296,7 @@ class FtpServerDialog(Gtk.Dialog):
         box.set_margin_top(8);  box.set_margin_bottom(8)
 
         tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        btn_clear = Gtk.Button(label="Pulisci log")
+        btn_clear = Gtk.Button(label=t("ftp.btn_clear_log"))
         btn_clear.connect("clicked", lambda b: self._pulisci_log())
         tb.pack_start(btn_clear, False, False, 0)
         box.pack_start(tb, False, False, 0)
@@ -386,7 +388,7 @@ class FtpServerDialog(Gtk.Dialog):
         self._server_thread.start()
         self.btn_avvia.set_sensitive(False)
         self.btn_ferma.set_sensitive(True)
-        self.lbl_stato.set_markup('<span foreground="#e8a020">⏳ Avvio in corso…</span>')
+        self.lbl_stato.set_markup(f'<span foreground="#e8a020">{t("ftp.status_starting")}</span>')
 
     def _on_ferma(self):
         if self._server_thread:
@@ -398,20 +400,20 @@ class FtpServerDialog(Gtk.Dialog):
     # ------------------------------------------------------------------
 
     def _on_avviato(self, url: str):
-        self.lbl_stato.set_markup('<span foreground="#4ec9b0">● Server attivo</span>')
+        self.lbl_stato.set_markup(f'<span foreground="#4ec9b0">{t("ftp.status_active")}</span>')
         self.lbl_url.set_text(url)
-        self._log_riga(f"Server avviato: {url}")
+        self._log_riga(t("ftp.server_started").format(url=url))
 
     def _on_errore(self, msg: str):
-        self.lbl_stato.set_markup(f'<span foreground="#cc4444">✖ Errore</span>')
+        self.lbl_stato.set_markup(f'<span foreground="#cc4444">{t("ftp.status_error")}</span>')
         self._log_riga(f"ERRORE: {msg}")
         self.btn_avvia.set_sensitive(True)
         self.btn_ferma.set_sensitive(False)
 
     def _on_fermato(self):
-        self.lbl_stato.set_markup('● Server fermo')
+        self.lbl_stato.set_markup(t("ftp.status_idle"))
         self.lbl_url.set_text("")
-        self._log_riga("Server fermato.")
+        self._log_riga(t("ftp.status_stopped"))
         self.btn_avvia.set_sensitive(True)
         self.btn_ferma.set_sensitive(False)
 
@@ -443,7 +445,7 @@ class _UtenteDialog(Gtk.Dialog):
 
     def __init__(self, parent=None, dati: dict = None):
         super().__init__(
-            title="Utente FTP",
+            title=t("ftp.user_dialog_title"),
             transient_for=parent,
             modal=True,
             destroy_with_parent=True
@@ -456,8 +458,8 @@ class _UtenteDialog(Gtk.Dialog):
             "perm_delete": False, "perm_rename": False, "perm_mkdir": False,
         }
         self._init_ui(dati)
-        self.add_button("Annulla", Gtk.ResponseType.CANCEL)
-        self.add_button("Salva",   Gtk.ResponseType.OK)
+        self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        self.add_button(t("ftp.btn_save"),   Gtk.ResponseType.OK)
         self.show_all()
 
     def _init_ui(self, d: dict):
@@ -483,16 +485,16 @@ class _UtenteDialog(Gtk.Dialog):
         self.combo_tipo.append_text("anonymous")
         self.combo_tipo.set_active(0 if d.get("tipo","named") == "named" else 1)
         self.combo_tipo.connect("changed", self._on_tipo)
-        row("Tipo:", self.combo_tipo, 0)
+        row(t("ftp.user_type"), self.combo_tipo, 0)
 
         self.entry_nome = Gtk.Entry()
         self.entry_nome.set_text(d.get("nome", ""))
-        row("Nome utente:", self.entry_nome, 1)
+        row(t("ftp.user_name"), self.entry_nome, 1)
 
         self.entry_pwd = Gtk.Entry()
         self.entry_pwd.set_visibility(False)
         self.entry_pwd.set_text(d.get("password", ""))
-        row("Password:", self.entry_pwd, 2)
+        row(t("ftp.user_password"), self.entry_pwd, 2)
 
         cart_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_cart = Gtk.Entry()
@@ -502,22 +504,22 @@ class _UtenteDialog(Gtk.Dialog):
         btn_browse.connect("clicked", self._browse_cartella)
         cart_box.pack_start(self.entry_cart, True, True, 0)
         cart_box.pack_start(btn_browse,      False, False, 0)
-        _lbl = Gtk.Label(label="Cartella:")
+        _lbl = Gtk.Label(label=t("ftp.user_folder"))
         _lbl.set_xalign(1.0)
         grid.attach(_lbl, 0, 3, 1, 1)
         grid.attach(cart_box, 1, 3, 1, 1)
 
         # Permessi
-        perm_lbl = Gtk.Label(label="Permessi:")
+        perm_lbl = Gtk.Label(label=t("ftp.user_perms"))
         perm_lbl.set_xalign(1.0)
         grid.attach(perm_lbl, 0, 4, 1, 1)
 
         perm_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        self.chk_read   = Gtk.CheckButton(label="Lettura")
-        self.chk_write  = Gtk.CheckButton(label="Scrittura")
-        self.chk_delete = Gtk.CheckButton(label="Eliminazione")
-        self.chk_rename = Gtk.CheckButton(label="Rinomina")
-        self.chk_mkdir  = Gtk.CheckButton(label="Crea cartelle")
+        self.chk_read   = Gtk.CheckButton(label=t("ftp.perm_read"))
+        self.chk_write  = Gtk.CheckButton(label=t("ftp.perm_write"))
+        self.chk_delete = Gtk.CheckButton(label=t("ftp.perm_delete"))
+        self.chk_rename = Gtk.CheckButton(label=t("ftp.perm_rename"))
+        self.chk_mkdir  = Gtk.CheckButton(label=t("ftp.perm_mkdir"))
 
         self.chk_read.set_active(d.get("perm_read",    True))
         self.chk_write.set_active(d.get("perm_write",  False))
@@ -539,7 +541,7 @@ class _UtenteDialog(Gtk.Dialog):
 
     def _browse_cartella(self, btn):
         dlg = Gtk.FileChooserDialog(
-            title="Cartella radice FTP",
+            title=t("ftp.browse_folder"),
             parent=self,
             action=Gtk.FileChooserAction.SELECT_FOLDER
         )

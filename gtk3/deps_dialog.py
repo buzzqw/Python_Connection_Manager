@@ -7,7 +7,7 @@ from translations import t
 
 class DepsConfigDialog(Gtk.Dialog):
     def __init__(self, parent=None):
-        super().__init__(title="Configurazione Dipendenze", transient_for=parent, modal=True)
+        super().__init__(title=t("deps.title"), transient_for=parent, modal=True)
         self.set_default_size(600, 400)
         self._settings = config_manager.load_settings()
         self._custom_paths = self._settings.get("tool_paths", {})
@@ -32,15 +32,15 @@ class DepsConfigDialog(Gtk.Dialog):
         self._view = Gtk.TreeView(model=self._store)
         
         # Colonne
-        self._add_col("Status", 0, False)
-        self._add_col("Componente", 1, False)
-        self._add_col("Comando Default", 2, False)
+        self._add_col(t("deps.col_status"), 0, False)
+        self._add_col(t("deps.col_component"), 1, False)
+        self._add_col(t("deps.col_default"), 2, False)
         
         # Colonna EDITABILE per il percorso
         renderer = Gtk.CellRendererText()
         renderer.set_property("editable", True)
         renderer.connect("edited", self._on_path_edited)
-        col = Gtk.TreeViewColumn("Percorso Personalizzato (doppio clic)", renderer, text=3)
+        col = Gtk.TreeViewColumn(t("deps.col_custom"), renderer, text=3)
         col.set_expand(True)
         self._view.append_column(col)
 
@@ -48,8 +48,8 @@ class DepsConfigDialog(Gtk.Dialog):
         scroll.add(self._view)
         area.pack_start(scroll, True, True, 0)
 
-        self.add_button("Annulla", Gtk.ResponseType.CANCEL)
-        self.add_button("Salva", Gtk.ResponseType.OK)
+        self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        self.add_button(t("sd.save"), Gtk.ResponseType.OK)
 
     def _add_col(self, title, idx, expand):
         col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=idx)
@@ -61,7 +61,7 @@ class DepsConfigDialog(Gtk.Dialog):
         for cmd_id, desc in self._tools.items():
             # Se l'utente ha salvato un percorso, usa quello, altrimenti shutil.which
             custom = self._custom_paths.get(cmd_id, "")
-            detected = custom if custom else (shutil.which(cmd_id) or "Non trovato")
+            detected = custom if custom else (shutil.which(cmd_id) or t("deps.not_found"))
             icon = "✓" if (custom or shutil.which(cmd_id)) else "✗"
             self._store.append([icon, desc, cmd_id, custom, cmd_id])
 

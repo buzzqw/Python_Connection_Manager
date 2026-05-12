@@ -59,7 +59,7 @@ class TerminalWidget(Gtk.Box):
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
-                 font_size=11, log_dir="", parent=None):
+                 font_size=11, log_dir="", paste_on_right_click=False, parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -67,6 +67,7 @@ class TerminalWidget(Gtk.Box):
         self._font = font
         self._font_size = self._parse_int(font_size, 11)
         self._log_dir = log_dir
+        self._paste_on_right_click = paste_on_right_click
         self._pid = -1
         self._comando_corrente = ""
         self._keepalive_tick = 0
@@ -327,7 +328,8 @@ class TerminalWidget(Gtk.Box):
     def _on_button_press(self, terminal, event):
         """Tasto destro → incolla dalla clipboard CLIPBOARD (stessa di Ctrl+V)."""
         if event.button == 3:
-            self._incolla_clipboard()
+            if self._paste_on_right_click:
+                self._incolla_clipboard()
             return True   # blocca il menu contestuale VTE
         return False
 
@@ -352,11 +354,15 @@ class TerminalWidget(Gtk.Box):
     def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
         """Factory: crea un TerminalWidget dai parametri di un profilo sessione."""
         from themes import TERMINAL_THEMES
+        from config_manager import load_settings
         tema = profilo.get("term_theme", "Scuro (Default)")
         bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
         font = profilo.get("term_font", "Monospace")
         size = profilo.get("term_size", 11)
-        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir)
+        s = load_settings().get("terminal", {})
+        paste_right = s.get("paste_on_right_click", False)
+        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
+                   paste_on_right_click=paste_right)
 
 
 # ---------------------------------------------------------------------------

@@ -21,6 +21,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
+from translations import t
+
 # Prova a caricare gtk-vnc
 _GTKV_OK = False
 try:
@@ -96,7 +98,7 @@ class _VncGtkVnc(Gtk.Box):
         # Adatta schermo (scaling)
         self._btn_scale = Gtk.ToggleButton()
         self._btn_scale.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_scale.set_tooltip_text("Adatta schermo alla finestra")
+        self._btn_scale.set_tooltip_text(t("vnc.tt_fit_screen"))
         self._btn_scale.add(Gtk.Image.new_from_icon_name(
             "zoom-fit-best-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         self._btn_scale.set_active(self._scaling)
@@ -106,7 +108,7 @@ class _VncGtkVnc(Gtk.Box):
         # Puntatore locale/remoto
         self._btn_ptr = Gtk.ToggleButton()
         self._btn_ptr.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_ptr.set_tooltip_text("Puntatore: locale / remoto")
+        self._btn_ptr.set_tooltip_text(t("vnc.tt_pointer"))
         self._btn_ptr.add(Gtk.Image.new_from_icon_name(
             "input-mouse-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         self._btn_ptr.set_active(self._pointer_local)
@@ -116,7 +118,7 @@ class _VncGtkVnc(Gtk.Box):
         # Grab tastiera
         self._btn_kb = Gtk.ToggleButton()
         self._btn_kb.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_kb.set_tooltip_text("Cattura tastiera (intercetta scorciatoie di sistema)")
+        self._btn_kb.set_tooltip_text(t("vnc.tt_keyboard"))
         self._btn_kb.add(Gtk.Image.new_from_icon_name(
             "input-keyboard-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         self._btn_kb.set_active(self._keyboard_grab)
@@ -126,7 +128,7 @@ class _VncGtkVnc(Gtk.Box):
         # Sola lettura
         self._btn_ro = Gtk.ToggleButton()
         self._btn_ro.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_ro.set_tooltip_text("Sola lettura (nessun input al server)")
+        self._btn_ro.set_tooltip_text(t("vnc.tt_readonly"))
         self._btn_ro.add(Gtk.Image.new_from_icon_name(
             "changes-prevent-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         self._btn_ro.set_active(self._read_only)
@@ -138,7 +140,7 @@ class _VncGtkVnc(Gtk.Box):
         # Ctrl+Alt+Del
         btn_cad = Gtk.Button()
         btn_cad.set_relief(Gtk.ReliefStyle.NONE)
-        btn_cad.set_tooltip_text("Invia Ctrl+Alt+Canc")
+        btn_cad.set_tooltip_text(t("vnc.tt_cad"))
         btn_cad.add(Gtk.Image.new_from_icon_name(
             "system-restart-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         btn_cad.connect("clicked", lambda b: self._send_ctrl_alt_del())
@@ -147,7 +149,7 @@ class _VncGtkVnc(Gtk.Box):
         # Ctrl+Alt+F1..F7 (cambio VT)
         btn_vt = Gtk.MenuButton()
         btn_vt.set_relief(Gtk.ReliefStyle.NONE)
-        btn_vt.set_tooltip_text("Invia Ctrl+Alt+Fn (cambio terminale virtuale)")
+        btn_vt.set_tooltip_text(t("vnc.tt_vt"))
         btn_vt.add(Gtk.Image.new_from_icon_name(
             "computer-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         btn_vt.set_popup(self._build_vt_menu())
@@ -156,7 +158,7 @@ class _VncGtkVnc(Gtk.Box):
         # Screenshot
         btn_ss = Gtk.Button()
         btn_ss.set_relief(Gtk.ReliefStyle.NONE)
-        btn_ss.set_tooltip_text("Cattura screenshot del desktop remoto")
+        btn_ss.set_tooltip_text(t("vnc.tt_screenshot"))
         btn_ss.add(Gtk.Image.new_from_icon_name(
             "camera-photo-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         btn_ss.connect("clicked", lambda b: self._screenshot())
@@ -167,7 +169,7 @@ class _VncGtkVnc(Gtk.Box):
         # Riconnetti
         btn_r = Gtk.Button()
         btn_r.set_relief(Gtk.ReliefStyle.NONE)
-        btn_r.set_tooltip_text("Riconnetti al server VNC")
+        btn_r.set_tooltip_text(t("vnc.tt_reconnect"))
         btn_r.add(Gtk.Image.new_from_icon_name(
             "view-refresh-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         btn_r.connect("clicked", lambda b: self._riconnetti())
@@ -307,13 +309,13 @@ class _VncGtkVnc(Gtk.Box):
         """Dialog modale che chiede la password VNC con opzione di salvataggio."""
         toplevel = self.get_toplevel()
         dlg = Gtk.Dialog(
-            title="Password VNC",
+            title=t("vnc.password_dialog"),
             transient_for=toplevel if isinstance(toplevel, Gtk.Window) else None,
             modal=True,
         )
         dlg.set_default_size(360, -1)
-        dlg.add_button("_Annulla", Gtk.ResponseType.CANCEL)
-        dlg.add_button("_Connetti", Gtk.ResponseType.OK)
+        dlg.add_button(t("vnc.btn_cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("vnc.btn_connect"), Gtk.ResponseType.OK)
         dlg.set_default_response(Gtk.ResponseType.OK)
 
         box = dlg.get_content_area()
@@ -332,7 +334,7 @@ class _VncGtkVnc(Gtk.Box):
         entry.set_activates_default(True)
         box.pack_start(entry, False, False, 0)
 
-        chk = Gtk.CheckButton(label="Salva password nel profilo")
+        chk = Gtk.CheckButton(label=t("vnc.save_password"))
         box.pack_start(chk, False, False, 0)
 
         box.show_all()
@@ -410,12 +412,12 @@ class _VncGtkVnc(Gtk.Box):
                 modal=False,
                 message_type=Gtk.MessageType.INFO,
                 buttons=Gtk.ButtonsType.CLOSE,
-                text=f"Screenshot salvato:\n{path}"
+                text=t("vnc.screenshot_saved").format(path=path)
             )
             dlg.connect("response", lambda d, r: d.destroy())
             dlg.show()
         except Exception as e:
-            self._lbl.set_text(f"Screenshot errore: {e}")
+            self._lbl.set_text(t("vnc.screenshot_err").format(e=e))
 
     # ------------------------------------------------------------------
     # Chiusura
@@ -465,7 +467,7 @@ class _VncSocket(Gtk.Box):
 
         btn_r = Gtk.Button()
         btn_r.set_relief(Gtk.ReliefStyle.NONE)
-        btn_r.set_tooltip_text("Riconnetti")
+        btn_r.set_tooltip_text(t("vnc.tt_reconnect"))
         btn_r.add(Gtk.Image.new_from_icon_name(
             "view-refresh-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         btn_r.connect("clicked", lambda b: self._avvia_client())
@@ -489,9 +491,9 @@ class _VncSocket(Gtk.Box):
             return False
         if not self._client:
             self._errore(
-                "Nessun client VNC trovato nel PATH.\n"
-                "Installa: sudo apt install tigervnc-viewer\n"
-                "     o:   sudo apt install gir1.2-gtk-vnc-2.0"
+                t("vnc.no_client") +
+                t("vnc.install_hint") +
+                "     " + t("vnc.install_gtklib")
             )
             return False
 
@@ -605,10 +607,10 @@ class _VncNoDriver(Gtk.Box):
         self.set_margin_start(24); self.set_margin_end(24)
         lbl = Gtk.Label()
         lbl.set_markup(
-            "<b>VNC integrato non disponibile</b>\n\n"
-            "Installa uno dei seguenti pacchetti:\n\n"
-            "<tt>sudo apt install gir1.2-gtk-vnc-2.0</tt>   (raccomandato)\n"
-            "<tt>sudo apt install tigervnc-viewer</tt>       (alternativa)"
+            t("vnc.embedded_unavail") +
+            t("vnc.install_pkgs") +
+            t("vnc.pkg_recommended") +
+            t("vnc.pkg_alternative")
         )
         lbl.set_line_wrap(True); lbl.set_xalign(0.0)
         self.pack_start(lbl, False, False, 0)

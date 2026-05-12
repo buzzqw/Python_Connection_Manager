@@ -200,7 +200,7 @@ class SessionDialog(Gtk.Dialog):
         vbox.pack_start(self._row_pkey, False, False, 0)
 
         # ── Gestione chiavi SSH ───────────────────────────────────────
-        self._frame_chiavi = Gtk.Frame(label=" 🔑 Gestione chiavi SSH ")
+        self._frame_chiavi = Gtk.Frame(label=t("sd.keys.frame_label"))
         self._frame_chiavi.set_label_align(0.02, 0.5)
         self._frame_chiavi.set_margin_top(6)
         chiavi_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -216,7 +216,7 @@ class SessionDialog(Gtk.Dialog):
         self.combo_chiavi.set_hexpand(True)
         self.combo_chiavi.connect("changed", self._on_chiave_selezionata)
         btn_ricarica_chiavi = Gtk.Button(label="↺")
-        btn_ricarica_chiavi.set_tooltip_text("Ricarica lista chiavi")
+        btn_ricarica_chiavi.set_tooltip_text(t("sd.keys.reload_list"))
         btn_ricarica_chiavi.connect("clicked", lambda b: self._carica_chiavi_esistenti())
         riga1.pack_start(lbl_esistenti, False, False, 0)
         riga1.pack_start(self.combo_chiavi, True, True, 0)
@@ -228,7 +228,7 @@ class SessionDialog(Gtk.Dialog):
         lbl_genera = Gtk.Label(label=t("sd.keys.generate") if not t("sd.keys.generate").startswith("sd.") else "Genera nuova:")
         lbl_genera.set_width_chars(16); lbl_genera.set_xalign(1.0)
         self.combo_key_type = Gtk.ComboBoxText()
-        for kt in ["ed25519  (consigliata)", "rsa 4096", "ecdsa 521"]:
+        for kt in [t("sd.keys.type_ed25519"), t("sd.keys.type_rsa"), t("sd.keys.type_ecdsa")]:
             self.combo_key_type.append_text(kt)
         self.combo_key_type.set_active(0)
         self.combo_key_type.set_hexpand(True)
@@ -236,10 +236,10 @@ class SessionDialog(Gtk.Dialog):
         _default_comment = f"{os.environ.get('USER','user')}@{_socket.gethostname()}"
         self.entry_key_comment = Gtk.Entry()
         self.entry_key_comment.set_text(_default_comment)
-        self.entry_key_comment.set_placeholder_text("commento (es. utente@host)")
+        self.entry_key_comment.set_placeholder_text(t("sd.keys.comment_ph"))
         self.entry_key_comment.set_width_chars(20)
-        btn_genera_key = Gtk.Button(label="⚙ Genera")
-        btn_genera_key.set_tooltip_text("Genera nuova coppia di chiavi SSH")
+        btn_genera_key = Gtk.Button(label=t("sd.keys.gen_btn"))
+        btn_genera_key.set_tooltip_text(t("sd.keys.gen_tip"))
         btn_genera_key.connect("clicked", lambda b: self._genera_chiave_ssh())
         riga2.pack_start(lbl_genera, False, False, 0)
         riga2.pack_start(self.combo_key_type, True, True, 0)
@@ -249,14 +249,14 @@ class SessionDialog(Gtk.Dialog):
 
         # Riga 3: copia server + mostra pubblica
         riga3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.btn_copia_server = Gtk.Button(label="📤 Copia chiave pubblica sul server")
+        self.btn_copia_server = Gtk.Button(label=t("sd.keys.copy_server"))
         self.btn_copia_server.set_hexpand(True)
-        self.btn_copia_server.set_tooltip_text("Invia la chiave pubblica al server con ssh-copy-id")
+        self.btn_copia_server.set_tooltip_text(t("sd.keys.copy_server_tip"))
         self.btn_copia_server.get_style_context().add_class("suggested-action")
         self.btn_copia_server.connect("clicked", lambda b: self._copia_chiave_server())
-        self.btn_mostra_pub = Gtk.Button(label="👁 Mostra pubblica")
+        self.btn_mostra_pub = Gtk.Button(label=t("sd.keys.show_pub"))
         self.btn_mostra_pub.set_hexpand(True)
-        self.btn_mostra_pub.set_tooltip_text("Visualizza e copia la chiave pubblica")
+        self.btn_mostra_pub.set_tooltip_text(t("sd.keys.show_pub_alt"))
         self.btn_mostra_pub.connect("clicked", lambda b: self._mostra_chiave_pubblica())
         riga3.pack_start(self.btn_copia_server, True, True, 0)
         riga3.pack_start(self.btn_mostra_pub, True, True, 0)

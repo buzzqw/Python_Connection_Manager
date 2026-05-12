@@ -64,11 +64,11 @@ class VariablesDialog(QDialog):
         # Pulsanti azione
         btn_layout = QHBoxLayout()
         
-        self._btn_add = QPushButton("➕ Aggiungi")
+        self._btn_add = QPushButton(t("variables.btn_add"))
         self._btn_add.clicked.connect(self._add_variable)
         btn_layout.addWidget(self._btn_add)
         
-        self._btn_remove = QPushButton("➖ Rimuovi")
+        self._btn_remove = QPushButton(t("variables.btn_remove"))
         self._btn_remove.clicked.connect(self._remove_variable)
         btn_layout.addWidget(self._btn_remove)
         
@@ -79,7 +79,7 @@ class VariablesDialog(QDialog):
         dialog_layout = QHBoxLayout()
         dialog_layout.addStretch()
         
-        btn_cancel = QPushButton("Annulla")
+        btn_cancel = QPushButton(t("variables.btn_cancel"))
         btn_cancel.clicked.connect(self.reject)
         dialog_layout.addWidget(btn_cancel)
         
@@ -103,9 +103,9 @@ class VariablesDialog(QDialog):
         current = self._tree.currentItem()
         if current:
             reply = QMessageBox.question(
-                self, 
-                "Conferma eliminazione",
-                f"Eliminare la variabile '{current.text(0)}'?",
+                self,
+                t("variables.confirm_delete_title"),
+                t("variables.confirm_delete_msg").format(name=current.text(0)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )

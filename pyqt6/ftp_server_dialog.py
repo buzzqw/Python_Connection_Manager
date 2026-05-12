@@ -26,6 +26,8 @@ try:
 except ImportError:
     PYFTPDLIB_OK = False
 
+from translations import t
+
 
 # ============================================================================
 # Segnali cross-thread
@@ -130,7 +132,7 @@ class FtpServerDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Server FTP locale — PCM")
+        self.setWindowTitle(t("ftp.title_full"))
         self.setMinimumSize(860, 700)
         self.resize(980, 820)
         self.setModal(False)
@@ -157,7 +159,7 @@ class FtpServerDialog(QDialog):
         root = QVBoxLayout(self)
         root.setSpacing(6)
 
-        hdr = QLabel("  Server FTP locale")
+        hdr = QLabel(f"  {t('ftp.title')}")
         hdr.setStyleSheet("color:#4e7abc; font-size:14px; font-weight:bold; padding:8px;")
         root.addWidget(hdr)
 
@@ -167,8 +169,8 @@ class FtpServerDialog(QDialog):
         cfg_lay = QVBoxLayout(cfg)
         cfg_lay.setContentsMargins(0, 0, 0, 0)
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_tab_utenti(),       "Utenti")
-        self.tabs.addTab(self._build_tab_impostazioni(), "Impostazioni")
+        self.tabs.addTab(self._build_tab_utenti(),       t("ftp.tab_users"))
+        self.tabs.addTab(self._build_tab_impostazioni(), t("ftp.tab_settings"))
         cfg_lay.addWidget(self.tabs)
         splitter.addWidget(cfg)
 
@@ -177,7 +179,7 @@ class FtpServerDialog(QDialog):
         log_lay.setContentsMargins(0, 0, 0, 0)
         log_lay.setSpacing(2)
 
-        log_hdr = QLabel("  Log connessioni")
+        log_hdr = QLabel(f"  {t('ftp.log_connections')}")
         log_hdr.setFixedHeight(22)
         log_hdr.setStyleSheet(
             "background:#f0f0f0; color:#555; font-size:11px; font-weight:bold;"
@@ -191,7 +193,7 @@ class FtpServerDialog(QDialog):
         self.log_view.setStyleSheet("background:#1e1e1e; color:#cccccc; border:none;")
         log_lay.addWidget(self.log_view)
 
-        btn_pulisci = QPushButton("Pulisci log")
+        btn_pulisci = QPushButton(t("ftp.btn_clear_log"))
         btn_pulisci.setFixedHeight(22)
         btn_pulisci.clicked.connect(self.log_view.clear)
         log_lay.addWidget(btn_pulisci)
@@ -206,17 +208,17 @@ class FtpServerDialog(QDialog):
 
         bottom = QHBoxLayout()
 
-        self.lbl_stato = QLabel("  Server fermo")
+        self.lbl_stato = QLabel(f"  {t('ftp.status_idle')}")
         self.lbl_stato.setStyleSheet("color:#888; font-size:12px; font-weight:bold; padding:4px;")
         bottom.addWidget(self.lbl_stato, 1)
 
-        self.btn_avvia = QPushButton("Avvia server")
+        self.btn_avvia = QPushButton(t("ftp.btn_start").strip())
         self.btn_avvia.setFixedHeight(34)
         self.btn_avvia.setStyleSheet(self._css_btn_verde())
         self.btn_avvia.clicked.connect(self._toggle_server)
         bottom.addWidget(self.btn_avvia)
 
-        btn_chiudi = QPushButton("Chiudi")
+        btn_chiudi = QPushButton(t("ftp.btn_close"))
         btn_chiudi.setFixedHeight(34)
         btn_chiudi.clicked.connect(self._chiudi_dialog)
         bottom.addWidget(btn_chiudi)
@@ -235,10 +237,10 @@ class FtpServerDialog(QDialog):
         # --- Sinistra: lista ---
         left = QVBoxLayout()
         left.setSpacing(4)
-        left.addWidget(QLabel("Utenti configurati:"))
+        left.addWidget(QLabel(t("ftp.users_configured")))
 
         self.lista = QTableWidget(0, 2)
-        self.lista.setHorizontalHeaderLabels(["Nome", "Tipo"])
+        self.lista.setHorizontalHeaderLabels([t("ftp.col_name_user"), t("ftp.col_type")])
         self.lista.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.lista.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.lista.verticalHeader().setVisible(False)
@@ -249,7 +251,7 @@ class FtpServerDialog(QDialog):
         left.addWidget(self.lista, 1)
 
         btn_row = QHBoxLayout()
-        btn_del = QPushButton("Rimuovi selezionato")
+        btn_del = QPushButton(t("ftp.btn_remove_sel"))
         btn_del.clicked.connect(self._rimuovi)
         btn_row.addWidget(btn_del)
         btn_row.addStretch()
@@ -261,24 +263,24 @@ class FtpServerDialog(QDialog):
         right = QVBoxLayout(self._pannello)
         right.setSpacing(8)
 
-        grp_id = QGroupBox("Identita'")
+        grp_id = QGroupBox(t("ftp.grp_identity"))
         id_lay = QFormLayout(grp_id)
         id_lay.setSpacing(8)
-        self.chk_anon = QCheckBox("Utente anonimo (anonymous)")
+        self.chk_anon = QCheckBox(t("ftp.anon_user"))
         self.chk_anon.toggled.connect(self._toggle_anon)
         id_lay.addRow("", self.chk_anon)
         self.edit_nome = QLineEdit()
         self.edit_nome.setPlaceholderText("nome utente")
         self.edit_nome.textChanged.connect(self._aggiorna_dict_realtime)
-        id_lay.addRow("Nome utente:", self.edit_nome)
+        id_lay.addRow(t("ftp.user_name"), self.edit_nome)
         self.edit_pwd = QLineEdit()
         self.edit_pwd.setEchoMode(QLineEdit.EchoMode.Password)
         self.edit_pwd.setPlaceholderText("password")
         self.edit_pwd.textChanged.connect(self._aggiorna_dict_realtime)
-        id_lay.addRow("Password:", self.edit_pwd)
+        id_lay.addRow(t("ftp.label_password"), self.edit_pwd)
         right.addWidget(grp_id)
 
-        grp_dir = QGroupBox("Cartella radice")
+        grp_dir = QGroupBox(t("ftp.browse_folder"))
         dir_lay = QHBoxLayout(grp_dir)
         self.edit_cartella = QLineEdit()
         self.edit_cartella.setText(os.path.expanduser("~"))
@@ -290,16 +292,16 @@ class FtpServerDialog(QDialog):
         dir_lay.addWidget(btn_sf)
         right.addWidget(grp_dir)
 
-        grp_perm = QGroupBox("Permessi")
+        grp_perm = QGroupBox(t("ftp.col_perms"))
         perm_lay = QVBoxLayout(grp_perm)
         perm_lay.setSpacing(4)
 
-        perm_lay.addWidget(QLabel("Preset rapidi:"))
+        perm_lay.addWidget(QLabel(t("ftp.presets")))
         pre_row = QHBoxLayout()
         pre_row.setSpacing(6)
-        for testo, slot in [("Sola lettura", self._pre_read),
-                             ("Lettura + scrittura", self._pre_rw),
-                             ("Tutto", self._pre_all)]:
+        for testo, slot in [(t("ftp.preset_ro"), self._pre_read),
+                             (t("ftp.perm_read") + " + " + t("ftp.perm_write"), self._pre_rw),
+                             (t("ftp.preset_all"), self._pre_all)]:
             b = QPushButton(testo)
             b.setFixedHeight(26)
             pal = b.palette()
@@ -315,19 +317,19 @@ class FtpServerDialog(QDialog):
         f = QFrame(); f.setFrameShape(QFrame.Shape.HLine)
         perm_lay.addWidget(f)
 
-        self.chk_leggi    = QCheckBox("Lettura file (scarica)")
-        self.chk_scrivi   = QCheckBox("Scrittura file (carica)")
-        self.chk_cancella = QCheckBox("Cancellazione file e cartelle")
-        self.chk_mkdir    = QCheckBox("Crea cartelle")
-        self.chk_list     = QCheckBox("Elenca contenuto cartelle")
-        self.chk_rinomina = QCheckBox("Rinomina file e cartelle")
+        self.chk_leggi    = QCheckBox(t("ftp.perm_read_dl"))
+        self.chk_scrivi   = QCheckBox(t("ftp.perm_write_ul"))
+        self.chk_cancella = QCheckBox(t("ftp.perm_delete_files"))
+        self.chk_mkdir    = QCheckBox(t("ftp.perm_mkdir"))
+        self.chk_list     = QCheckBox(t("ftp.perm_list"))
+        self.chk_rinomina = QCheckBox(t("ftp.perm_rename_files"))
         for c in [self.chk_leggi, self.chk_scrivi, self.chk_cancella,
                   self.chk_mkdir, self.chk_list, self.chk_rinomina]:
             c.toggled.connect(self._aggiorna_dict_realtime)
             perm_lay.addWidget(c)
         right.addWidget(grp_perm)
 
-        self.btn_salva = QPushButton("Aggiungi / Salva modifiche utente")
+        self.btn_salva = QPushButton(t("ftp.btn_add_save"))
         self.btn_salva.setFixedHeight(32)
         self.btn_salva.setStyleSheet(
             "QPushButton{background:#4e7abc;color:#fff;border-radius:3px;"
@@ -356,7 +358,7 @@ class FtpServerDialog(QDialog):
         self.spin_porta.setRange(1, 65535)
         self.spin_porta.setValue(2121)
         self.spin_porta.setMaximumWidth(90)
-        lay.addRow("Porta FTP:", self.spin_porta)
+        lay.addRow(t("ftp.label_port"), self.spin_porta)
 
         nota = QLabel("Porta 21 richiede root. Usa 2121 o altra porta > 1024.")
         nota.setStyleSheet("color:#888; font-size:10px;")
@@ -366,13 +368,13 @@ class FtpServerDialog(QDialog):
         self.spin_pasv_min.setRange(1024, 65000)
         self.spin_pasv_min.setValue(60000)
         self.spin_pasv_min.setMaximumWidth(90)
-        lay.addRow("Porte passive (min):", self.spin_pasv_min)
+        lay.addRow(t("ftp.label_pasv_min"), self.spin_pasv_min)
 
         self.spin_pasv_max = QSpinBox()
         self.spin_pasv_max.setRange(1025, 65535)
         self.spin_pasv_max.setValue(60100)
         self.spin_pasv_max.setMaximumWidth(90)
-        lay.addRow("Porte passive (max):", self.spin_pasv_max)
+        lay.addRow(t("ftp.label_pasv_max"), self.spin_pasv_max)
 
         self.edit_masq = QLineEdit()
         self.edit_masq.setPlaceholderText("es. 1.2.3.4 (solo se dietro NAT con IP pubblico fisso)")
@@ -747,9 +749,9 @@ class FtpServerDialog(QDialog):
         self._in_esecuzione = False
         self._server_thread = None
         self.tabs.setEnabled(True)
-        self.lbl_stato.setText("  Server fermo")
+        self.lbl_stato.setText(f"  {t('ftp.status_idle')}")
         self.lbl_stato.setStyleSheet("color:#888; font-size:12px; font-weight:bold; padding:4px;")
-        self.btn_avvia.setText("Avvia server")
+        self.btn_avvia.setText(t("ftp.btn_start").strip())
         self.btn_avvia.setEnabled(True)
         self.btn_avvia.setStyleSheet(self._css_btn_verde())
         self._log("Server FTP fermato.")

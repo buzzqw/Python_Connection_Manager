@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QIcon
 
 import config_manager
+from translations import t
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ class TunnelEditDialog(QDialog):
 
     def __init__(self, parent=None, dati=None):
         super().__init__(parent)
-        self.setWindowTitle("Configura Tunnel SSH")
+        self.setWindowTitle(t("tunnel.edit_title"))
         self.setMinimumWidth(400)
         self.setModal(True)
         dati = dati or {}
@@ -44,41 +45,41 @@ class TunnelEditDialog(QDialog):
 
         self.edit_nome = QLineEdit(d.get("nome", ""))
         self.edit_nome.setPlaceholderText("es. SOCKS proxy casa")
-        form.addRow("Nome:", self.edit_nome)
+        form.addRow(t("tunnel.field_name"), self.edit_nome)
 
         self.combo_tipo = QComboBox()
         self.combo_tipo.addItems(self.TIPI)
         self.combo_tipo.setCurrentText(d.get("tipo", "Proxy SOCKS (-D)"))
         self.combo_tipo.currentTextChanged.connect(self._aggiorna_campi)
-        form.addRow("Tipo:", self.combo_tipo)
+        form.addRow(t("tunnel.field_type"), self.combo_tipo)
 
         self.edit_ssh_host = QLineEdit(d.get("ssh_host", ""))
         self.edit_ssh_host.setPlaceholderText("host SSH")
-        form.addRow("SSH host:", self.edit_ssh_host)
+        form.addRow(t("tunnel.field_host"), self.edit_ssh_host)
 
         self.edit_ssh_port = QLineEdit(str(d.get("ssh_port", "22")))
         self.edit_ssh_port.setMaximumWidth(70)
-        form.addRow("SSH porta:", self.edit_ssh_port)
+        form.addRow(t("tunnel.field_ssh_port"), self.edit_ssh_port)
 
         self.edit_ssh_user = QLineEdit(d.get("ssh_user", ""))
-        form.addRow("SSH utente:", self.edit_ssh_user)
+        form.addRow(t("tunnel.field_ssh_user"), self.edit_ssh_user)
 
         self.edit_ssh_pwd = QLineEdit(d.get("ssh_pwd", ""))
         self.edit_ssh_pwd.setEchoMode(QLineEdit.EchoMode.Password)
-        form.addRow("SSH password:", self.edit_ssh_pwd)
+        form.addRow(t("tunnel.field_ssh_pwd"), self.edit_ssh_pwd)
 
         self.edit_lport = QLineEdit(str(d.get("local_port", "1080")))
         self.edit_lport.setMaximumWidth(70)
-        form.addRow("Porta locale:", self.edit_lport)
+        form.addRow(t("tunnel.field_lport"), self.edit_lport)
 
         self.edit_rhost = QLineEdit(d.get("remote_host", ""))
         self.edit_rhost.setPlaceholderText("host destinazione (-L/-R)")
-        form.addRow("Host remoto:", self.edit_rhost)
+        form.addRow(t("tunnel.field_rhost"), self.edit_rhost)
 
         self.edit_rport = QLineEdit(str(d.get("remote_port", "")))
         self.edit_rport.setMaximumWidth(70)
         self.edit_rport.setPlaceholderText("porta dest.")
-        form.addRow("Porta remota:", self.edit_rport)
+        form.addRow(t("tunnel.field_rport"), self.edit_rport)
 
         layout.addLayout(form)
 
@@ -135,11 +136,11 @@ class TunnelManagerDialog(QDialog):
     alla riapertura vengono riagganciati tramite il PID salvato in config.
     """
 
-    COLONNE = ["Nome", "Tipo", "SSH Host", "Porta locale", "Host remoto", "Stato"]
+    COLONNE = [t("tunnel.col_name"), t("tunnel.col_type"), t("tunnel.col_host"), t("tunnel.col_lport"), t("tunnel.col_rhost"), t("tunnel.col_status")]
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Gestione Tunnel SSH")
+        self.setWindowTitle(t("tunnel.main_title_full"))
         self.setMinimumSize(720, 400)
         self._tunnels = config_manager.load_tunnels()
         self._processi = {}   # nome -> Popen (o proxy con solo .pid)
@@ -192,7 +193,7 @@ class TunnelManagerDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Intestazione
-        hdr = QLabel("  🔀  Gestore Tunnel SSH (Port Forwarding)")
+        hdr = QLabel(f"  {t('tunnel.toolbar_title')}")
         hdr.setStyleSheet("color:#6a9fd8; font-size:14px; font-weight:bold; padding:6px;")
         layout.addWidget(hdr)
 
@@ -249,27 +250,27 @@ class TunnelManagerDialog(QDialog):
         # Pulsanti azione
         btn_layout = QHBoxLayout()
 
-        self.btn_aggiungi = QPushButton("➕  Aggiungi")
+        self.btn_aggiungi = QPushButton(t("tunnel.btn_add"))
         self.btn_aggiungi.clicked.connect(self._aggiungi_tunnel)
 
-        self.btn_modifica = QPushButton("✏  Modifica")
+        self.btn_modifica = QPushButton(t("tunnel.btn_edit"))
         self.btn_modifica.clicked.connect(self._modifica_tunnel)
 
-        self.btn_elimina = QPushButton("🗑  Elimina")
+        self.btn_elimina = QPushButton(t("tunnel.btn_delete"))
         self.btn_elimina.clicked.connect(self._elimina_tunnel)
 
-        self.btn_avvia = QPushButton("▶  Avvia")
+        self.btn_avvia = QPushButton(t("tunnel.btn_start"))
         self.btn_avvia.clicked.connect(self._avvia_selezionato)
         self.btn_avvia.setStyleSheet("background:#2d7a2d;")
 
-        self.btn_ferma = QPushButton("■  Ferma")
+        self.btn_ferma = QPushButton(t("tunnel.btn_stop"))
         self.btn_ferma.clicked.connect(self._ferma_selezionato)
         self.btn_ferma.setStyleSheet("background:#7a2d2d;")
 
-        self.btn_avvia_tutti = QPushButton("▶▶  Avvia tutti")
+        self.btn_avvia_tutti = QPushButton(t("tunnel.btn_start_all"))
         self.btn_avvia_tutti.clicked.connect(self._avvia_tutti)
 
-        self.btn_ferma_tutti = QPushButton("■■  Ferma tutti")
+        self.btn_ferma_tutti = QPushButton(t("tunnel.btn_stop_all"))
         self.btn_ferma_tutti.clicked.connect(self._ferma_tutti)
 
         for b in [self.btn_aggiungi, self.btn_modifica, self.btn_elimina,
@@ -280,7 +281,7 @@ class TunnelManagerDialog(QDialog):
         layout.addLayout(btn_layout)
 
         # Chiudi
-        close_btn = QPushButton("Chiudi")
+        close_btn = QPushButton(t("tunnel.btn_close"))
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
@@ -298,7 +299,7 @@ class TunnelManagerDialog(QDialog):
             self.tabella.insertRow(r)
 
             attivo = t.get("attivo", False)
-            stato_txt = "● Attivo" if attivo else "○ Fermo"
+            stato_txt = "● " + t("tunnel.status_active") if attivo else "○ " + t("tunnel.status_idle")
 
             bg_row = QColor("#2a2a2a") if r % 2 == 0 else QColor("#242424")
             fg_row = QColor("#dddddd")
@@ -337,11 +338,11 @@ class TunnelManagerDialog(QDialog):
         row = self.tabella.currentRow()
         if row < 0 or row >= len(self._tunnels):
             return
-        t = self._tunnels[row]
-        if t.get("attivo"):
-            QMessageBox.warning(self, "Tunnel attivo", "Ferma il tunnel prima di modificarlo.")
+        tun = self._tunnels[row]
+        if tun.get("attivo"):
+            QMessageBox.warning(self, t("tunnel.warn_active"), t("tunnel.warn_stop_first"))
             return
-        dlg = TunnelEditDialog(self, dati=t)
+        dlg = TunnelEditDialog(self, dati=tun)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._tunnels[row] = dlg.get_data()
             self._salva()

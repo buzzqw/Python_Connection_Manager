@@ -27,7 +27,7 @@ from translations import t
 
 # ── HTML / xterm.js ───────────────────────────────────────────────────────────
 def _build_html(bg: str, fg: str, font: str, font_size: int,
-                paste_on_right_click: bool = True, scrollback_lines: int = 5000) -> str:
+                paste_on_right_click: bool = False, scrollback_lines: int = 5000) -> str:
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -217,7 +217,7 @@ class TerminalWidget(QWidget):
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
-                 font_size=11, log_dir="", paste_on_right_click=True,
+                 font_size=11, log_dir="", paste_on_right_click=False,
                  scrollback_lines=5000, parent=None):
         super().__init__(parent)
         self._bg       = bg
@@ -292,7 +292,7 @@ class TerminalWidget(QWidget):
         size = profilo.get("term_size", 11)
         from config_manager import load_settings
         s = load_settings().get('terminal', {})
-        paste_right    = s.get('paste_on_right_click', True)
+        paste_right    = s.get('paste_on_right_click', False)
         scrollback     = s.get('scrollback_lines', 5000)
         return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
                    paste_on_right_click=paste_right, scrollback_lines=scrollback)

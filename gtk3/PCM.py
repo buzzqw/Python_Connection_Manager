@@ -320,13 +320,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # Pulsante split
         btn_split = Gtk.MenuButton()
-        btn_split.set_tooltip_text("Dividi pannello")
+        btn_split.set_tooltip_text(t("toolbar.split.tooltip"))
         btn_split.add(Gtk.Image.new_from_icon_name("view-dual-symbolic", Gtk.IconSize.BUTTON))
         split_menu = Gtk.Menu()
         for label, cb in [
-            ("□  Pannello singolo",        self._split_singolo),
-            ("◫  Split verticale",         self._split_verticale),
-            ("⬒  Split orizzontale",       self._split_orizzontale),
+            (f"□  {t('toolbar.split.single')}",     self._split_singolo),
+            (f"◫  {t('toolbar.split.vertical')}",   self._split_verticale),
+            (f"⬒  {t('toolbar.split.horizontal')}", self._split_orizzontale),
         ]:
             mi = Gtk.MenuItem(label=label)
             mi.connect("activate", lambda _, c=cb: c())
@@ -699,15 +699,14 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         menu = Gtk.Menu()
         altra = self._notebook2 if notebook is self._notebook else self._notebook
-        altra_lbl = "secondo pannello" if notebook is self._notebook else "primo pannello"
 
-        mi_sposta = Gtk.MenuItem(label=f"↔  Sposta nel {altra_lbl}")
+        mi_sposta = Gtk.MenuItem(label=t("tab.move_to_other"))
         mi_sposta.connect("activate", lambda _: self._sposta_tab(notebook, altra, idx))
         menu.append(mi_sposta)
 
         menu.append(Gtk.SeparatorMenuItem())
 
-        mi_chiudi = Gtk.MenuItem(label="✖  Chiudi tab")
+        mi_chiudi = Gtk.MenuItem(label=t("tab.close"))
         mi_chiudi.connect("activate", lambda _: self._chiudi_tab(notebook.get_nth_page(idx)))
         menu.append(mi_chiudi)
 
@@ -819,7 +818,9 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _on_terminale_locale(self):
-        widget = TerminalWidget()
+        s = config_manager.load_settings().get("terminal", {})
+        paste_right = s.get("paste_on_right_click", False)
+        widget = TerminalWidget(paste_on_right_click=paste_right)
         widget.show_all()
         self._append_tab(widget, "Locale", lambda: self._chiudi_tab(widget))
         widget.avvia_locale()

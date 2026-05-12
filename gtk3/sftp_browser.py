@@ -117,7 +117,7 @@ class SftpBrowserWidget(Gtk.Box):
         self._view = Gtk.TreeView(model=self._store)
         self._view.set_headers_visible(True)
 
-        col_name = Gtk.TreeViewColumn("Nome")
+        col_name = Gtk.TreeViewColumn(t("sftp.col_name"))
         cell_pb  = Gtk.CellRendererPixbuf()
         cell_txt = Gtk.CellRendererText()
         cell_txt.set_property("ellipsize", Pango.EllipsizeMode.END)
@@ -129,7 +129,7 @@ class SftpBrowserWidget(Gtk.Box):
         col_name.set_resizable(True)
         self._view.append_column(col_name)
 
-        for i, h in enumerate(["Dim.", "Perm."], start=2):
+        for i, h in enumerate([t("sftp.col_size"), t("sftp.col_perms")], start=2):
             cell = Gtk.CellRendererText()
             col  = Gtk.TreeViewColumn(h, cell, text=i)
             col.set_resizable(True)
@@ -183,7 +183,7 @@ class SftpBrowserWidget(Gtk.Box):
 
             GLib.idle_add(self._naviga_ui, home)
         except Exception as e:
-            GLib.idle_add(self._set_status, f"Errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
 
     # ------------------------------------------------------------------
     # Navigazione
@@ -213,7 +213,7 @@ class SftpBrowserWidget(Gtk.Box):
             self._cwd = path
             GLib.idle_add(self._popola_lista, entries)
         except Exception as e:
-            GLib.idle_add(self._set_status, f"Errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
 
     def _popola_lista(self, entries):
         self._store.clear()
@@ -231,7 +231,7 @@ class SftpBrowserWidget(Gtk.Box):
             self._store.append([file_pb, e.filename, size, self._perms(e.st_mode), False])
 
         self._path_entry.set_text(self._cwd)
-        self._set_status(f"{len(entries)} elementi")
+        self._set_status(t("sftp.n_items").format(n=len(entries)))
 
     @staticmethod
     def _perms(mode: int) -> str:
@@ -298,11 +298,11 @@ class SftpBrowserWidget(Gtk.Box):
         if not self._sftp:
             return
         dlg = Gtk.FileChooserDialog(
-            title="Carica file",
+            title=t("sftp.upload_title"),
             parent=self.get_toplevel(),
             action=Gtk.FileChooserAction.OPEN
         )
-        dlg.add_buttons("_Annulla", Gtk.ResponseType.CANCEL, "_Carica", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_upload"), Gtk.ResponseType.OK)
         if dlg.run() == Gtk.ResponseType.OK:
             local  = dlg.get_filename()
             remote = self._cwd + "/" + os.path.basename(local)
@@ -316,7 +316,7 @@ class SftpBrowserWidget(Gtk.Box):
             self._sftp.put(local, remote)
             GLib.idle_add(self._naviga, self._cwd)
         except Exception as e:
-            GLib.idle_add(self._set_status, f"Upload errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.upload_err") + f": {e}")
 
     def _on_download(self, nome: str | None = None):
         if not self._sftp:
@@ -329,12 +329,12 @@ class SftpBrowserWidget(Gtk.Box):
             nome = model.get_value(it, 1)
 
         dlg = Gtk.FileChooserDialog(
-            title="Salva come",
+            title=t("sftp.download_title"),
             parent=self.get_toplevel(),
             action=Gtk.FileChooserAction.SAVE
         )
         dlg.set_current_name(nome)
-        dlg.add_buttons("_Annulla", Gtk.ResponseType.CANCEL, "_Salva", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_save"), Gtk.ResponseType.OK)
         if dlg.run() == Gtk.ResponseType.OK:
             local  = dlg.get_filename()
             remote = self._cwd + "/" + nome
@@ -346,27 +346,27 @@ class SftpBrowserWidget(Gtk.Box):
     def _download_file(self, remote: str, local: str):
         try:
             self._sftp.get(remote, local)
-            GLib.idle_add(self._set_status, "Download completato")
+            GLib.idle_add(self._set_status, t("sftp.download_done"))
         except Exception as e:
-            GLib.idle_add(self._set_status, f"Download errore: {e}")
+            GLib.idle_add(self._set_status, t("sftp.err_delete").replace("Errore eliminazione", "Download errore") + f": {e}")
 
     def _on_mkdir(self):
         if not self._sftp:
             return
         dlg = Gtk.Dialog(
-            title="Nuova cartella",
+            title=t("sftp.mkdir_title"),
             transient_for=self.get_toplevel(),
             modal=True
         )
         area = dlg.get_content_area()
         entry = Gtk.Entry()
-        entry.set_placeholder_text("Nome cartella")
+        entry.set_placeholder_text(t("sftp.mkdir_ph"))
         entry.set_margin_start(12)
         entry.set_margin_end(12)
         entry.set_margin_top(8)
         entry.set_margin_bottom(8)
         area.add(entry)
-        dlg.add_buttons("Annulla", Gtk.ResponseType.CANCEL, "Crea", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_create"), Gtk.ResponseType.OK)
         dlg.show_all()
         if dlg.run() == Gtk.ResponseType.OK:
             nome = entry.get_text().strip()
@@ -375,7 +375,7 @@ class SftpBrowserWidget(Gtk.Box):
                     self._sftp.mkdir(self._cwd + "/" + nome)
                     self._naviga(self._cwd)
                 except Exception as e:
-                    self._set_status(f"Errore: {e}")
+                    self._set_status(t("sftp.err_connect").format(e=e))
         dlg.destroy()
 
     def _on_delete(self, nome: str | None = None):
@@ -393,7 +393,7 @@ class SftpBrowserWidget(Gtk.Box):
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text=f"Eliminare '{nome}'?"
+            text=t("sftp.delete_confirm").format(name=nome)
         )
         if confirm.run() == Gtk.ResponseType.YES:
             try:
@@ -401,14 +401,14 @@ class SftpBrowserWidget(Gtk.Box):
                 self._sftp.remove(path)
                 self._naviga(self._cwd)
             except Exception as e:
-                self._set_status(f"Errore eliminazione: {e}")
+                self._set_status(t("sftp.err_delete").format(e=e))
         confirm.destroy()
 
     def _on_rename(self, nome: str):
         if not self._sftp:
             return
         dlg = Gtk.Dialog(
-            title="Rinomina",
+            title=t("sftp.rename_title"),
             transient_for=self.get_toplevel(),
             modal=True
         )
@@ -418,7 +418,7 @@ class SftpBrowserWidget(Gtk.Box):
         entry.set_margin_start(12); entry.set_margin_end(12)
         entry.set_margin_top(8);   entry.set_margin_bottom(8)
         area.add(entry)
-        dlg.add_buttons("Annulla", Gtk.ResponseType.CANCEL, "Rinomina", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_rename"), Gtk.ResponseType.OK)
         dlg.show_all()
         if dlg.run() == Gtk.ResponseType.OK:
             nuovo = entry.get_text().strip()
@@ -430,7 +430,7 @@ class SftpBrowserWidget(Gtk.Box):
                     )
                     self._naviga(self._cwd)
                 except Exception as e:
-                    self._set_status(f"Errore rinomina: {e}")
+                    self._set_status(t("sftp.err_rename").format(e=e))
         dlg.destroy()
 
     # ------------------------------------------------------------------

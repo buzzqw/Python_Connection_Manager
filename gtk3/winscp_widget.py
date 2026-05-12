@@ -33,6 +33,8 @@ try:
 except ImportError:
     PARAMIKO_OK = False
 
+from translations import t
+
 
 # ---------------------------------------------------------------------------
 # Utility
@@ -71,7 +73,7 @@ class TransferJob:
         self.size       = size
         self.nome       = nome or os.path.basename(src)
         self.trasferito = 0
-        self.stato      = "In attesa"
+        self.stato      = t("winscp.status_wait")
         self.errore     = ""
         self.velocita   = 0
         self.t_inizio   = 0.0
@@ -115,7 +117,7 @@ class FilePanel(Gtk.Box):
         self.btn_su   = Gtk.Button(label="⬆")
         self.btn_home = Gtk.Button(label="🏠")
         self.btn_ref  = Gtk.Button(label="↺")
-        for btn, tip in [(self.btn_su,"Su"),(self.btn_home,"Home"),(self.btn_ref,"Aggiorna")]:
+        for btn, tip in [(self.btn_su, t("winscp.tooltip_up")), (self.btn_home, t("winscp.tooltip_home")), (self.btn_ref, t("winscp.tooltip_refresh"))]:
             btn.set_relief(Gtk.ReliefStyle.NONE)
             btn.set_tooltip_text(tip)
             nav.pack_start(btn, False, False, 0)
@@ -140,11 +142,11 @@ class FilePanel(Gtk.Box):
         self._view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
 
         col_defs = [
-            ("Nome",        C_NOME_D, True),
-            ("Ext",         C_EXT,    False),
-            ("Dimensione",  C_SIZE,   False),
-            ("Modificato",  C_MTIME,  False),
-            ("Attributi",   C_ATTR,   False),
+            (t("winscp.col_name"),  C_NOME_D, True),
+            (t("winscp.col_ext"),      C_EXT,    False),
+            (t("winscp.col_size"),     C_SIZE,   False),
+            (t("winscp.col_modified"), C_MTIME,  False),
+            (t("winscp.col_attrs"),    C_ATTR,   False),
         ]
         sort_cols = [C_NOME, C_EXT, C_SIZE_INT, C_MTIME, C_ATTR]
 
@@ -287,7 +289,7 @@ class FilePanel(Gtk.Box):
         entry.set_margin_start(12); entry.set_margin_end(12)
         entry.set_margin_top(8);   entry.set_margin_bottom(8)
         dlg.get_content_area().add(entry)
-        dlg.add_buttons("Annulla", Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sd.cancel"), Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
         dlg.show_all()
         resp = dlg.run()
         result = entry.get_text().strip() if resp == Gtk.ResponseType.OK else None
@@ -374,22 +376,22 @@ class LocalPanel(FilePanel):
 
         if sel:
             ws = self._trova_winscp()
-            _mi(f"⬆  Carica su remoto ({len(sel)} elementi)",
+            _mi(t("winscp.ctx_ul_remote").format(n=len(sel)),
                 lambda: ws._upload_selezione() if ws else None)
-            _mi(f"📋  Aggiungi a coda ({len(sel)} elementi)",
+            _mi(t("winscp.queue_add").format(n=len(sel)),
                 lambda: ws._accoda_upload(sel) if ws else None)
         menu.append(Gtk.SeparatorMenuItem())
-        _mi("📁+  Nuova cartella", self._nuova_cartella)
+        _mi(t("winscp.new_folder"), self._nuova_cartella)
         if sel and not sel[0]["is_dir"]:
-            _mi("🗑  Elimina", lambda: self._elimina(sel))
+            _mi(t("winscp.ctx_delete"), lambda: self._elimina(sel))
         menu.append(Gtk.SeparatorMenuItem())
-        _mi("↺  Aggiorna", self.aggiorna)
+        _mi(t("winscp.ctx_refresh"), self.aggiorna)
 
         menu.show_all()
         menu.popup_at_pointer(event)
 
     def _nuova_cartella(self):
-        nome = self._chiedi_nome("Nuova cartella")
+        nome = self._chiedi_nome(t("winscp.new_folder"))
         if nome:
             try:
                 os.makedirs(os.path.join(self.path, nome), exist_ok=True)
@@ -480,23 +482,23 @@ class RemotePanel(FilePanel):
 
         if sel:
             ws = self._trova_winscp()
-            _mi(f"⬇  Scarica in locale ({len(sel)} elementi)",
+            _mi(t("winscp.ctx_dl_local").format(n=len(sel)),
                 lambda: ws._download_selezione() if ws else None)
-            _mi(f"📋  Aggiungi a coda ({len(sel)} elementi)",
+            _mi(t("winscp.queue_add").format(n=len(sel)),
                 lambda: ws._accoda_download(sel) if ws else None)
         menu.append(Gtk.SeparatorMenuItem())
-        _mi("📁+  Nuova cartella", self._nuova_cartella)
+        _mi(t("winscp.new_folder"), self._nuova_cartella)
         if sel:
-            _mi("✏  Rinomina", lambda: self._rinomina(sel[0]))
-            _mi("🗑  Elimina",  lambda: self._elimina(sel))
+            _mi(t("winscp.rename"), lambda: self._rinomina(sel[0]))
+            _mi(t("winscp.ctx_delete"),  lambda: self._elimina(sel))
         menu.append(Gtk.SeparatorMenuItem())
-        _mi("↺  Aggiorna", self.aggiorna)
+        _mi(t("winscp.ctx_refresh"), self.aggiorna)
 
         menu.show_all()
         menu.popup_at_pointer(event)
 
     def _nuova_cartella(self):
-        nome = self._chiedi_nome("Nuova cartella remota")
+        nome = self._chiedi_nome(t("winscp.new_folder_remote"))
         if nome:
             try:
                 self._sftp.mkdir(self.path.rstrip("/") + "/" + nome)
@@ -505,7 +507,7 @@ class RemotePanel(FilePanel):
                 self._errore_ui(str(e))
 
     def _rinomina(self, v: dict):
-        nuovo = self._chiedi_nome("Rinomina", default=v["nome"])
+        nuovo = self._chiedi_nome(t("winscp.rename"), default=v["nome"])
         if nuovo and nuovo != v["nome"]:
             try:
                 self._sftp.rename(v["path"], self.path.rstrip("/") + "/" + nuovo)
@@ -564,25 +566,25 @@ class CodaWidget(Gtk.Box):
         hdr_box.set_margin_start(4); hdr_box.set_margin_end(4)
         hdr_box.set_margin_top(2);   hdr_box.set_margin_bottom(2)
 
-        hdr = Gtk.Label(label="  📋  Coda trasferimenti")
+        hdr = Gtk.Label(label=f"  {t('winscp.queue_title')}")
         hdr.set_xalign(0.0)
         hdr.get_style_context().add_class("section-header")
         hdr.set_hexpand(True)
         hdr_box.pack_start(hdr, True, True, 0)
 
-        self._btn_pausa = Gtk.Button(label="⏸ Pausa")
+        self._btn_pausa = Gtk.Button(label=t("winscp.btn_pause"))
         self._btn_pausa.set_relief(Gtk.ReliefStyle.NONE)
         self._btn_pausa.set_tooltip_text("Pausa/Riprendi trasferimenti")
         self._btn_pausa.connect("clicked", self._on_pausa_riprendi)
         hdr_box.pack_start(self._btn_pausa, False, False, 0)
 
-        btn_annulla = Gtk.Button(label="✖ Annulla")
+        btn_annulla = Gtk.Button(label=t("winscp.btn_cancel"))
         btn_annulla.set_relief(Gtk.ReliefStyle.NONE)
         btn_annulla.set_tooltip_text("Annulla trasferimento selezionato")
         btn_annulla.connect("clicked", self._on_annulla)
         hdr_box.pack_start(btn_annulla, False, False, 0)
 
-        btn_pulisci = Gtk.Button(label="🧹 Pulisci")
+        btn_pulisci = Gtk.Button(label=t("winscp.btn_clear"))
         btn_pulisci.set_relief(Gtk.ReliefStyle.NONE)
         btn_pulisci.set_tooltip_text("Rimuovi trasferimenti completati/errore")
         btn_pulisci.connect("clicked", self._on_pulisci)
@@ -596,7 +598,7 @@ class CodaWidget(Gtk.Box):
         self._view  = Gtk.TreeView(model=self._store)
         self._view.set_headers_visible(True)
 
-        headers = ["", "Op.", "Sorgente", "Destinazione", "Trasferito", "Velocità"]
+        headers = ["", t("winscp.col_op"), t("winscp.col_src"), t("winscp.col_dst"), t("winscp.col_transferred"), t("winscp.col_speed")]
         widths  = [24,  60,    0,           0,              80,           100]
         expand  = [False, False, True, True, False, False]
 
@@ -612,7 +614,7 @@ class CodaWidget(Gtk.Box):
 
         # Colonna progress bar
         cell_pb = Gtk.CellRendererProgress()
-        col_pb  = Gtk.TreeViewColumn("%", cell_pb, value=6)
+        col_pb  = Gtk.TreeViewColumn(t("winscp.col_pct"), cell_pb, value=6)
         col_pb.set_min_width(80)
         self._view.append_column(col_pb)
 
@@ -627,7 +629,7 @@ class CodaWidget(Gtk.Box):
         self._jobs.append(job)
         icona = "⬆" if job.op == "upload" else "⬇"
         self._store.append([icona, job.op.capitalize(),
-                            job.src, job.dst, "—", "In attesa", 0])
+                            job.src, job.dst, "—", t("winscp.status_wait_lbl"), 0])
         return len(self._jobs) - 1
 
     def aggiorna_progress(self, idx: int, tx: int, tot: int):
@@ -653,12 +655,12 @@ class CodaWidget(Gtk.Box):
 
     def _on_pausa_riprendi(self, btn):
         self._in_pausa = not self._in_pausa
-        self._btn_pausa.set_label("▶ Riprendi" if self._in_pausa else "⏸ Pausa")
+        self._btn_pausa.set_label(t("winscp.btn_resume") if self._in_pausa else t("winscp.btn_pause"))
 
     def _on_annulla(self, btn):
         """Interrompe il trasferimento in corso impostando il flag job.annulla."""
         for i, job in enumerate(self._jobs):
-            if job.stato == "In corso":
+            if job.stato == t("winscp.status_running"):
                 job.annulla = True   # il thread lo legge al prossimo chunk
                 job.stato = "Annullato"
                 it = self._store.get_iter(i)
@@ -669,7 +671,7 @@ class CodaWidget(Gtk.Box):
         """Rimuove dalla vista i job completati/errore/annullati."""
         to_remove = []
         for i, job in enumerate(self._jobs):
-            if job.stato in ("Completato", "Errore", "Annullato"):
+            if job.stato in (t("winscp.status_done"), t("winscp.status_err"), "Annullato"):
                 to_remove.append(i)
         # Rimuovi in ordine inverso per non spostare gli indici
         for i in reversed(to_remove):
@@ -734,7 +736,7 @@ class WinScpWidget(Gtk.Box):
         self._loading_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self._loading_box.set_halign(Gtk.Align.CENTER)
         self._loading_box.set_valign(Gtk.Align.CENTER)
-        self._loading_lbl = Gtk.Label(label="Connessione in corso…")
+        self._loading_lbl = Gtk.Label(label=t("winscp.connecting"))
         self._loading_spinner = Gtk.Spinner()
         self._loading_spinner.start()
         self._loading_box.pack_start(self._loading_spinner, False, False, 0)
@@ -905,7 +907,7 @@ class WinScpWidget(Gtk.Box):
                     time.sleep(0.3)
                 if job.annulla or job.stato == "Annullato":
                     continue
-                job.stato = "In corso"
+                job.stato = t("winscp.status_running")
                 job.t_inizio = time.time()
                 try:
                     self._trasferisci_chunk(job, idx)
@@ -913,10 +915,10 @@ class WinScpWidget(Gtk.Box):
                         job.stato = "Annullato"
                         GLib.idle_add(self._coda.segna_completato, idx, False, "Annullato")
                     else:
-                        job.stato = "Completato"
+                        job.stato = t("winscp.status_done")
                         GLib.idle_add(self._coda.segna_completato, idx, True, "")
                 except Exception as e:
-                    job.stato = "Errore"
+                    job.stato = t("winscp.status_err")
                     job.errore = str(e)
                     GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
 
@@ -958,7 +960,7 @@ class WinScpWidget(Gtk.Box):
                     time.sleep(0.3)
                 if job.annulla or job.stato == "Annullato":
                     continue
-                job.stato = "In corso"
+                job.stato = t("winscp.status_running")
                 job.t_inizio = time.time()
                 try:
                     self._trasferisci_chunk(job, idx)
@@ -966,10 +968,10 @@ class WinScpWidget(Gtk.Box):
                         job.stato = "Annullato"
                         GLib.idle_add(self._coda.segna_completato, idx, False, "Annullato")
                     else:
-                        job.stato = "Completato"
+                        job.stato = t("winscp.status_done")
                         GLib.idle_add(self._coda.segna_completato, idx, True, "")
                 except Exception as e:
-                    job.stato = "Errore"
+                    job.stato = t("winscp.status_err")
                     job.errore = str(e)
                     GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
 
@@ -1069,7 +1071,7 @@ class FtpWinScpWidget(Gtk.Box):
         threading.Thread(target=self._connetti, daemon=True).start()
 
     def _init_ui(self):
-        lbl = Gtk.Label(label="  📂  Browser FTP")
+        lbl = Gtk.Label(label=f"  {t('winscp.ftp_browser')}")
         lbl.set_xalign(0.0)
         lbl.get_style_context().add_class("section-header")
         self.pack_start(lbl, False, False, 0)

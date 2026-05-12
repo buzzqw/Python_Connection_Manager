@@ -16,6 +16,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, Pango
 
 import config_manager
+from translations import t
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +51,7 @@ class TunnelEditDialog(Gtk.Dialog):
 
     def __init__(self, parent=None, dati: dict = None):
         super().__init__(
-            title="Configura Tunnel SSH",
+            title=t("tunnel.edit_title"),
             transient_for=parent,
             modal=True,
             destroy_with_parent=True
@@ -58,8 +59,8 @@ class TunnelEditDialog(Gtk.Dialog):
         self.set_default_size(420, 0)
         dati = dati or {}
         self._init_ui(dati)
-        self.add_button("Annulla", Gtk.ResponseType.CANCEL)
-        self.add_button("Salva",   Gtk.ResponseType.OK)
+        self.add_button(t("tunnel.btn_cancel"), Gtk.ResponseType.CANCEL)
+        self.add_button(t("tunnel.btn_save"),   Gtk.ResponseType.OK)
         self.show_all()
 
     def _init_ui(self, d: dict):
@@ -84,52 +85,52 @@ class TunnelEditDialog(Gtk.Dialog):
 
         self.entry_nome = Gtk.Entry()
         self.entry_nome.set_text(d.get("nome", ""))
-        self.entry_nome.set_placeholder_text("es. SOCKS proxy casa")
-        row("Nome:", self.entry_nome, 0)
+        self.entry_nome.set_placeholder_text(t("tunnel.ph_name"))
+        row(t("tunnel.field_name"), self.entry_nome, 0)
 
         self.combo_tipo = Gtk.ComboBoxText()
-        for t in self.TIPI:
-            self.combo_tipo.append_text(t)
+        for tipo_item in self.TIPI:
+            self.combo_tipo.append_text(tipo_item)
         tipo = d.get("tipo", self.TIPI[0])
         idx = self.TIPI.index(tipo) if tipo in self.TIPI else 0
         self.combo_tipo.set_active(idx)
         self.combo_tipo.connect("changed", self._on_tipo_changed)
-        row("Tipo:", self.combo_tipo, 1)
+        row(t("tunnel.field_type"), self.combo_tipo, 1)
 
         self.entry_user = Gtk.Entry()
         self.entry_user.set_text(d.get("ssh_user", ""))
         self.entry_user.set_placeholder_text("es. root")
-        row("Utente:", self.entry_user, 2)
+        row(t("tunnel.field_user"), self.entry_user, 2)
 
         self.entry_host = Gtk.Entry()
         self.entry_host.set_text(d.get("ssh_host", ""))
         self.entry_host.set_placeholder_text("server.example.com")
-        row("SSH host:", self.entry_host, 3)
+        row(t("tunnel.field_host"), self.entry_host, 3)
 
         self.entry_ssh_port = Gtk.Entry()
         self.entry_ssh_port.set_text(str(d.get("ssh_port", "22")))
-        row("SSH porta:", self.entry_ssh_port, 4)
+        row(t("tunnel.field_ssh_port"), self.entry_ssh_port, 4)
 
         self.entry_pwd = Gtk.Entry()
         self.entry_pwd.set_visibility(False)
         self.entry_pwd.set_text(d.get("password", ""))
-        self.entry_pwd.set_placeholder_text("Vuoto = Chiavi SSH")
-        row("Password:", self.entry_pwd, 5)
+        self.entry_pwd.set_placeholder_text(t("tunnel.ph_password"))
+        row(t("tunnel.field_password"), self.entry_pwd, 5)
 
         self.entry_lport = Gtk.Entry()
         self.entry_lport.set_text(str(d.get("local_port", "1080")))
-        row("Porta locale:", self.entry_lport, 6)
+        row(t("tunnel.field_lport"), self.entry_lport, 6)
 
         self.entry_rhost = Gtk.Entry()
         self.entry_rhost.set_text(d.get("remote_host", ""))
-        self.entry_rhost.set_placeholder_text("host.interno (per -L/-R)")
-        row("Host remoto:", self.entry_rhost, 7)
+        self.entry_rhost.set_placeholder_text(t("tunnel.ph_rhost"))
+        row(t("tunnel.field_rhost"), self.entry_rhost, 7)
 
         self.entry_rport = Gtk.Entry()
         self.entry_rport.set_text(str(d.get("remote_port", "")))
-        row("Porta remota:", self.entry_rport, 8)
+        row(t("tunnel.field_rport"), self.entry_rport, 8)
 
-        self.chk_autostart = Gtk.CheckButton(label="Avvia automaticamente")
+        self.chk_autostart = Gtk.CheckButton(label=t("tunnel.chk_autostart"))
         self.chk_autostart.set_active(d.get("autostart", False))
         grid.attach(self.chk_autostart, 0, 9, 2, 1)
 
@@ -164,7 +165,7 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     def __init__(self, parent=None):
         super().__init__(
-            title="Tunnel SSH",
+            title=t("tunnel.main_title"),
             transient_for=parent,
             modal=False,
             destroy_with_parent=True
@@ -189,9 +190,9 @@ class TunnelManagerDialog(Gtk.Dialog):
         area.pack_start(tb, False, False, 0)
 
         for label, callback in [
-            ("Aggiungi", self._on_aggiungi),
-            ("Modifica", self._on_modifica),
-            ("Elimina",  self._on_elimina),
+            (t("tunnel.btn_add"), self._on_aggiungi),
+            (t("tunnel.btn_edit"), self._on_modifica),
+            (t("tunnel.btn_delete"),  self._on_elimina),
         ]:
             btn = Gtk.Button(label=label)
             btn.connect("clicked", lambda b, cb=callback: cb())
@@ -199,11 +200,11 @@ class TunnelManagerDialog(Gtk.Dialog):
 
         tb.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
 
-        self.btn_start = Gtk.Button(label="▶ Avvia")
+        self.btn_start = Gtk.Button(label=t("tunnel.btn_start"))
         self.btn_start.connect("clicked", lambda b: self._on_avvia())
         tb.pack_start(self.btn_start, False, False, 0)
 
-        self.btn_stop = Gtk.Button(label="■ Ferma")
+        self.btn_stop = Gtk.Button(label=t("tunnel.btn_stop"))
         self.btn_stop.connect("clicked", lambda b: self._on_ferma())
         tb.pack_start(self.btn_stop, False, False, 0)
 
@@ -212,7 +213,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         self._view = Gtk.TreeView(model=self._store)
         self._view.set_headers_visible(True)
 
-        headers = ["Nome", "Tipo", "Host", "Porta locale", "Host remoto", "Porta remota", "Stato"]
+        headers = [t("tunnel.col_name"), t("tunnel.col_type"), t("tunnel.col_host"), t("tunnel.col_lport"), t("tunnel.col_rhost"), t("tunnel.col_rport"), t("tunnel.col_status")]
         for i, h in enumerate(headers):
             cell = Gtk.CellRendererText()
             col  = Gtk.TreeViewColumn(h, cell, text=i)
@@ -243,7 +244,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         paned.set_position(200)
 
         area.pack_start(paned, True, True, 0)
-        self.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+        self.add_button(t("tunnel.btn_close"), Gtk.ResponseType.CLOSE)
         self.connect("response", lambda d, r: d.destroy())
 
     # ------------------------------------------------------------------
@@ -262,29 +263,29 @@ class TunnelManagerDialog(Gtk.Dialog):
         già in esecuzione (identificati dal PID salvato). Utile dopo
         chiusura e riapertura della finestra.
         """
-        for i, t in enumerate(self._tunnels):
-            pid = t.get("pid")
+        for i, tun in enumerate(self._tunnels):
+            pid = tun.get("pid")
             if pid and self._processo_vivo(pid):
                 # Crea un oggetto proxy per tracciare il PID
                 proxy = _PidProxy(pid)
                 self._procs[i] = proxy
-                self._scrivi_log(f"[{t.get('nome')}] Riagganciato processo PID {pid}\n")
+                self._scrivi_log(f"[{tun.get('nome')}] Riagganciato processo PID {pid}\n")
             else:
                 # PID non valido: reset stato
-                if t.get("pid"):
-                    t["pid"] = None
+                if tun.get("pid"):
+                    tun["pid"] = None
         self._ricarica()
 
     def _ricarica(self):
         self._store.clear()
-        for i, t in enumerate(self._tunnels):
+        for i, tun in enumerate(self._tunnels):
             vivo = i in self._procs and self._processo_vivo(self._procs[i].pid)
-            stato = "Attivo" if vivo else "Fermo"
-            target = f"{t.get('ssh_user', '')}@{t.get('ssh_host', '')}".strip("@")
+            stato = t("tunnel.status_active") if vivo else t("tunnel.status_idle")
+            target = f"{tun.get('ssh_user', '')}@{tun.get('ssh_host', '')}".strip("@")
             self._store.append([
-                t.get("nome", ""), t.get("tipo", ""), target,
-                str(t.get("local_port", "")), t.get("remote_host", ""),
-                str(t.get("remote_port", "")), stato, i
+                tun.get("nome", ""), tun.get("tipo", ""), target,
+                str(tun.get("local_port", "")), tun.get("remote_host", ""),
+                str(tun.get("remote_port", "")), stato, i
             ])
 
     def _selected_idx(self) -> int | None:
@@ -449,7 +450,7 @@ class TunnelManagerDialog(Gtk.Dialog):
                 self._procs.pop(idx)
                 self._tunnels[idx]["pid"] = None
                 config_manager.save_tunnels(self._tunnels)
-            self._store.set_value(it, 6, "Attivo" if vivo else "Fermo")
+            self._store.set_value(it, 6, t("tunnel.status_active") if vivo else t("tunnel.status_idle"))
             it = self._store.iter_next(it)
         return True  # mantieni il timer attivo
 

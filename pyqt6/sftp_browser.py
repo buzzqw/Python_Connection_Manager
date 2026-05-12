@@ -24,6 +24,8 @@ try:
 except ImportError:
     PARAMIKO_OK = False
 
+from translations import t
+
 
 # ---------------------------------------------------------------------------
 # Worker thread per operazioni SFTP bloccanti
@@ -128,12 +130,12 @@ class SftpBrowserWidget(QWidget):
         tb.setContentsMargins(4, 2, 4, 2)
         tb.setSpacing(2)
 
-        self.btn_su    = self._mkbtn("⬆", "Cartella superiore", self._vai_su)
-        self.btn_home  = self._mkbtn("🏠", "Home directory",     self._vai_home)
-        self.btn_refresh = self._mkbtn("↺", "Aggiorna",          self._aggiorna)
-        self.btn_upload  = self._mkbtn("⬆️", "Carica file",       self._carica_file)
-        self.btn_dl      = self._mkbtn("⬇️", "Scarica file",      self._scarica_file)
-        self.btn_mkdir   = self._mkbtn("📁+","Nuova cartella",    self._nuova_cartella)
+        self.btn_su    = self._mkbtn("⬆", t("sftp.tooltip_up"),       self._vai_su)
+        self.btn_home  = self._mkbtn("🏠", t("sftp.tooltip_home"),     self._vai_home)
+        self.btn_refresh = self._mkbtn("↺", t("sftp.tooltip_refresh"), self._aggiorna)
+        self.btn_upload  = self._mkbtn("⬆️", t("sftp.tooltip_upload"),  self._carica_file)
+        self.btn_dl      = self._mkbtn("⬇️", t("sftp.tooltip_download"),self._scarica_file)
+        self.btn_mkdir   = self._mkbtn("📁+", t("sftp.tooltip_mkdir"),  self._nuova_cartella)
 
         for b in [self.btn_su, self.btn_home, self.btn_refresh,
                   self.btn_upload, self.btn_dl, self.btn_mkdir]:
@@ -202,7 +204,7 @@ class SftpBrowserWidget(QWidget):
             return
 
         self._disconnetti_silenzioso()
-        self._set_status("⏳ Connessione in corso…")
+        self._set_status(t("sftp.connecting"))
         self.lista.clear()
 
         try:
@@ -224,7 +226,7 @@ class SftpBrowserWidget(QWidget):
             self._imposta_connesso()
 
         except Exception as e:
-            self._set_status(f"✖ Errore: {e}")
+            self._set_status(t("sftp.err_prefix").format(msg=str(e)))
             self._imposta_disconnesso()
 
     def disconnetti(self):
@@ -335,7 +337,7 @@ class SftpBrowserWidget(QWidget):
     def _scarica_file_singolo(self, nome):
         if not self._sftp:
             return
-        dst, _ = QFileDialog.getSaveFileName(self, "Salva come", nome)
+        dst, _ = QFileDialog.getSaveFileName(self, t("sftp.download_title"), nome)
         if not dst:
             return
         src = self._path_corrente.rstrip("/") + "/" + nome
@@ -344,7 +346,7 @@ class SftpBrowserWidget(QWidget):
         except Exception:
             size = 0
 
-        progress = QProgressDialog(f"⬇ Download: {nome}", "Annulla", 0, 100, self)
+        progress = QProgressDialog(t("sftp.downloading").format(name=nome), t("sftp.download_cancel"), 0, 100, self)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(300)
         self._set_status(f"⬇ Download {nome}…")
@@ -355,8 +357,8 @@ class SftpBrowserWidget(QWidget):
         thread.started.connect(worker.run)
         worker.progress.connect(progress.setValue)
         worker.finished.connect(
-            lambda ok, msg, n=nome, p=progress, t=thread:
-                self._on_sftp_done(ok, msg, n, "Scaricato", p, t, refresh=False)
+            lambda ok, msg, n=nome, p=progress, thr=thread:
+                self._on_sftp_done(ok, msg, n, t("sftp.downloaded"), p, thr, refresh=False)
         )
         thread.start()
 
@@ -802,7 +804,7 @@ class FtpBrowserWidget(QWidget):
     def _scarica_file_singolo(self, nome: str):
         if not self._ftp:
             return
-        dst, _ = QFileDialog.getSaveFileName(self, "Salva come", nome)
+        dst, _ = QFileDialog.getSaveFileName(self, t("sftp.download_title"), nome)
         if not dst:
             return
         remote = self._path_corrente.rstrip("/") + "/" + nome
