@@ -294,22 +294,22 @@ class TunnelManagerDialog(QDialog):
 
     def _aggiorna_tabella(self):
         self.tabella.setRowCount(0)
-        for t in self._tunnels:
+        for tun in self._tunnels:
             r = self.tabella.rowCount()
             self.tabella.insertRow(r)
 
-            attivo = t.get("attivo", False)
+            attivo = tun.get("attivo", False)
             stato_txt = "● " + t("tunnel.status_active") if attivo else "○ " + t("tunnel.status_idle")
 
             bg_row = QColor("#2a2a2a") if r % 2 == 0 else QColor("#242424")
             fg_row = QColor("#dddddd")
 
             celle = [
-                t.get("nome", ""),
-                t.get("tipo", ""),
-                f"{t.get('ssh_user', '')}@{t.get('ssh_host', '')}:{t.get('ssh_port', 22)}",
-                str(t.get("local_port", "")),
-                f"{t.get('remote_host', '')}:{t.get('remote_port', '')}" if t.get("remote_host") else "—",
+                tun.get("nome", ""),
+                tun.get("tipo", ""),
+                f"{tun.get('ssh_user', '')}@{tun.get('ssh_host', '')}:{tun.get('ssh_port', 22)}",
+                str(tun.get("local_port", "")),
+                f"{tun.get('remote_host', '')}:{tun.get('remote_port', '')}" if tun.get("remote_host") else "—",
                 stato_txt,
             ]
             for c, testo in enumerate(celle):
