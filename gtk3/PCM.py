@@ -387,6 +387,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
+        self._pannello.connect("apri-ft",  lambda _p, n, d: self._apri_ft_da_sessione(d))
         self.connect("delete-event", self._on_close)
 
     # ------------------------------------------------------------------
@@ -514,6 +515,7 @@ class MainWindow(Gtk.ApplicationWindow):
         else:
             container = widget
 
+        container._pcm_dati = dati
         container.show_all()
         self._append_tab(container, nome)
         GLib.idle_add(widget.grab_focus)
@@ -531,6 +533,21 @@ class MainWindow(Gtk.ApplicationWindow):
         widget = FtpWinScpWidget(dati)
         widget.show_all()
         self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
+
+    def _apri_ft_da_sessione(self, dati_ssh: dict):
+        """Mostra dialog per aprire SFTP/FTP riciclando le credenziali di una sessione."""
+        dlg = _DialogApriFileTransfer(parent=self, dati_ssh=dati_ssh)
+        resp = dlg.run()
+        if resp == Gtk.ResponseType.OK:
+            dati_ft = dlg.get_dati()
+            host = dati_ft.get("host", "")
+            ft_proto = dati_ft.get("ft_protocol", "SFTP")
+            nome_tab = f"{ft_proto}: {host}"
+            if ft_proto == "SFTP":
+                self._apri_sftp(nome_tab, dati_ft)
+            else:
+                self._apri_ftp(nome_tab, dati_ft)
+        dlg.destroy()
 
     def _apri_rdp(self, nome: str, dati: dict):
         open_mode = dati.get("rdp_open_mode", "external")
@@ -724,6 +741,14 @@ class MainWindow(Gtk.ApplicationWindow):
         mi_sposta = Gtk.MenuItem(label=t("tab.move_to_other"))
         mi_sposta.connect("activate", lambda _: self._sposta_tab(notebook, altra, idx))
         menu.append(mi_sposta)
+
+        page = notebook.get_nth_page(idx)
+        dati_tab = getattr(page, "_pcm_dati", None)
+        if dati_tab and dati_tab.get("protocol") in ("ssh", "telnet", "mosh", "serial"):
+            menu.append(Gtk.SeparatorMenuItem())
+            mi_ft = Gtk.MenuItem(label=t("tab.open_ft_here"))
+            mi_ft.connect("activate", lambda _b, d=dati_tab: self._apri_ft_da_sessione(d))
+            menu.append(mi_ft)
 
         menu.append(Gtk.SeparatorMenuItem())
 
@@ -1188,6 +1213,134 @@ class MainWindow(Gtk.ApplicationWindow):
 # Applicazione GTK
 # ===========================================================================
 
+
+# ---------------------------------------------------------------------------
+# Dialog "Apri SFTP/FTP da sessione esistente"
+# ---------------------------------------------------------------------------
+
+class _DialogApriFileTransfer(Gtk.Dialog):
+    """Dialog che pre-compila host/credenziali da una sessione SSH e chiede il protocollo FT."""
+
+    _PORT_DEFAULT = {"SFTP": "22", "FTP": "21", "FTPS": "21"}
+
+    def __init__(self, parent, dati_ssh: dict):
+        super().__init__(
+            title=t("dlg_ft.title"),
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        self.set_default_size(420, 0)
+        self._dati_ssh = dati_ssh
+        self._init_ui()
+        self.show_all()
+        self._on_proto_changed(self._combo_proto)
+
+    def _init_ui(self):
+        area = self.get_content_area()
+        area.set_spacing(6)
+        area.set_margin_start(16)
+        area.set_margin_end(16)
+        area.set_margin_top(12)
+        area.set_margin_bottom(8)
+
+        grid = Gtk.Grid(row_spacing=6, column_spacing=8)
+        area.pack_start(grid, False, False, 0)
+
+        def _row(row, label_key, widget):
+            lbl = Gtk.Label(label=t(label_key))
+            lbl.set_xalign(1.0)
+            grid.attach(lbl, 0, row, 1, 1)
+            grid.attach(widget, 1, row, 1, 1)
+            widget.set_hexpand(True)
+
+        # Protocollo
+        self._combo_proto = Gtk.ComboBoxText()
+        for p in ("SFTP", "FTP", "FTPS"):
+            self._combo_proto.append_text(p)
+        self._combo_proto.set_active(0)
+        self._combo_proto.connect("changed", self._on_proto_changed)
+        _row(0, "dlg_ft.protocol", self._combo_proto)
+
+        # Host
+        self._entry_host = Gtk.Entry()
+        self._entry_host.set_text(self._dati_ssh.get("host", ""))
+        _row(1, "dlg_ft.host", self._entry_host)
+
+        # Porta
+        self._entry_port = Gtk.Entry()
+        self._entry_port.set_text(self._dati_ssh.get("port", "22") or "22")
+        _row(2, "dlg_ft.port", self._entry_port)
+
+        # Utente
+        self._entry_user = Gtk.Entry()
+        self._entry_user.set_text(self._dati_ssh.get("user", ""))
+        _row(3, "dlg_ft.user", self._entry_user)
+
+        # Password
+        self._entry_pwd = Gtk.Entry()
+        self._entry_pwd.set_visibility(False)
+        self._entry_pwd.set_text(self._dati_ssh.get("password", ""))
+        _row(4, "dlg_ft.password", self._entry_pwd)
+
+        # Chiave privata (solo SFTP)
+        self._pkey_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self._entry_pkey = Gtk.Entry()
+        self._entry_pkey.set_text(self._dati_ssh.get("private_key", ""))
+        self._entry_pkey.set_hexpand(True)
+        btn_pkey = Gtk.Button(label=t("dlg_ft.pkey_browse"))
+        btn_pkey.connect("clicked", self._on_browse_pkey)
+        self._pkey_box.pack_start(self._entry_pkey, True, True, 0)
+        self._pkey_box.pack_start(btn_pkey, False, False, 0)
+        self._lbl_pkey = Gtk.Label(label=t("dlg_ft.pkey"))
+        self._lbl_pkey.set_xalign(1.0)
+        grid.attach(self._lbl_pkey, 0, 5, 1, 1)
+        grid.attach(self._pkey_box, 1, 5, 1, 1)
+        self._pkey_box.set_hexpand(True)
+
+        self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        ok = self.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+        ok.get_style_context().add_class("suggested-action")
+        self.set_default_response(Gtk.ResponseType.OK)
+        self._entry_host.connect("activate", lambda _: self.response(Gtk.ResponseType.OK))
+
+    def _on_proto_changed(self, combo):
+        proto = combo.get_active_text() or "SFTP"
+        is_sftp = proto == "SFTP"
+        self._lbl_pkey.set_visible(is_sftp)
+        self._pkey_box.set_visible(is_sftp)
+        # Aggiorna porta solo se invariata rispetto ai default
+        current_port = self._entry_port.get_text().strip()
+        for p, default in self._PORT_DEFAULT.items():
+            if current_port == default:
+                self._entry_port.set_text(self._PORT_DEFAULT[proto])
+                break
+
+    def _on_browse_pkey(self, _btn):
+        dlg = Gtk.FileChooserDialog(
+            title=t("dlg_ft.pkey"),
+            transient_for=self,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        dlg.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+        if dlg.run() == Gtk.ResponseType.OK:
+            self._entry_pkey.set_text(dlg.get_filename() or "")
+        dlg.destroy()
+
+    def get_dati(self) -> dict:
+        proto = self._combo_proto.get_active_text() or "SFTP"
+        return {
+            "protocol":    "file_transfer",
+            "ft_protocol": proto,
+            "host":        self._entry_host.get_text().strip(),
+            "port":        self._entry_port.get_text().strip(),
+            "user":        self._entry_user.get_text().strip(),
+            "password":    self._entry_pwd.get_text(),
+            "private_key": self._entry_pkey.get_text().strip() if proto == "SFTP" else "",
+            "ftp_tls":     proto == "FTPS",
+            "ftp_passive": True,
+        }
 
 
 # ---------------------------------------------------------------------------

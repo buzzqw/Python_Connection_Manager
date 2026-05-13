@@ -56,11 +56,12 @@ PROTO_LABEL = {
 class SessionPanel(Gtk.Box):
 
     __gsignals__ = {
-        "connetti": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
-        "nuova":    (GObject.SignalFlags.RUN_FIRST, None, ()),
-        "modifica": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
-        "elimina":  (GObject.SignalFlags.RUN_FIRST, None, (str,)),
-        "duplica":  (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "connetti":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "nuova":      (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "modifica":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "elimina":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "duplica":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "apri-ft":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -252,6 +253,11 @@ class SessionPanel(Gtk.Box):
         _item(t("panel.duplicate"), lambda: self.emit("duplica", nome))
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.delete"),    lambda: self._conferma_elimina(nome))
+
+        proto = dati.get("protocol", "")
+        if proto in ("ssh", "telnet", "mosh", "serial"):
+            menu.append(Gtk.SeparatorMenuItem())
+            _item(t("panel.open_ft_here"), lambda: self.emit("apri-ft", nome, dati))
 
         menu.show_all()
         menu.popup_at_pointer(event)

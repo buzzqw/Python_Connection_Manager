@@ -347,6 +347,7 @@ _T: dict[str, dict[str, str]] = {
     "tab.close":             {"it": "✖  Chiudi tab", "en": "✖  Close tab", "de": "✖  Tab schließen", "fr": "✖  Fermer l'onglet", "es": "✖  Cerrar pestaña"},
     "tab.close_confirm_title": {"it": "Chiudi tab",  "en": "Close tab",   "de": "Tab schließen","fr": "Fermer l'onglet","es": "Cerrar pestaña"},
     "tab.close_confirm_msg":   {"it": "Chiudere la sessione '{name}'?", "en": "Close session '{name}'?", "de": "Sitzung '{name}' schließen?", "fr": "Fermer la session '{name}' ?", "es": "¿Cerrar la sesión '{name}'?"},
+    "tab.open_ft_here":        {"it": "📂  Apri SFTP/FTP qui…", "en": "📂  Open SFTP/FTP here…", "de": "📂  SFTP/FTP hier öffnen…", "fr": "📂  Ouvrir SFTP/FTP ici…", "es": "📂  Abrir SFTP/FTP aquí…"},
 
     # ── Pannello sessioni (menu contestuale) ──────────────────────────────────
     "panel.connect":        {"it": "▶  Connetti",   "en": "▶  Connect",    "de": "▶  Verbinden",    "fr": "▶  Connecter",  "es": "▶  Conectar"},
@@ -358,6 +359,17 @@ _T: dict[str, dict[str, str]] = {
     "panel.delete":         {"it": "🗑  Elimina",   "en": "🗑  Delete",    "de": "🗑  Löschen",     "fr": "🗑  Supprimer",  "es": "🗑  Eliminar"},
     "panel.macros":         {"it": "⚡  Macro",     "en": "⚡  Macros",    "de": "⚡  Makros",      "fr": "⚡  Macros",     "es": "⚡  Macros"},
     "panel.delete_confirm": {"it": "Eliminare la sessione «{name}»?", "en": "Delete session «{name}»?", "de": "Sitzung «{name}» löschen?", "fr": "Supprimer la session «{name}» ?", "es": "¿Eliminar la sesión «{name}»?"},
+    "panel.open_ft_here":   {"it": "📂  Apri SFTP/FTP qui…", "en": "📂  Open SFTP/FTP here…", "de": "📂  SFTP/FTP hier öffnen…", "fr": "📂  Ouvrir SFTP/FTP ici…", "es": "📂  Abrir SFTP/FTP aquí…"},
+
+    # ── Dialog Apri SFTP/FTP da sessione esistente ────────────────────────────
+    "dlg_ft.title":    {"it": "Apri connessione file", "en": "Open file connection", "de": "Dateiverbindung öffnen", "fr": "Ouvrir connexion fichier", "es": "Abrir conexión de archivos"},
+    "dlg_ft.protocol": {"it": "Protocollo", "en": "Protocol", "de": "Protokoll", "fr": "Protocole", "es": "Protocolo"},
+    "dlg_ft.host":     {"it": "Host", "en": "Host", "de": "Host", "fr": "Hôte", "es": "Host"},
+    "dlg_ft.port":     {"it": "Porta", "en": "Port", "de": "Port", "fr": "Port", "es": "Puerto"},
+    "dlg_ft.user":     {"it": "Utente", "en": "User", "de": "Benutzer", "fr": "Utilisateur", "es": "Usuario"},
+    "dlg_ft.password": {"it": "Password", "en": "Password", "de": "Passwort", "fr": "Mot de passe", "es": "Contraseña"},
+    "dlg_ft.pkey":     {"it": "Chiave privata", "en": "Private key", "de": "Privater Schlüssel", "fr": "Clé privée", "es": "Clave privada"},
+    "dlg_ft.pkey_browse": {"it": "Sfoglia…", "en": "Browse…", "de": "Durchsuchen…", "fr": "Parcourir…", "es": "Examinar…"},
 
     # ── Terminale (VTE) ───────────────────────────────────────────────────────
     "terminal.session_ended":      {"it": "  ✖  Sessione terminata — clicca 'Riconnetti' o chiudi il tab", "en": "  ✖  Session ended — click 'Reconnect' or close the tab", "de": "  ✖  Sitzung beendet — 'Neu verbinden' klicken oder Tab schließen", "fr": "  ✖  Session terminée — cliquez sur 'Reconnecter' ou fermez l'onglet", "es": "  ✖  Sesión terminada — haz clic en 'Reconectar' o cierra la pestaña"},
@@ -725,6 +737,7 @@ _T: dict[str, dict[str, str]] = {
 
     "sd.browse_key": {"it": "Seleziona chiave privata", "en": "Select private key", "de": "Privaten Schlüssel auswählen", "fr": "Sélectionner une clé privée", "es": "Seleccionar clave privada"},
     "sd.browse_log": {"it": "Cartella log", "en": "Log folder", "de": "Log-Ordner", "fr": "Dossier de logs", "es": "Carpeta de logs"},
+    "sd.ok":          {"it": "OK",      "en": "OK",     "de": "OK",        "fr": "OK",      "es": "OK"},
     "sd.cancel":      {"it": "Annulla", "en": "Cancel", "de": "Abbrechen", "fr": "Annuler", "es": "Cancelar"},
     "sd.password":     {"it": "Password:",       "en": "Password:",      "de": "Passwort:",      "fr": "Mot de passe :",   "es": "Contraseña:"},
     "sd.private_key":  {"it": "Chiave privata:", "en": "Private key:",   "de": "Privater Schlüssel:", "fr": "Clé privée :", "es": "Clave privada:"},
