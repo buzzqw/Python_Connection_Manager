@@ -131,6 +131,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._build_ui()
         self._connect_signals()
+        self._setup_accels()
         self._pannello.aggiorna()
 
         # Sblocco credenziali cifrate — 300ms dopo avvio per dare tempo al rendering
@@ -389,6 +390,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("duplica",  self._on_duplica_sessione)
         self._pannello.connect("apri-ft",  lambda _p, n, d: self._apri_ft_da_sessione(d))
         self.connect("delete-event", self._on_close)
+
+    def _setup_accels(self):
+        ag = Gtk.AccelGroup()
+        self.add_accel_group(ag)
+        # Ctrl+Shift+G → variabili globali  (Ctrl+Shift+V rimane libero per incolla VTE)
+        key, mod = Gtk.accelerator_parse("<Primary><Shift>G")
+        if key:
+            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE,
+                       lambda *_: self._on_variabili_globali() or True)
 
     # ------------------------------------------------------------------
     # Schermata benvenuto
