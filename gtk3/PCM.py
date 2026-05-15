@@ -341,7 +341,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Menu kebab (⋮) sul lato destro
         self._menu_btn = Gtk.MenuButton()
         self._menu_btn.set_direction(Gtk.ArrowType.DOWN)
-        self._menu_btn.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
+        self._menu_btn.add(Gtk.Image.new_from_icon_name("view-more-symbolic", Gtk.IconSize.BUTTON))
         self._menu_btn.set_popup(self._build_menu())
         hb.pack_end(self._menu_btn)
 
@@ -360,8 +360,6 @@ class MainWindow(Gtk.ApplicationWindow):
             mi.connect("activate", lambda _: callback())
             menu.append(mi)
 
-        _item(t("menu.file.settings"),     self._on_impostazioni)
-        menu.append(Gtk.SeparatorMenuItem())
         _item(t("menu.tools.tunnels"),     self._on_tunnel_manager)
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
