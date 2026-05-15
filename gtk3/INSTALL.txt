@@ -1,4 +1,5 @@
 # PCM - Python Connection Manager (GTK3)
+#
 # Dipendenze di sistema
 
 # ===========================================================================
