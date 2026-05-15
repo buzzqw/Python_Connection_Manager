@@ -115,7 +115,7 @@ cd Python_Connection_Manager/gtk3
 bash setup.sh
 ```
 
-Lo script rileva automaticamente la distribuzione e installa tutte le dipendenze usando **uv** come gestore di pacchetti Python moderno.
+Lo script rileva automaticamente la distribuzione e installa tutte le dipendenze di sistema (GTK3, VTE, gtk-vnc, xdotool) e Python (paramiko, cryptography, pyftpdlib). Crea anche un lanciatore `.desktop` nel menu applicazioni.
 
 ### Installazione manuale
 
@@ -163,12 +163,6 @@ sudo zypper install \
     xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
-```
-
-### Verifica dipendenze
-
-```bash
-bash setup.sh --check
 ```
 
 ---

@@ -582,7 +582,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   <p class="proto-title"><span class="badge b-vnc">VNC</span> Virtual Network Computing</p>
   <p class="proto-desc">Desktop remoto multipiattaforma (Linux, Windows, macOS) tramite protocollo RFB.</p>
   <ul>
-    <li><b>VNC integrato in scheda</b> — usa noVNC per mostrare il desktop direttamente in una scheda PCM (richiede WebKitGTK / webkit2gtk)</li>
+    <li><b>VNC integrato in scheda</b> — usa <b>gtk-vnc</b> per mostrare il desktop direttamente in una scheda PCM (richiede <code>gir1.2-gtkvnc-2.0</code> / <code>gtk-vnc</code>)</li>
     <li><b>Client esterno</b> — vncviewer, realvnc-viewer, tigervnc, remmina, krdc</li>
     <li>Porta default 5900; display :1 = porta 5901, :2 = 5902…</li>
     <li>Password VNC separata dalla password di sistema</li>
@@ -1209,35 +1209,29 @@ exit
 <!-- ══════════════════════════════════════════════════ IMPOSTAZIONI -->
 <h2 id="impostazioni">🛠 Impostazioni globali</h2>
 
-<p>Da <b>Toolbar → Impostazioni</b> (o <b>File → Impostazioni</b>) — quattro tab:</p>
+<p>Da <b>Toolbar → Impostazioni</b> (o <b>File → Impostazioni</b>) — tre tab:</p>
+
+<div class="info">ℹ️ Tutte le opzioni di terminale (tema, font, scrollback, keepalive, ecc.) sono <b>per-sessione</b> e si configurano nel dialog di creazione/modifica sessione. Le impostazioni globali coprono solo elementi trasversali a tutte le sessioni.</div>
 
 <h3>Tab Generale</h3>
 <ul>
   <li><b>Home directory</b> — cartella di partenza per i file dialog</li>
   <li><b>Editor di testo</b> — usato per aprire file di configurazione (nano, vim, gedit, code…)</li>
+  <li><b>Lingua</b> — italiano, inglese, tedesco, francese, spagnolo</li>
   <li><b>Conferma alla chiusura</b> — chiede cosa fare quando ci sono sessioni attive</li>
-</ul>
-
-<h3>Tab Terminale</h3>
-<ul>
-  <li><b>Tema predefinito</b> — schema colori per tutte le nuove sessioni (sovrascrivibile per singola sessione)</li>
-  <li><b>Font predefinito</b> e <b>Dimensione font</b></li>
-  <li><b>Righe scrollback</b> — quante righe mantenere in memoria (100–100.000)</li>
-  <li><b>Incolla con tasto destro</b></li>
-  <li><b>Conferma chiusura tab</b> — avvisa prima di chiudere un tab con processo attivo</li>
-  <li><b>Avviso paste multiriga</b> — evita esecuzioni accidentali</li>
-  <li><b>Registra output su file</b> + <b>Cartella log</b> — globale per tutte le sessioni che non hanno un log specifico</li>
-</ul>
-
-<h3>Tab SSH</h3>
-<ul>
-  <li><b>Keepalive interval</b> — secondi tra i pacchetti keepalive (0 = disabilitato)</li>
-  <li><b>StrictHostKeyChecking</b> — verifica impronta del server SSH</li>
-  <li><b>Apri browser SFTP automaticamente</b> — popola il tab SFTP della sidebar a ogni connessione SSH</li>
 </ul>
 
 <h3>Tab Scorciatoie</h3>
 <p>Personalizza tutte le scorciatoie. Formato: <code>Ctrl+Shift+X</code>, <code>F5</code>, ecc. Le modifiche hanno effetto al prossimo avvio.</p>
+
+<h3>Tab Strumenti personalizzati</h3>
+<p>Definisci client VNC e RDP personalizzati che compaiono nel combo "Client esterno" del dialog sessione.</p>
+<ul>
+  <li><b>Etichetta</b> — nome che appare nel menu a tendina (es. <i>RealVNC Viewer</i>)</li>
+  <li><b>Percorso</b> — percorso completo al binario (es. <code>/usr/bin/vncviewer</code>)</li>
+  <li><b>Sintassi</b> — parametri da passare al client (es. <code>{host}:{port}</code>)</li>
+</ul>
+<p>Usa <b>➕ Aggiungi</b> per inserire un nuovo tool, seleziona una riga e modifica direttamente le celle, poi <b>🗑 Rimuovi</b> per eliminare.</p>
 
 
 <!-- ══════════════════════════════════════════════════ FAQ -->

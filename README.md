@@ -78,7 +78,7 @@
 | | |
 |---|---|
 | ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
-| *Tab Avanzate VNC — apertura con noVNC embedded (WebKit) o client esterno, profondità colore, qualità, Wake-on-LAN, pre-comando locale* | *Connessione Seriale — device (/dev/ttyUSB0), baud rate, data bit, parity, stop bit* |
+| *Tab Avanzate VNC — apertura con gtk-vnc integrato o client esterno, profondità colore, qualità, Wake-on-LAN, pre-comando locale* | *Connessione Seriale — device (/dev/ttyUSB0), baud rate, data bit, parity, stop bit* |
 
 ---
 
@@ -156,11 +156,11 @@
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
 cd Python_Connection_Manager/gtk3
-bash setup.sh          # installa automaticamente con uv per Debian/Ubuntu/Arch/Fedora/openSUSE
+bash ../setup.sh       # installa automaticamente per Debian/Ubuntu/Arch/Fedora/FreeBSD
 python3 PCM.py
 ```
 
-> Il progetto GTK3 utilizza [**uv**](https://github.com/astral-sh/uv) come gestore di pacchetti Python. Lo script `setup.sh` installa automaticamente uv e crea un ambiente virtuale ottimizzato.
+> Lo script `setup.sh` rileva la distribuzione e installa le dipendenze di sistema (GTK3, VTE, gtk-vnc) e Python (paramiko, cryptography, pyftpdlib). Crea anche un lanciatore `.desktop` nel menu applicazioni.
 
 ### Installazione PyQt6 (manutenzione)
 
@@ -268,7 +268,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 | | |
 |---|---|
 | ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
-| *VNC Advanced tab — open with embedded noVNC (WebKit) or external client, color depth, quality, Wake-on-LAN, local pre-command* | *Serial connection — device (/dev/ttyUSB0), baud rate, data bits, parity, stop bits* |
+| *VNC Advanced tab — open with embedded gtk-vnc or external client, color depth, quality, Wake-on-LAN, local pre-command* | *Serial connection — device (/dev/ttyUSB0), baud rate, data bits, parity, stop bits* |
 
 ---
 
@@ -346,11 +346,11 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
 cd Python_Connection_Manager/gtk3
-bash setup.sh          # automatically installs with uv for Debian/Ubuntu/Arch/Fedora/openSUSE
+bash ../setup.sh       # automatically installs for Debian/Ubuntu/Arch/Fedora/FreeBSD
 python3 PCM.py
 ```
 
-> The GTK3 project uses [**uv**](https://github.com/astral-sh/uv) as a modern Python package manager. The `setup.sh` script automatically installs uv and creates an optimized virtual environment.
+> The `setup.sh` script detects the distribution and installs system dependencies (GTK3, VTE, gtk-vnc) and Python packages (paramiko, cryptography, pyftpdlib). It also creates a `.desktop` launcher in the application menu.
 
 ### PyQt6 install (maintenance)
 
