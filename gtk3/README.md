@@ -1,259 +1,233 @@
-# PCM — Python Connection Manager (GTK3)
+# PCM — Python Connection Manager
 
-> Gestore grafico di connessioni remote per Linux, ispirato a MobaXterm.
-> Scritto in Python con GTK3 e terminale VTE nativo — funziona su **X11 e Wayland**.
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](../EUPL-1.2%20EN.txt)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![GTK3](https://img.shields.io/badge/UI-GTK3-green.svg)](https://docs.gtk.org/gtk3/)
+[![Wayland](https://img.shields.io/badge/Wayland-nativo-purple.svg)](#note-wayland)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20FreeBSD-lightgrey.svg)](#installazione)
+
+> **L'alternativa Linux a MobaXterm** — tutto in una finestra: SSH, RDP, VNC, SFTP, FTP, Telnet, Mosh, Seriale.  
+> Scritto in Python con GTK3 e terminale VTE nativo. Funziona su **X11 e Wayland** senza XWayland.
+
+---
+
+## Perché PCM?
+
+| | PCM | Remmina | mRemoteNG |
+|---|---|---|---|
+| SSH con terminale integrato | ✅ VTE nativo | ❌ solo RDP/VNC | ✅ |
+| RDP + VNC + SSH + FTP in un tool | ✅ | parziale | ✅ |
+| Browser SFTP/FTP integrato | ✅ dual-pane | ❌ | ❌ |
+| Tunnel SSH grafici | ✅ | ❌ | ❌ |
+| Broadcast a più terminali | ✅ | ❌ | ❌ |
+| KeePassXC integrato | ✅ | ❌ | ❌ |
+| Wayland nativo (no XWayland) | ✅ | parziale | ❌ Linux |
+| Password MAI sulla command line | ✅ feed_child | ❌ | — |
+| Configurazione in JSON leggibile | ✅ | XML complesso | XML |
+| Licenza | EUPL-1.2 | GPL-2 | GPL-2 |
 
 ---
 
 ## Screenshot
 
-### Schermata principale
-![Schermata principale](../immagini/pcm1.png)
-*Sidebar con sessioni organizzate per gruppo, sezione Recenti, quick connect, terminale locale integrato*
-
-### Gestione sessioni — Connessione SSH
-![Sessione SSH](../immagini/pcm2.png)
-*Configurazione completa: host, porta, Wake-on-LAN integrato, pulsante KeePassXC*
-
-### Autenticazione SSH avanzata
-![Autenticazione SSH](../immagini/pcm3.png)
-*Gestione chiavi SSH, generazione chiave, copia sul server, Jump Host (Bastion), Agent Forwarding*
-
-### Configurazione terminale
-![Terminale](../immagini/pcm4.png)
-*Tema, font, pre-comando locale (VPN), browser SFTP automatico, log output*
-
-### Opzioni avanzate SSH
-![Avanzate SSH](../immagini/pcm5.png)
-*X11 forwarding, compressione, keepalive, strict host key, modalità apertura*
-
-### Sessione RDP
-![RDP](../immagini/pcm6.png)
-*Configurazione RDP con client selezionabile (xfreerdp3/xfreerdp/rdesktop), multi-monitor, schermo intero, clipboard*
-
-### Sessione SFTP
-![SFTP](../immagini/pcm7.png)
-
-### Sessione FTP/FTPS
-![FTP](../immagini/pcm8.png)
-*FTP plain e FTPS (TLS esplicito), modalità passiva PASV*
-
-### Browser FTP integrato (WinSCP-style)
-![Browser FTP](../immagini/pcm10.png)
-*Dual-pane locale/remoto, upload/download con coda, nuova cartella, elimina, aggiorna*
-
-### Nuova sessione in inglese
-![Nuova sessione EN](../immagini/pcm11.png)
-*Interfaccia completamente internazionalizzata (IT/EN/DE/FR/ES)*
+<table>
+<tr>
+<td><img src="../immagini/pcm1.png" width="380"/><br><em>Finestra principale: sidebar gruppi, sezione Recenti, quick connect</em></td>
+<td><img src="../immagini/pcm2.png" width="380"/><br><em>Sessione SSH: host, porta, WoL integrato, pulsante KeePassXC</em></td>
+</tr>
+<tr>
+<td><img src="../immagini/pcm3.png" width="380"/><br><em>Autenticazione avanzata: chiavi SSH, Jump Host, Agent Forwarding</em></td>
+<td><img src="../immagini/pcm4.png" width="380"/><br><em>Browser SFTP dual-pane integrato — stile WinSCP</em></td>
+</tr>
+<tr>
+<td><img src="../immagini/pcm6.png" width="380"/><br><em>Sessione RDP: multi-monitor, clipboard, client selezionabile</em></td>
+<td><img src="../immagini/pcm10.png" width="380"/><br><em>Browser FTP/FTPS dual-pane con coda trasferimenti</em></td>
+</tr>
+</table>
 
 ---
 
-## Caratteristiche
+## Funzionalità principali
 
-### Protocolli supportati
+### 🖥 Protocolli — tutto in una finestra
 
-| Protocollo | Modalità | Note |
+| Protocollo | Come si apre | Punti di forza |
 |---|---|---|
-| **SSH** | Terminale integrato (VTE) o esterno | Jump Host, X11 forward, Agent Forwarding, pre-cmd VPN |
-| **SFTP** | Browser dual-pane integrato | Drag&drop, coda trasferimenti |
-| **FTP / FTPS** | Browser integrato o client esterno | TLS esplicito, modalità passiva |
-| **RDP** | Finestra esterna o pannello interno | xfreerdp3, xfreerdp, rdesktop; multi-monitor |
-| **VNC** | gtk-vnc nativo o client esterno | Toolbar runtime: scala, grab, screenshot |
-| **Telnet** | Terminale integrato | — |
-| **Mosh** | Terminale integrato | Richiede mosh installato |
-| **Seriale** | Terminale integrato | Baud rate, parità, stop bit configurabili |
-| **Exec** | Terminale integrato | Qualsiasi comando shell locale in una scheda |
+| **SSH** | Tab VTE interno o terminale esterno | Jump Host, X11, Agent Forward, pre-cmd VPN, macro |
+| **SFTP** | Browser dual-pane integrato | Drag & drop, coda trasferimenti, rinomina |
+| **FTP / FTPS** | Browser integrato o file manager | TLS esplicito, modalità PASV |
+| **RDP** | Pannello interno o finestra esterna | xfreerdp3/xfreerdp/rdesktop, multi-monitor |
+| **VNC** | gtk-vnc nativo o client esterno | Scala, grab input, screenshot |
+| **Telnet** | Tab VTE interno | — |
+| **Mosh** | Tab VTE interno | Resistente a disconnessioni |
+| **Seriale** | Tab VTE interno | Baud, parità, stop bit configurabili |
+| **Exec** | Tab VTE interno | Qualsiasi comando shell in una scheda |
 | **SSH Tunnel** | Background gestito graficamente | SOCKS -D, locale -L, remoto -R |
 
-### Gestione sessioni
+### 🔐 Sicurezza — sopra la media
 
-- Sessioni organizzate per **gruppo** con barra di ricerca live
-- **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
-- **Quick Connect** dalla toolbar: `utente@host:porta` senza salvare un profilo
-- Doppio clic per connettere, tasto destro per menu contestuale
-- **Ping**: verifica raggiungibilità TCP dalla sidebar (tasto destro → Ping)
-- Duplica, modifica, elimina, esporta script `.sh`
-- **Import** da Remmina, Remote Desktop Manager, **PuTTY**, **~/.ssh/config**
+- **Password mai sulla command line**: PCM digita la password nel terminale VTE quando il server la richiede (`feed_child`), come farebbe un utente. Nessun `sshpass`, nessun argomento visibile in `ps aux`.
+- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: se SSH gestisce l'auth prima che appaia un prompt (keyboard-interactive), uno script helper temp mode `0700` passa la password silenziosamente.
+- **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco.
+- **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
+- **Modalità protetta**: nasconde tutte le password nell'interfaccia.
+- **Chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
+- **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
 
-### Sicurezza e credenziali
+### 💻 Terminale avanzato
 
-- **Cifratura credenziali** AES-256 (Fernet + PBKDF2-SHA256, 480k iterazioni)
-- Password master richiesta all'avvio se cifratura attiva
-- Gestione chiavi SSH: genera, copia sul server, mostra pubblica
-- **Agent Forwarding** SSH (`-A`): propaga le chiavi dell'ssh-agent locale
-- **KeePassXC**: cerca e compila credenziali direttamente dal database KeePassXC aperto
-- Modalità **protetta**: nasconde tutte le password nell'interfaccia
-- **Nessun `sshpass`**: la password viene digitata direttamente nel terminale VTE quando SSH (o Cisco, PAM, ecc.) la richiede — mai sulla command line, mai in variabili d'ambiente. Fallback silenzioso via `SSH_ASKPASS` per OpenSSH ≥ 8.4
-
-### Terminale
-
-- Terminale **VTE** nativo — zero dipendenze X11 su Wayland
-- Temi: Dracula, Nord, Gruvbox, Solarized, One Dark, Monokai, Cobalt, Zenburn e altri
-- Split verticale/orizzontale per più sessioni in parallelo
-- **Macro per sessione**: comandi inviati con un clic
-- **Multi-exec**: invia lo stesso comando a più sessioni contemporaneamente
-- **Broadcast terminali**: invia testo a gruppi di terminali selezionati
-- Log output su file per ogni sessione
+- **VTE nativo** — zero dipendenze X11, funziona su Wayland puro
+- **Split verticale/orizzontale** — più sessioni affiancate nella stessa finestra
+- **Temi**: Dracula, Nord, Gruvbox, Solarized Dark/Light, One Dark, Monokai, Cobalt, Tomorrow Night e altri
+- **Macro per sessione** — comandi inviati con un clic dalla sidebar
+- **Broadcast terminali** — invia lo stesso testo a tutti i terminali selezionati contemporaneamente (ideale per cluster)
+- **Multi-exec** — esegui un comando su più sessioni in sequenza
+- Log output su file per ogni sessione (con `script(1)`)
+- Scrollback configurabile o infinito per sessione
 - Pre-comando locale: attiva VPN o monta volume prima di aprire la connessione
 
-### Strumenti integrati
+### 📁 Gestione sessioni
 
-- **Server FTP locale** (pyftpdlib) con configurazione grafica
-- **Tunnel SSH** gestiti graficamente con avvio/stop
-- **Variabili globali** `{VAR}` usabili nei comandi di tutte le sessioni
-- **Wake-on-LAN**: invia magic packet prima di connettere
-- **Audit log**: storico connessioni con timestamp, durata, stato — esportabile CSV
-- **Esporta script** `.sh` per aprire la connessione da terminale
+- Organizzate per **gruppo** con barra di ricerca live
+- **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
+- **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
+- Doppio clic per connettere, tasto destro per menu contestuale ricco
+- **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
+- Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
+- **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`
 
-### Internazionalizzazione
+### 🛠 Strumenti integrati
 
-- 5 lingue: 🇮🇹 Italiano · 🇬🇧 English · 🇩🇪 Deutsch · 🇫🇷 Français · 🇪🇸 Español
-- Cambio lingua immediato dalle impostazioni
+- **Tunnel SSH** grafici — avvia, ferma, monitora tunnel in background
+- **Server FTP locale** (pyftpdlib) — espone una cartella locale via FTP/FTPS in un clic
+- **Variabili globali** `{NOME}` — riutilizzabili nei comandi di tutte le sessioni
+- **Wake-on-LAN** — invia magic packet prima di connettersi
+- **Audit log** — storico connessioni con timestamp, durata, protocollo, stato; esportabile CSV
+- **Verifica dipendenze** — controlla automaticamente quali tool sono installati
+
+### 🌍 Internazionalizzazione
+
+5 lingue complete: 🇮🇹 Italiano · 🇬🇧 English · 🇩🇪 Deutsch · 🇫🇷 Français · 🇪🇸 Español  
+Cambio lingua immediato dalle impostazioni senza riavvio.
 
 ---
 
 ## Installazione
 
-### Installazione automatica (raccomandato)
+### Automatica — raccomandato
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
-cd Python_Connection_Manager/gtk3
+cd Python_Connection_Manager
 bash setup.sh
 ```
 
-Lo script rileva automaticamente la distribuzione e installa tutte le dipendenze di sistema (GTK3, VTE, gtk-vnc, xdotool) e Python (paramiko, cryptography, pyftpdlib). Crea anche un lanciatore `.desktop` nel menu applicazioni.
+Lo script rileva la distribuzione (Debian/Ubuntu, Arch, Fedora, openSUSE, FreeBSD) e installa tutte le dipendenze di sistema e Python. Crea anche un launcher `.desktop` nel menu applicazioni.
 
-### Installazione manuale
+```bash
+# Solo verifica dipendenze, senza installare:
+bash setup.sh --check
+```
 
-#### Debian / Ubuntu
+### Manuale
+
+<details>
+<summary><b>Debian / Ubuntu / Linux Mint</b></summary>
+
 ```bash
 sudo apt install \
-    python3 python3-pip python3-gi python3-gi-cairo \
-    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gdkpixbuf-2.0 \
-    gir1.2-gtkvnc-2.0 \
+    python3 python3-gi python3-gi-cairo \
+    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtkvnc-2.0 \
     openssh-client freerdp3-x11 tigervnc-viewer \
     xdotool xdg-utils wakeonlan
 
 pip install --user cryptography paramiko pyftpdlib
 ```
+</details>
 
-#### Arch Linux
+<details>
+<summary><b>Arch Linux</b></summary>
+
 ```bash
 sudo pacman -Sy --needed \
-    python python-pip python-gobject gtk3 \
-    vte3 gtk-vnc \
-    openssh freerdp tigervnc \
-    xdotool xdg-utils
-
-pip install --user cryptography paramiko pyftpdlib
+    python python-gobject gtk3 vte3 gtk-vnc \
+    openssh freerdp tigervnc xdotool xdg-utils wol \
+    python-cryptography python-paramiko python-pyftpdlib
 ```
+</details>
 
-#### Fedora
+<details>
+<summary><b>Fedora</b></summary>
+
 ```bash
 sudo dnf install \
-    python3 python3-pip python3-gobject gtk3 \
-    vte291 gtk-vnc2 \
-    openssh-clients freerdp tigervnc \
-    xdotool xdg-utils
+    python3-gobject gtk3 vte291 gtk-vnc2 \
+    openssh-clients freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
+</details>
 
-#### openSUSE
+<details>
+<summary><b>openSUSE</b></summary>
+
 ```bash
 sudo zypper install \
-    python3 python3-pip python3-gobject \
-    typelib-1_0-Gtk-3_0 typelib-1_0-Vte-2.91 \
-    typelib-1_0-GtkVnc-2_0 \
-    openssh freerdp tigervnc \
-    xdotool xdg-utils
+    python3-gobject typelib-1_0-Gtk-3_0 \
+    typelib-1_0-Vte-2.91 typelib-1_0-GtkVnc-2_0 \
+    openssh freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
+</details>
+
+<details>
+<summary><b>FreeBSD</b></summary>
+
+```bash
+sudo pkg install \
+    python3 py311-gobject gtk3 vte3 gtk-vnc \
+    mosh freerdp3 tigervnc-viewer xdotool wakeonlan \
+    py311-cryptography py311-paramiko py311-pyftpdlib
+```
+</details>
 
 ---
 
-## Avvio
+## Avvio rapido
 
 ```bash
-cd gtk3/
+cd Python_Connection_Manager/gtk3
 python3 PCM.py
 ```
 
----
-
-## Nuove funzionalità recenti
-
-### 🔑 Integrazione KeePassXC
-Cerca e inserisce automaticamente le credenziali dal database KeePassXC aperto, tramite il protocollo Browser v2 (socket Unix locale — nessun browser necessario).
-
-### 📋 Audit Log
-PCM registra automaticamente ogni connessione aperta in `audit_log.json` (timestamp, durata, protocollo, stato). Visualizzabile e esportabile in CSV da **Strumenti → Audit log**.
-
-### 📡 Broadcast terminali
-Invia testo o comandi a più terminali aperti contemporaneamente con selezione granulare. Ideale per operazioni su cluster di server.
-
-### 🖥 Multi-monitor RDP
-Le sessioni RDP supportano ora: monitor singolo (default), tutti i monitor (`/multimon`) o selezione personalizzata per ID (`/monitors:0,1`).
-
-### 🔐 SSH Agent Forwarding
-Flag `-A` configurabile per sessione dal tab Avanzate — propaga le chiavi dell'ssh-agent locale per hop multipli senza copiare le chiavi private sui server intermedi.
-
-### ⏱ Sessioni recenti
-La sidebar mostra in cima le ultime 20 sessioni usate con data/ora dell'ultima connessione. Tasto destro sul gruppo Recenti → Cancella cronologia.
-
-### ⚡ Quick Connect migliorato
-Dialog completo con selettore protocollo, host, porta, utente e password — si connette senza salvare il profilo.
-
-### 📥 Import da PuTTY e ~/.ssh/config
-- **PuTTY**: importa le sessioni da `~/.putty/sessions/` senza avere PuTTY installato
-- **SSH Config**: converte i blocchi `Host` di `~/.ssh/config` in profili PCM (supporta ProxyJump → Jump Host)
-
-### 🔌 Protocollo Exec
-Un nuovo tipo di sessione che esegue qualsiasi comando shell nel terminale embedded: `htop`, `tail -f /var/log/syslog`, script personalizzati, tool interattivi.
-
-### 🏓 Ping dalla sidebar
-Tasto destro su qualsiasi sessione di rete → **Ping** — verifica la raggiungibilità TCP sulla porta configurata con tempo di risposta in ms.
+Al primo avvio PCM crea `connections.json` con sessioni di esempio e propone di abilitare la cifratura AES-256 delle credenziali.
 
 ---
 
 ## Dipendenze opzionali
 
-| Pacchetto | Funzionalità |
+| Pacchetto | Funzionalità abilitata |
 |---|---|
-| `gir1.2-gtkvnc-2.0` | VNC integrato nativo (raccomandato) |
+| `gir1.2-gtkvnc-2.0` / `gtk-vnc` | VNC integrato nativo (raccomandato) |
 | `tigervnc-viewer` / `xtightvncviewer` | VNC via client esterno (fallback) |
 | `freerdp3-x11` / `xfreerdp` | RDP |
 | `mosh` | Connessioni Mosh |
-| `minicom` | Porte seriali |
-| `xdotool` | RDP in pannello interno |
-| `wakeonlan` | Wake-on-LAN |
-| `keepassxc` | Integrazione KeePassXC (deve essere già installato) |
-
----
-
-## Differenze rispetto alla versione PyQt6
-
-| Funzionalità | PyQt6 | GTK3 |
-|---|---|---|
-| Framework UI | PyQt6 | GTK3 (PyGObject) |
-| Terminale | xterm embedded | VTE nativo |
-| Wayland | XWayland richiesto | Nativo ✓ |
-| VNC integrato | noVNC/WebKit | gtk-vnc nativo ✓ |
-| Dipendenze Python | python-pyqt6 | python3-gi |
-| Pacchetto sistema | python-xlib | — |
+| `picocom` / `minicom` | Porte seriali |
+| `xdotool` | RDP in pannello interno (richiede XWayland) |
+| `wakeonlan` / `wol` | Wake-on-LAN |
+| `keepassxc` | Integrazione KeePassXC |
+| `pynacl` | Cifratura protocollo KeePassXC Browser v2 |
 
 ---
 
 ## Note Wayland
 
-Il terminale VTE e la sidebar funzionano nativamente su Wayland senza XWayland.
+GTK3 + VTE funzionano **nativamente su Wayland** senza XWayland.
 
-La modalità **RDP pannello interno** usa xdotool (richiede XWayland).
-Per uso Wayland puro impostare RDP su **"Finestra esterna"**.
+L'unica eccezione è la modalità **RDP pannello interno** (embedding xfreerdp tramite xdotool) che richiede XWayland. Per uso Wayland puro, impostare RDP su **"Finestra esterna"**.
 
-Il viewer **VNC gtk-vnc** funziona nativamente su Wayland.
+Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 
 ---
 
@@ -261,10 +235,10 @@ Il viewer **VNC gtk-vnc** funziona nativamente su Wayland.
 
 | File | Contenuto |
 |---|---|
-| `connections.json` | Profili sessione (JSON, modificabile a mano) |
-| `pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti |
-| `audit_log.json` | Log audit connessioni (metadata, no credenziali) |
-| `/tmp/pcm_logs/` | Log output terminali (percorso configurabile) |
+| `gtk3/connections.json` | Profili sessione — JSON leggibile, modificabile a mano |
+| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti |
+| `gtk3/audit_log.json` | Log audit connessioni (solo metadata, nessuna credenziale) |
+| `/tmp/pcm_logs/` | Log output terminali, percorso configurabile |
 
 ---
 
@@ -272,4 +246,4 @@ Il viewer **VNC gtk-vnc** funziona nativamente su Wayland.
 
 **Andres Zanzani** — licenza [EUPL-1.2](../EUPL-1.2%20EN.txt)
 
-[GitHub](https://github.com/buzzqw/Python_Connection_Manager)
+[GitHub](https://github.com/buzzqw/Python_Connection_Manager) · Segnala bug e richieste su [Issues](https://github.com/buzzqw/Python_Connection_Manager/issues)
