@@ -439,14 +439,147 @@ def _test_file(percorso: str):
 
 
 # ===========================================================================
+# Import PuTTY sessions (~/.putty/sessions/)
+# ===========================================================================
+
+def importa_putty(percorso: Optional[str] = None) -> dict:
+    """
+    Legge le sessioni PuTTY dalla cartella ~/.putty/sessions/.
+    Ogni file è un INI senza header di sezione — viene aggiunto [Session] artificialmente.
+    """
+    sessioni_dir = percorso or os.path.expanduser("~/.putty/sessions")
+    if not os.path.isdir(sessioni_dir):
+        return {}
+
+    profili: dict = {}
+    for filename in os.listdir(sessioni_dir):
+        filepath = os.path.join(sessioni_dir, filename)
+        if not os.path.isfile(filepath):
+            continue
+        nome = filename.replace("%20", " ").replace("%2F", "/")
+        if nome.lower() == "default%20settings" or nome.lower() == "default settings":
+            continue
+
+        cp = configparser.ConfigParser(strict=False)
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                content = "[Session]\n" + f.read()
+            cp.read_string(content)
+            sec = cp["Session"]
+        except Exception:
+            continue
+
+        host     = sec.get("HostName", "").strip()
+        port     = sec.get("PortNumber", "22").strip()
+        user     = sec.get("UserName", "").strip()
+        protocol = sec.get("Protocol", "ssh").strip().lower()
+        pkey     = sec.get("PublicKeyFile", "").strip()
+
+        if protocol not in ("ssh", "telnet", "serial", "raw"):
+            protocol = "ssh"
+        if protocol == "raw":
+            protocol = "telnet"
+
+        if not host and protocol != "serial":
+            continue
+
+        profili[nome] = {
+            "protocol":    protocol,
+            "host":        host,
+            "port":        port,
+            "user":        user,
+            "private_key": pkey,
+            "group":       "PuTTY",
+            "notes":       f"Importato da PuTTY: {filename}",
+        }
+
+    return profili
+
+
+# ===========================================================================
+# Import ~/.ssh/config
+# ===========================================================================
+
+def importa_ssh_config(percorso: Optional[str] = None) -> dict:
+    """
+    Legge ~/.ssh/config e crea una sessione SSH per ogni blocco Host
+    (esclude 'Host *' che è il blocco globale).
+    """
+    cfg_path = percorso or os.path.expanduser("~/.ssh/config")
+    if not os.path.isfile(cfg_path):
+        return {}
+
+    profili: dict = {}
+    current_host: Optional[str] = None
+    current: dict = {}
+
+    def _flush():
+        nonlocal current_host, current
+        if current_host and current_host != "*" and not current_host.startswith("*"):
+            host     = current.get("hostname", current_host)
+            port     = current.get("port", "22")
+            user     = current.get("user", "")
+            pkey     = current.get("identityfile", "").replace("~", os.path.expanduser("~"))
+            jump_raw = current.get("proxyjump", "")
+            jump_host = jump_port = jump_user = ""
+            if jump_raw:
+                parts = jump_raw.split("@")
+                if len(parts) == 2:
+                    jump_user, jump_rest = parts
+                else:
+                    jump_rest = parts[0]
+                jp = jump_rest.split(":")
+                jump_host = jp[0]
+                jump_port = jp[1] if len(jp) > 1 else "22"
+
+            profili[current_host] = {
+                "protocol":    "ssh",
+                "host":        host,
+                "port":        port,
+                "user":        user,
+                "private_key": pkey,
+                "jump_host":   jump_host,
+                "jump_user":   jump_user,
+                "jump_port":   jump_port or "22",
+                "group":       "SSH Config",
+                "notes":       f"Importato da ~/.ssh/config (alias: {current_host})",
+            }
+        current_host = None
+        current = {}
+
+    try:
+        with open(cfg_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                key, val = parts[0].lower(), parts[1].strip()
+                if key == "host":
+                    _flush()
+                    current_host = val
+                elif current_host:
+                    current[key] = val
+        _flush()
+    except Exception as e:
+        print(f"[importer] Errore ssh_config: {e}")
+
+    return profili
+
+
+# ===========================================================================
 # CLI
 # ===========================================================================
 
 def _uso():
     print("Uso:")
-    print("  python importer.py remmina [percorso]")
-    print("  python importer.py rdm     file.xml|json")
-    print("  python importer.py test    file.xml|json   ← solo stampa, non salva")
+    print("  python importer.py remmina  [percorso]")
+    print("  python importer.py rdm      file.xml|json")
+    print("  python importer.py putty    [percorso]")
+    print("  python importer.py sshconfig [percorso]")
+    print("  python importer.py test     file.xml|json   ← solo stampa, non salva")
     sys.exit(1)
 
 
@@ -469,6 +602,14 @@ if __name__ == "__main__":
             _uso()
         print(f"[importer] RDM: {sys.argv[2]}")
         profili = importa_rdm(sys.argv[2])
+    elif cmd == "putty":
+        percorso = sys.argv[2] if len(sys.argv) > 2 else None
+        print(f"[importer] PuTTY: {percorso or '~/.putty/sessions'}")
+        profili = importa_putty(percorso)
+    elif cmd == "sshconfig":
+        percorso = sys.argv[2] if len(sys.argv) > 2 else None
+        print(f"[importer] SSH config: {percorso or '~/.ssh/config'}")
+        profili = importa_ssh_config(percorso)
     else:
         _uso()
 

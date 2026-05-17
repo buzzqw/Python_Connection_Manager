@@ -197,8 +197,9 @@ DEFAULT_SETTINGS = {
         "default_sftp_browser": True,
     },
     "tunnels": [],
-    "variables": {},   # variabili globali {NOME: valore}
-    "tool_paths": {},  # <--- ECCO LA RIGA DA AGGIUNGERE!
+    "variables": {},
+    "tool_paths": {},
+    "recent_sessions": [],   # lista di {name, ts} — max 20 voci
     "display": {
         "sidebar_visible": True,
         "toolbar_visible": True,
@@ -291,6 +292,82 @@ def expand_variables(testo: str) -> str:
     for nome, valore in vars_.items():
         testo = testo.replace(f"{{{nome}}}", valore)
     return testo
+
+
+# ---------------------------------------------------------------------------
+# Sessioni recenti
+# ---------------------------------------------------------------------------
+
+_MAX_RECENT = 20
+
+
+def load_recent() -> list:
+    """Restituisce la lista dei recenti: [{name, ts, proto, host}, ...]."""
+    s = load_settings()
+    recenti = s.get("recent_sessions", [])
+    # Filtra voci nel formato vecchio (stringhe) — compatibilità backward
+    return [r for r in recenti if isinstance(r, dict)]
+
+
+def add_recent(nome: str, dati: dict):
+    """Aggiunge/aggiorna la sessione in cima alla lista recenti."""
+    from datetime import datetime
+    s = load_settings()
+    recenti = [r for r in s.get("recent_sessions", []) if isinstance(r, dict) and r.get("name") != nome]
+    recenti.insert(0, {
+        "name":  nome,
+        "ts":    datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "proto": dati.get("protocol", ""),
+        "host":  dati.get("host", ""),
+    })
+    s["recent_sessions"] = recenti[:_MAX_RECENT]
+    save_settings(s)
+
+
+def clear_recent():
+    s = load_settings()
+    s["recent_sessions"] = []
+    save_settings(s)
+
+
+# ---------------------------------------------------------------------------
+# Audit log
+# ---------------------------------------------------------------------------
+
+_AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit_log.json")
+
+
+def audit_append(entry: dict):
+    """Aggiunge una voce all'audit log (append atomico)."""
+    try:
+        if os.path.exists(_AUDIT_FILE):
+            with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
+                log = json.load(f)
+        else:
+            log = []
+        log.append(entry)
+        with open(_AUDIT_FILE, "w", encoding="utf-8") as f:
+            json.dump(log, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[audit] Errore scrittura: {e}")
+
+
+def audit_load() -> list:
+    try:
+        if not os.path.exists(_AUDIT_FILE):
+            return []
+        with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def audit_clear():
+    try:
+        with open(_AUDIT_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+    except Exception as e:
+        print(f"[audit] Errore cancellazione: {e}")
 
 
 if __name__ == "__main__":

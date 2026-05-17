@@ -20,10 +20,11 @@ from session_command import installed_tools as _installed_tools
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _ICONS_DIR = os.path.join(_HERE, "icons")
 
-PROTOCOLLI = ["ssh", "telnet", "file_transfer", "rdp", "vnc", "mosh", "serial"]
+PROTOCOLLI = ["ssh", "telnet", "file_transfer", "rdp", "vnc", "mosh", "serial", "exec"]
 PROTO_LABEL = {
     "ssh": "SSH", "telnet": "Telnet", "file_transfer": "FTP/SFTP",
     "rdp": "RDP", "vnc": "VNC", "mosh": "Mosh", "serial": "Seriale",
+    "exec": "Exec",
 }
 
 
@@ -306,6 +307,19 @@ class SessionDialog(Gtk.Dialog):
         self._row_stop_bits = self._conn_row(t("sd.serial.stopbits"), self.combo_stop_bits)
         vbox.pack_start(self._row_stop_bits, False, False, 0)
 
+        # Exec
+        self.entry_exec_cmd = _entry(t("sd.exec.cmd_ph"))
+        self.entry_exec_cmd.set_tooltip_text(t("tt.exec_cmd"))
+        self._row_exec_cmd = self._conn_row(t("sd.exec.cmd"), self.entry_exec_cmd)
+        vbox.pack_start(self._row_exec_cmd, False, False, 0)
+
+        # Bottone KeePassXC (user + password)
+        self._btn_keepass = Gtk.Button(label=t("sd.keepass.btn"))
+        self._btn_keepass.set_tooltip_text(t("tt.keepass_btn"))
+        self._btn_keepass.connect("clicked", lambda b: self._on_keepass_fetch())
+        self._row_keepass = self._conn_row("", self._btn_keepass)
+        vbox.pack_start(self._row_keepass, False, False, 0)
+
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sw.add(vbox)
@@ -460,8 +474,10 @@ class SessionDialog(Gtk.Dialog):
         self.chk_strict_host.set_tooltip_text(t("tt.ssh_strict"))
         self.chk_sftp_browser= _check(t("sd.term.sftp_auto"))
         self.chk_sftp_browser.set_tooltip_text(t("tt.ssh_sftp_br"))
+        self.chk_agent_forward = _check(t("sd.ssh.agent_forward"))
+        self.chk_agent_forward.set_tooltip_text(t("tt.ssh_agent"))
         for chk in [self.chk_x11, self.chk_compression, self.chk_keepalive,
-                    self.chk_strict_host, self.chk_sftp_browser]:
+                    self.chk_strict_host, self.chk_sftp_browser, self.chk_agent_forward]:
             vbox.pack_start(chk, False, False, 0)
         self.spin_keepalive_interval = Gtk.SpinButton.new_with_range(0, 3600, 10)
         self.spin_keepalive_interval.set_value(60)
@@ -501,8 +517,19 @@ class SessionDialog(Gtk.Dialog):
         vbox.pack_start(self._adv_row(t("sd.rdp.client"),     self.combo_rdp_client), False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.rdp.auth"), self.combo_rdp_auth),   False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.rdp.domain"),        self.entry_rdp_domain), False, False, 0)
+        self.combo_rdp_monitor = _combo(
+            t("sd.rdp.monitor_single"), t("sd.rdp.monitor_all"), t("sd.rdp.monitor_custom")
+        )
+        self.combo_rdp_monitor.set_tooltip_text(t("tt.rdp_monitor"))
+        self.entry_rdp_monitor_ids = _entry("0,1")
+        self.entry_rdp_monitor_ids.set_tooltip_text(t("tt.rdp_monitor"))
+        self._row_rdp_monitor_ids = self._adv_row(t("sd.rdp.monitor_ids"), self.entry_rdp_monitor_ids)
+        self._row_rdp_monitor_ids.set_no_show_all(True)
+        self.combo_rdp_monitor.connect("changed", self._on_rdp_monitor_changed)
         for chk in [self.chk_rdp_fs, self.chk_rdp_clip, self.chk_rdp_drives]:
             vbox.pack_start(chk, False, False, 0)
+        vbox.pack_start(self._adv_row(t("sd.rdp.monitor"), self.combo_rdp_monitor), False, False, 0)
+        vbox.pack_start(self._row_rdp_monitor_ids, False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.grp.rdp_open"), self.combo_rdp_open), False, False, 0)
 
         # ── VNC ──────────────────────────────────────────────────────
@@ -1039,11 +1066,40 @@ class SessionDialog(Gtk.Dialog):
     def _on_ft_proto_changed(self, combo):
         self._aggiorna_proto_fields()
 
+    def _on_rdp_monitor_changed(self, combo):
+        is_custom = combo.get_active() == 2
+        self._row_rdp_monitor_ids.set_visible(is_custom)
+
+    def _on_keepass_fetch(self):
+        """Apre il dialog KeePassXC e compila user/password se trovate."""
+        try:
+            from keepassxc_manager import KeePassXCDialog
+        except ImportError:
+            from gi.repository import Gtk as _Gtk
+            dlg = _Gtk.MessageDialog(
+                transient_for=self, modal=True,
+                message_type=_Gtk.MessageType.ERROR,
+                buttons=_Gtk.ButtonsType.OK,
+                text="keepassxc_manager.py non trovato"
+            )
+            dlg.run(); dlg.destroy()
+            return
+        host = self.entry_host.get_text().strip()
+        dlg = KeePassXCDialog(parent=self, query=host)
+        if dlg.run() == Gtk.ResponseType.OK:
+            username, password = dlg.get_credentials()
+            if username:
+                self.entry_user.set_text(username)
+            if password:
+                self.entry_password.set_text(password)
+        dlg.destroy()
+
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
         proto = PROTOCOLLI[self.combo_proto.get_active()]
         is_serial = proto == "serial"
-        is_net    = not is_serial
+        is_exec   = proto == "exec"
+        is_net    = not is_serial and not is_exec
 
         ft_proto = ""
         if proto == "file_transfer" and hasattr(self, "combo_ft_proto"):
@@ -1056,7 +1112,7 @@ class SessionDialog(Gtk.Dialog):
         self._row_host.set_visible(is_net)
         self._row_port.set_visible(is_net)
         self._row_user.set_visible(is_net)
-        self._row_password.set_visible(is_net)
+        self._row_password.set_visible(is_net and proto not in ("rdp", "vnc"))
         self._row_pkey.set_visible(has_pkey)
         self._frame_chiavi.set_visible(has_pkey)
         self._row_ft_proto.set_visible(proto == "file_transfer")
@@ -1065,6 +1121,8 @@ class SessionDialog(Gtk.Dialog):
         self._row_data_bits.set_visible(is_serial)
         self._row_parity.set_visible(is_serial)
         self._row_stop_bits.set_visible(is_serial)
+        self._row_exec_cmd.set_visible(is_exec)
+        self._row_keepass.set_visible(is_net and proto in ("ssh", "mosh", "telnet", "rdp", "vnc", "file_transfer"))
 
         # Advanced frames
         self._frame_ssh.set_visible(proto in ("ssh", "mosh", "telnet", "serial"))
@@ -1072,7 +1130,7 @@ class SessionDialog(Gtk.Dialog):
         self._frame_vnc.set_visible(proto == "vnc")
         self._frame_ftp.set_visible(proto == "file_transfer")
         self._frame_wol.set_visible(is_net)
-        self._frame_precmd.set_visible(True)
+        self._frame_precmd.set_visible(not is_exec)
 
         # File transfer frame internal visibility
         if proto == "file_transfer":
@@ -1162,6 +1220,7 @@ class SessionDialog(Gtk.Dialog):
         self.spin_keepalive_interval.set_value(int(dati.get("keepalive_interval", 60)))
         self.chk_strict_host.set_active(dati.get("strict_host", False))
         self.chk_sftp_browser.set_active(dati.get("sftp_browser", True))
+        self.chk_agent_forward.set_active(dati.get("agent_forward", False))
 
         # Jump
         self.entry_jump_host.set_text(dati.get("jump_host", ""))
@@ -1178,6 +1237,11 @@ class SessionDialog(Gtk.Dialog):
         self.entry_rdp_domain.set_text(dati.get("rdp_domain", ""))
         rdp_open = dati.get("rdp_open_mode", "external")
         self.combo_rdp_open.set_active(1 if rdp_open == "internal" else 0)
+        rdp_mon = dati.get("rdp_monitor_mode", "single")
+        mon_idx = {"single": 0, "all": 1, "custom": 2}.get(rdp_mon, 0)
+        self.combo_rdp_monitor.set_active(mon_idx)
+        self.entry_rdp_monitor_ids.set_text(dati.get("rdp_monitor_ids", "0,1"))
+        self._row_rdp_monitor_ids.set_visible(mon_idx == 2)
 
         # VNC — lettura unica del flag, default False (esterno)
         is_internal = dati.get("vnc_internal", False)
@@ -1222,6 +1286,9 @@ class SessionDialog(Gtk.Dialog):
         # Pre-cmd
         self.entry_pre_cmd.set_text(dati.get("pre_cmd", ""))
         self.spin_pre_cmd_timeout.set_value(int(dati.get("pre_cmd_timeout", 15)))
+
+        # Exec
+        self.entry_exec_cmd.set_text(dati.get("exec_cmd", ""))
 
         # Macro
         self._macro_store.clear()
@@ -1294,6 +1361,7 @@ class SessionDialog(Gtk.Dialog):
             "keepalive":      self.chk_keepalive.get_active(),
             "keepalive_interval": int(self.spin_keepalive_interval.get_value()),
             "strict_host":    self.chk_strict_host.get_active(),
+            "agent_forward":  self.chk_agent_forward.get_active(),
             "rdp_client":     self.combo_rdp_client.get_active_text() or "xfreerdp",
             "rdp_auth":       "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
             "fullscreen":     self.chk_rdp_fs.get_active(),
@@ -1301,6 +1369,9 @@ class SessionDialog(Gtk.Dialog):
             "redirect_drives":    self.chk_rdp_drives.get_active(),
             "rdp_domain":     self.entry_rdp_domain.get_text().strip(),
             "rdp_open_mode":  "internal" if self.combo_rdp_open.get_active() == 1 else "external",
+            "rdp_monitor_mode": {0: "single", 1: "all", 2: "custom"}.get(self.combo_rdp_monitor.get_active(), "single"),
+            "rdp_monitor_ids":  self.entry_rdp_monitor_ids.get_text().strip(),
+            "exec_cmd":       self.entry_exec_cmd.get_text().strip(),
             "vnc_internal":   self.combo_vnc_mode.get_active() == 1,
             "vnc_client":     self.combo_vnc_client.get_active_text() or "vncviewer",
             "vnc_color":      self.combo_vnc_color.get_active(),

@@ -127,7 +127,7 @@ class TerminalWidget(Gtk.Box):
         """
         Avvia il comando nella VTE.
         Il comando viene passato a /bin/sh -c per supportare pipeline e opzioni.
-        env_extra: variabili d'ambiente aggiuntive da iniettare (es. PCM_PWD_FIFO).
+        env_extra: variabili d'ambiente aggiuntive da iniettare (es. SSH_ASKPASS).
         """
         self._comando_corrente = comando
         cmd_show = getattr(self, "comando_display", comando)
@@ -212,6 +212,64 @@ class TerminalWidget(Gtk.Box):
             "cmd":      testo,
             "sorgente": sorgente,
         })
+
+    def imposta_auto_password(self, password: str):
+        """
+        Digita automaticamente la password quando il terminale mostra un prompt.
+        Primario: sostituisce sshpass — PCM 'scrive' nel terminale come farebbe un umano.
+        Copre: SSH password, Cisco enable/secret, PAM, RADIUS, 2FA, prompt personalizzati.
+        Fallback: SSH_ASKPASS gestisce i casi dove SSH non mostra il prompt nel VTE
+                  (keyboard-interactive su OpenSSH ≥ 8.4 con SSH_ASKPASS_REQUIRE=force).
+        """
+        if not password:
+            return
+
+        import re as _re
+        _PWD_RE = _re.compile(
+            r'(?:'
+            r'[Pp]assword[^:\n]{0,40}:\s*$'            # password: / Password for user@host:
+            r'|[Pp]asswd:\s*$'                          # passwd:
+            r'|[Ss]ecret[^:\n]{0,15}:\s*$'              # Secret: (Cisco enable secret)
+            r'|[Pp]asscode:\s*$'                         # Passcode: (RADIUS/MFA)
+            r'|[Vv]erification [Cc]ode:\s*$'            # Verification code: (Google Auth)
+            r'|[Ee]nter .*[Pp]assword[^:\n]{0,20}:\s*$' # Enter (current/new) password:
+            r'|[Aa]uthentication [Pp]assword:\s*$'       # Authentication password:
+            r')',
+            _re.MULTILINE,
+        )
+
+        _timer_id = [None]
+        _conn_id  = [None]
+        _sent     = [0]
+        _MAX      = 3   # tentativi max (gestisce wrong-password senza loop infinito)
+
+        def _do_check():
+            _timer_id[0] = None
+            if _sent[0] >= _MAX:
+                return False
+            try:
+                # Legge le ultime righe visibili — sufficiente per rilevare il prompt
+                text = self._vte.get_text(lambda *_: True)[0]
+            except Exception:
+                return False
+            tail = (text or "").rstrip()[-400:]
+            if _PWD_RE.search(tail):
+                _sent[0] += 1
+                self._vte.feed_child((password + "\n").encode("utf-8"))
+            return False  # timer one-shot
+
+        def _on_changed(_vte):
+            if _sent[0] >= _MAX:
+                if _conn_id[0] is not None:
+                    _vte.disconnect(_conn_id[0])
+                    _conn_id[0] = None
+                return
+            # Debounce 80 ms: evita check multipli durante burst di output
+            if _timer_id[0] is not None:
+                GLib.source_remove(_timer_id[0])
+            _timer_id[0] = GLib.timeout_add(80, _do_check)
+
+        _conn_id[0] = self._vte.connect("contents-changed", _on_changed)
 
     # ------------------------------------------------------------------
     # Tema e font

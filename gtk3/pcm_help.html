@@ -364,7 +364,7 @@
 <div class="header">
   <h1>🚀 PCM — Python Connection Manager</h1>
   <p class="sub">Guida completa &nbsp;·&nbsp; Gestore sessioni remote multi-protocollo per Linux</p>
-  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale &nbsp;·&nbsp; Versione GTK3 (sviluppo attivo)</p>
+  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec &nbsp;·&nbsp; Versione GTK3 (sviluppo attivo)</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════ INDICE -->
@@ -378,7 +378,7 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#avanzate">⚙ Avanzate</a>
-  <a href="#nuove">✦ Nuove funzioni</a>
+  <a href="#nuove" class="new">✦ Nuove funzioni</a>
   <a href="#tasti">⌨ Tasti</a>
   <a href="#impostazioni">🛠 Impostazioni</a>
   <a href="#faq">❓ FAQ</a>
@@ -419,7 +419,7 @@
 <ul>
   <li><b>File</b> — nuova sessione, terminale locale, importa/esporta sessioni JSON, impostazioni, esci</li>
   <li><b>Visualizza</b> — mostra/nascondi sidebar, modalità split</li>
-  <li><b>Strumenti</b> — Gestore Tunnel SSH, multi-exec, variabili globali, password globale (cifratura credenziali), server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze</li>
+  <li><b>Strumenti</b> — Gestore Tunnel SSH, multi-exec, variabili globali, password globale (cifratura credenziali), server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze, <b>Broadcast terminali</b>, <b>Audit log</b>, <b>KeePassXC</b></li>
   <li><b>?</b> — questa guida (<kbd>F1</kbd>), informazioni su PCM</li>
 </ul>
 
@@ -445,10 +445,11 @@
 
 <h3>Sidebar sessioni</h3>
 <ul>
+  <li>Sezione <b>⏱ Recenti</b> in cima (senza filtro) — ultime 20 sessioni usate con data/ora dell'ultima connessione</li>
   <li>Sessioni raggruppate per gruppo, ordinate alfabeticamente</li>
-  <li>Ogni riga mostra icona protocollo, nome e <code>utente@host:porta</code></li>
+  <li>Ogni riga mostra icona protocollo, nome e <code>utente@host</code></li>
   <li>Campo ricerca live — filtra per nome, host e utente</li>
-  <li>Pulsanti ▼/▲ per espandere/comprimere tutti i gruppi, ↺ per ricaricare</li>
+  <li>Tasto destro sul gruppo <b>⏱ Recenti</b> → <b>Cancella cronologia</b></li>
 </ul>
 
 <h3>Area schede (tab)</h3>
@@ -511,7 +512,8 @@
   <li><b>📋 Duplica</b> — crea una copia con suffisso "(copia)"</li>
   <li><b>📋 Copia comando</b> — copia il comando shell equivalente negli appunti</li>
   <li><b>📄 Esporta apri-connessione.sh…</b> — genera uno script bash standalone per aprire la connessione</li>
-  <li><b>🌐 Verifica raggiungibilità…</b> — testa ping, porta TCP e DNS sull'host</li>
+  <li><b>📂 Apri SFTP/FTP qui</b> — apre un browser file transfer relativo alla sessione SSH/Telnet/Mosh selezionata</li>
+  <li><b>Ping</b> — verifica la raggiungibilità TCP dell'host sulla porta configurata (disponibile per sessioni con host di rete)</li>
   <li><b>⚡ Macro</b> — sottomenu con le macro definite per questa sessione</li>
   <li><b>🗑 Elimina</b> — richiede conferma</li>
 </ul>
@@ -537,6 +539,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
     <li><b>Comando avvio</b> — eseguito subito dopo la connessione (es. <code>tmux attach</code>)</li>
     <li><b>Pre-connessione locale</b> — comando eseguito sul tuo PC prima di connettersi (es. attiva VPN)</li>
     <li><b>Compatibilità legacy</b> — opzioni per server datati (KEX, cipher, host key, MAC obsoleti)</li>
+    <li><b>Agent Forwarding</b> (<code>-A</code>) — propaga le chiavi dell'ssh-agent locale ai server remoti (utile per hop multipli)</li>
     <li><b>Modalità apertura</b> — terminale interno embedded oppure terminale esterno</li>
   </ul>
   <div class="tip">💡 Con l'opzione "Apri browser SFTP laterale" attiva, il pannello SFTP si popola automaticamente dopo la connessione.</div>
@@ -573,6 +576,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
     <li><b>Dominio / Workgroup</b> — inserisci il dominio Active Directory o il workgroup (es. <code>AZIENDA</code>, <code>WORKGROUP</code>); lascia vuoto per macchine standalone</li>
     <li><b>Modalità apertura</b> — <b>Finestra esterna</b> (default, xfreerdp in finestra separata) oppure <b>Pannello interno</b> (desktop RDP incorporato nella scheda PCM, richiede X11 o XWayland)</li>
     <li><b>Schermo intero</b> — <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Invio</kbd> per uscire (solo finestra esterna)</li>
+    <li><b>Monitor</b> — singolo (default), tutti i monitor (<code>/multimon</code>), o selezione personalizzata per ID (<code>/monitors:0,1</code>)</li>
     <li>Condivisione clipboard e cartelle locali</li>
   </ul>
   <div class="info">ℹ️ Il combo <b>Client RDP</b> mostra solo i client installati. <b>rdesktop</b> è il client raccomandato per il pannello interno (usa <code>-X</code> per embedding nativo diretto, connessione rapida senza Kerberos). <b>xfreerdp3</b> supporta il pannello interno tramite xdotool ma richiede più tempo. Con <b>xfreerdp</b> v2 il pannello interno è disabilitato. Il campo <b>Autenticazione</b> permette di scegliere NTLM (veloce, senza timeout Kerberos) o Kerberos+NTLM (standard AD).</div>
@@ -613,6 +617,18 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
     <li><b>Baud rate</b> — valori comuni: 9600, 115200 (controlla la documentazione del dispositivo)</li>
     <li>Se il dispositivo non risponde: <code>sudo usermod -a -G dialout $USER</code> (poi rilogin)</li>
   </ul>
+</div>
+
+<div class="proto-block" style="border-left-color:#c586c0;">
+  <p class="proto-title"><span class="badge" style="background:#c586c0;">Exec</span> Comando locale generico</p>
+  <p class="proto-desc">Esegui qualsiasi comando shell nel terminale embedded di PCM — script, tool locali, monitoraggi live.</p>
+  <ul>
+    <li>Il comando viene eseguito <b>localmente</b> sul tuo PC (non su un host remoto)</li>
+    <li>Il campo <b>Comando</b> accetta qualsiasi stringa bash: pipe, redirects, variabili, argomenti</li>
+    <li>Il terminale integrato mostra output e riceve input interattivi (htop, less, python REPL, ecc.)</li>
+    <li>Supporta le variabili globali <code>{NOME}</code></li>
+  </ul>
+  <div class="tip">💡 Esempi: <code>htop</code>, <code>tail -f /var/log/syslog</code>, <code>watch -n1 df -h</code>, <code>python3 ~/scripts/monitor.py</code></div>
 </div>
 
 
@@ -664,7 +680,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
 <!-- ══════════════════════════════════════════════════ IMPORT -->
 <h2 id="import">📥 Import da altre applicazioni</h2>
 
-<p>Da <b>Strumenti → Importa da applicazione esterna</b> importi le connessioni da Remmina o Remote Desktop Manager senza reinserirle manualmente.</p>
+<p>Da <b>Strumenti → Importa da applicazione esterna</b> importi le connessioni da Remmina, Remote Desktop Manager, PuTTY e dal file <code>~/.ssh/config</code> senza reinserirle manualmente.</p>
 
 <h3>Importa da Remmina</h3>
 <ol>
@@ -681,6 +697,28 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   <li>Seleziona il file, verifica l'anteprima, conferma</li>
 </ol>
 <div class="info">ℹ️ Le password non vengono importate — RDM le cifra con una chiave legata all'account. PCM chiederà le credenziali alla prima connessione.</div>
+
+<h3>Importa da PuTTY</h3>
+<p>PCM legge direttamente le sessioni salvate da PuTTY (Linux/Wine) senza che PuTTY debba essere installato.</p>
+<ol>
+  <li>In PCM: <b>Strumenti → Importa da applicazione esterna → 🐢 PuTTY…</b></li>
+  <li>PCM scansiona automaticamente <code>~/.putty/sessions/</code></li>
+  <li>Le sessioni PuTTY vengono convertite in profili SSH nel gruppo <b>"PuTTY"</b></li>
+</ol>
+<p>Campi importati: host, porta, utente, chiave privata, protocollo (ssh/telnet/serial). Le sessioni con nome "Default Settings" vengono saltate.</p>
+
+<h3>Importa da ~/.ssh/config</h3>
+<p>Converte i blocchi <code>Host</code> del file di configurazione SSH in sessioni PCM.</p>
+<ol>
+  <li>In PCM: <b>Strumenti → Importa da applicazione esterna → 🔑 SSH Config…</b></li>
+  <li>PCM legge <code>~/.ssh/config</code> (o un file alternativo a tua scelta)</li>
+  <li>Ogni blocco <code>Host</code> diventa una sessione nel gruppo <b>"SSH Config"</b></li>
+</ol>
+<p>Campi importati: <code>Hostname</code>, <code>Port</code>, <code>User</code>, <code>IdentityFile</code>, <code>ProxyJump</code> (convertito in Jump Host PCM). I wildcard (<code>Host *</code>) vengono ignorati.</p>
+
+<div class="tip">
+  💡 Dopo l'importazione da SSH Config, le sessioni PCM supportano tutte le funzioni avanzate (macro, log, WoL, pre-cmd) che <code>~/.ssh/config</code> non prevede. Puoi arricchire i profili importati dal dialog di modifica.
+</div>
 
 
 <!-- ══════════════════════════════════════════════════ TERMINALE -->
@@ -819,6 +857,46 @@ Utile per diagnosticare perché un protocollo non funziona.</p>
 <h2 id="nuove">✦ Nuove funzioni <span class="new-badge">AGGIORNAMENTO</span></h2>
 
 <p>Le seguenti funzionalità sono state aggiunte nelle ultime versioni di PCM.</p>
+
+<hr>
+
+<!-- ── PASSWORD SENZA SSHPASS ── -->
+<div class="new-feature">
+  <div class="nf-title">🔒 Password: PCM le digita — nessun sshpass</div>
+  <p>PCM non usa più <code>sshpass</code> per passare le password. Al login, PCM <b>digita direttamente la password</b> nel terminale VTE quando il server la richiede — esattamente come farebbe un utente.</p>
+</div>
+
+<h3>Come funziona</h3>
+<p>PCM usa due livelli complementari:</p>
+<ol>
+  <li><b>Primario — feed_child</b>: PCM monitora l'output del terminale. Quando compare un prompt di autenticazione, invia la password digitandola nel terminale. Funziona con SSH standard, Cisco (enable/secret), PAM, RADIUS, 2FA e qualsiasi prompt personalizzato.</li>
+  <li><b>Fallback — SSH_ASKPASS</b>: Per i casi in cui SSH non mostra il prompt nel terminale (autenticazione <i>keyboard-interactive</i> con OpenSSH ≥ 8.4), PCM imposta la variabile <code>SSH_ASKPASS_REQUIRE=force</code> e un piccolo script helper. SSH interroga lo script silenziosamente, senza mostrare nulla a schermo.</li>
+</ol>
+
+<h3>Vantaggi rispetto a sshpass</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>Cosa non accade più</h4>
+    <ul>
+      <li>La password <b>non appare mai</b> in <code>ps aux</code> o nella command line</li>
+      <li>Nessuna dipendenza da <code>sshpass</code> installato</li>
+      <li>La password <b>non viene passata</b> come argomento a nessun processo esterno</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Prompt riconosciuti</h4>
+    <ul>
+      <li><code>password:</code> / <code>Password:</code> — SSH standard</li>
+      <li><code>Password for user@host:</code></li>
+      <li><code>Secret:</code> / <code>enable secret:</code> — Cisco</li>
+      <li><code>Passcode:</code> — RADIUS/MFA</li>
+      <li><code>Verification code:</code> — Google Auth</li>
+      <li><code>Enter password:</code> e varianti</li>
+    </ul>
+  </div>
+</div>
+
+<div class="tip">💡 Per Cisco e dispositivi con prompt personalizzati: se PCM non rileva il prompt automaticamente, puoi sempre digitare la password manualmente — il terminale è interattivo come sempre.</div>
 
 <hr>
 
@@ -1177,6 +1255,237 @@ exit
   💡 Lo script generato è completamente editabile sia nel dialog di anteprima che dopo il salvataggio. Aggiungere commenti, condizioni o loop è un'operazione normale prima di usarlo in produzione.
 </div>
 
+<hr>
+
+<!-- ── SSH AGENT FORWARDING ── -->
+<div class="new-feature">
+  <div class="nf-title">SSH Agent Forwarding</div>
+  <p>Propaga le chiavi dell'<code>ssh-agent</code> locale attraverso la connessione SSH, permettendo di autenticarsi su server successivi senza copiare le chiavi private.</p>
+</div>
+
+<h3>Configurazione</h3>
+<p>Nel dialog sessione SSH, tab <b>⚙ Avanzate</b>:</p>
+<ul>
+  <li>Spunta <b>"Agent Forwarding (-A)"</b> — aggiunge il flag <code>-A</code> al comando SSH</li>
+</ul>
+
+<h3>Quando usarlo</h3>
+<ul>
+  <li>Accesso a server di destinazione tramite bastion host, senza copiare le chiavi sul bastion</li>
+  <li>Deployment da un server CI che deve autenticarsi su altri server</li>
+  <li>Clonare repository Git da un server remoto usando le tue chiavi locali</li>
+</ul>
+
+<pre>
+<span class="cm"># Con Agent Forwarding attivo, dal server remoto puoi:</span>
+git clone git@github.com:utente/repo.git  <span class="cm"># usa le tue chiavi locali</span>
+ssh altro-server                           <span class="cm"># autenticazione trasparente</span>
+</pre>
+
+<div class="warn">⚠️ Abilita l'Agent Forwarding solo su server di cui ti fidi. Un amministratore del server remoto potrebbe usare l'agent locale per autenticarsi su altri server a tuo nome.</div>
+
+<hr>
+
+<!-- ── MULTI-MONITOR RDP ── -->
+<div class="new-feature">
+  <div class="nf-title">Multi-monitor RDP</div>
+  <p>Le sessioni RDP supportano ora la gestione avanzata dei monitor, con modalità singola, estensione su tutti i monitor o selezione personalizzata.</p>
+</div>
+
+<h3>Configurazione</h3>
+<p>Nel dialog sessione RDP, tab <b>Connessione</b> → sezione <b>Opzioni RDP</b>:</p>
+
+<table>
+  <tr><th>Modalità</th><th>Flag xfreerdp</th><th>Quando usarla</th></tr>
+  <tr>
+    <td><b>Monitor singolo</b> (default)</td>
+    <td>—</td>
+    <td>Una finestra RDP su un monitor</td>
+  </tr>
+  <tr>
+    <td><b>Tutti i monitor</b></td>
+    <td><code>/multimon</code></td>
+    <td>Espande il desktop RDP su tutti i monitor fisici</td>
+  </tr>
+  <tr>
+    <td><b>Monitor personalizzati</b></td>
+    <td><code>/monitors:0,1</code></td>
+    <td>Specifica esattamente quali monitor usare per ID (0, 1, 2…)</td>
+  </tr>
+</table>
+
+<div class="info">ℹ️ Gli ID monitor si trovano con: <code>xfreerdp3 /list:monitors</code>. La modalità multi-monitor richiede xfreerdp3 o xfreerdp — non è supportata da rdesktop. Disponibile solo in modalità finestra esterna.</div>
+
+<hr>
+
+<!-- ── SESSIONI RECENTI ── -->
+<div class="new-feature">
+  <div class="nf-title">Sessioni recenti</div>
+  <p>La sidebar mostra in cima (quando non c'è un filtro di ricerca attivo) le ultime sessioni usate con data/ora dell'ultima connessione, per accesso immediato senza cercare nella lista.</p>
+</div>
+
+<h3>Come funziona</h3>
+<ul>
+  <li>Ogni connessione viene registrata automaticamente in cima ai recenti</li>
+  <li>Vengono memorizzate le ultime <b>20</b> sessioni con nome, timestamp, protocollo e host</li>
+  <li>L'elenco recenti è visibile solo quando la barra di ricerca è vuota</li>
+  <li>Tasto destro sul gruppo <b>⏱ Recenti</b> → <b>Cancella cronologia</b></li>
+</ul>
+
+<div class="tip">
+  💡 I recenti mostrano anche il timestamp dell'ultima connessione, utile per sapere quando hai usato l'ultima volta un server.
+</div>
+
+<hr>
+
+<!-- ── PROTOCOLLO EXEC ── -->
+<div class="new-feature">
+  <div class="nf-title">Protocollo Exec — Comando locale generico</div>
+  <p>Un nuovo tipo di sessione che esegue <b>qualsiasi comando shell</b> nel terminale embedded di PCM — senza connettersi a nessun host remoto.</p>
+</div>
+
+<h3>Configurazione</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Crea una nuova sessione e scegli protocollo <b>Exec</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Nel tab <b>Connessione</b>, inserisci il <b>Comando</b> da eseguire (es. <code>htop</code>, <code>tail -f /var/log/syslog</code>)</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Avvia la sessione — il comando parte in una nuova scheda del terminale integrato</div></div>
+
+<p>Ideale per: monitoraggi live (<code>htop</code>, <code>iotop</code>, <code>nethogs</code>), log in coda (<code>tail -f</code>), tool interattivi (<code>python3</code>, <code>gdb</code>), script personalizzati.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Esempi di sessioni Exec</h4>
+    <ul>
+      <li><code>htop</code> — monitor risorse sistema</li>
+      <li><code>tail -f /var/log/syslog</code> — log di sistema live</li>
+      <li><code>watch -n2 df -h</code> — spazio disco aggiornato</li>
+      <li><code>python3 ~/scripts/monitor.py</code> — script di monitoraggio</li>
+      <li><code>journalctl -f</code> — journal systemd live</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Variabili globali</h4>
+    <p>Il comando Exec supporta le variabili globali PCM — es. <code>tail -f {LOG_PATH}</code> con <code>LOG_PATH=/var/log/app.log</code> definita in Strumenti → Variabili globali.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── CONNECTIVITY TEST / PING ── -->
+<div class="new-feature">
+  <div class="nf-title">Ping — Verifica connettività rapida</div>
+  <p>Testa la raggiungibilità TCP di un host sulla porta configurata direttamente dal menu contestuale della sidebar, prima di tentare la connessione.</p>
+</div>
+
+<h3>Come usarla</h3>
+<p>Tasto destro su qualsiasi sessione di rete nel pannello → <b>Ping</b></p>
+<p>PCM apre una connessione TCP sulla porta del protocollo (es. 22 per SSH, 3389 per RDP) e mostra il tempo di risposta in millisecondi:</p>
+<ul>
+  <li><span style="color:green">✔ Host raggiungibile (23 ms)</span> — la porta risponde</li>
+  <li><span style="color:red">✖ Host non raggiungibile sulla porta 22</span> — timeout o connessione rifiutata</li>
+</ul>
+
+<div class="info">
+  ℹ️ Il test usa una connessione TCP (non ICMP/ping) — è più affidabile in ambienti con firewall che bloccano ICMP. Il valore in ms indica il tempo di apertura del socket TCP, non l'RTT ICMP.
+</div>
+
+<div class="tip">
+  💡 Il Ping è disponibile per tutte le sessioni con un host di rete (SSH, Telnet, RDP, VNC, Mosh, FTP/SFTP). Non è disponibile per le sessioni Seriale ed Exec che non hanno un host di rete.
+</div>
+
+<hr>
+
+<!-- ── BROADCAST TERMINALI ── -->
+<div class="new-feature">
+  <div class="nf-title">Broadcast terminali</div>
+  <p>Invia lo stesso testo (o comando) a <b>più terminali contemporaneamente</b> — ideale per eseguire operazioni su un cluster di server in parallelo.</p>
+</div>
+
+<h3>Come usarlo</h3>
+<p>Da <b>Strumenti → Broadcast terminali</b>:</p>
+
+<div class="step"><div class="step-num">1</div><div class="step-text">Il dialog elenca tutti i terminali aperti con un checkbox per ciascuno. Per default tutti sono selezionati.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Deseleziona i terminali che non devono ricevere il testo.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Digita il testo o il comando nell'area di testo.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Scegli se aggiungere automaticamente <kbd>Invio</kbd> dopo il testo (default: sì).</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">Clicca <b>⚡ Invia</b> — il testo viene inviato istantaneamente a tutti i terminali selezionati.</div></div>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Casi d'uso tipici</h4>
+    <ul>
+      <li>Aggiornare tutti i server: <code>apt update &amp;&amp; apt upgrade -y</code></li>
+      <li>Riavviare un servizio su tutto il cluster: <code>sudo systemctl restart nginx</code></li>
+      <li>Controllare lo spazio su tutti: <code>df -h</code></li>
+      <li>Distribuire un file tramite pipe su più server</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Differenza con Multi-exec</h4>
+    <p><b>Multi-exec</b> invia comandi con <kbd>Invio</kbd> automatico e usa la clipboard. <b>Broadcast</b> è più flessibile: puoi inviare testo parziale (senza Invio), inviare più righe, e vedi la selezione dei terminali in modo esplicito.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── AUDIT LOG ── -->
+<div class="new-feature">
+  <div class="nf-title">Audit log</div>
+  <p>PCM registra automaticamente ogni connessione aperta in un log centralizzato (<code>audit_log.json</code>) con timestamp, durata, protocollo e stato.</p>
+</div>
+
+<h3>Visualizzare il log</h3>
+<p>Da <b>Strumenti → Audit log</b>: si apre un viewer con tabella delle connessioni.</p>
+
+<table>
+  <tr><th>Colonna</th><th>Contenuto</th></tr>
+  <tr><td><b>Timestamp</b></td><td>Data e ora di apertura della connessione</td></tr>
+  <tr><td><b>Sessione</b></td><td>Nome del profilo usato</td></tr>
+  <tr><td><b>Host</b></td><td>Indirizzo remoto</td></tr>
+  <tr><td><b>Protocollo</b></td><td>ssh, rdp, vnc, telnet, ecc.</td></tr>
+  <tr><td><b>Durata</b></td><td>Secondi di connessione (approssimato)</td></tr>
+  <tr><td><b>Stato</b></td><td>ok / errore</td></tr>
+</table>
+
+<h3>Azioni disponibili</h3>
+<ul>
+  <li><b>🗑 Cancella log</b> — svuota il file <code>audit_log.json</code></li>
+  <li><b>📥 Esporta CSV</b> — salva una copia del log in formato CSV (compatibile con Excel, LibreOffice Calc)</li>
+</ul>
+
+<div class="info">
+  ℹ️ Il log viene scritto in <code>audit_log.json</code> nella cartella di PCM. È in formato JSON leggibile con qualsiasi editor. L'audit log non contiene password o credenziali — solo metadati di connessione.
+</div>
+
+<div class="tip">💡 Differenza con il <b>log output terminale</b>: il log output registra tutto ciò che appare nel terminale (comandi e risposte). L'audit log registra solo i metadati di ogni connessione (quando, quanto a lungo, con quale stato). Sono complementari.</div>
+
+<hr>
+
+<!-- ── KEEPASSXC ── -->
+<div class="new-feature">
+  <div class="nf-title">Integrazione KeePassXC</div>
+  <p>PCM può cercare credenziali direttamente nel database KeePassXC aperto, tramite il protocollo <b>KeePassXC Browser</b> v2 (socket Unix locale — nessuna estensione browser necessaria).</p>
+</div>
+
+<h3>Prerequisiti</h3>
+<ol>
+  <li>KeePassXC in esecuzione con il database sbloccato</li>
+  <li>Abilitare <b>Browser Integration</b>: KeePassXC → Strumenti → Impostazioni → Browser Integration → abilita l'integrazione</li>
+</ol>
+
+<h3>Usare KeePassXC nel dialog sessione</h3>
+<div class="step"><div class="step-num">1</div><div class="step-text">Nel dialog creazione/modifica sessione, tab <b>Connessione</b>, clicca il pulsante <b>🔑 KeePassXC</b></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Si apre il dialog di ricerca: digita l'hostname del server o qualsiasi parola chiave</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Clicca <b>Cerca</b> — PCM interroga KeePassXC e mostra le voci trovate (titolo, utente, URL)</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Seleziona la voce desiderata e clicca <b>Usa</b> — utente e password vengono compilati automaticamente</div></div>
+
+<h3>Verifica connessione</h3>
+<p>Da <b>Strumenti → KeePassXC</b> puoi verificare lo stato della connessione e il path del socket rilevato.</p>
+
+<div class="info">
+  ℹ️ PCM si connette a KeePassXC tramite socket Unix locale (<code>/run/user/{uid}/org.keepassxc.KeePassXC.BrowserServer</code>) — nessun dato passa per la rete. La comunicazione è JSON con framing a 4 byte little-endian (protocollo KeePassXC Browser v2).
+</div>
+
+<div class="warn">⚠️ KeePassXC mostra una notifica quando PCM accede alle credenziali — questo è il comportamento atteso. Potresti dover approvare la richiesta se KeePassXC è configurato per richiedere conferma per ogni accesso.</div>
 
 <!-- ══════════════════════════════════════════════════ TASTI -->
 <h2 id="tasti">⌨ Scorciatoie da tastiera</h2>
@@ -1278,6 +1587,24 @@ Se manca: <code>uv pip install paramiko</code> dalla cartella gtk3.</p>
 <ul>
   <li><code>connections.json</code> — tutte le sessioni (in chiaro, JSON modificabile)</li>
   <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, sessioni recenti</li>
+  <li><code>audit_log.json</code> — log audit connessioni (metadata, no password)</li>
   <li><code>/tmp/pcm_logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
 </ul>
-<p>
+
+<h4>KeePassXC non viene trovato / "non in esecuzione"</h4>
+<p>Verifica: (1) KeePassXC è aperto e il database è sbloccato; (2) Browser Integration è abilitata in KeePassXC → Strumenti → Impostazioni → Browser Integration; (3) il socket Unix esiste: <code>ls /run/user/$(id -u)/org.keepassxc.KeePassXC.BrowserServer</code>. Usa <b>Strumenti → KeePassXC</b> per il test di connessione.</p>
+
+<h4>Il Broadcast non raggiunge tutti i terminali</h4>
+<p>Il Broadcast funziona solo sui terminali VTE embedded (tab SSH/Telnet/Mosh/Exec aperti in PCM). Le sessioni RDP e VNC in finestra esterna non sono raggiungibili perché non usano il terminale interno.</p>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  PCM — Python Connection Manager &nbsp;·&nbsp; Licenza EUPL-1.2 &nbsp;·&nbsp;
+  <a href="https://github.com/buzzqw/pcm" target="_blank">GitHub: github.com/buzzqw/pcm</a>
+  &nbsp;·&nbsp; Segnala problemi su GitHub Issues
+</div>
+
+</body>
+</html>

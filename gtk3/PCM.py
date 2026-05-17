@@ -314,6 +314,13 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_term.connect("clicked", lambda b: self._on_terminale_locale())
         hb.pack_start(btn_term)
 
+        # Pulsante quick connect
+        btn_qc = Gtk.Button()
+        btn_qc.set_tooltip_text(t("toolbar.quickconn.tooltip"))
+        btn_qc.add(Gtk.Image.new_from_icon_name("go-jump-symbolic", Gtk.IconSize.BUTTON))
+        btn_qc.connect("clicked", lambda b: self._on_quick_connect())
+        hb.pack_start(btn_qc)
+
         # Pulsante tunnel
         btn_tun = Gtk.Button()
         btn_tun.set_tooltip_text(t("toolbar.tunnel.tooltip"))
@@ -338,14 +345,15 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_split.set_popup(split_menu)
         hb.pack_start(btn_split)
 
-        # Menu kebab (⋮) sul lato destro
+        # Menu applicazione (⋮ tre puntini verticali)
         self._menu_btn = Gtk.MenuButton()
         self._menu_btn.set_direction(Gtk.ArrowType.DOWN)
+        self._menu_btn.set_tooltip_text(t("toolbar.menu.tooltip"))
         self._menu_btn.add(Gtk.Image.new_from_icon_name("view-more-symbolic", Gtk.IconSize.BUTTON))
         self._menu_btn.set_popup(self._build_menu())
         hb.pack_end(self._menu_btn)
 
-        # Impostazioni
+        # Impostazioni (rotella ⚙)
         btn_set = Gtk.Button()
         btn_set.set_tooltip_text(t("toolbar.settings.tooltip"))
         btn_set.add(Gtk.Image.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON))
@@ -361,9 +369,12 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.append(mi)
 
         _item(t("menu.tools.tunnels"),     self._on_tunnel_manager)
+        _item(t("menu.tools.broadcast"),   self._on_broadcast)
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
+        _item(t("menu.tools.audit"),       self._on_audit_log)
+        _item(t("menu.tools.keepass"),     self._on_keepass_settings)
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("menu.tools.crypto"),      self._on_gestione_crypto)
         _item(t("menu.tools.check_deps"),  self._on_check_deps)
@@ -387,6 +398,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
         self._pannello.connect("apri-ft",  lambda _p, n, d: self._apri_ft_da_sessione(d))
+        self._pannello.connect("ping",     self._on_ping_sessione)
         self.connect("delete-event", self._on_close)
 
     def _setup_accels(self):
@@ -419,8 +431,11 @@ class MainWindow(Gtk.ApplicationWindow):
         pre_cmd = dati.get("pre_cmd", "").strip()
         wol_mac = dati.get("wol_mac", "") if dati.get("wol_enabled") else ""
 
+        # Registra sessione recente
+        config_manager.add_recent(nome, dati)
+        self._pannello.aggiorna()
+
         if pre_cmd or wol_mac:
-            # Pre-cmd e WoL sono bloccanti: eseguiti in thread per non congelare la UI
             def _bg():
                 if pre_cmd:
                     timeout = dati.get("pre_cmd_timeout", 15)
@@ -439,41 +454,62 @@ class MainWindow(Gtk.ApplicationWindow):
         self._apri_protocollo(proto, nome, dati)
 
     def _apri_protocollo(self, proto: str, nome: str, dati: dict):
-        if proto in ("ssh", "telnet", "mosh", "serial"):
-            self._apri_terminale(nome, dati)
-        elif proto == "sftp" or (proto == "file_transfer" and dati.get("ft_protocol", "SFTP") == "SFTP"):
-            self._apri_sftp(nome, dati)
-        elif proto in ("ftp", "file_transfer"):
-            self._apri_ftp(nome, dati)
-        elif proto == "rdp":
-            self._apri_rdp(nome, dati)
-        elif proto == "vnc":
-            self._apri_vnc(nome, dati)
-        self._status(f"Connesso: {nome}")
+        from datetime import datetime
+        _ts_start = datetime.now()
+        _status = "ok"
+        try:
+            if proto in ("ssh", "telnet", "mosh", "serial", "exec"):
+                self._apri_terminale(nome, dati)
+            elif proto == "sftp" or (proto == "file_transfer" and dati.get("ft_protocol", "SFTP") == "SFTP"):
+                self._apri_sftp(nome, dati)
+            elif proto in ("ftp", "file_transfer"):
+                self._apri_ftp(nome, dati)
+            elif proto == "rdp":
+                self._apri_rdp(nome, dati)
+            elif proto == "vnc":
+                self._apri_vnc(nome, dati)
+            self._status(f"Connesso: {nome}")
+        except Exception as e:
+            _status = "error"
+            self._warn(str(e))
+        finally:
+            _dur = int((datetime.now() - _ts_start).total_seconds())
+            config_manager.audit_append({
+                "ts":       _ts_start.strftime("%Y-%m-%d %H:%M:%S"),
+                "session":  nome,
+                "host":     dati.get("host", ""),
+                "proto":    proto,
+                "duration": _dur,
+                "status":   _status,
+            })
 
     def _apri_terminale(self, nome: str, dati: dict):
         log_dir = dati.get("log_dir", "") if dati.get("log_output") else ""
 
         cmd, modalita = build_command(dati)
 
-        # Password via FIFO anonimo: evita SSHPASS in env var e cmdline
+        # Gestione password: feed_child (primario) + SSH_ASKPASS (fallback)
+        # feed_child digita la password quando compare il prompt nel VTE (imposta_auto_password).
+        # SSH_ASKPASS gestisce il caso in cui SSH non mostra il prompt nel VTE:
+        #   OpenSSH ≥ 8.4 + SSH_ASKPASS_REQUIRE=force → auth silenziosa senza prompt visibile.
+        #   Old SSH → SSH_ASKPASS ignorato (TTY presente) → feed_child gestisce tutto.
+        import shlex as _shlex
         env_extra = {}
         pwd  = dati.get("password", "")
-        pkey = dati.get("private_key", "")
-        if pwd and not pkey and shutil.which("sshpass"):
-            fifo = tempfile.mktemp(prefix=".pcm_ssh_", dir="/tmp")
-            os.mkfifo(fifo, 0o600)
-            def _scrivi_pwd(fp=fifo, p=pwd):
-                try:
-                    with open(fp, "w") as fh:
-                        fh.write(p + "\n")
-                except Exception:
-                    pass
-                finally:
-                    with contextlib.suppress(Exception):
-                        os.unlink(fp)
-            threading.Thread(target=_scrivi_pwd, daemon=True).start()
-            env_extra["PCM_PWD_FIFO"] = fifo
+        pkey = dati.get("private_key", "").strip()
+        if pwd and not pkey:
+            # SSH_ASKPASS: script temp mode 0700, password mai sulla cmdline
+            _askpass = tempfile.mktemp(prefix=".pcm_ask_", suffix=".sh", dir="/tmp")
+            with open(_askpass, "w") as _f:
+                _f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
+            os.chmod(_askpass, 0o700)
+            env_extra["SSH_ASKPASS"] = _askpass
+            env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
+            def _cleanup_askpass(path=_askpass):
+                with contextlib.suppress(Exception):
+                    os.unlink(path)
+                return False
+            GLib.timeout_add(15000, _cleanup_askpass)    # pulizia dopo 15 s
 
         # Modalità terminale ESTERNO: lancia nel terminal emulator scelto
         if modalita and modalita.endswith("_term_ext"):
@@ -527,6 +563,10 @@ class MainWindow(Gtk.ApplicationWindow):
         container.show_all()
         self._append_tab(container, nome)
         GLib.idle_add(widget.grab_focus)
+
+        # Primario: feed_child digita la password quando il VTE mostra un prompt
+        if pwd and not pkey:
+            widget.imposta_auto_password(pwd)
 
         widget.avvia(cmd, env_extra=env_extra)
         widget.connect("processo-terminato",
@@ -928,7 +968,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._menu_btn.set_popup(self._build_menu())
 
     def _on_importa_sessioni(self):
-        """Dialog di importazione sessioni da Remmina / RDM."""
+        """Dialog di importazione sessioni da sorgenti esterne."""
         dlg = Gtk.Dialog(
             title="Importa sessioni",
             transient_for=self,
@@ -942,27 +982,62 @@ class MainWindow(Gtk.ApplicationWindow):
         area.set_margin_top(16);  area.set_margin_bottom(8)
 
         lbl = Gtk.Label()
-        lbl.set_markup("<b>Importa connessioni da file esterno</b>\n<small>Supporta: Remmina, RDM (.rdm/.json)</small>")
+        lbl.set_markup("<b>Importa connessioni da sorgente esterna</b>")
         area.pack_start(lbl, False, False, 0)
 
-        # Selettore file
+        # Sorgenti: 0=Remmina, 1=RDM, 2=PuTTY, 3=SSH Config
+        # (indici usati in _esegui e _on_src_changed)
+        SORGENTI = [
+            "Remmina (.remmina)",
+            "Remote Desktop Manager — RDM (.rdm / .json)",
+            t("importer.putty_title"),
+            t("importer.ssh_cfg_title"),
+        ]
+
+        sorgente_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lbl_src = Gtk.Label(label="Sorgente:")
+        lbl_src.set_xalign(0.0)
+        combo_src = Gtk.ComboBoxText()
+        for s in SORGENTI:
+            combo_src.append_text(s)
+        combo_src.set_active(0)
+        combo_src.set_hexpand(True)
+        sorgente_box.pack_start(lbl_src, False, False, 0)
+        sorgente_box.pack_start(combo_src, True, True, 0)
+        area.pack_start(sorgente_box, False, False, 0)
+
+        # Selettore file (solo per sorgenti file: Remmina e RDM)
         fc = Gtk.FileChooserButton(title="Seleziona file da importare",
                                    action=Gtk.FileChooserAction.OPEN)
         fc.set_hexpand(True)
-        for nome, pattern in [("Remmina", "*.remmina"),
-                               ("RDM XML", "*.rdm"),
-                               ("RDM JSON", "*.json"),
-                               ("Tutti i file", "*")]:
-            f = Gtk.FileFilter()
-            f.set_name(nome); f.add_pattern(pattern)
-            fc.add_filter(f)
         area.pack_start(fc, False, False, 0)
 
-        # Opzione sovrascrivi
+        _filters_remmina = [("Remmina", "*.remmina"), ("Tutti i file", "*")]
+        _filters_rdm     = [("RDM XML", "*.rdm"), ("RDM JSON", "*.json"), ("Tutti i file", "*")]
+
+        def _set_filters(filtri):
+            for old in fc.list_filters():
+                fc.remove_filter(old)
+            for nome_f, pattern in filtri:
+                f = Gtk.FileFilter(); f.set_name(nome_f); f.add_pattern(pattern)
+                fc.add_filter(f)
+
+        _set_filters(_filters_remmina)
+
+        def _on_src_changed(_combo):
+            src = combo_src.get_active()
+            file_based = src in (0, 1)
+            fc.set_sensitive(file_based)
+            if src == 0:
+                _set_filters(_filters_remmina)
+            elif src == 1:
+                _set_filters(_filters_rdm)
+
+        combo_src.connect("changed", _on_src_changed)
+
         chk_sost = Gtk.CheckButton(label="Sovrascrivi sessioni esistenti con lo stesso nome")
         area.pack_start(chk_sost, False, False, 0)
 
-        # Label risultato
         lbl_result = Gtk.Label(label="")
         lbl_result.set_xalign(0.0); lbl_result.set_line_wrap(True)
         area.pack_start(lbl_result, False, False, 0)
@@ -972,24 +1047,33 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
 
         def _esegui(b):
-            percorso = fc.get_filename()
-            if not percorso:
-                lbl_result.set_markup("<span foreground='red'>Nessun file selezionato.</span>")
-                return
+            import importer as _imp
+            src = combo_src.get_active()
             try:
-                import importer
-                ext = os.path.splitext(percorso)[1].lower()
-                if ext == ".remmina":
-                    nuovi = importer.importa_remmina(percorso)
-                elif ext in (".rdm", ".json"):
-                    nuovi = importer.importa_rdm(percorso)
-                else:
-                    # Prova entrambi
-                    try:
-                        nuovi = importer.importa_remmina(percorso)
-                    except Exception:
-                        nuovi = importer.importa_rdm(percorso)
-                aggiunti, saltati = importer.unisci_in_pcm(nuovi, chk_sost.get_active())
+                if src == 0:  # Remmina
+                    percorso = fc.get_filename()
+                    if not percorso:
+                        lbl_result.set_markup("<span foreground='red'>Nessun file selezionato.</span>")
+                        return
+                    nuovi = _imp.importa_remmina(percorso)
+                elif src == 1:  # RDM
+                    percorso = fc.get_filename()
+                    if not percorso:
+                        lbl_result.set_markup("<span foreground='red'>Nessun file selezionato.</span>")
+                        return
+                    nuovi = _imp.importa_rdm(percorso)
+                elif src == 2:  # PuTTY
+                    nuovi = _imp.importa_putty()
+                    if not nuovi:
+                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.putty_none')}</span>")
+                        return
+                else:  # SSH Config
+                    nuovi = _imp.importa_ssh_config()
+                    if not nuovi:
+                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.ssh_cfg_none')}</span>")
+                        return
+
+                aggiunti, saltati = _imp.unisci_in_pcm(nuovi, chk_sost.get_active())
                 lbl_result.set_markup(
                     f"<span foreground='green'>✓ Importate {aggiunti} sessioni"
                     f"{f', {saltati} saltate' if saltati else ''}.</span>"
@@ -1008,6 +1092,361 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg = FtpServerDialog(parent=self)
         dlg.run()
         dlg.destroy()
+
+    # ------------------------------------------------------------------
+    # Quick connect
+    # ------------------------------------------------------------------
+
+    def _on_quick_connect(self):
+        """Dialog connessione rapida senza salvare la sessione."""
+        dlg = Gtk.Dialog(
+            title=t("quickconn.title"), transient_for=self,
+            modal=True, destroy_with_parent=True
+        )
+        dlg.set_default_size(420, 0)
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_start(16); area.set_margin_end(16)
+        area.set_margin_top(12);  area.set_margin_bottom(8)
+
+        lbl = Gtk.Label()
+        lbl.set_markup(f"<b>{t('quickconn.title')}</b>\n<small>{t('quickconn.subtitle')}</small>")
+        lbl.set_xalign(0.0)
+        area.pack_start(lbl, False, False, 0)
+
+        grid = Gtk.Grid()
+        grid.set_row_spacing(6); grid.set_column_spacing(8)
+
+        def _lbl(txt):
+            l = Gtk.Label(label=txt); l.set_xalign(1.0)
+            return l
+
+        from session_dialog import PROTOCOLLI, PROTO_LABEL
+        combo_proto = Gtk.ComboBoxText()
+        for k in PROTOCOLLI:
+            if k != "exec":
+                combo_proto.append_text(PROTO_LABEL[k])
+        combo_proto.set_active(0)
+        combo_proto.set_hexpand(True)
+
+        entry_host = Gtk.Entry(); entry_host.set_hexpand(True)
+        entry_host.set_placeholder_text("hostname / IP")
+        entry_port = Gtk.Entry(); entry_port.set_text("22"); entry_port.set_width_chars(6)
+        entry_user = Gtk.Entry(); entry_user.set_hexpand(True)
+        entry_pass = Gtk.Entry(); entry_pass.set_visibility(False); entry_pass.set_hexpand(True)
+
+        grid.attach(_lbl("Protocollo:"), 0, 0, 1, 1); grid.attach(combo_proto, 1, 0, 1, 1)
+        grid.attach(_lbl("Host:"),       0, 1, 1, 1); grid.attach(entry_host,  1, 1, 1, 1)
+        grid.attach(_lbl("Porta:"),      0, 2, 1, 1); grid.attach(entry_port,  1, 2, 1, 1)
+        grid.attach(_lbl("Utente:"),     0, 3, 1, 1); grid.attach(entry_user,  1, 3, 1, 1)
+        grid.attach(_lbl("Password:"),   0, 4, 1, 1); grid.attach(entry_pass,  1, 4, 1, 1)
+        area.pack_start(grid, False, False, 0)
+
+        lbl_err = Gtk.Label(label=""); lbl_err.set_xalign(0.0)
+        area.pack_start(lbl_err, False, False, 0)
+
+        btn_conn = dlg.add_button(t("quickconn.connect"), Gtk.ResponseType.OK)
+        btn_conn.get_style_context().add_class("suggested-action")
+        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+
+        # Porta default per protocollo
+        _default_port = {"SSH": "22", "Telnet": "23", "FTP/SFTP": "22",
+                         "RDP": "3389", "VNC": "5900", "Mosh": "22", "Seriale": ""}
+        def _on_proto(_c):
+            lbl_p = PROTO_LABEL.get(PROTOCOLLI[_c.get_active()], "")
+            entry_port.set_text(_default_port.get(lbl_p, ""))
+        combo_proto.connect("changed", _on_proto)
+
+        dlg.show_all()
+        if dlg.run() == Gtk.ResponseType.OK:
+            host = entry_host.get_text().strip()
+            if not host:
+                lbl_err.set_markup("<span foreground='red'>Inserire un host</span>")
+                dlg.destroy()
+                return
+            proto_idx  = combo_proto.get_active()
+            proto_lbls = [PROTO_LABEL[k] for k in PROTOCOLLI if k != "exec"]
+            proto_lbl  = proto_lbls[proto_idx] if proto_idx >= 0 else "SSH"
+            proto      = next((k for k, v in PROTO_LABEL.items() if v == proto_lbl), "ssh")
+            dati = {
+                "protocol": proto, "host": host,
+                "port":     entry_port.get_text().strip(),
+                "user":     entry_user.get_text().strip(),
+                "password": entry_pass.get_text(),
+                "sftp_browser": False,
+            }
+            nome_tab = f"{proto_lbl}: {host}"
+            self._apri_protocollo(proto, nome_tab, dati)
+        dlg.destroy()
+
+    # ------------------------------------------------------------------
+    # Connectivity test / ping
+    # ------------------------------------------------------------------
+
+    def _on_ping_sessione(self, _panel, nome: str, dati: dict):
+        host = dati.get("host", "")
+        try:
+            port = int(dati.get("port", 22))
+        except (ValueError, TypeError):
+            port = 22
+
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.CLOSE,
+            text=f"Ping: {nome}",
+        )
+        dlg.format_secondary_text(t("ping.testing"))
+        dlg.show_all()
+
+        def _cb(ms):
+            if ms >= 0:
+                dlg.format_secondary_markup(
+                    f"<span foreground='green'>{t('ping.ok', ms=ms)}</span>"
+                )
+            else:
+                dlg.format_secondary_markup(
+                    f"<span foreground='red'>{t('ping.fail', port=port)}</span>"
+                )
+
+        self._test_connettivita(host, port, _cb)
+        dlg.run()
+        dlg.destroy()
+
+    def _test_connettivita(self, host: str, port: int, callback):
+        """Verifica TCP raggiungibilità in thread. Chiama callback(ms) o callback(-1)."""
+        import socket, time
+        def _check():
+            try:
+                t0 = time.monotonic()
+                with socket.create_connection((host, port), timeout=5):
+                    ms = int((time.monotonic() - t0) * 1000)
+                GLib.idle_add(callback, ms)
+            except Exception:
+                GLib.idle_add(callback, -1)
+        threading.Thread(target=_check, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Broadcast terminali
+    # ------------------------------------------------------------------
+
+    def _raccoglie_terminal_widgets(self) -> list:
+        """Restituisce lista di (nome_tab, TerminalWidget) attivi."""
+        result = []
+        for nb in (self._notebook, self._notebook2):
+            for i in range(nb.get_n_pages()):
+                page = nb.get_nth_page(i)
+                tw = None
+                if isinstance(page, TerminalWidget):
+                    tw = page
+                elif hasattr(page, "get_child1"):
+                    c1 = page.get_child1()
+                    if isinstance(c1, TerminalWidget):
+                        tw = c1
+                if tw and not getattr(tw, "_stato_terminato", True):
+                    nome = self._get_tab_nome(page) or f"Tab {i}"
+                    result.append((nome, tw))
+        return result
+
+    def _on_broadcast(self):
+        """Dialog broadcast: invia testo a più terminali selezionati."""
+        terminali = self._raccoglie_terminal_widgets()
+
+        dlg = Gtk.Dialog(
+            title=t("broadcast.title"), transient_for=self,
+            modal=True, destroy_with_parent=True
+        )
+        dlg.set_default_size(500, 380)
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_start(16); area.set_margin_end(16)
+        area.set_margin_top(12);  area.set_margin_bottom(8)
+
+        if not terminali:
+            lbl_no = Gtk.Label(label=t("broadcast.no_terminals"))
+            area.pack_start(lbl_no, True, True, 0)
+            dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+            dlg.show_all(); dlg.run(); dlg.destroy()
+            return
+
+        lbl = Gtk.Label(label=t("broadcast.label"))
+        lbl.set_xalign(0.0)
+        area.pack_start(lbl, False, False, 0)
+
+        # Lista terminali con checkbox
+        scroll_t = Gtk.ScrolledWindow()
+        scroll_t.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll_t.set_min_content_height(120)
+        chk_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        scroll_t.add(chk_list)
+        checks = []
+        for nome_tab, tw in terminali:
+            chk = Gtk.CheckButton(label=nome_tab)
+            chk.set_active(True)
+            chk.set_tooltip_text(getattr(tw, "_stato_testo", ""))
+            chk_list.pack_start(chk, False, False, 0)
+            checks.append((chk, tw))
+        area.pack_start(scroll_t, True, True, 0)
+
+        # Pulsanti seleziona/deseleziona
+        btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        btn_all = Gtk.Button(label=t("broadcast.select_all"))
+        btn_all.connect("clicked", lambda _: [c.set_active(True) for c, _ in checks])
+        btn_none = Gtk.Button(label=t("broadcast.deselect_all"))
+        btn_none.connect("clicked", lambda _: [c.set_active(False) for c, _ in checks])
+        btn_row.pack_start(btn_all, False, False, 0)
+        btn_row.pack_start(btn_none, False, False, 0)
+        area.pack_start(btn_row, False, False, 0)
+
+        # Area testo
+        lbl2 = Gtk.Label(label=t("broadcast.label"))
+        lbl2.set_xalign(0.0)
+        area.pack_start(lbl2, False, False, 0)
+
+        sw_txt = Gtk.ScrolledWindow()
+        sw_txt.set_min_content_height(80)
+        tv = Gtk.TextView()
+        tv.set_monospace(True)
+        sw_txt.add(tv)
+        area.pack_start(sw_txt, True, True, 0)
+
+        chk_newline = Gtk.CheckButton(label="Aggiungi Invio alla fine")
+        chk_newline.set_active(True)
+        area.pack_start(chk_newline, False, False, 0)
+
+        lbl_result = Gtk.Label(label="")
+        lbl_result.set_xalign(0.0)
+        area.pack_start(lbl_result, False, False, 0)
+
+        btn_send = dlg.add_button(t("broadcast.send"), Gtk.ResponseType.APPLY)
+        btn_send.get_style_context().add_class("suggested-action")
+        dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+
+        def _invia(b):
+            buf = tv.get_buffer()
+            testo = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+            if not testo:
+                return
+            add_nl = chk_newline.get_active()
+            payload = (testo + "\n").encode("utf-8") if add_nl else testo.encode("utf-8")
+            n_inviati = 0
+            for chk, tw in checks:
+                if chk.get_active():
+                    try:
+                        tw._vte.feed_child(payload)
+                        n_inviati += 1
+                    except Exception:
+                        pass
+            lbl_result.set_markup(f"<span foreground='green'>{t('broadcast.sent', n=n_inviati)}</span>")
+
+        btn_send.connect("clicked", _invia)
+        dlg.show_all()
+        while True:
+            resp = dlg.run()
+            if resp != Gtk.ResponseType.APPLY:
+                break
+        dlg.destroy()
+
+    # ------------------------------------------------------------------
+    # Audit log viewer
+    # ------------------------------------------------------------------
+
+    def _on_audit_log(self):
+        """Dialog visualizzazione registro audit connessioni."""
+        dlg = Gtk.Dialog(
+            title=t("audit.title"), transient_for=self,
+            modal=True, destroy_with_parent=True
+        )
+        dlg.set_default_size(820, 480)
+        area = dlg.get_content_area()
+        area.set_margin_start(12); area.set_margin_end(12)
+        area.set_margin_top(8);   area.set_margin_bottom(8)
+
+        # TreeView
+        store = Gtk.ListStore(str, str, str, str, str, str)
+        tv = Gtk.TreeView(model=store)
+        for i, col_title in enumerate([
+            t("audit.col_time"), t("audit.col_session"), t("audit.col_host"),
+            t("audit.col_proto"), t("audit.col_duration"), t("audit.col_status")
+        ]):
+            cell = Gtk.CellRendererText()
+            col = Gtk.TreeViewColumn(col_title, cell, text=i)
+            col.set_resizable(True)
+            tv.append_column(col)
+
+        def _ricarica():
+            store.clear()
+            log = config_manager.audit_load()
+            if not log:
+                store.append(["", t("audit.no_entries"), "", "", "", ""])
+                return
+            for e in reversed(log):
+                dur = e.get("duration", 0)
+                dur_str = f"{dur}s" if dur < 60 else f"{dur//60}m{dur%60:02d}s"
+                stato = t("audit.status_ok") if e.get("status") == "ok" else t("audit.status_err")
+                store.append([
+                    e.get("ts", ""), e.get("session", ""), e.get("host", ""),
+                    e.get("proto", ""), dur_str, stato
+                ])
+
+        _ricarica()
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(tv)
+        area.pack_start(sw, True, True, 0)
+
+        btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_row.set_margin_top(6)
+        btn_clear = Gtk.Button(label=t("audit.clear"))
+        btn_clear.get_style_context().add_class("destructive-action")
+        def _cancella(_b):
+            config_manager.audit_clear()
+            _ricarica()
+        btn_clear.connect("clicked", _cancella)
+
+        btn_csv = Gtk.Button(label=t("audit.export_csv"))
+        def _esporta_csv(_b):
+            import csv, io
+            fc = Gtk.FileChooserDialog(
+                title="Esporta CSV", transient_for=dlg,
+                action=Gtk.FileChooserAction.SAVE
+            )
+            fc.add_button("Annulla", Gtk.ResponseType.CANCEL)
+            fc.add_button("Salva",   Gtk.ResponseType.OK)
+            fc.set_current_name("pcm_audit.csv")
+            if fc.run() == Gtk.ResponseType.OK:
+                path = fc.get_filename()
+                log  = config_manager.audit_load()
+                with open(path, "w", newline="", encoding="utf-8") as f:
+                    w = csv.DictWriter(f, fieldnames=["ts","session","host","proto","duration","status"])
+                    w.writeheader(); w.writerows(log)
+            fc.destroy()
+        btn_csv.connect("clicked", _esporta_csv)
+
+        btn_row.pack_start(btn_clear, False, False, 0)
+        btn_row.pack_end(btn_csv, False, False, 0)
+        area.pack_start(btn_row, False, False, 0)
+
+        dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+        dlg.show_all()
+        dlg.run()
+        dlg.destroy()
+
+    # ------------------------------------------------------------------
+    # KeePassXC settings (placeholder — configurazione associazione)
+    # ------------------------------------------------------------------
+
+    def _on_keepass_settings(self):
+        """Apre il dialog impostazioni KeePassXC."""
+        try:
+            from keepassxc_manager import KeePassXCSettingsDialog
+            dlg = KeePassXCSettingsDialog(parent=self)
+            dlg.run()
+            dlg.destroy()
+        except ImportError:
+            self._warn("keepassxc_manager.py non trovato nella cartella PCM.")
 
     def _on_variabili_globali(self):
         """Dialog variabili globali (variabili {VAR} usabili nei comandi)."""

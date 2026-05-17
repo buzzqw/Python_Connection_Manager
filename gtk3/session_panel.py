@@ -36,19 +36,19 @@ def _load_pixbuf(filename: str, size: int = 16) -> GdkPixbuf.Pixbuf | None:
 PROTO_COLOR = {
     "ssh":    "#4ec9b0", "telnet": "#c9b458", "sftp":   "#6ab187",
     "ftp":    "#b87a00", "rdp":    "#0078d4", "vnc":    "#e8a020",
-    "mosh":   "#5aadad", "serial": "#888888",
+    "mosh":   "#5aadad", "serial": "#888888", "exec":   "#c586c0",
     "file_transfer": "#6ab187",
 }
 PROTO_ICON_FILE = {
     "ssh":    "ssh.png",    "telnet": "network.png", "sftp":  "folder.png",
     "ftp":    "folder.png", "rdp":    "monitor.png", "vnc":   "vnc.png",
-    "mosh":   "flash.png",  "serial": "cable.png",
+    "mosh":   "flash.png",  "serial": "cable.png",   "exec":  "flash.png",
     "file_transfer": "folder.png",
 }
 PROTO_LABEL = {
     "ssh": "SSH", "telnet": "Telnet", "sftp": "SFTP",
     "ftp": "FTP", "rdp": "RDP",       "vnc":  "VNC",
-    "mosh": "Mosh", "serial": "Seriale",
+    "mosh": "Mosh", "serial": "Seriale", "exec": "Exec",
     "file_transfer": "FTP/SFTP",
 }
 
@@ -62,6 +62,7 @@ class SessionPanel(Gtk.Box):
         "elimina":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "duplica":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "apri-ft":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "ping":       (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -157,7 +158,36 @@ class SessionPanel(Gtk.Box):
         self._store.clear()
         filtro = filtro.strip().lower()
 
-        # Raggruppa per gruppo
+        folder_pb = _load_pixbuf("folder.png", 16)
+
+        # ── Sezione Recenti (solo senza filtro) ───────────────────────────
+        if not filtro:
+            recenti = config_manager.load_recent()
+            if recenti:
+                recent_markup = f"<b><span foreground='#e8a020'>⏱ {GLib.markup_escape_text(t('sidebar.recent_title'))}</span></b>"
+                rec_iter = self._store.append(None, [folder_pb, recent_markup, "__recent__", True])
+                for r in recenti:
+                    nome = r.get("name", "")
+                    if nome not in self._profili:
+                        continue
+                    dati  = self._profili[nome]
+                    proto = dati.get("protocol", "ssh")
+                    host  = dati.get("host", "")
+                    user  = str(dati.get("user") or "")
+                    color = PROTO_COLOR.get(proto, "#888888")
+                    proto_lbl = PROTO_LABEL.get(proto, proto.upper())
+                    user_display = "" if user.startswith("ENC:") else user
+                    user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
+                    sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
+                    ts_sub = f" <span foreground='#666' size='smaller'>{GLib.markup_escape_text(r.get('ts', ''))}</span>"
+                    markup = (
+                        f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
+                        f"{GLib.markup_escape_text(nome)}{sub}{ts_sub}"
+                    )
+                    pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
+                    self._store.append(rec_iter, [pb, markup, nome, False])
+
+        # ── Sessioni per gruppo ───────────────────────────────────────────
         gruppi: dict[str, list[str]] = {}
         for nome, dati in self._profili.items():
             if filtro and filtro not in nome.lower():
@@ -168,10 +198,7 @@ class SessionPanel(Gtk.Box):
             gruppo = dati.get("group", "") or t("sidebar.no_group")
             gruppi.setdefault(gruppo, []).append(nome)
 
-        folder_pb = _load_pixbuf("folder.png", 16)
-
         for gruppo in sorted(gruppi.keys()):
-            # Riga gruppo
             grp_markup = f"<b>{GLib.markup_escape_text(gruppo)}</b>"
             grp_iter = self._store.append(None, [folder_pb, grp_markup, "", True])
 
@@ -184,11 +211,8 @@ class SessionPanel(Gtk.Box):
                 proto_lbl = PROTO_LABEL.get(proto, proto.upper())
 
                 user_display = "" if user.startswith("ENC:") else user
-                
-                # OTTIMIZZAZIONE TESTO: Nessun "a capo" (\n), target sulla stessa riga e sbiadito
                 user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
                 sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
-                
                 markup = (
                     f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
                     f"{GLib.markup_escape_text(nome)}{sub}"
@@ -233,11 +257,26 @@ class SessionPanel(Gtk.Box):
             return False
         is_group = self._store.get_value(it, 3)
         if is_group:
+            chiave = self._store.get_value(it, 2)
+            if chiave == "__recent__":
+                self._mostra_menu_recent(event)
             return False
         nome = self._store.get_value(it, 2)
         dati = self._profili.get(nome, {})
         self._mostra_menu(event, nome, dati)
         return True
+
+    def _mostra_menu_recent(self, event):
+        menu = Gtk.Menu()
+        mi = Gtk.MenuItem(label=t("sidebar.recent_clear"))
+        mi.connect("activate", lambda _: self._cancella_recenti())
+        menu.append(mi)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def _cancella_recenti(self):
+        config_manager.clear_recent()
+        self.aggiorna()
 
     def _mostra_menu(self, event, nome: str, dati: dict):
         menu = Gtk.Menu()
@@ -258,6 +297,11 @@ class SessionPanel(Gtk.Box):
         if proto in ("ssh", "telnet", "mosh", "serial"):
             menu.append(Gtk.SeparatorMenuItem())
             _item(t("panel.open_ft_here"), lambda: self.emit("apri-ft", nome, dati))
+
+        host = dati.get("host", "")
+        if host and proto not in ("serial", "exec"):
+            menu.append(Gtk.SeparatorMenuItem())
+            _item(t("sidebar.ping_btn"), lambda: self.emit("ping", nome, dati))
 
         menu.show_all()
         menu.popup_at_pointer(event)

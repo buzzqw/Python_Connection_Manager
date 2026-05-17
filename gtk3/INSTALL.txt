@@ -117,7 +117,7 @@
 #   picocom                        — Porte seriali (prima scelta)
 #   minicom                        — Porte seriali (fallback)
 #   screen                         — Porte seriali (fallback)
-#   sshpass                        — SSH con password da riga di comando
+# [sshpass non è più necessario — PCM digita la password direttamente nel terminale]
 #   xdotool                        — RDP in pannello interno (richiede XWayland)
 #   wakeonlan                      — Wake-on-LAN
 

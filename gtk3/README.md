@@ -9,15 +9,15 @@
 
 ### Schermata principale
 ![Schermata principale](../immagini/pcm1.png)
-*Sidebar con sessioni organizzate per gruppo, quick connect, terminale locale integrato*
+*Sidebar con sessioni organizzate per gruppo, sezione Recenti, quick connect, terminale locale integrato*
 
 ### Gestione sessioni — Connessione SSH
 ![Sessione SSH](../immagini/pcm2.png)
-*Configurazione completa: host, porta, Wake-on-LAN integrato*
+*Configurazione completa: host, porta, Wake-on-LAN integrato, pulsante KeePassXC*
 
 ### Autenticazione SSH avanzata
 ![Autenticazione SSH](../immagini/pcm3.png)
-*Gestione chiavi SSH, generazione chiave, copia sul server, Jump Host (Bastion)*
+*Gestione chiavi SSH, generazione chiave, copia sul server, Jump Host (Bastion), Agent Forwarding*
 
 ### Configurazione terminale
 ![Terminale](../immagini/pcm4.png)
@@ -29,7 +29,7 @@
 
 ### Sessione RDP
 ![RDP](../immagini/pcm6.png)
-*Configurazione RDP con client selezionabile (xfreerdp3/xfreerdp/rdesktop), schermo intero, clipboard*
+*Configurazione RDP con client selezionabile (xfreerdp3/xfreerdp/rdesktop), multi-monitor, schermo intero, clipboard*
 
 ### Sessione SFTP
 ![SFTP](../immagini/pcm7.png)
@@ -54,30 +54,36 @@
 
 | Protocollo | Modalità | Note |
 |---|---|---|
-| **SSH** | Terminale integrato (VTE) o esterno | Jump Host, X11 forward, pre-cmd VPN |
+| **SSH** | Terminale integrato (VTE) o esterno | Jump Host, X11 forward, Agent Forwarding, pre-cmd VPN |
 | **SFTP** | Browser dual-pane integrato | Drag&drop, coda trasferimenti |
 | **FTP / FTPS** | Browser integrato o client esterno | TLS esplicito, modalità passiva |
-| **RDP** | Finestra esterna o pannello interno | xfreerdp3, xfreerdp, rdesktop |
+| **RDP** | Finestra esterna o pannello interno | xfreerdp3, xfreerdp, rdesktop; multi-monitor |
 | **VNC** | gtk-vnc nativo o client esterno | Toolbar runtime: scala, grab, screenshot |
 | **Telnet** | Terminale integrato | — |
 | **Mosh** | Terminale integrato | Richiede mosh installato |
 | **Seriale** | Terminale integrato | Baud rate, parità, stop bit configurabili |
+| **Exec** | Terminale integrato | Qualsiasi comando shell locale in una scheda |
 | **SSH Tunnel** | Background gestito graficamente | SOCKS -D, locale -L, remoto -R |
 
 ### Gestione sessioni
 
-- Sessioni organizzate per **gruppo** con barra di ricerca
-- **Quick Connect** dalla toolbar: `utente@host:porta`
+- Sessioni organizzate per **gruppo** con barra di ricerca live
+- **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
+- **Quick Connect** dalla toolbar: `utente@host:porta` senza salvare un profilo
 - Doppio clic per connettere, tasto destro per menu contestuale
+- **Ping**: verifica raggiungibilità TCP dalla sidebar (tasto destro → Ping)
 - Duplica, modifica, elimina, esporta script `.sh`
-- **Verifica raggiungibilità** (ping/tcp) prima di connettere
+- **Import** da Remmina, Remote Desktop Manager, **PuTTY**, **~/.ssh/config**
 
-### Sicurezza
+### Sicurezza e credenziali
 
 - **Cifratura credenziali** AES-256 (Fernet + PBKDF2-SHA256, 480k iterazioni)
 - Password master richiesta all'avvio se cifratura attiva
 - Gestione chiavi SSH: genera, copia sul server, mostra pubblica
+- **Agent Forwarding** SSH (`-A`): propaga le chiavi dell'ssh-agent locale
+- **KeePassXC**: cerca e compila credenziali direttamente dal database KeePassXC aperto
 - Modalità **protetta**: nasconde tutte le password nell'interfaccia
+- **Nessun `sshpass`**: la password viene digitata direttamente nel terminale VTE quando SSH (o Cisco, PAM, ecc.) la richiede — mai sulla command line, mai in variabili d'ambiente. Fallback silenzioso via `SSH_ASKPASS` per OpenSSH ≥ 8.4
 
 ### Terminale
 
@@ -86,6 +92,7 @@
 - Split verticale/orizzontale per più sessioni in parallelo
 - **Macro per sessione**: comandi inviati con un clic
 - **Multi-exec**: invia lo stesso comando a più sessioni contemporaneamente
+- **Broadcast terminali**: invia testo a gruppi di terminali selezionati
 - Log output su file per ogni sessione
 - Pre-comando locale: attiva VPN o monta volume prima di aprire la connessione
 
@@ -95,13 +102,13 @@
 - **Tunnel SSH** gestiti graficamente con avvio/stop
 - **Variabili globali** `{VAR}` usabili nei comandi di tutte le sessioni
 - **Wake-on-LAN**: invia magic packet prima di connettere
-- **Import** da Remmina (`.remmina`) e Remote Desktop Manager (`.rdm`/`.json`)
+- **Audit log**: storico connessioni con timestamp, durata, stato — esportabile CSV
 - **Esporta script** `.sh` per aprire la connessione da terminale
 
 ### Internazionalizzazione
 
 - 5 lingue: 🇮🇹 Italiano · 🇬🇧 English · 🇩🇪 Deutsch · 🇫🇷 Français · 🇪🇸 Español
-- Cambio lingua immediato dalle impostazioni (senza riavvio per il menu)
+- Cambio lingua immediato dalle impostazioni
 
 ---
 
@@ -176,6 +183,41 @@ python3 PCM.py
 
 ---
 
+## Nuove funzionalità recenti
+
+### 🔑 Integrazione KeePassXC
+Cerca e inserisce automaticamente le credenziali dal database KeePassXC aperto, tramite il protocollo Browser v2 (socket Unix locale — nessun browser necessario).
+
+### 📋 Audit Log
+PCM registra automaticamente ogni connessione aperta in `audit_log.json` (timestamp, durata, protocollo, stato). Visualizzabile e esportabile in CSV da **Strumenti → Audit log**.
+
+### 📡 Broadcast terminali
+Invia testo o comandi a più terminali aperti contemporaneamente con selezione granulare. Ideale per operazioni su cluster di server.
+
+### 🖥 Multi-monitor RDP
+Le sessioni RDP supportano ora: monitor singolo (default), tutti i monitor (`/multimon`) o selezione personalizzata per ID (`/monitors:0,1`).
+
+### 🔐 SSH Agent Forwarding
+Flag `-A` configurabile per sessione dal tab Avanzate — propaga le chiavi dell'ssh-agent locale per hop multipli senza copiare le chiavi private sui server intermedi.
+
+### ⏱ Sessioni recenti
+La sidebar mostra in cima le ultime 20 sessioni usate con data/ora dell'ultima connessione. Tasto destro sul gruppo Recenti → Cancella cronologia.
+
+### ⚡ Quick Connect migliorato
+Dialog completo con selettore protocollo, host, porta, utente e password — si connette senza salvare il profilo.
+
+### 📥 Import da PuTTY e ~/.ssh/config
+- **PuTTY**: importa le sessioni da `~/.putty/sessions/` senza avere PuTTY installato
+- **SSH Config**: converte i blocchi `Host` di `~/.ssh/config` in profili PCM (supporta ProxyJump → Jump Host)
+
+### 🔌 Protocollo Exec
+Un nuovo tipo di sessione che esegue qualsiasi comando shell nel terminale embedded: `htop`, `tail -f /var/log/syslog`, script personalizzati, tool interattivi.
+
+### 🏓 Ping dalla sidebar
+Tasto destro su qualsiasi sessione di rete → **Ping** — verifica la raggiungibilità TCP sulla porta configurata con tempo di risposta in ms.
+
+---
+
 ## Dipendenze opzionali
 
 | Pacchetto | Funzionalità |
@@ -187,6 +229,7 @@ python3 PCM.py
 | `minicom` | Porte seriali |
 | `xdotool` | RDP in pannello interno |
 | `wakeonlan` | Wake-on-LAN |
+| `keepassxc` | Integrazione KeePassXC (deve essere già installato) |
 
 ---
 
@@ -214,8 +257,19 @@ Il viewer **VNC gtk-vnc** funziona nativamente su Wayland.
 
 ---
 
+## File di configurazione
+
+| File | Contenuto |
+|---|---|
+| `connections.json` | Profili sessione (JSON, modificabile a mano) |
+| `pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti |
+| `audit_log.json` | Log audit connessioni (metadata, no credenziali) |
+| `/tmp/pcm_logs/` | Log output terminali (percorso configurabile) |
+
+---
+
 ## Autore
 
-**Andres Zanzani** — licenza [EUPL-1.2](../EUPL-1.2%20EN.txt) 
+**Andres Zanzani** — licenza [EUPL-1.2](../EUPL-1.2%20EN.txt)
 
 [GitHub](https://github.com/buzzqw/Python_Connection_Manager)

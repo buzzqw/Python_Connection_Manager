@@ -120,6 +120,11 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
         return _build_vnc(profilo), "external"
     elif proto == "serial":
         return _wrap_pre(_build_serial(profilo), profilo), "serial"
+    elif proto == "exec":
+        cmd = profilo.get("exec_cmd", "").strip()
+        if not cmd:
+            return "bash -c 'echo \"Nessun comando configurato per questa sessione Exec.\"; sleep 5'", "embedded"
+        return cmd, "embedded"
     else:
         return None, "embedded"
 
@@ -160,6 +165,7 @@ def _build_ssh(p: dict) -> str:
         args.append(f"-i '{pkey}'")
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
+    if p.get("agent_forward"): args.append("-A")
     if p.get("keepalive"):
         args.append("-o ServerAliveInterval=60")
     
@@ -183,14 +189,7 @@ def _build_ssh(p: dict) -> str:
     target = f"{user}@{host}" if user else host
     ssh_exe = _get_tool("ssh")
 
-    if pwd and not pkey:
-        if _tool_exists("sshpass"):
-            sshpass_exe = _get_tool("sshpass")
-            base = f"\"{sshpass_exe}\" -f \"$PCM_PWD_FIFO\" \"{ssh_exe}\" {args_str} {target}"
-        else:
-            base = f"\"{ssh_exe}\" {args_str} {target}"
-    else:
-        base = f"\"{ssh_exe}\" {args_str} {target}"
+    base = f"\"{ssh_exe}\" {args_str} {target}"
 
     if scmd:
         base += f" -t '{_esc(scmd)}; exec $SHELL -l'"
@@ -281,12 +280,9 @@ def _build_sftp_cli(p: dict) -> str:
     if pkey and os.path.exists(pkey):
         return f"\"{sftp_exe}\" {args_str} {target}"
 
-    if pwd:
-        if _tool_exists("sshpass"):
-            return f"\"{_get_tool('sshpass')}\" -f \"$PCM_PWD_FIFO\" \"{sftp_exe}\" {args_str} {target}"
-        elif _tool_exists("lftp"):
-            uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
-            return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"
+    if pwd and _tool_exists("lftp"):
+        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
+        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"
 
     return f"\"{sftp_exe}\" {args_str} {target}"
 
@@ -310,6 +306,13 @@ def _build_rdp(p: dict) -> str:
         if p.get("fullscreen"): args.append("/f")
         if p.get("redirect_clipboard"): args.append("/clipboard")
         if p.get("redirect_drives"): args.append("/drive:home,/home")
+        mon_mode = p.get("rdp_monitor_mode", "single")
+        if mon_mode == "all":
+            args.append("/multimon")
+        elif mon_mode == "custom":
+            ids = p.get("rdp_monitor_ids", "0").strip()
+            if ids:
+                args.append(f"/monitors:{ids}")
         return f"\"{exe}\" {' '.join(args)}"
 
     elif client == "rdesktop":
@@ -452,7 +455,6 @@ def _esc(s: str) -> str:
 def check_dipendenze() -> dict:
     tools = {
         "ssh":         _tool_exists("ssh"),
-        "sshpass":     _tool_exists("sshpass"),
         "xdotool":     _tool_exists("xdotool"),
         "xwininfo":    _tool_exists("xwininfo"),
         "mosh":        _tool_exists("mosh"),
@@ -501,7 +503,6 @@ def check_dipendenze_categorizzate() -> dict:
         "terminal": any(shutil.which(t) for t in _terminali),
     }
     optional_deps = {
-        "sshpass":   _tool_exists("sshpass"),
         "xwininfo":  _tool_exists("xwininfo"),
         "mosh":      _tool_exists("mosh"),
         "telnet":    _tool_exists("telnet"),

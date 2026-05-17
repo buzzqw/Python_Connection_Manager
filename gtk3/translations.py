@@ -310,6 +310,7 @@ _T: dict[str, dict[str, str]] = {
     "toolbar.tunnel.tooltip":   {"it": "Gestione tunnel SSH", "en": "SSH tunnel manager", "de": "SSH-Tunnel-Verwaltung", "fr": "Gestionnaire de tunnels SSH", "es": "Gestión de túneles SSH"},
     "toolbar.settings":         {"it": "Impostazioni",  "en": "Settings",    "de": "Einstellungen", "fr": "Paramètres", "es": "Configuración"},
     "toolbar.settings.tooltip": {"it": "Impostazioni globali", "en": "Global settings", "de": "Globale Einstellungen", "fr": "Paramètres globaux", "es": "Configuración global"},
+    "toolbar.menu.tooltip":     {"it": "Menu applicazione", "en": "Application menu", "de": "Anwendungsmenü", "fr": "Menu de l'application", "es": "Menú de la aplicación"},
     "toolbar.split":            {"it": "Split",         "en": "Split",       "de": "Teilen",        "fr": "Diviser",    "es": "Dividir"},
     "toolbar.split.tooltip":    {"it": "Modalità split terminale", "en": "Terminal split mode", "de": "Terminal-Split-Modus", "fr": "Mode division du terminal", "es": "Modo división del terminal"},
     "toolbar.split.single":     {"it": "Singolo",       "en": "Single",      "de": "Einzeln",       "fr": "Simple",     "es": "Simple"},
@@ -1226,4 +1227,136 @@ _T: dict[str, dict[str, str]] = {
     "tt.tunnel_lport":{"it": "Porta locale su cui il tunnel sarà in ascolto", "en": "Local port on which the tunnel will listen", "de": "Lokaler Port, auf dem der Tunnel lauscht", "fr": "Port local sur lequel le tunnel sera en écoute", "es": "Puerto local en el que el túnel estará escuchando"},
     "tt.tunnel_rhost":{"it": "Host remoto destinazione del tunnel (per -L e -R). Es: database.interno.lan", "en": "Remote destination host of the tunnel (for -L and -R). E.g.: database.internal.lan", "de": "Entfernter Zielhost des Tunnels (für -L und -R). Z.B.: datenbank.intern.lan", "fr": "Hôte distant de destination du tunnel (pour -L et -R). Ex : base-de-données.interne.lan", "es": "Host remoto de destino del túnel (para -L y -R). Ej: base-datos.interna.lan"},
     "tt.tunnel_rport":{"it": "Porta remota di destinazione del tunnel", "en": "Remote destination port of the tunnel", "de": "Entfernter Zielport des Tunnels", "fr": "Port distant de destination du tunnel", "es": "Puerto remoto de destino del túnel"},
+
+    # ── SSH Agent Forwarding ──────────────────────────────────────────────────
+    "sd.ssh.agent_forward": {
+        "it": "Forwarding agente SSH (-A)",
+        "en": "SSH agent forwarding (-A)",
+        "de": "SSH-Agent-Weiterleitung (-A)",
+        "fr": "Transfert d'agent SSH (-A)",
+        "es": "Reenvío de agente SSH (-A)",
+    },
+    "tt.ssh_agent": {
+        "it": "Inoltra il tuo ssh-agent al server remoto: puoi usare le tue chiavi locali per saltare su altri host senza copiare le chiavi private. Attenzione: usare solo su server fidati",
+        "en": "Forwards your local ssh-agent to the remote server: you can use your local keys to hop to other hosts without copying private keys. Warning: use only on trusted servers",
+        "de": "Leitet den lokalen ssh-Agent an den Remote-Server weiter: lokale Schlüssel können für weitere Hops verwendet werden. Warnung: nur auf vertrauenswürdigen Servern verwenden",
+        "fr": "Transfère votre ssh-agent local vers le serveur distant : vous pouvez utiliser vos clés locales pour accéder à d'autres hôtes sans copier les clés privées. Attention : utiliser uniquement sur des serveurs de confiance",
+        "es": "Reenvía tu ssh-agent local al servidor remoto: puedes usar tus claves locales para saltar a otros hosts sin copiar claves privadas. Advertencia: usar solo en servidores de confianza",
+    },
+
+    # ── Multi-monitor RDP ────────────────────────────────────────────────────
+    "sd.rdp.monitor":        {"it": "Monitor", "en": "Monitor", "de": "Monitor", "fr": "Moniteur", "es": "Monitor"},
+    "sd.rdp.monitor_single": {"it": "Monitor singolo", "en": "Single monitor", "de": "Einzelner Monitor", "fr": "Moniteur unique", "es": "Monitor único"},
+    "sd.rdp.monitor_all":    {"it": "Tutti i monitor", "en": "All monitors", "de": "Alle Monitore", "fr": "Tous les moniteurs", "es": "Todos los monitores"},
+    "sd.rdp.monitor_custom": {"it": "Monitor specifici", "en": "Specific monitors", "de": "Bestimmte Monitore", "fr": "Moniteurs spécifiques", "es": "Monitores específicos"},
+    "sd.rdp.monitor_ids":    {"it": "Indici monitor (es. 0,1)", "en": "Monitor indices (e.g. 0,1)", "de": "Monitor-Indizes (z.B. 0,1)", "fr": "Indices de moniteurs (ex. 0,1)", "es": "Índices de monitor (ej. 0,1)"},
+    "tt.rdp_monitor": {
+        "it": "Seleziona su quanti monitor aprire la sessione RDP:\n• Monitor singolo — solo il monitor principale\n• Tutti i monitor — estende su tutti gli schermi (/multimon)\n• Monitor specifici — scegli gli indici (es. 0,1). Usa xrandr per vedere gli indici",
+        "en": "Select how many monitors to use for the RDP session:\n• Single monitor — primary monitor only\n• All monitors — span across all screens (/multimon)\n• Specific monitors — choose indices (e.g. 0,1). Use xrandr to see indices",
+        "de": "Anzahl der Monitore für die RDP-Sitzung:\n• Einzelner Monitor — nur Primärmonitor\n• Alle Monitore — auf alle Bildschirme ausdehnen (/multimon)\n• Bestimmte Monitore — Indizes wählen (z.B. 0,1). xrandr zum Anzeigen der Indizes verwenden",
+        "fr": "Sélectionner le nombre de moniteurs pour la session RDP :\n• Moniteur unique — moniteur principal uniquement\n• Tous les moniteurs — s'étend sur tous les écrans (/multimon)\n• Moniteurs spécifiques — choisir les indices (ex. 0,1). Utiliser xrandr pour voir les indices",
+        "es": "Seleccionar cuántos monitores usar para la sesión RDP:\n• Monitor único — solo el monitor principal\n• Todos los monitores — se extiende a todas las pantallas (/multimon)\n• Monitores específicos — elegir índices (ej. 0,1). Usar xrandr para ver los índices",
+    },
+
+    # ── Sessioni recenti ──────────────────────────────────────────────────────
+    "sidebar.recent_title":  {"it": "Recenti", "en": "Recent", "de": "Zuletzt verwendet", "fr": "Récents", "es": "Recientes"},
+    "sidebar.no_recent":     {"it": "Nessuna sessione recente", "en": "No recent sessions", "de": "Keine zuletzt verwendeten Sitzungen", "fr": "Aucune session récente", "es": "Sin sesiones recientes"},
+    "sidebar.recent_clear":  {"it": "Cancella recenti", "en": "Clear recent", "de": "Zuletzt verwendet löschen", "fr": "Effacer les récents", "es": "Borrar recientes"},
+    "sidebar.last_used":     {"it": "Ultimo accesso: {ts}", "en": "Last used: {ts}", "de": "Zuletzt verwendet: {ts}", "fr": "Dernier accès : {ts}", "es": "Último acceso: {ts}"},
+
+    # ── Quick connect ─────────────────────────────────────────────────────────
+    "quickconn.title":       {"it": "Connessione rapida", "en": "Quick connect", "de": "Schnellverbindung", "fr": "Connexion rapide", "es": "Conexión rápida"},
+    "quickconn.subtitle":    {"it": "Connetti senza salvare la sessione", "en": "Connect without saving the session", "de": "Verbinden ohne Sitzung zu speichern", "fr": "Se connecter sans enregistrer la session", "es": "Conectar sin guardar la sesión"},
+    "quickconn.connect":     {"it": "Connetti", "en": "Connect", "de": "Verbinden", "fr": "Connecter", "es": "Conectar"},
+    "quickconn.save_as":     {"it": "Salva come sessione…", "en": "Save as session…", "de": "Als Sitzung speichern…", "fr": "Enregistrer comme session…", "es": "Guardar como sesión…"},
+    "quickconn.err_host":    {"it": "Inserire un host valido", "en": "Enter a valid host", "de": "Gültigen Host eingeben", "fr": "Entrer un hôte valide", "es": "Ingrese un host válido"},
+    "toolbar.quickconn.tooltip": {
+        "it": "Connessione rapida senza salvare la sessione",
+        "en": "Quick connect without saving the session",
+        "de": "Schnellverbindung ohne Sitzung zu speichern",
+        "fr": "Connexion rapide sans enregistrer la session",
+        "es": "Conexión rápida sin guardar la sesión",
+    },
+
+    # ── Import PuTTY / SSH config ─────────────────────────────────────────────
+    "importer.putty_title":   {"it": "Sessioni PuTTY", "en": "PuTTY sessions", "de": "PuTTY-Sitzungen", "fr": "Sessions PuTTY", "es": "Sesiones PuTTY"},
+    "importer.ssh_cfg_title": {"it": "SSH config (~/.ssh/config)", "en": "SSH config (~/.ssh/config)", "de": "SSH-Konfiguration (~/.ssh/config)", "fr": "Config SSH (~/.ssh/config)", "es": "Config SSH (~/.ssh/config)"},
+    "importer.putty_ok":      {"it": "Importate {n} sessioni da PuTTY", "en": "Imported {n} sessions from PuTTY", "de": "{n} Sitzungen von PuTTY importiert", "fr": "{n} sessions importées depuis PuTTY", "es": "{n} sesiones importadas desde PuTTY"},
+    "importer.ssh_cfg_ok":    {"it": "Importati {n} host da ~/.ssh/config", "en": "Imported {n} hosts from ~/.ssh/config", "de": "{n} Hosts aus ~/.ssh/config importiert", "fr": "{n} hôtes importés depuis ~/.ssh/config", "es": "{n} hosts importados desde ~/.ssh/config"},
+    "importer.putty_none":    {"it": "Nessuna sessione PuTTY trovata in ~/.putty/sessions/", "en": "No PuTTY sessions found in ~/.putty/sessions/", "de": "Keine PuTTY-Sitzungen in ~/.putty/sessions/ gefunden", "fr": "Aucune session PuTTY trouvée dans ~/.putty/sessions/", "es": "No se encontraron sesiones PuTTY en ~/.putty/sessions/"},
+    "importer.ssh_cfg_none":  {"it": "Nessun host trovato in ~/.ssh/config", "en": "No hosts found in ~/.ssh/config", "de": "Keine Hosts in ~/.ssh/config gefunden", "fr": "Aucun hôte trouvé dans ~/.ssh/config", "es": "No se encontraron hosts en ~/.ssh/config"},
+
+    # ── EXEC generico ─────────────────────────────────────────────────────────
+    "sd.proto.exec":    {"it": "Exec", "en": "Exec", "de": "Exec", "fr": "Exec", "es": "Exec"},
+    "sd.exec.cmd":      {"it": "Comando", "en": "Command", "de": "Befehl", "fr": "Commande", "es": "Comando"},
+    "sd.exec.cmd_ph":   {"it": "es. htop  oppure  /usr/bin/myapp --flag", "en": "e.g. htop  or  /usr/bin/myapp --flag", "de": "z.B. htop  oder  /usr/bin/myapp --flag", "fr": "ex. htop  ou  /usr/bin/myapp --flag", "es": "ej. htop  o  /usr/bin/myapp --flag"},
+    "tt.exec_cmd": {
+        "it": "Comando locale da eseguire in un tab del terminale integrato. Può essere qualsiasi programma interattivo: editor (vim, nano), monitor (htop, glances), shell personalizzate, ecc.",
+        "en": "Local command to run in an integrated terminal tab. Can be any interactive program: editors (vim, nano), monitors (htop, glances), custom shells, etc.",
+        "de": "Lokaler Befehl, der in einem integrierten Terminal-Tab ausgeführt wird. Kann ein beliebiges interaktives Programm sein: Editoren (vim, nano), Monitore (htop, glances), usw.",
+        "fr": "Commande locale à exécuter dans un onglet du terminal intégré. Peut être n'importe quel programme interactif : éditeurs (vim, nano), moniteurs (htop, glances), shells personnalisés, etc.",
+        "es": "Comando local a ejecutar en una pestaña del terminal integrado. Puede ser cualquier programa interactivo: editores (vim, nano), monitores (htop, glances), shells personalizados, etc.",
+    },
+
+    # ── Connectivity test / ping ──────────────────────────────────────────────
+    "ping.testing":  {"it": "Verifica connettività…", "en": "Testing connectivity…", "de": "Konnektivität wird geprüft…", "fr": "Vérification de la connectivité…", "es": "Verificando conectividad…"},
+    "ping.ok":       {"it": "✔ Host raggiungibile ({ms} ms)", "en": "✔ Host reachable ({ms} ms)", "de": "✔ Host erreichbar ({ms} ms)", "fr": "✔ Hôte joignable ({ms} ms)", "es": "✔ Host alcanzable ({ms} ms)"},
+    "ping.fail":     {"it": "✖ Host non raggiungibile sulla porta {port}", "en": "✖ Host not reachable on port {port}", "de": "✖ Host auf Port {port} nicht erreichbar", "fr": "✖ Hôte non joignable sur le port {port}", "es": "✖ Host no alcanzable en el puerto {port}"},
+    "ping.tooltip":  {"it": "Verifica la raggiungibilità dell'host prima di connettersi", "en": "Check host reachability before connecting", "de": "Host-Erreichbarkeit vor der Verbindung prüfen", "fr": "Vérifier la joignabilité de l'hôte avant de se connecter", "es": "Verificar la accesibilidad del host antes de conectarse"},
+    "sidebar.ping_btn": {"it": "Ping", "en": "Ping", "de": "Ping", "fr": "Ping", "es": "Ping"},
+
+    # ── Cluster / Broadcast ───────────────────────────────────────────────────
+    "broadcast.title":       {"it": "Broadcast terminali", "en": "Terminal broadcast", "de": "Terminal-Broadcast", "fr": "Diffusion de terminal", "es": "Difusión de terminal"},
+    "broadcast.label":       {"it": "Testo da inviare a tutti i terminali selezionati:", "en": "Text to send to all selected terminals:", "de": "Text an alle ausgewählten Terminals senden:", "fr": "Texte à envoyer à tous les terminaux sélectionnés :", "es": "Texto a enviar a todos los terminales seleccionados:"},
+    "broadcast.send":        {"it": "Invia", "en": "Send", "de": "Senden", "fr": "Envoyer", "es": "Enviar"},
+    "broadcast.select_all":  {"it": "Seleziona tutti", "en": "Select all", "de": "Alle auswählen", "fr": "Tout sélectionner", "es": "Seleccionar todo"},
+    "broadcast.deselect_all":{"it": "Deseleziona tutti", "en": "Deselect all", "de": "Alle abwählen", "fr": "Tout désélectionner", "es": "Deseleccionar todo"},
+    "broadcast.no_terminals":{"it": "Nessun terminale aperto", "en": "No open terminals", "de": "Keine offenen Terminals", "fr": "Aucun terminal ouvert", "es": "No hay terminales abiertos"},
+    "broadcast.enter_hint":  {"it": "Premi Invio per aggiungere un newline", "en": "Press Enter to add a newline", "de": "Enter drücken für Zeilenumbruch", "fr": "Appuyer sur Entrée pour ajouter une nouvelle ligne", "es": "Pulsa Intro para añadir una nueva línea"},
+    "broadcast.sent":        {"it": "Inviato a {n} terminale/i", "en": "Sent to {n} terminal(s)", "de": "An {n} Terminal(s) gesendet", "fr": "Envoyé à {n} terminal/terminaux", "es": "Enviado a {n} terminal(es)"},
+    "menu.tools.broadcast":  {"it": "⚡ Broadcast terminali…", "en": "⚡ Terminal broadcast…", "de": "⚡ Terminal-Broadcast…", "fr": "⚡ Diffusion de terminal…", "es": "⚡ Difusión de terminal…"},
+
+    # ── Audit log ────────────────────────────────────────────────────────────
+    "audit.title":      {"it": "Registro audit connessioni", "en": "Connection audit log", "de": "Verbindungs-Auditprotokoll", "fr": "Journal d'audit des connexions", "es": "Registro de auditoría de conexiones"},
+    "audit.col_time":   {"it": "Data/ora", "en": "Date/time", "de": "Datum/Uhrzeit", "fr": "Date/heure", "es": "Fecha/hora"},
+    "audit.col_session":{"it": "Sessione", "en": "Session", "de": "Sitzung", "fr": "Session", "es": "Sesión"},
+    "audit.col_host":   {"it": "Host", "en": "Host", "de": "Host", "fr": "Hôte", "es": "Host"},
+    "audit.col_proto":  {"it": "Protocollo", "en": "Protocol", "de": "Protokoll", "fr": "Protocole", "es": "Protocolo"},
+    "audit.col_duration":{"it": "Durata", "en": "Duration", "de": "Dauer", "fr": "Durée", "es": "Duración"},
+    "audit.col_status": {"it": "Stato", "en": "Status", "de": "Status", "fr": "État", "es": "Estado"},
+    "audit.status_ok":  {"it": "✔ Connesso", "en": "✔ Connected", "de": "✔ Verbunden", "fr": "✔ Connecté", "es": "✔ Conectado"},
+    "audit.status_err": {"it": "✖ Errore", "en": "✖ Error", "de": "✖ Fehler", "fr": "✖ Erreur", "es": "✖ Error"},
+    "audit.no_entries": {"it": "Nessuna connessione registrata", "en": "No connections recorded", "de": "Keine Verbindungen aufgezeichnet", "fr": "Aucune connexion enregistrée", "es": "No hay conexiones registradas"},
+    "audit.clear":      {"it": "Cancella log", "en": "Clear log", "de": "Protokoll löschen", "fr": "Effacer le journal", "es": "Borrar registro"},
+    "audit.export_csv": {"it": "Esporta CSV", "en": "Export CSV", "de": "CSV exportieren", "fr": "Exporter en CSV", "es": "Exportar CSV"},
+    "menu.tools.audit": {"it": "📋 Registro audit…", "en": "📋 Audit log…", "de": "📋 Auditprotokoll…", "fr": "📋 Journal d'audit…", "es": "📋 Registro de auditoría…"},
+
+    # ── KeePassXC ─────────────────────────────────────────────────────────────
+    "keepass.title":       {"it": "Integrazione KeePassXC", "en": "KeePassXC integration", "de": "KeePassXC-Integration", "fr": "Intégration KeePassXC", "es": "Integración KeePassXC"},
+    "keepass.search_ph":   {"it": "URL o nome da cercare in KeePassXC…", "en": "URL or name to search in KeePassXC…", "de": "URL oder Name in KeePassXC suchen…", "fr": "URL ou nom à rechercher dans KeePassXC…", "es": "URL o nombre a buscar en KeePassXC…"},
+    "keepass.found":       {"it": "{n} credenziale/i trovata/e", "en": "{n} credential(s) found", "de": "{n} Anmeldedaten gefunden", "fr": "{n} identifiant(s) trouvé(s)", "es": "{n} credencial(es) encontrada(s)"},
+    "keepass.use":         {"it": "Usa queste credenziali", "en": "Use these credentials", "de": "Diese Anmeldedaten verwenden", "fr": "Utiliser ces identifiants", "es": "Usar estas credenciales"},
+    "keepass.not_running": {"it": "KeePassXC non in esecuzione o Browser Integration non attivata nel database", "en": "KeePassXC not running or Browser Integration not enabled in the database", "de": "KeePassXC läuft nicht oder Browser-Integration im Datenbankordner nicht aktiviert", "fr": "KeePassXC n'est pas lancé ou l'intégration navigateur n'est pas activée dans la base", "es": "KeePassXC no está en ejecución o la integración de navegador no está activada en la base de datos"},
+    "keepass.connected":   {"it": "Connesso a KeePassXC", "en": "Connected to KeePassXC", "de": "Mit KeePassXC verbunden", "fr": "Connecté à KeePassXC", "es": "Conectado a KeePassXC"},
+    "keepass.error":       {"it": "Errore KeePassXC: {e}", "en": "KeePassXC error: {e}", "de": "KeePassXC-Fehler: {e}", "fr": "Erreur KeePassXC : {e}", "es": "Error de KeePassXC: {e}"},
+    "keepass.no_results":      {"it": "Nessun risultato. L'entry in KeePassXC deve avere il campo URL valorizzato con l'host cercato (es. ssh://{url})", "en": "No results. The KeePassXC entry must have the URL field set to the searched host (e.g. ssh://{url})", "de": "Keine Ergebnisse. Der KeePassXC-Eintrag muss das URL-Feld mit dem gesuchten Host belegen (z.B. ssh://{url})", "fr": "Aucun résultat. L'entrée KeePassXC doit avoir le champ URL renseigné avec l'hôte recherché (ex. ssh://{url})", "es": "Sin resultados. La entrada de KeePassXC debe tener el campo URL configurado con el host buscado (ej. ssh://{url})"},
+    "keepass.url_hint":        {"it": "ℹ Inserisci l'host (es. 192.168.1.1). L'entry KeePassXC deve avere il campo URL valorizzato nel formato ssh://192.168.1.1", "en": "ℹ Enter the host (e.g. 192.168.1.1). The KeePassXC entry must have its URL field set in the format ssh://192.168.1.1", "de": "ℹ Host eingeben (z.B. 192.168.1.1). Der KeePassXC-Eintrag muss das URL-Feld im Format ssh://192.168.1.1 haben.", "fr": "ℹ Saisissez l'hôte (ex. 192.168.1.1). L'entrée KeePassXC doit avoir son champ URL au format ssh://192.168.1.1", "es": "ℹ Introduzca el host (ej. 192.168.1.1). La entrada KeePassXC debe tener el campo URL en el formato ssh://192.168.1.1"},
+    "keepass.approve_assoc":   {"it": "⏳ Approva la richiesta di associazione in KeePassXC…", "en": "⏳ Please approve the association request in KeePassXC…", "de": "⏳ Bitte den Verknüpfungsantrag in KeePassXC genehmigen…", "fr": "⏳ Veuillez approuver la demande d'association dans KeePassXC…", "es": "⏳ Apruebe la solicitud de asociación en KeePassXC…"},
+    "keepass.no_assoc":        {"it": "Nessuna associazione salvata", "en": "No saved association", "de": "Keine gespeicherte Verknüpfung", "fr": "Aucune association enregistrée", "es": "Sin asociación guardada"},
+    "keepass.socket_not_found":{"it": "Socket non trovato", "en": "Socket not found", "de": "Socket nicht gefunden", "fr": "Socket introuvable", "es": "Socket no encontrado"},
+    "keepass.search_btn":      {"it": "Cerca", "en": "Search", "de": "Suchen", "fr": "Chercher", "es": "Buscar"},
+    "dialog.cancel":           {"it": "Annulla", "en": "Cancel", "de": "Abbrechen", "fr": "Annuler", "es": "Cancelar"},
+    "dialog.close":            {"it": "Chiudi", "en": "Close", "de": "Schließen", "fr": "Fermer", "es": "Cerrar"},
+    "keepass.col_title":   {"it": "Titolo", "en": "Title", "de": "Titel", "fr": "Titre", "es": "Título"},
+    "keepass.col_user":    {"it": "Utente", "en": "Username", "de": "Benutzer", "fr": "Utilisateur", "es": "Usuario"},
+    "keepass.col_url":     {"it": "URL", "en": "URL", "de": "URL", "fr": "URL", "es": "URL"},
+    "sd.keepass.btn":      {"it": "🔑 Da KeePassXC…", "en": "🔑 From KeePassXC…", "de": "🔑 Aus KeePassXC…", "fr": "🔑 Depuis KeePassXC…", "es": "🔑 Desde KeePassXC…"},
+    "tt.keepass_btn": {
+        "it": "Recupera username e password direttamente da KeePassXC tramite Browser Integration. KeePassXC deve essere in esecuzione con il database sbloccato",
+        "en": "Retrieve username and password directly from KeePassXC via Browser Integration. KeePassXC must be running with the database unlocked",
+        "de": "Benutzername und Passwort direkt aus KeePassXC über Browser-Integration abrufen. KeePassXC muss mit entsperrter Datenbank laufen",
+        "fr": "Récupérer le nom d'utilisateur et le mot de passe directement depuis KeePassXC via l'intégration navigateur. KeePassXC doit être en cours d'exécution avec la base de données déverrouillée",
+        "es": "Recuperar nombre de usuario y contraseña directamente desde KeePassXC a través de la integración del navegador. KeePassXC debe estar en ejecución con la base de datos desbloqueada",
+    },
+    "menu.tools.keepass": {"it": "🔑 Impostazioni KeePassXC…", "en": "🔑 KeePassXC settings…", "de": "🔑 KeePassXC-Einstellungen…", "fr": "🔑 Paramètres KeePassXC…", "es": "🔑 Configuración de KeePassXC…"},
 }
