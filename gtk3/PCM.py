@@ -888,6 +888,42 @@ class MainWindow(Gtk.ApplicationWindow):
                 break
         if idx < 0 or nb is None:
             return
+
+        # --- Conferma chiusura se processo attivo ---
+        # Trova il TerminalWidget (direttamente o dentro un Paned)
+        _term_widget = None
+        if hasattr(widget, "_pid"):
+            _term_widget = widget
+        elif hasattr(widget, "get_child1"):
+            for _child in [widget.get_child1(), widget.get_child2()]:
+                if _child and hasattr(_child, "_pid"):
+                    _term_widget = _child
+                    break
+
+        if _term_widget is not None and getattr(_term_widget, "_pid", -1) > 0:
+            # Legge l'impostazione dal profilo della sessione
+            _dati = getattr(widget, "_pcm_dati", None) or getattr(_term_widget, "_pcm_dati", None)
+            _confirm = True  # default: chiedi conferma
+            if _dati is not None:
+                _confirm = _dati.get("term_confirm_close", True)
+            if _confirm:
+                _nome_tab = self._get_tab_nome(widget)
+                dlg = Gtk.MessageDialog(
+                    transient_for=self,
+                    modal=True,
+                    message_type=Gtk.MessageType.QUESTION,
+                    buttons=Gtk.ButtonsType.YES_NO,
+                    text=t("tab.close_confirm_title"),
+                )
+                dlg.format_secondary_text(
+                    t("tab.close_confirm_msg", name=_nome_tab) if _nome_tab
+                    else t("tab.close_confirm_msg", name="?")
+                )
+                resp = dlg.run()
+                dlg.destroy()
+                if resp != Gtk.ResponseType.YES:
+                    return  # l'utente ha annullato
+
         # Cleanup processi
         if hasattr(widget, "chiudi_processo"):
             widget.chiudi_processo()
