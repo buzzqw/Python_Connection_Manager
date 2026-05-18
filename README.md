@@ -69,7 +69,6 @@
 - **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: se SSH gestisce l'auth prima che appaia un prompt (keyboard-interactive), uno script helper temp mode `0700` passa la password silenziosamente.
 - **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco.
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
-- **Modalità protetta**: nasconde tutte le password nell'interfaccia.
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
 - **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
 
@@ -421,7 +420,6 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 - **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: if SSH handles auth before a prompt appears (keyboard-interactive), a temp helper script (mode `0700`) passes the password silently.
 - **AES-256 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
-- **Protected mode**: hides all passwords in the interface.
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.
 
