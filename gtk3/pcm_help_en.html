@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PCM — Complete Guide</title>
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --blue-deep:   #0f2744;
+    --blue-mid:    #1a4a8a;
+    --blue-acc:    #2f7dd6;
+    --blue-light:  #4e9ef5;
+    --blue-pale:   #ddeeff;
+    --green:       #1a7a4a;
+    --green-pale:  #e2f5eb;
+    --amber:       #b05800;
+    --amber-pale:  #fff3e0;
+    --red:         #c0271a;
+    --red-pale:    #fdecea;
+    --teal:        #0d7a6e;
+    --teal-pale:   #e0f5f3;
+    --fg:          #1a1f2e;
+    --fg-muted:    #4a5368;
+    --border:      #d0d9ea;
+    --bg:          #f6f8fc;
+    --bg-card:     #ffffff;
+    --mono:        'JetBrains Mono', 'Fira Code', 'DejaVu Sans Mono', 'Courier New', monospace;
+    --sans:        'Liberation Sans', 'FreeSans', 'DejaVu Sans', 'Noto Sans', Arial, sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: var(--fg);
+    background: var(--bg);
+    margin: 0;
+    padding: 0;
+    line-height: 1.65;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────────── */
+  .header {
+    background: linear-gradient(135deg, var(--blue-deep) 0%, var(--blue-mid) 60%, #1d5ea8 100%);
+    color: #fff;
+    padding: 36px 48px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .header h1 {
+    margin: 0 0 6px;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header .sub   { margin: 0; font-size: 13px; opacity: 0.75; }
+  .header .meta  { margin-top: 10px; font-size: 11px; opacity: 0.5; font-family: var(--mono); }
+
+  /* ── NAVIGATION ──────────────────────────────────────────────────── */
+  .toc {
+    background: #e8eef8;
+    border-bottom: 2px solid var(--border);
+    padding: 0 48px;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .toc a {
+    color: var(--blue-mid);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 10px 15px;
+    display: inline-block;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .toc a:hover { background: #d0dcf4; }
+  .toc a.new::after {
+    content: 'NEW';
+    font-size: 9px;
+    background: var(--blue-acc);
+    color: #fff;
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+
+  /* ── CONTENT LAYOUT ──────────────────────────────────────────────── */
+  .content { padding: 12px 48px 60px; max-width: 980px; }
+
+  /* ── HEADINGS ────────────────────────────────────────────────────── */
+  h2 {
+    color: var(--blue-deep);
+    font-size: 19px;
+    font-weight: 700;
+    border-bottom: 3px solid var(--blue-acc);
+    padding-bottom: 7px;
+    margin: 44px 0 18px;
+  }
+  h2 .new-badge {
+    display: inline-block;
+    background: var(--blue-acc);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 7px;
+    margin-left: 10px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
+  }
+  h3 {
+    color: var(--blue-mid);
+    font-size: 14.5px;
+    font-weight: 700;
+    margin: 26px 0 10px;
+    padding-left: 12px;
+    border-left: 3px solid var(--blue-acc);
+  }
+  h4 {
+    color: #2c4a7a;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 18px 0 7px;
+  }
+
+  p  { margin: 8px 0 12px; }
+  ul, ol { margin: 6px 0 13px 22px; }
+  li { margin-bottom: 5px; }
+  ul ul { margin-top: 4px; margin-bottom: 4px; }
+
+  /* ── CODE ────────────────────────────────────────────────────────── */
+  code {
+    background: #e4eaf7;
+    border: 1px solid #c2cedf;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #1a3870;
+  }
+  pre {
+    background: #111827;
+    color: #c8d8f8;
+    border-radius: 7px;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin: 12px 0 18px;
+    overflow-x: auto;
+    line-height: 1.75;
+    border: 1px solid #1e2e48;
+  }
+  pre .cm  { color: #6a8eb0; }
+  pre .kw  { color: #82d3f8; }
+  pre .str { color: #a8d8a8; }
+  pre .var { color: #ffd08a; }
+
+  /* ── KEYBOARD KEYS ───────────────────────────────────────────────── */
+  kbd {
+    display: inline-block;
+    background: #edf0f7;
+    border: 1px solid #b8c4d8;
+    border-bottom: 2.5px solid #94a8c4;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #1a3060;
+    white-space: nowrap;
+  }
+
+  /* ── PROTOCOL BADGES ─────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    margin-right: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+  }
+  .b-ssh  { background: #1a9e8a; }
+  .b-sftp { background: #2a8a5a; }
+  .b-ftp  { background: #b06a00; }
+  .b-rdp  { background: #0060b0; }
+  .b-vnc  { background: #c08000; }
+  .b-tel  { background: #8a8020; }
+  .b-tun  { background: #7050a0; }
+  .b-mosh { background: #1a8888; }
+  .b-ser  { background: #606060; }
+
+  /* ── TABLES ──────────────────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0 20px;
+    font-size: 12.5px;
+  }
+  th {
+    background: var(--blue-deep);
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f0f4fc; }
+  tr:hover td { background: #e4ecf8; }
+
+  /* ── CALLOUT BOXES ───────────────────────────────────────────────── */
+  .tip, .warn, .info, .danger {
+    border-left: 5px solid;
+    border-radius: 0 7px 7px 0;
+    padding: 13px 18px;
+    margin: 14px 0;
+    font-size: 12.5px;
+  }
+  .tip    { background: var(--green-pale);  border-color: var(--green); }
+  .warn   { background: var(--amber-pale);  border-color: var(--amber); }
+  .info   { background: var(--blue-pale);   border-color: var(--blue-acc); }
+  .danger { background: var(--red-pale);    border-color: var(--red); }
+
+  /* ── NEW FEATURE BOX ─────────────────────────────────────────────── */
+  .new-feature {
+    background: var(--teal-pale);
+    border: 1px solid #a0d8d4;
+    border-left: 5px solid var(--teal);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .nf-title {
+    font-weight: 700;
+    color: var(--teal);
+    font-size: 13.5px;
+    margin-bottom: 6px;
+  }
+  .nf-title::before { content: '✦ NEW — '; }
+
+  /* ── PROTOCOL BLOCKS ─────────────────────────────────────────────── */
+  .proto-block {
+    background: var(--bg-card);
+    border-left: 5px solid var(--blue-acc);
+    border-radius: 0 7px 7px 0;
+    padding: 15px 20px;
+    margin: 15px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .proto-block.ssh   { border-left-color: #1a9e8a; }
+  .proto-block.sftp  { border-left-color: #2a8a5a; }
+  .proto-block.ftp   { border-left-color: #b06a00; }
+  .proto-block.rdp   { border-left-color: #0060b0; }
+  .proto-block.vnc   { border-left-color: #c08000; }
+  .proto-block.tel   { border-left-color: #8a8020; }
+  .proto-block.tun   { border-left-color: #7050a0; }
+  .proto-block.mosh  { border-left-color: #1a8888; }
+  .proto-block.ser   { border-left-color: #606060; }
+  .proto-title { font-size: 14.5px; font-weight: 700; margin: 0 0 8px; }
+  .proto-desc  { color: var(--fg-muted); font-size: 12.5px; margin: 3px 0 11px; }
+
+  /* ── UI BOX (ASCII diagram) ──────────────────────────────────────── */
+  .screenshot-label {
+    background: var(--blue-mid);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 4px 4px 0 0;
+    display: inline-block;
+    margin-bottom: -1px;
+    font-family: var(--mono);
+  }
+  .ui-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 0 6px 6px 6px;
+    padding: 14px 18px;
+    margin: 0 0 18px;
+    font-size: 11.5px;
+    font-family: var(--mono);
+    line-height: 1.85;
+    color: #1a2a4a;
+  }
+
+  /* ── MENU PATH ───────────────────────────────────────────────────── */
+  .menu-path {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eef2fb;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--blue-mid);
+  }
+  .menu-path span { color: #8fa0bc; font-weight: 400; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  .footer {
+    background: var(--blue-deep);
+    color: #7090b8;
+    padding: 16px 48px;
+    font-size: 11px;
+    text-align: center;
+    font-family: var(--mono);
+  }
+  .footer a { color: #6ab4f0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════ HEADER -->
+<div class="header">
+  <h1>🚀 PCM — Python Connection Manager</h1>
+  <p class="sub">Complete Guide &nbsp;·&nbsp; Multi-protocol remote session manager for Linux</p>
+  <p class="meta">Protocols: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Serial · Exec &nbsp;·&nbsp; GTK3 version (active development)</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ TABLE OF CONTENTS -->
+<div class="toc">
+  <a href="#interface">🖥 Interface</a>
+  <a href="#sessions">📋 Sessions</a>
+  <a href="#protocols">🔌 Protocols</a>
+  <a href="#authentication">🔑 Authentication</a>
+  <a href="#import">📥 Import</a>
+  <a href="#terminal">⌨ Terminal</a>
+  <a href="#sftp">📁 SFTP/FTP</a>
+  <a href="#tunnel">🔀 Tunnel</a>
+  <a href="#advanced">⚙ Advanced</a>
+  <a href="#new" class="new">✦ New features</a>
+  <a href="#keys">⌨ Shortcuts</a>
+  <a href="#settings">🛠 Settings</a>
+  <a href="#faq">❓ FAQ</a>
+</div>
+
+<div class="content">
+
+<!-- ══════════════════════════════════════════════════ INTERFACE -->
+<h2 id="interface">🖥 Main Interface</h2>
+
+<p>PCM organizes its interface into clearly distinct and customizable areas:</p>
+
+<div class="screenshot-label">PCM Layout</div>
+<div class="ui-box">
+┌─────────────────────────────────────────────────────────────────┐
+│  File  View  Tools  ?                               [menu bar]  │
+├─────────────────────────────────────────────────────────────────┤
+│  [Session] [Local] │ [Tunnel] │ [Settings] │ [Split ▼]         │
+├─────────────────────────────────────────────────────────────────┤
+│  Quick Connect: [SSH ▼]  [user@host:port.................] [▶] │
+├──────────────┬──────────────────────────────────────────────────┤
+│  Sessions    │  🏠 Welcome  │  SSH: server1  │  SFTP: nas      │
+│  ─────────── │                                                   │
+│  📂 Home     │   (terminal area / active tab content)           │
+│   ● server1  │                                                   │
+│   ● nas      │                                                   │
+│  📂 Work     │                                                   │
+│   ● webserver│                                                   │
+│   ● dbserver │                                                   │
+└──────────────┴──────────────────────────────────────────────────┘
+</div>
+
+<h3>Left panel — Sessions</h3>
+<p>The panel on the left shows all saved connections organized in groups. Features:</p>
+<ul>
+  <li><b>Drag &amp; drop</b> — move sessions between groups by dragging</li>
+  <li><b>Right-click</b> on a session — connect, edit, duplicate, delete</li>
+  <li><b>Right-click</b> on a group — add session, rename, delete group</li>
+  <li><b>Search</b> — filter sessions in real time (search box at the top)</li>
+  <li><b>Recent</b> — last connected sessions at the top of the list</li>
+  <li>Panel width is adjustable by dragging the separator</li>
+</ul>
+
+<h3>Toolbar</h3>
+<p>The toolbar below the menu bar provides quick access to the main functions:</p>
+<ul>
+  <li><b>New Session</b> — opens the dialog to create a new connection</li>
+  <li><b>Local Terminal</b> — opens a local terminal tab</li>
+  <li><b>New Tunnel</b> — creates an SSH tunnel</li>
+  <li><b>Settings</b> — opens the settings dialog</li>
+  <li><b>Split ▼</b> — split the terminal area vertically or horizontally</li>
+</ul>
+
+<h3>Quick Connect</h3>
+<p>The bar below the toolbar allows you to quickly connect without saving the session:</p>
+<ul>
+  <li>Select protocol from the drop-down menu (SSH, Telnet, Mosh, Serial…)</li>
+  <li>Enter <code>user@host:port</code> (port is optional, uses default)</li>
+  <li>Press <kbd>Enter</kbd> or click ▶ to connect</li>
+</ul>
+
+<h3>Tabs (Notebook)</h3>
+<p>Each active connection opens in a separate tab. You can:</p>
+<ul>
+  <li><b>Drag</b> tabs to reorder them</li>
+  <li><b>Right-click</b> on a tab to access the context menu:
+    <ul>
+      <li><b>Move to other panel</b> — move tab to the split panel</li>
+      <li><b>Open file transfer here</b> — opens SFTP/FTP reusing session credentials</li>
+      <li><b>⧉ Duplicate connection</b> — opens a second session to the same host</li>
+      <li><b>✖ Close tab</b> — closes the session</li>
+    </ul>
+  </li>
+  <li><kbd>Ctrl+W</kbd> — close current tab</li>
+</ul>
+
+<h3>Split panels</h3>
+<p>The terminal area can be split into two panels (vertical or horizontal) via <b>Split ▼</b> in the toolbar or via <span class="menu-path">View <span>›</span> Split</span>. Drag a tab into the second panel to work on two sessions simultaneously.</p>
+
+<!-- ══════════════════════════════════════════════════ SESSIONS -->
+<h2 id="sessions">📋 Session Management</h2>
+
+<h3>Create a new session</h3>
+<p>Click <b>New Session</b> in the toolbar or right-click on a group → <b>Add session</b>. The dialog contains several tabs:</p>
+
+<table>
+  <tr><th>Tab</th><th>Main fields</th></tr>
+  <tr><td><b>Connection</b></td><td>Protocol, host, port, user, password/key, group, notes</td></tr>
+  <tr><td><b>Terminal</b></td><td>Terminal type, color profile, font, encoding</td></tr>
+  <tr><td><b>Advanced</b></td><td>Pre-command, WoL, port forwarding, proxy jump</td></tr>
+  <tr><td><b>Variables</b></td><td>Local variables for command substitution</td></tr>
+</table>
+
+<h3>Edit / Duplicate / Delete</h3>
+<ul>
+  <li>Right-click on session in the left panel → <b>Edit</b>, <b>Duplicate</b>, <b>Delete</b></li>
+  <li>Duplicate creates a copy with "(copy)" appended to the name</li>
+</ul>
+
+<h3>Groups</h3>
+<p>Sessions are organized in groups (folders). You can:</p>
+<ul>
+  <li>Create nested subgroups (max recommended depth: 3 levels)</li>
+  <li>Expand/collapse groups with a click</li>
+  <li>Move sessions via drag &amp; drop between groups</li>
+  <li>Sort sessions alphabetically within a group (right-click menu)</li>
+</ul>
+
+<h3>connections.json</h3>
+<p>All sessions are saved in <code>connections.json</code> in the project root. The file is plain JSON — you can edit it manually with any text editor. <b>Back it up</b> before manual changes.</p>
+
+<!-- ══════════════════════════════════════════════════ PROTOCOLS -->
+<h2 id="protocols">🔌 Supported Protocols</h2>
+
+<div class="proto-block ssh">
+  <p class="proto-title"><span class="badge b-ssh">SSH</span> Secure Shell</p>
+  <p class="proto-desc">Encrypted remote terminal. The most common protocol for Linux/Unix server management.</p>
+  <ul>
+    <li>Authentication: password, SSH key (RSA/Ed25519/ECDSA), SSH agent</li>
+    <li>Supports proxy jump (<code>ProxyJump</code>), port forwarding, X11 forwarding</li>
+    <li>Integrated VTE terminal: scrollback, copy/paste, clickable URLs</li>
+    <li>SFTP browser panel alongside the terminal (enable in session settings)</li>
+    <li>Pre-command and Wake-on-LAN before connection</li>
+  </ul>
+</div>
+
+<div class="proto-block sftp">
+  <p class="proto-title"><span class="badge b-sftp">SFTP</span> SSH File Transfer Protocol</p>
+  <p class="proto-desc">Secure file transfer over an SSH channel. Not FTP — uses an encrypted SSH connection.</p>
+  <ul>
+    <li>Same parameters as SSH (host, port, user, key/password)</li>
+    <li>Integrated graphical browser (WinSCP-style): navigate, upload, download, rename, delete</li>
+    <li>Permissions, sizes, and modification dates displayed</li>
+    <li><b>Open mode</b> — internal browser, SFTP CLI terminal, system file manager</li>
+  </ul>
+</div>
+
+<div class="proto-block ftp">
+  <p class="proto-title"><span class="badge b-ftp">FTP / FTPS</span> File Transfer Protocol</p>
+  <p class="proto-desc">Classic file transfer protocol. FTPS adds TLS encryption over FTP.</p>
+  <ul>
+    <li>Supports plain FTP and FTPS (explicit/implicit)</li>
+    <li>Integrated graphical browser similar to the SFTP browser</li>
+    <li>Passive/active mode configurable</li>
+    <li>Anonymous login support</li>
+  </ul>
+</div>
+
+<div class="proto-block rdp">
+  <p class="proto-title"><span class="badge b-rdp">RDP</span> Remote Desktop Protocol</p>
+  <p class="proto-desc">Microsoft remote desktop protocol. Used mainly for Windows machines.</p>
+  <ul>
+    <li>Uses <code>xfreerdp</code> (FreeRDP3 recommended)</li>
+    <li><b>External mode</b>: opens xfreerdp in its own window</li>
+    <li><b>Internal mode</b>: embeds the RDP session in a PCM tab</li>
+    <li>Resolution, color depth, multi-monitor, audio redirection configurable</li>
+    <li>Drive, clipboard, printer sharing</li>
+  </ul>
+</div>
+
+<div class="proto-block vnc">
+  <p class="proto-title"><span class="badge b-vnc">VNC</span> Virtual Network Computing</p>
+  <p class="proto-desc">Remote desktop protocol, cross-platform (Linux, macOS, Windows).</p>
+  <ul>
+    <li><b>External mode</b>: uses tigervnc, gvncviewer, remmina or any configured client</li>
+    <li><b>Internal mode</b>: integrated noVNC viewer (WebKit) inside a PCM tab</li>
+    <li>Quality, color depth, scaling configurable for the integrated viewer</li>
+    <li>Password save option in internal mode</li>
+  </ul>
+</div>
+
+<div class="proto-block tel">
+  <p class="proto-title"><span class="badge b-tel">Telnet</span></p>
+  <p class="proto-desc">Unencrypted text protocol. Use only on trusted networks or for legacy systems.</p>
+  <ul>
+    <li>Uses system <code>telnet</code> or <code>netcat</code></li>
+    <li>Integrated VTE terminal identical to SSH</li>
+  </ul>
+</div>
+
+<div class="proto-block mosh">
+  <p class="proto-title"><span class="badge b-mosh">Mosh</span> Mobile Shell</p>
+  <p class="proto-desc">SSH-based protocol resistant to network interruptions. Ideal for mobile or unstable connections.</p>
+  <ul>
+    <li>Requires <code>mosh</code> installed on both client and server</li>
+    <li>Maintains the session when IP changes or the laptop sleeps</li>
+    <li>SSH key authentication supported</li>
+  </ul>
+</div>
+
+<div class="proto-block ser">
+  <p class="proto-title"><span class="badge b-ser">Serial</span></p>
+  <p class="proto-desc">Serial console connection via USB/RS-232 adapter.</p>
+  <ul>
+    <li>Uses <code>minicom</code>, <code>picocom</code> or custom command</li>
+    <li>Port (<code>/dev/ttyUSB0</code>, <code>/dev/ttyACM0</code>…), baud rate, flow control configurable</li>
+    <li>Integrated VTE terminal</li>
+  </ul>
+</div>
+
+<div class="proto-block" style="border-left-color:#444">
+  <p class="proto-title">⚡ Exec</p>
+  <p class="proto-desc">Runs any local command in a PCM tab.</p>
+  <ul>
+    <li>Command configurable freely (e.g. <code>htop</code>, <code>journalctl -f</code>, scripts)</li>
+    <li>Integrated VTE terminal</li>
+  </ul>
+</div>
+
+<!-- ══════════════════════════════════════════════════ AUTHENTICATION -->
+<h2 id="authentication">🔑 Authentication</h2>
+
+<h3>Password</h3>
+<p>Enter the password in the <b>Connection</b> tab of the session dialog. PCM passes it automatically to the terminal when the SSH prompt appears.</p>
+<div class="warn">⚠️ Passwords are stored in <code>connections.json</code> in plaintext. Use Protected Mode (see Settings) to encrypt the file.</div>
+
+<h3>SSH Key</h3>
+<ol>
+  <li>In the session dialog, <b>Connection</b> tab → <b>Private key</b></li>
+  <li>Enter the path to the private key (e.g. <code>~/.ssh/id_ed25519</code>)</li>
+  <li>If the key has a passphrase, enter it in the <b>Passphrase</b> field or leave blank to be prompted</li>
+</ol>
+<div class="tip">💡 Ed25519 keys are recommended for new installations: <code>ssh-keygen -t ed25519 -C "your_email"</code></div>
+
+<h3>SSH Agent</h3>
+<p>If an SSH agent is active (<code>ssh-agent</code>, <code>gpg-agent</code>, GNOME Keyring), PCM automatically uses it — no password configuration needed.</p>
+
+<h3>Proxy Jump</h3>
+<p>To connect via an intermediate host (bastion):</p>
+<ol>
+  <li>Session dialog → <b>Advanced</b> tab → <b>Proxy Jump</b></li>
+  <li>Enter <code>user@bastion:port</code></li>
+  <li>PCM builds the <code>-J user@bastion</code> flag automatically</li>
+</ol>
+
+<h3>Global Variables</h3>
+<p>You can define global variables (e.g. <code>%USER%</code>, <code>%KEY%</code>) in <span class="menu-path">Tools <span>›</span> Global Variables</span> and use them in connection fields. Useful for changing a common parameter (e.g. default user) across all sessions at once.</p>
+
+<!-- ══════════════════════════════════════════════════ IMPORT -->
+<h2 id="import">📥 Import from External Applications</h2>
+
+<h3>Import from SSH config (~/.ssh/config)</h3>
+<ol>
+  <li>In PCM: <span class="menu-path">Tools <span>›</span> Import <span>›</span> SSH Config…</span></li>
+  <li>PCM reads <code>~/.ssh/config</code> and creates a profile for each <code>Host</code> entry</li>
+  <li>Group, keys, port, and proxy settings are preserved</li>
+</ol>
+
+<h3>Import from Remmina</h3>
+<ol>
+  <li>In PCM: <span class="menu-path">Tools <span>›</span> Import <span>›</span> Remmina…</span></li>
+  <li>PCM scans <code>~/.local/share/remmina/</code> for <code>.remmina</code> files</li>
+  <li>Preview imported sessions, confirm to add</li>
+</ol>
+<p>Imported protocols: SSH, SFTP, RDP, VNC, Telnet. Remmina groups become PCM groups.</p>
+
+<h3>Import from Remote Desktop Manager (XML or JSON)</h3>
+<ol>
+  <li>In RDM: <b>File → Export</b> → choose XML (.rdm) or JSON format</li>
+  <li>In PCM: <span class="menu-path">Tools <span>›</span> Import <span>›</span> Remote Desktop Manager (XML)…</span> or (JSON)…</li>
+  <li>Select the file, check the preview, confirm</li>
+</ol>
+<div class="info">ℹ️ Passwords are not imported — RDM encrypts them with an account-bound key. PCM will ask for credentials on first connection.</div>
+
+<h3>Import from PuTTY</h3>
+<p>PCM reads PuTTY saved sessions (Linux/Wine) directly without PuTTY being installed.</p>
+<ol>
+  <li>In PCM: <span class="menu-path">Tools <span>›</span> Import from external application <span>›</span> 🐢 PuTTY…</span></li>
+  <li>PCM automatically scans <code>~/.putty/sessions/</code></li>
+  <li>PuTTY sessions are converted to SSH profiles in the <b>"PuTTY"</b> group</li>
+</ol>
+
+<h3>Import from MobaXterm</h3>
+<ol>
+  <li>In MobaXterm: <b>Sessions → Export sessions</b> → save <code>.mxtsessions</code> file</li>
+  <li>In PCM: <span class="menu-path">Tools <span>›</span> Import <span>›</span> MobaXterm…</span></li>
+  <li>Select the file and confirm</li>
+</ol>
+
+<!-- ══════════════════════════════════════════════════ TERMINAL -->
+<h2 id="terminal">⌨ Integrated Terminal</h2>
+
+<h3>VTE Terminal</h3>
+<p>PCM uses the <b>VTE</b> (Virtual Terminal Emulator) library, the same used by GNOME Terminal. It supports:</p>
+<ul>
+  <li>ANSI/xterm-256color/truecolor colors</li>
+  <li>Unicode and emoji</li>
+  <li>Clickable URLs</li>
+  <li>Configurable scrollback (Settings → Terminal)</li>
+  <li>Monospace font selectable per session</li>
+</ul>
+
+<h3>Copy / Paste</h3>
+<ul>
+  <li><kbd>Ctrl+Shift+C</kbd> — copy selection</li>
+  <li><kbd>Ctrl+Shift+V</kbd> — paste</li>
+  <li>Middle-click — paste X11 selection</li>
+  <li>Right-click → context menu with copy/paste</li>
+</ul>
+
+<h3>Search in terminal output</h3>
+<ul>
+  <li><kbd>Ctrl+Shift+F</kbd> — open search bar</li>
+  <li>Supports regular expressions</li>
+  <li><kbd>Enter</kbd> / <kbd>Shift+Enter</kbd> — next / previous match</li>
+</ul>
+
+<h3>Session logging</h3>
+<p>In the session dialog, <b>Terminal</b> tab → <b>Log output</b>:</p>
+<ul>
+  <li>Enable logging and specify the output directory</li>
+  <li>Files are named <code>session_YYYYMMDD_HHMMSS.log</code></li>
+  <li>Logs capture everything shown in the terminal</li>
+</ul>
+
+<h3>Automatic password input</h3>
+<p>PCM automatically inputs the password when the SSH/Telnet prompt appears in the terminal (feed_child mechanism). For SSH ≥ 8.4 it also uses <code>SSH_ASKPASS_REQUIRE=force</code> for silent authentication.</p>
+
+<h3>Command export</h3>
+<p>Right-click on a tab → <b>Export commands.sh…</b> to save the command history of the session to a shell script file.</p>
+
+<!-- ══════════════════════════════════════════════════ SFTP/FTP -->
+<h2 id="sftp">📁 SFTP/FTP File Manager</h2>
+
+<h3>Integrated browser</h3>
+<p>The SFTP and FTP browser is modeled after WinSCP. Main features:</p>
+<ul>
+  <li>Dual-pane view (local ↔ remote) or single-pane</li>
+  <li>Upload / download with progress indicator</li>
+  <li>Drag &amp; drop between local and remote panels</li>
+  <li>Create folders, rename, delete, change permissions (SFTP)</li>
+  <li>Hidden files toggle (dotfiles)</li>
+  <li>Path bar editable directly</li>
+</ul>
+
+<h3>Open from an SSH session</h3>
+<p>In a connected SSH tab, right-click on the tab → <b>Open file transfer here</b>. This opens a new SFTP/FTP tab reusing credentials from the current SSH session.</p>
+
+<h3>SFTP sidebar</h3>
+<p>In the session dialog, <b>Connection</b> tab → enable <b>SFTP browser</b>. This adds a file browser panel directly alongside the SSH terminal.</p>
+
+<!-- ══════════════════════════════════════════════════ TUNNEL -->
+<h2 id="tunnel">🔀 SSH Tunnels</h2>
+
+<h3>Create a tunnel</h3>
+<ol>
+  <li>Click <b>New Tunnel</b> in the toolbar or <span class="menu-path">Tools <span>›</span> New SSH Tunnel…</span></li>
+  <li>Fill in:
+    <ul>
+      <li><b>SSH Server</b>: host, port, user, key/password</li>
+      <li><b>Tunnel type</b>: Local, Remote, Dynamic (SOCKS)</li>
+      <li><b>Local port</b>: local port to listen on</li>
+      <li><b>Remote host/port</b>: destination for local/remote tunnels</li>
+    </ul>
+  </li>
+  <li>Click <b>Start</b> — the tunnel runs in background</li>
+</ol>
+
+<h3>Tunnel types</h3>
+<table>
+  <tr><th>Type</th><th>Usage</th><th>SSH option</th></tr>
+  <tr><td><b>Local</b></td><td>Access a remote service locally (<code>localhost:localport → remotehost:remoteport</code>)</td><td><code>-L</code></td></tr>
+  <tr><td><b>Remote</b></td><td>Expose a local service to the remote server</td><td><code>-R</code></td></tr>
+  <tr><td><b>Dynamic (SOCKS)</b></td><td>SOCKS5 proxy through the SSH server</td><td><code>-D</code></td></tr>
+</table>
+
+<h3>Manage tunnels</h3>
+<p>Active tunnels are displayed in the <b>Tunnels</b> tab at the top. Each tunnel shows: status, server, type, ports. You can start/stop individual tunnels.</p>
+
+<!-- ══════════════════════════════════════════════════ ADVANCED -->
+<h2 id="advanced">⚙ Advanced Features</h2>
+
+<h3>Pre-command</h3>
+<p>In the session dialog, <b>Advanced</b> tab → <b>Pre-command</b>: a command run locally <i>before</i> the connection. Useful for:</p>
+<ul>
+  <li>Starting a VPN (<code>nmcli con up vpn-office</code>)</li>
+  <li>Mounting a network share</li>
+  <li>Any preparation script</li>
+</ul>
+<p>You can set a timeout after which PCM proceeds with connection even if the command has not terminated.</p>
+
+<h3>Port forwarding in session</h3>
+<p>In the session dialog, <b>Advanced</b> tab → <b>Port Forwarding</b>: define one or more <code>-L</code>/<code>-R</code> rules active for the duration of the session.</p>
+
+<h3>External clients</h3>
+<p>For each protocol you can choose the terminal emulator or external client used to open the connection:</p>
+<ul>
+  <li><b>Internal terminal</b> (default): VTE embedded in PCM</li>
+  <li><b>External terminal</b>: xterm, GNOME Terminal, Konsole, Alacritty, Kitty, etc.</li>
+</ul>
+<p>The external terminal list is populated automatically based on the emulators installed on the system.</p>
+
+<h3>Sessions with unavailable client</h3>
+<p>If a saved profile uses a client that is no longer installed, the combo shows the entry with the <code>⚠ not found</code> suffix. Update the profile choosing an available client before connecting.</p>
+
+<div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system.</div>
+
+<hr>
+
+<!-- ── WAKE-ON-LAN ── -->
+<div class="new-feature">
+  <div class="nf-title">Wake-on-LAN</div>
+  <p>PCM can wake up a powered-off machine before connecting by sending a <b>UDP magic packet</b> to the configured MAC address. Available for SSH, Mosh, RDP, VNC and Telnet.</p>
+</div>
+
+<h3>Wake-on-LAN configuration</h3>
+<p>In the session edit dialog, <b>Connection</b> tab, <b>Wake-on-LAN</b> section:</p>
+<ul>
+  <li>Enable <b>Wake-on-LAN</b></li>
+  <li>Enter the <b>MAC address</b> (format: <code>AA:BB:CC:DD:EE:FF</code> or <code>AA-BB-CC-DD-EE-FF</code>)</li>
+  <li>Set <b>Wait (seconds)</b> — time to wait after sending the packet before connecting (default: 20 s)</li>
+  <li>Optionally specify the <b>broadcast address</b> (default: <code>255.255.255.255</code>)</li>
+</ul>
+<div class="info">ℹ️ Wake-on-LAN requires the network adapter and BIOS/UEFI to be configured to accept magic packets. Requires <code>wakeonlan</code> or <code>wol</code> installed.</div>
+
+<hr>
+
+<!-- ── AUDIT LOG ── -->
+<div class="new-feature">
+  <div class="nf-title">Audit Log</div>
+  <p>PCM records all connections to a local log file for auditing and usage tracking.</p>
+</div>
+
+<h3>Audit Log</h3>
+<p>Each connection generates an entry containing:</p>
+<ul>
+  <li>Timestamp (YYYY-MM-DD HH:MM:SS)</li>
+  <li>Session name, host, protocol</li>
+  <li>Duration (seconds)</li>
+  <li>Status (ok / error)</li>
+</ul>
+<p>Log location: <span class="menu-path">Tools <span>›</span> Audit Log…</span> — shows the last entries with filter by date, session or status.</p>
+
+<hr>
+
+<!-- ── GLOBAL VARIABLES ── -->
+<div class="new-feature">
+  <div class="nf-title">Global Variables</div>
+  <p>Define reusable variables across all sessions, substituted automatically in connection fields.</p>
+</div>
+
+<h3>Using global variables</h3>
+<p>Open <span class="menu-path">Tools <span>›</span> Global Variables…</span> (<kbd>Ctrl+Shift+G</kbd>):</p>
+<ul>
+  <li>Add name/value pairs, e.g. <code>DEFAULT_USER</code> = <code>admin</code></li>
+  <li>In a session field use <code>%DEFAULT_USER%</code> — PCM replaces it at connection time</li>
+  <li>Useful for changing a common parameter across all sessions at once</li>
+</ul>
+
+<hr>
+
+<!-- ── PROTECTED MODE ── -->
+<div class="new-feature">
+  <div class="nf-title">Protected Mode</div>
+  <p>Encrypts <code>connections.json</code> with a master password, protecting saved credentials.</p>
+</div>
+
+<h3>Protected Mode configuration</h3>
+<p>In <span class="menu-path">Settings <span>›</span> Security</span>:</p>
+<ul>
+  <li>Enable <b>Protected Mode</b> and set a master password</li>
+  <li>PCM encrypts the sessions file with AES-256 (Fernet)</li>
+  <li>At each startup PCM asks for the master password before loading sessions</li>
+  <li>Without the password the file is unreadable</li>
+</ul>
+<div class="warn">⚠️ If you forget the master password, the sessions file cannot be recovered. Keep a backup copy in a safe place.</div>
+
+<!-- ══════════════════════════════════════════════════ NEW FEATURES -->
+<h2 id="new">✦ Recent New Features</h2>
+
+<div class="new-feature">
+  <div class="nf-title">Duplicate connection (tab right-click)</div>
+  <p>Right-clicking on any active session tab now shows the <b>⧉ Duplicate connection</b> option, which immediately opens a second identical session to the same host in a new tab.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">SFTP browser alongside terminal</div>
+  <p>In SSH session settings, enable <b>SFTP browser</b> to show a file browser panel alongside the terminal — navigate and transfer files without leaving the session.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">Split panels</div>
+  <p>The terminal area can be split vertically or horizontally into two independent panels, each with its own tabs. Drag tabs between panels freely.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">VNC integrated viewer</div>
+  <p>VNC sessions can be opened in an integrated PCM tab using the noVNC viewer (WebKit), without needing an external client.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">RDP embedded mode</div>
+  <p>RDP sessions can be embedded directly in a PCM tab (internal mode), keeping the entire workflow in one window.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">Multi-monitor RDP</div>
+  <p>RDP sessions now support advanced monitor management: single monitor, span all monitors, or custom selection.</p>
+</div>
+
+<h3>Configuration</h3>
+<p>In the RDP session dialog, <b>Connection</b> tab → <b>RDP Options</b> section:</p>
+
+<table>
+  <tr><th>Mode</th><th>xfreerdp flag</th><th>When to use it</th></tr>
+  <tr>
+    <td><b>Single monitor</b> (default)</td>
+    <td>—</td>
+    <td>One RDP window on one monitor</td>
+  </tr>
+  <tr>
+    <td><b>All monitors</b></td>
+    <td><code>/multimon</code></td>
+    <td>Expand the RDP session across all connected monitors</td>
+  </tr>
+  <tr>
+    <td><b>Custom selection</b></td>
+    <td><code>/monitor:0,1</code></td>
+    <td>Choose specific monitors by index</td>
+  </tr>
+</table>
+
+<!-- ══════════════════════════════════════════════════ KEYBOARD SHORTCUTS -->
+<h2 id="keys">⌨ Keyboard Shortcuts</h2>
+
+<table>
+  <tr><th>Shortcut</th><th>Action</th></tr>
+  <tr><td><kbd>Ctrl+Shift+C</kbd></td><td>Copy selection in terminal</td></tr>
+  <tr><td><kbd>Ctrl+Shift+V</kbd></td><td>Paste in terminal</td></tr>
+  <tr><td><kbd>Ctrl+Shift+F</kbd></td><td>Search in terminal output</td></tr>
+  <tr><td><kbd>Ctrl+W</kbd></td><td>Close current tab</td></tr>
+  <tr><td><kbd>Ctrl+T</kbd></td><td>New session</td></tr>
+  <tr><td><kbd>Ctrl+L</kbd></td><td>Local terminal</td></tr>
+  <tr><td><kbd>Ctrl+Shift+G</kbd></td><td>Global variables</td></tr>
+  <tr><td><kbd>Ctrl+PageUp</kbd></td><td>Previous tab</td></tr>
+  <tr><td><kbd>Ctrl+PageDown</kbd></td><td>Next tab</td></tr>
+  <tr><td><kbd>F11</kbd></td><td>Toggle fullscreen</td></tr>
+</table>
+
+<div class="info">ℹ️ Shortcuts can be customized in <span class="menu-path">Settings <span>›</span> Shortcuts</span>.</div>
+
+<!-- ══════════════════════════════════════════════════ SETTINGS -->
+<h2 id="settings">🛠 Settings</h2>
+
+<p>Open Settings via the toolbar or <span class="menu-path">File <span>›</span> Settings…</span>. The dialog is divided into sections:</p>
+
+<h3>General</h3>
+<ul>
+  <li><b>Language</b> — interface language (Italian, English, German, French, Spanish). Requires restart.</li>
+  <li><b>Confirm on exit</b> — ask for confirmation before closing with active sessions</li>
+  <li><b>Default editor</b> — text editor for opening config files</li>
+</ul>
+
+<h3>Terminal</h3>
+<ul>
+  <li><b>Color theme</b> — pre-built themes (Solarized, Dracula, Nord, Monokai, …)</li>
+  <li><b>Font</b> — monospace font and size for terminals</li>
+  <li><b>Scrollback</b> — lines kept in history (default: 10 000)</li>
+  <li><b>Bell</b> — enable/disable terminal bell</li>
+</ul>
+
+<h3>Security</h3>
+<ul>
+  <li><b>Protected Mode</b> — master password to encrypt sessions file</li>
+  <li><b>Auto-lock</b> — lock PCM after inactivity timeout</li>
+</ul>
+
+<h3>Connections</h3>
+<ul>
+  <li><b>SSH options</b> — global SSH flags appended to all SSH connections</li>
+  <li><b>Default ports</b> — default ports for each protocol</li>
+</ul>
+
+<h3>Executable paths</h3>
+<p>PCM auto-detects the paths of external clients (xfreerdp, tigervnc, mosh, etc.). Use <span class="menu-path">Tools <span>›</span> Check dependencies</span> to verify detection and manually override paths if needed.</p>
+
+<!-- ══════════════════════════════════════════════════ FAQ -->
+<h2 id="faq">❓ FAQ</h2>
+
+<h3>PCM doesn't start — missing module error</h3>
+<p>Run <code>bash setup.sh</code> from the project folder to install all dependencies. If the error persists, check that the virtual environment is activated:</p>
+<pre>source gtk3/.venv/bin/activate
+python3 gtk3/PCM.py</pre>
+
+<h3>SSH connection fails with "Host key verification failed"</h3>
+<p>The server's host key has changed. To fix:</p>
+<pre>ssh-keygen -R hostname</pre>
+<p>Then reconnect — SSH will save the new key.</p>
+
+<h3>GTK3 / GObject not accessible from Python</h3>
+<p>Install the Python GI bindings:</p>
+<pre>sudo apt-get install python3-gi python3-gi-cairo gir1.2-gtk-3.0</pre>
+<p>If using a virtual environment, make sure it was created with <code>--system-site-packages</code>:</p>
+<pre>uv venv --system-site-packages gtk3/.venv</pre>
+
+<h3>xfreerdp not found</h3>
+<p>Install FreeRDP3:</p>
+<pre># Debian/Ubuntu
+sudo apt-get install freerdp3-x11
+
+# Fedora
+sudo dnf install freerdp
+
+# Arch
+sudo pacman -S freerdp</pre>
+
+<h3>VNC exits immediately</h3>
+<p>Check the log at <code>/tmp/pcm_vnc.log</code> for details. Common causes:</p>
+<ul>
+  <li>VNC client not installed (tigervnc, gvncviewer)</li>
+  <li>Wrong port (default VNC is 5900)</li>
+  <li>Server requires authentication type not supported by the chosen client</li>
+</ul>
+
+<h3>WoL doesn't work</h3>
+<p>Check that:</p>
+<ul>
+  <li><code>wakeonlan</code> or <code>wol</code> is installed</li>
+  <li>The MAC address is correct</li>
+  <li>WoL is enabled in the machine's BIOS/UEFI</li>
+  <li>The network adapter supports WoL (check with <code>ethtool eth0 | grep Wake</code>)</li>
+  <li>The machine and PCM are on the same subnet (or configure directed broadcast)</li>
+</ul>
+
+<h3>How do I update PCM?</h3>
+<p>Run <code>bash setup.sh</code> from the project folder — if PCM is already installed, the script offers to download updates via <code>git pull</code>.</p>
+
+<h3>Where are settings and sessions saved?</h3>
+<ul>
+  <li><code>connections.json</code> — sessions (project root)</li>
+  <li><code>pcm_settings.json</code> — settings (project root)</li>
+  <li><code>~/.local/share/applications/pcm.desktop</code> — desktop launcher</li>
+</ul>
+
+<h3>How do I use a SOCKS proxy for browsing?</h3>
+<ol>
+  <li>Create a Dynamic (SOCKS) tunnel: <b>New Tunnel</b> → type: Dynamic → local port: 1080</li>
+  <li>In Firefox/Chromium → Proxy settings → SOCKS5 → <code>127.0.0.1:1080</code></li>
+</ol>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  PCM — Python Connection Manager &nbsp;·&nbsp; License EUPL-1.2 &nbsp;·&nbsp;
+  <a href="https://github.com/buzzqw/pcm" target="_blank">GitHub: github.com/buzzqw/pcm</a>
+  &nbsp;·&nbsp; Report issues on GitHub Issues
+</div>
+
+</body>
+</html>

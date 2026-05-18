@@ -344,6 +344,7 @@ _T: dict[str, dict[str, str]] = {
     "tab.guide":             {"it": "📖 Guida",      "en": "📖 Guide",    "de": "📖 Handbuch",  "fr": "📖 Guide",      "es": "📖 Guía"},
     "tab.local":             {"it": " Locale",       "en": " Local",      "de": " Lokal",       "fr": " Local",        "es": " Local"},
     "tab.move_to_other":     {"it": "⇄  Sposta nell'altro pannello", "en": "⇄  Move to other panel", "de": "⇄  In das andere Panel verschieben", "fr": "⇄  Déplacer vers l'autre panneau", "es": "⇄  Mover al otro panel"},
+    "tab.duplicate":         {"it": "⧉  Duplica connessione", "en": "⧉  Duplicate connection", "de": "⧉  Verbindung duplizieren", "fr": "⧉  Dupliquer la connexion", "es": "⧉  Duplicar conexión"},
     "tab.export_commands":   {"it": "📄  Esporta comandi.sh…", "en": "📄  Export commands.sh…", "de": "📄  Befehle.sh exportieren…", "fr": "📄  Exporter commandes.sh…", "es": "📄  Exportar comandos.sh…"},
     "tab.close":             {"it": "✖  Chiudi tab", "en": "✖  Close tab", "de": "✖  Tab schließen", "fr": "✖  Fermer l'onglet", "es": "✖  Cerrar pestaña"},
     "tab.close_confirm_title": {"it": "Chiudi tab",  "en": "Close tab",   "de": "Tab schließen","fr": "Fermer l'onglet","es": "Cerrar pestaña"},

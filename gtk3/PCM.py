@@ -574,11 +574,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_sftp(self, nome: str, dati: dict):
         widget = WinScpWidget(dati)
+        widget._pcm_dati = dati
         widget.show_all()
         self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
 
     def _apri_ftp(self, nome: str, dati: dict):
         widget = FtpWinScpWidget(dati)
+        widget._pcm_dati = dati
         widget.show_all()
         self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
 
@@ -601,6 +603,7 @@ class MainWindow(Gtk.ApplicationWindow):
         open_mode = dati.get("rdp_open_mode", "external")
         if open_mode == "internal":
             widget = RdpEmbedWidget(dati, open_mode="internal")
+            widget._pcm_dati = dati
             widget.show_all()
             self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
             widget.avvia()
@@ -636,6 +639,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 quality=dati.get("vnc_quality", 2),
                 on_save_password=_salva_password_vnc,
             )
+            widget._pcm_dati = dati
             widget.show_all()
             self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
         else:
@@ -797,6 +801,16 @@ class MainWindow(Gtk.ApplicationWindow):
             mi_ft = Gtk.MenuItem(label=t("tab.open_ft_here"))
             mi_ft.connect("activate", lambda _b, d=dati_tab: self._apri_ft_da_sessione(d))
             menu.append(mi_ft)
+
+        if dati_tab:
+            nome_tab = self._get_tab_nome(page)
+            menu.append(Gtk.SeparatorMenuItem())
+            mi_dup = Gtk.MenuItem(label=t("tab.duplicate"))
+            mi_dup.connect(
+                "activate",
+                lambda _b, d=dati_tab, n=nome_tab: self._apri_protocollo(d.get("protocol", "ssh"), n, dict(d)),
+            )
+            menu.append(mi_dup)
 
         menu.append(Gtk.SeparatorMenuItem())
 
@@ -1470,10 +1484,15 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _on_guida(self):
-        """Apre la guida HTML in una tab del notebook."""
+        """Apre la guida HTML nella lingua corrente (fallback inglese)."""
         import os
+        from translations import get_lang
         here = os.path.dirname(os.path.abspath(__file__))
-        html_path = os.path.join(here, "pcm_help.html")
+        lang = get_lang()
+        # Cerca prima il file specifico per la lingua, poi cade sull'inglese
+        html_path = os.path.join(here, f"pcm_help_{lang}.html")
+        if not os.path.exists(html_path):
+            html_path = os.path.join(here, "pcm_help_en.html")
         if not os.path.exists(html_path):
             dlg = Gtk.MessageDialog(
                 transient_for=self,
