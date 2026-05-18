@@ -115,20 +115,7 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 <table>
 <tr>
-<td><img src="immagini/pcm1.png" width="380"/><br><em>Finestra principale: sidebar gruppi, sezione Recenti, quick connect</em></td>
-<td><img src="immagini/pcm2.png" width="380"/><br><em>Sessione SSH: host, porta, WoL integrato, pulsante KeePassXC</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm3.png" width="380"/><br><em>Autenticazione avanzata: chiavi SSH, Jump Host, Agent Forwarding</em></td>
-<td><img src="immagini/pcm4.png" width="380"/><br><em>Browser SFTP dual-pane integrato — stile WinSCP</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm6.png" width="380"/><br><em>Sessione RDP: multi-monitor, clipboard, client selezionabile</em></td>
-<td><img src="immagini/pcm10.png" width="380"/><br><em>Browser FTP/FTPS dual-pane con coda trasferimenti</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm50.png" width="380"/><br><em>Quick Connect — connessione rapida senza salvare il profilo</em></td>
-<td><img src="immagini/pcm51.png" width="380"/><br><em>Menu applicazione: Tunnel Manager, Broadcast, KeePassXC, Audit log e altri strumenti</em></td>
+<td colspan="2"><img src="immagini/pcm66.png" width="780"/><br><em>Finestra principale: sidebar con gruppi e sezione Recenti, terminale SSH integrato aperto, status bar connessione</em></td>
 </tr>
 </table>
 
@@ -136,13 +123,18 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 | | |
 |---|---|
-| ![SSH Connection GTK3](immagini/pcm52.png) | ![SSH Terminal GTK3](immagini/pcm53.png) |
-| *Tab Connessione SSH — host, porta, utente, gestione chiavi SSH (genera ed25519/RSA, copia sul server, mostra pubblica), integrazione KeePassXC* | *Tab Terminale — tema, font, dimensione, scrollback, log su file, incolla con tasto destro, modalità apertura SSH/SFTP* |
+| ![SSH Connection GTK3](immagini/pcm60.png) | ![SSH Terminal GTK3](immagini/pcm61.png) |
+| *Tab Connessione — host, porta, utente, password, chiave privata, gestione chiavi SSH (genera ed25519/RSA, copia sul server), integrazione KeePassXC* | *Tab Terminale — tema, font, dimensione, scrollback, conferma chiusura, avviso incolla, log su file, modalità apertura SSH* |
 
 | | |
 |---|---|
-| ![SSH Advanced GTK3](immagini/pcm54.png) | ![SSH Tunnel tab GTK3](immagini/pcm44.png) |
-| *Tab Avanzate — X11 forwarding, compressione, keepalive, strict host, SFTP browser automatico, Agent Forwarding (-A), startup command, jump host, Wake-on-LAN* | *Tab Tunnel — configurazione SOCKS proxy (-D) o port forwarding direttamente nella sessione* |
+| ![SSH Advanced GTK3](immagini/pcm62.png) | ![SSH Tunnel tab GTK3](immagini/pcm63.png) |
+| *Tab Avanzate — X11 forwarding, compressione, keepalive, strict host, SFTP browser automatico, Agent Forwarding (-A), startup command, jump host, Wake-on-LAN, pre-comando locale* | *Tab Tunnel — tipo SOCKS proxy (-D) o port forwarding, porta locale, host e porta remoti* |
+
+| | |
+|---|---|
+| ![SSH Macros GTK3](immagini/pcm64.png) | ![SSH Notes GTK3](immagini/pcm65.png) |
+| *Tab Macro — comandi rapidi per sessione (nome → comando), inviati al terminale con un clic dalla sidebar* | *Tab Note — campo testo libero per annotazioni associate alla sessione* |
 
 ---
 
@@ -150,26 +142,65 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 | | |
 |---|---|
-| ![RDP Connection GTK3](immagini/pcm46.png) | ![RDP Advanced GTK3](immagini/pcm47.png) |
-| *Tab Connessione RDP — host, porta 3389, utente, password* | *Tab Avanzate RDP — client xfreerdp3, autenticazione NTLM/Kerberos, dominio, fullscreen, clipboard, cartelle locali, Wake-on-LAN, pre-comando locale* |
+| ![RDP Connection GTK3](immagini/pcm69.png) | ![RDP Advanced GTK3](immagini/pcm70.png) |
+| *Tab Connessione RDP — host, porta 3389, utente, integrazione KeePassXC* | *Tab Avanzate RDP — client xfreerdp3, autenticazione NTLM/Kerberos, dominio, fullscreen, clipboard, cartelle locali, monitor, modalità apertura* |
 
 ---
 
-### Dialogo nuova sessione — VNC e Seriale
+### Dialogo nuova sessione — VNC e FTP/SFTP
 
 | | |
 |---|---|
-| ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
-| *Tab Avanzate VNC — apertura con gtk-vnc integrato o client esterno, profondità colore, qualità, Wake-on-LAN, pre-comando locale* | *Connessione Seriale — device (/dev/ttyUSB0), baud rate, data bit, parity, stop bit* |
+| ![VNC Connection GTK3](immagini/pcm71.png) | ![VNC Advanced GTK3](immagini/pcm72.png) |
+| *Tab Connessione VNC — host, porta 5900, utente, integrazione KeePassXC* | *Tab Avanzate VNC — apertura con gtk-vnc integrato o client esterno, profondità colore, qualità* |
+
+| | |
+|---|---|
+| ![FTP/SFTP Connection GTK3](immagini/pcm68.png) | ![Telnet Connection GTK3](immagini/pcm67.png) |
+| *Tab Connessione FTP/SFTP — host, porta, utente, password, chiave privata, sottoprotocollo (SFTP/FTP/FTPS), gestione chiavi SSH, KeePassXC* | *Tab Connessione Telnet — host, porta 23, utente, password, integrazione KeePassXC* |
 
 ---
 
-### SSH Tunnel Manager e sblocco credenziali
+### Dialogo nuova sessione — Mosh, Seriale, Exec
 
 | | |
 |---|---|
-| ![SSH Tunnel Manager GTK3](immagini/pcm45.png) | ![Unlock Credentials GTK3](immagini/pcm40.png) |
-| *SSH Tunnel Manager — elenco tunnel con tipo, host, porte, stato; pulsanti Add/Edit/Delete/Start/Stop; log output integrato* | *Sblocco credenziali — master password per decifrare le credenziali salvate (AES-256)* |
+| ![Mosh Connection GTK3](immagini/pcm73.png) | ![Serial GTK3](immagini/pcm74.png) |
+| *Connessione Mosh — host, porta SSH, utente, password, chiave privata* | *Connessione Seriale — device (/dev/ttyUSB0), baud rate, data bit, parity, stop bit* |
+
+| | |
+|---|---|
+| ![Exec Connection GTK3](immagini/pcm75.png) | |
+| *Protocollo Exec — esegui qualsiasi comando shell in un tab VTE dedicato* | |
+
+---
+
+### Browser SFTP dual-pane
+
+<table>
+<tr>
+<td colspan="2"><img src="immagini/pcm76.png" width="780"/><br><em>Browser SFTP integrato — pannello locale e remoto affiancati, upload/download, coda trasferimenti, drag &amp; drop</em></td>
+</tr>
+</table>
+
+---
+
+### Strumenti integrati
+
+| | |
+|---|---|
+| ![SSH Tunnel Manager GTK3](immagini/pcm78.png) | ![App Menu GTK3](immagini/pcm77.png) |
+| *SSH Tunnel Manager — elenco tunnel con tipo, host, porte, stato; pulsanti Add/Edit/Delete/Start/Stop; log output integrato* | *Menu applicazione — Tunnel Manager, Broadcast, Variabili globali, Server FTP locale, Import, Audit log, KeePassXC, Dipendenze* |
+
+| | |
+|---|---|
+| ![Quick Connect GTK3](immagini/pcm81.png) | ![Unlock Credentials GTK3](immagini/pcm80.png) |
+| *Quick Connect — connessione rapida senza salvare il profilo, scelta protocollo, host, porta, utente, password* | *Sblocco credenziali — master password per decifrare le credenziali salvate (AES-256)* |
+
+| | |
+|---|---|
+| ![Import Sessions GTK3](immagini/pcm79.png) | |
+| *Import sessioni — da Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config* | |
 
 ---
 
@@ -436,20 +467,7 @@ Instant language change from settings without restart.
 
 <table>
 <tr>
-<td><img src="immagini/pcm1.png" width="380"/><br><em>Main window: group sidebar, Recent section, quick connect</em></td>
-<td><img src="immagini/pcm2.png" width="380"/><br><em>SSH session: host, port, integrated WoL, KeePassXC button</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm3.png" width="380"/><br><em>Advanced authentication: SSH keys, Jump Host, Agent Forwarding</em></td>
-<td><img src="immagini/pcm4.png" width="380"/><br><em>Integrated SFTP dual-pane browser — WinSCP style</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm6.png" width="380"/><br><em>RDP session: multi-monitor, clipboard, selectable client</em></td>
-<td><img src="immagini/pcm10.png" width="380"/><br><em>FTP/FTPS dual-pane browser with transfer queue</em></td>
-</tr>
-<tr>
-<td><img src="immagini/pcm50.png" width="380"/><br><em>Quick Connect — instant connection without saving a profile</em></td>
-<td><img src="immagini/pcm51.png" width="380"/><br><em>Application menu: Tunnel Manager, Broadcast, KeePassXC, Audit log and more</em></td>
+<td colspan="2"><img src="immagini/pcm66.png" width="780"/><br><em>Main window: group sidebar with Recent section, embedded SSH terminal tab open, connection status bar</em></td>
 </tr>
 </table>
 
@@ -457,13 +475,18 @@ Instant language change from settings without restart.
 
 | | |
 |---|---|
-| ![SSH Connection GTK3](immagini/pcm52.png) | ![SSH Terminal GTK3](immagini/pcm53.png) |
-| *Connection tab — host, port, user, SSH key management (generate ed25519/RSA, copy to server, show public key), KeePassXC integration* | *Terminal tab — theme, font, size, scrollback, file logging, paste with right-click, SSH/SFTP open mode* |
+| ![SSH Connection GTK3](immagini/pcm60.png) | ![SSH Terminal GTK3](immagini/pcm61.png) |
+| *Connection tab — host, port, user, password, private key, SSH key management (generate ed25519/RSA, copy to server), KeePassXC integration* | *Terminal tab — theme, font, size, scrollback, close confirmation, paste warning, file logging, SSH open mode* |
 
 | | |
 |---|---|
-| ![SSH Advanced GTK3](immagini/pcm54.png) | ![SSH Tunnel tab GTK3](immagini/pcm44.png) |
-| *Advanced tab — X11 forwarding, compression, keepalive, strict host, auto-open SFTP browser, Agent Forwarding (-A), startup command, jump host, Wake-on-LAN* | *Tunnel tab — SOCKS proxy (-D) or port forwarding configured directly inside the session* |
+| ![SSH Advanced GTK3](immagini/pcm62.png) | ![SSH Tunnel tab GTK3](immagini/pcm63.png) |
+| *Advanced tab — X11 forwarding, compression, keepalive, strict host, auto-open SFTP browser, Agent Forwarding (-A), startup command, jump host, Wake-on-LAN, local pre-command* | *Tunnel tab — SOCKS proxy (-D) or port forwarding, local port, remote host and port* |
+
+| | |
+|---|---|
+| ![SSH Macros GTK3](immagini/pcm64.png) | ![SSH Notes GTK3](immagini/pcm65.png) |
+| *Macros tab — per-session quick commands (name → command), sent to the terminal with one click from the sidebar* | *Notes tab — free-text field for annotations attached to the session* |
 
 ---
 
@@ -471,26 +494,65 @@ Instant language change from settings without restart.
 
 | | |
 |---|---|
-| ![RDP Connection GTK3](immagini/pcm46.png) | ![RDP Advanced GTK3](immagini/pcm47.png) |
-| *Connection tab — host, port 3389, user, password* | *Advanced tab — xfreerdp3 client, NTLM/Kerberos auth, domain, fullscreen, clipboard, local folders, Wake-on-LAN, local pre-command* |
+| ![RDP Connection GTK3](immagini/pcm69.png) | ![RDP Advanced GTK3](immagini/pcm70.png) |
+| *Connection tab — host, port 3389, user, KeePassXC integration* | *Advanced tab — xfreerdp3 client, NTLM/Kerberos auth, domain, fullscreen, clipboard, local folders, monitor, open mode* |
 
 ---
 
-### New session dialog — VNC and Serial
+### New session dialog — VNC and FTP/SFTP
 
 | | |
 |---|---|
-| ![VNC Advanced GTK3](immagini/pcm48.png) | ![Serial GTK3](immagini/pcm49.png) |
-| *VNC Advanced tab — open with embedded gtk-vnc or external client, color depth, quality, Wake-on-LAN, local pre-command* | *Serial connection — device (/dev/ttyUSB0), baud rate, data bits, parity, stop bits* |
+| ![VNC Connection GTK3](immagini/pcm71.png) | ![VNC Advanced GTK3](immagini/pcm72.png) |
+| *Connection tab — host, port 5900, user, KeePassXC integration* | *Advanced tab — open with embedded gtk-vnc or external client, color depth, quality* |
+
+| | |
+|---|---|
+| ![FTP/SFTP Connection GTK3](immagini/pcm68.png) | ![Telnet Connection GTK3](immagini/pcm67.png) |
+| *FTP/SFTP connection tab — host, port, user, password, private key, sub-protocol (SFTP/FTP/FTPS), SSH key management, KeePassXC* | *Telnet connection tab — host, port 23, user, password, KeePassXC integration* |
 
 ---
 
-### SSH Tunnel Manager and credential unlock
+### New session dialog — Mosh, Serial, Exec
 
 | | |
 |---|---|
-| ![SSH Tunnel Manager GTK3](immagini/pcm45.png) | ![Unlock Credentials GTK3](immagini/pcm40.png) |
-| *SSH Tunnel Manager — tunnel list with type, host, ports, status; Add/Edit/Delete/Start/Stop buttons; integrated output log* | *Credential unlock — master password to decrypt saved credentials (AES-256)* |
+| ![Mosh Connection GTK3](immagini/pcm73.png) | ![Serial GTK3](immagini/pcm74.png) |
+| *Mosh connection — host, SSH port, user, password, private key* | *Serial connection — device (/dev/ttyUSB0), baud rate, data bits, parity, stop bits* |
+
+| | |
+|---|---|
+| ![Exec Connection GTK3](immagini/pcm75.png) | |
+| *Exec protocol — run any shell command in a dedicated VTE tab* | |
+
+---
+
+### Integrated SFTP dual-pane browser
+
+<table>
+<tr>
+<td colspan="2"><img src="immagini/pcm76.png" width="780"/><br><em>Integrated SFTP browser — local and remote panels side by side, upload/download, transfer queue, drag &amp; drop</em></td>
+</tr>
+</table>
+
+---
+
+### Integrated tools
+
+| | |
+|---|---|
+| ![SSH Tunnel Manager GTK3](immagini/pcm78.png) | ![App Menu GTK3](immagini/pcm77.png) |
+| *SSH Tunnel Manager — tunnel list with type, host, ports, status; Add/Edit/Delete/Start/Stop buttons; integrated output log* | *Application menu — Tunnel Manager, Broadcast, Global variables, Local FTP server, Import, Audit log, KeePassXC, Dependencies* |
+
+| | |
+|---|---|
+| ![Quick Connect GTK3](immagini/pcm81.png) | ![Unlock Credentials GTK3](immagini/pcm80.png) |
+| *Quick Connect — instant connection without saving a profile, choose protocol, host, port, user, password* | *Credential unlock — master password to decrypt saved credentials (AES-256)* |
+
+| | |
+|---|---|
+| ![Import Sessions GTK3](immagini/pcm79.png) | |
+| *Import sessions — from Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config* | |
 
 ---
 
