@@ -13,3 +13,4 @@ TRANSLATION_REPORT.md
 .venv
 .junie
 CLAUDE.md
+audit_log.json

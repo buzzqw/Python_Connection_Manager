@@ -1112,7 +1112,7 @@ class SessionDialog(Gtk.Dialog):
         self._row_host.set_visible(is_net)
         self._row_port.set_visible(is_net)
         self._row_user.set_visible(is_net)
-        self._row_password.set_visible(is_net and proto not in ("rdp", "vnc"))
+        self._row_password.set_visible(is_net)
         self._row_pkey.set_visible(has_pkey)
         self._frame_chiavi.set_visible(has_pkey)
         self._row_ft_proto.set_visible(proto == "file_transfer")
