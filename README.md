@@ -205,108 +205,18 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 ## Avvio dalla riga di comando
 
-PCM supporta l'apertura di connessioni direttamente dalla riga di comando tramite URI. Se PCM è già in esecuzione, la connessione viene aperta come nuova tab nella finestra esistente — senza chiedere di nuovo la password master se le credenziali sono già sbloccate.
-
-### Formato URI
-
-```
-python3 PCM.py  proto://[utente@]host[:porta][?opzioni]
-```
-
-| Protocollo | Schema URI |
-|---|---|
-| SSH | `ssh://` |
-| Telnet | `telnet://` |
-| RDP | `rdp://` |
-| VNC | `vnc://` |
-| SFTP | `sftp://` |
-| FTP | `ftp://` |
-| FTPS | `ftps://` |
-| Mosh | `mosh://` |
-
-### Opzioni query string (solo connessioni ad-hoc)
-
-| Parametro | Valori | Descrizione |
-|---|---|---|
-| `mode` | `internal` / `external` | Forza apertura embedded o in finestra esterna |
-| `terminal` | `xterm`, `kitty`, … | Terminale esterno da usare (solo SSH/Telnet) |
-
-### Esempi — Sessioni salvate
+PCM accetta un URI alla prima apertura o con PCM già in esecuzione: in quel caso la connessione viene aggiunta come nuova tab nella finestra esistente, senza richiedere di nuovo la password master.
 
 ```bash
-# Apre la sessione salvata di nome "jiraapp" (o con hostname "jiraapp")
+# Apre la sessione salvata "jiraapp" (cerca per nome, poi per hostname)
 python3 PCM.py ssh://jiraapp
 
-# Apre la sessione RDP salvata "windowsserver"
-python3 PCM.py rdp://windowsserver
-
-# Apre la sessione SFTP salvata "nas"
-python3 PCM.py sftp://nas
-
-# Apre la sessione Telnet "router-core" e se PCM è già aperto la aggiunge come tab
-python3 PCM.py telnet://router-core
+# Connessione ad-hoc (non deve essere salvata in PCM)
+python3 PCM.py ssh://admin@192.168.1.10:2222
 ```
 
-### Esempi — Connessioni ad-hoc (non salvate)
-
-```bash
-# SSH ad-hoc: utente e host
-python3 PCM.py ssh://admin@192.168.1.10
-
-# SSH ad-hoc con porta non standard
-python3 PCM.py ssh://deploy@prodserver.example.com:2222
-
-# SSH in terminale esterno
-python3 PCM.py 'ssh://user@host?mode=external'
-
-# SSH in terminale esterno specifico
-python3 PCM.py 'ssh://user@host?mode=external&terminal=kitty'
-
-# RDP ad-hoc: si apre xfreerdp (default esterno)
-python3 PCM.py rdp://192.168.1.50
-
-# RDP embedded nel pannello PCM
-python3 PCM.py 'rdp://user@192.168.1.50?mode=internal'
-
-# VNC viewer esterno
-python3 PCM.py vnc://raspberrypi
-
-# VNC viewer embedded
-python3 PCM.py 'vnc://192.168.1.60:5901?mode=internal'
-
-# SFTP ad-hoc con utente
-python3 PCM.py sftp://backup@nas.lan
-
-# FTP ad-hoc
-python3 PCM.py ftp://ftp.example.com
-
-# FTPS ad-hoc
-python3 PCM.py ftps://secure-ftp.example.com
-
-# Telnet con porta personalizzata
-python3 PCM.py telnet://cisco-switch:2323
-
-# Mosh ad-hoc
-python3 PCM.py mosh://user@remotehost
-```
-
-### Alias utili in ~/.bashrc
-
-```bash
-# Connessione rapida a host frequenti
-alias jira='python3 ~/PCM/gtk3/PCM.py ssh://jiraapp'
-alias nas='python3 ~/PCM/gtk3/PCM.py sftp://nas'
-alias vpn-gw='python3 ~/PCM/gtk3/PCM.py ssh://vpn-gateway'
-
-# RDP al PC Windows di lavoro
-alias winpc='python3 ~/PCM/gtk3/PCM.py rdp://workpc'
-```
-
-### Comportamento con credenziali cifrate
-
-Se `connections.json` è protetto con password master:
-- Se PCM **non è aperto**: si apre, chiede la password master, poi apre la connessione
-- Se PCM **è già aperto e sbloccato**: la connessione viene aperta direttamente, senza richiedere la password di nuovo
+Protocolli supportati: `ssh://` `rdp://` `vnc://` `sftp://` `ftp://` `ftps://` `telnet://` `mosh://`  
+Per la documentazione completa con tutti gli esempi consulta il manuale integrato (menu **Aiuto**).
 
 ---
 
@@ -663,108 +573,18 @@ Instant language change from settings without restart.
 
 ## Command line launch
 
-PCM supports opening connections directly from the command line via URI. If PCM is already running, the connection opens as a new tab in the existing window — without asking for the master password again if credentials are already unlocked.
-
-### URI format
-
-```
-python3 PCM.py  proto://[user@]host[:port][?options]
-```
-
-| Protocol | URI scheme |
-|---|---|
-| SSH | `ssh://` |
-| Telnet | `telnet://` |
-| RDP | `rdp://` |
-| VNC | `vnc://` |
-| SFTP | `sftp://` |
-| FTP | `ftp://` |
-| FTPS | `ftps://` |
-| Mosh | `mosh://` |
-
-### Query string options (ad-hoc connections only)
-
-| Parameter | Values | Description |
-|---|---|---|
-| `mode` | `internal` / `external` | Force embedded or external window |
-| `terminal` | `xterm`, `kitty`, … | External terminal to use (SSH/Telnet only) |
-
-### Examples — Saved sessions
+PCM accepts a URI on startup or while already running — in the latter case the connection opens as a new tab in the existing window, without prompting for the master password again.
 
 ```bash
-# Open saved session named "jiraapp" (or with hostname "jiraapp")
+# Open saved session "jiraapp" (looks up by name, then by hostname)
 python3 PCM.py ssh://jiraapp
 
-# Open saved RDP session "windowsserver"
-python3 PCM.py rdp://windowsserver
-
-# Open saved SFTP session "nas"
-python3 PCM.py sftp://nas
-
-# Open Telnet session — if PCM is already open, adds it as a new tab
-python3 PCM.py telnet://router-core
+# Ad-hoc connection (no saved session needed)
+python3 PCM.py ssh://admin@192.168.1.10:2222
 ```
 
-### Examples — Ad-hoc connections (not saved)
-
-```bash
-# SSH ad-hoc: user and host
-python3 PCM.py ssh://admin@192.168.1.10
-
-# SSH ad-hoc with non-standard port
-python3 PCM.py ssh://deploy@prodserver.example.com:2222
-
-# SSH in external terminal
-python3 PCM.py 'ssh://user@host?mode=external'
-
-# SSH in specific external terminal
-python3 PCM.py 'ssh://user@host?mode=external&terminal=kitty'
-
-# RDP ad-hoc: opens xfreerdp (external by default)
-python3 PCM.py rdp://192.168.1.50
-
-# RDP embedded inside PCM panel
-python3 PCM.py 'rdp://user@192.168.1.50?mode=internal'
-
-# VNC external viewer
-python3 PCM.py vnc://raspberrypi
-
-# VNC embedded viewer
-python3 PCM.py 'vnc://192.168.1.60:5901?mode=internal'
-
-# SFTP ad-hoc with user
-python3 PCM.py sftp://backup@nas.lan
-
-# FTP ad-hoc
-python3 PCM.py ftp://ftp.example.com
-
-# FTPS ad-hoc
-python3 PCM.py ftps://secure-ftp.example.com
-
-# Telnet with custom port
-python3 PCM.py telnet://cisco-switch:2323
-
-# Mosh ad-hoc
-python3 PCM.py mosh://user@remotehost
-```
-
-### Useful aliases in ~/.bashrc
-
-```bash
-# Quick access to frequent hosts
-alias jira='python3 ~/PCM/gtk3/PCM.py ssh://jiraapp'
-alias nas='python3 ~/PCM/gtk3/PCM.py sftp://nas'
-alias vpn-gw='python3 ~/PCM/gtk3/PCM.py ssh://vpn-gateway'
-
-# RDP to Windows workstation
-alias winpc='python3 ~/PCM/gtk3/PCM.py rdp://workpc'
-```
-
-### Behavior with encrypted credentials
-
-If `connections.json` is protected with a master password:
-- If PCM **is not open**: it starts, asks for the master password, then opens the connection
-- If PCM **is already open and unlocked**: the connection opens immediately, no password prompt
+Supported schemes: `ssh://` `rdp://` `vnc://` `sftp://` `ftp://` `ftps://` `telnet://` `mosh://`  
+For the full reference with all examples, see the built-in manual (**Help** menu).
 
 ---
 
