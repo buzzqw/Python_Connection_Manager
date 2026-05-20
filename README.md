@@ -34,7 +34,7 @@
 | Broadcast a più terminali | ✅ | ❌ | ✅ cluster | ❌ |
 | KeePassXC integrato | ✅ | ❌ | ❌ | ❌ |
 | Wayland nativo (no XWayland) | ✅ | parziale | ❌ | ❌ Linux |
-| Password MAI sulla command line | ✅ digitata nel terminale | ❌ | ⚠️ expect | — |
+| Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ❌ | ⚠️ expect | — |
 | Avvio da riga di comando (URI) | ✅ | ❌ | ❌ | ❌ |
 | Configurazione leggibile | ✅ JSON | XML complesso | YAML | XML |
 | Licenza | EUPL-1.2 | GPL-2 | GPL-3 | GPL-2 |
