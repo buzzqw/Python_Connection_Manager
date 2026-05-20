@@ -403,7 +403,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 | Broadcast to multiple terminals | ✅ | ❌ | ✅ cluster | ❌ |
 | KeePassXC integration | ✅ | ❌ | ❌ | ❌ |
 | Native Wayland (no XWayland) | ✅ | partial | ❌ | ❌ Linux |
-| Password NEVER on command line | ✅ typed into terminal | ❌ | ⚠️ expect | — |
+| Password NEVER on command line | ✅ autotyped into terminal | ❌ | ⚠️ expect | — |
 | Command line launch (URI) | ✅ | ❌ | ❌ | ❌ |
 | Human-readable config | ✅ JSON | complex XML | YAML | XML |
 | License | EUPL-1.2 | GPL-2 | GPL-3 | GPL-2 |
