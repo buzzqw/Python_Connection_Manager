@@ -67,7 +67,7 @@
 ### 🔐 Sicurezza — sopra la media
 
 - **Password mai sulla command line**: PCM digita la password nel terminale VTE quando il server la richiede (`feed_child`), come farebbe un utente. Nessun `sshpass`, nessun argomento visibile in `ps aux`.
-- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: se SSH gestisce l'auth prima che appaia un prompt (keyboard-interactive), uno script helper temp mode `0700` passa la password silenziosamente.
+- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: se SSH gestisce l'auth prima che appaia un prompt (keyboard-interactive), PCM crea uno script helper temporaneo (mode `0700`) che legge la password da variabile d'ambiente — mai scritta nel file su disco.
 - **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco.
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
@@ -436,7 +436,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 ### 🔐 Security — above average
 
 - **Password never on command line**: PCM types the password into the VTE terminal when the server asks for it (`feed_child`), just like a user would. No `sshpass`, nothing visible in `ps aux`.
-- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: if SSH handles auth before a prompt appears (keyboard-interactive), a temp helper script (mode `0700`) passes the password silently.
+- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: if SSH handles auth before a prompt appears (keyboard-interactive), PCM creates a temporary helper script (mode `0700`) that reads the password from an environment variable — never written to the script file on disk.
 - **AES-256 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
 - **SSH key management**: generate, copy to server, display public key.
