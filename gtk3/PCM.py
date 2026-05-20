@@ -498,11 +498,12 @@ class MainWindow(Gtk.ApplicationWindow):
         pwd  = dati.get("password", "")
         pkey = dati.get("private_key", "").strip()
         if pwd and not pkey:
-            # SSH_ASKPASS: script temp mode 0700, password mai sulla cmdline
-            _askpass = tempfile.mktemp(prefix=".pcm_ask_", suffix=".sh", dir="/tmp")
-            with open(_askpass, "w") as _f:
-                _f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
+            # SSH_ASKPASS: script temp mode 0700, password via env (non embedded nel file)
+            _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir="/tmp", text=True)
+            with os.fdopen(_fd, "w") as _f:
+                _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
             os.chmod(_askpass, 0o700)
+            env_extra["PCM_ASKPASS_PASSWORD"] = pwd
             env_extra["SSH_ASKPASS"] = _askpass
             env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
             def _cleanup_askpass(path=_askpass):
