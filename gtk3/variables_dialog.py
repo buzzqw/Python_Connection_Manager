@@ -31,7 +31,7 @@ class VariablesDialog(Gtk.Dialog):
         area.set_margin_start(12); area.set_margin_end(12)
         area.set_margin_top(12); area.set_margin_bottom(8)
 
-        lbl = Gtk.Label(label="Le variabili nel formato {NOME} verranno sostituite automaticamente nei comandi della sessione.")
+        lbl = Gtk.Label(label=t("variables.info_label"))
         lbl.set_xalign(0.0)
         lbl.set_line_wrap(True)
         area.pack_start(lbl, False, False, 0)
@@ -87,7 +87,7 @@ class VariablesDialog(Gtk.Dialog):
 
     def _on_add(self, btn):
         # Aggiunge una riga vuota pronta per essere modificata
-        self._store.append(["NUOVA_VAR", "valore"])
+        self._store.append([t("variables.new_var_name"), t("variables.new_var_value")])
 
     def _on_delete(self, btn):
         sel = self._view.get_selection()

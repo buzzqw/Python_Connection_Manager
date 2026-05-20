@@ -112,7 +112,7 @@ class RdpEmbedWidget(Gtk.Box):
             self._socket.connect("focus-in-event",    self._on_socket_focus_in)
             self.pack_start(self._socket, True, True, 0)
         else:
-            lbl = Gtk.Label(label="Sessione RDP avviata in finestra esterna.")
+            lbl = Gtk.Label(label=t("rdp.external_label"))
             lbl.set_valign(Gtk.Align.CENTER)
             self.pack_start(lbl, True, True, 0)
 

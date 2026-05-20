@@ -829,15 +829,15 @@ class SessionDialog(Gtk.Dialog):
             return
         pkey = self.entry_pkey.get_text().strip()
         if not pkey:
-            self._alert("Seleziona o genera prima una chiave SSH.")
+            self._alert(t("sd.pubkey.no_key"))
             return
         pub_path = pkey + ".pub"
         if not os.path.exists(pub_path):
-            self._alert(f"Chiave pubblica non trovata:\n{pub_path}")
+            self._alert(t("sd.pubkey.not_found", path=pub_path))
             return
         host = self.entry_host.get_text().strip()
         if not host:
-            self._alert("Inserisci prima l'host nel tab Connessione.")
+            self._alert(t("sd.pubkey.host_required"))
             return
         user = self.entry_user.get_text().strip()
         port = self.entry_port.get_text().strip() or "22"
@@ -847,11 +847,11 @@ class SessionDialog(Gtk.Dialog):
             with open(pub_path) as f:
                 pub_content = f.read().strip()
         except Exception:
-            pub_content = "(impossibile leggere)"
+            pub_content = t("sd.pubkey.read_err")
 
         # Dialog conferma con contenuto chiave pubblica
         dlg = Gtk.Dialog(
-            title="Copia chiave pubblica sul server",
+            title=t("sd.pubkey.copy_title"),
             transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
             modal=True,
         )
@@ -861,11 +861,11 @@ class SessionDialog(Gtk.Dialog):
         box.set_margin_top(12); box.set_margin_bottom(8)
 
         lbl = Gtk.Label()
-        lbl.set_markup(f"Invierà la chiave pubblica a:\n<b>{target}</b>  porta {port}\n\nChiave: <tt>{pub_path}</tt>")
+        lbl.set_markup(t("sd.pubkey.send_info", target=target, port=port, pub_key=pub_path))
         lbl.set_xalign(0.0); lbl.set_line_wrap(True)
         box.pack_start(lbl, False, False, 0)
 
-        lbl_pub = Gtk.Label(label="Contenuto chiave pubblica:")
+        lbl_pub = Gtk.Label(label=t("sd.pubkey.content_lbl"))
         lbl_pub.set_xalign(0.0)
         box.pack_start(lbl_pub, False, False, 0)
 
@@ -881,9 +881,9 @@ class SessionDialog(Gtk.Dialog):
         box.pack_start(scroll, False, False, 0)
 
         box.show_all()
-        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
-        btn_manuale = dlg.add_button("📋 Copia chiave", Gtk.ResponseType.APPLY)
-        dlg.add_button("📤 Esegui ssh-copy-id", Gtk.ResponseType.OK)
+        dlg.add_button(t("dialog.cancel"), Gtk.ResponseType.CANCEL)
+        btn_manuale = dlg.add_button(t("sd.pubkey.copy_btn"), Gtk.ResponseType.APPLY)
+        dlg.add_button(t("sd.pubkey.sshcopyid_btn"), Gtk.ResponseType.OK)
         dlg.set_default_response(Gtk.ResponseType.OK)
 
         resp = dlg.run()
@@ -904,11 +904,11 @@ class SessionDialog(Gtk.Dialog):
             for term in ["xterm", "gnome-terminal", "xfce4-terminal", "konsole"]:
                 if shutil.which(term):
                     if term == "xterm":
-                        subprocess.Popen([term, "-title", "PCM — ssh-copy-id",
-                                         "-e", f"bash -c '{cmd_str}; echo; echo Premi Invio...; read'"])
+                        subprocess.Popen([term, "-title", t("sd.pubkey.ssh_title"),
+                                         "-e", f"bash -c '{cmd_str}; echo; echo {t('sd.pubkey.press_enter')}; read'"])
                     elif term in ("gnome-terminal", "xfce4-terminal"):
                         subprocess.Popen([term, "--", "bash", "-c",
-                                         f"{cmd_str}; echo; echo 'Premi Invio...'; read"])
+                                         f"{cmd_str}; echo; echo '{t('sd.pubkey.press_enter')}'; read"])
                     else:
                         subprocess.Popen([term, "-e", f"bash -c '{cmd_str}; read'"])
                     break
@@ -918,11 +918,11 @@ class SessionDialog(Gtk.Dialog):
     def _mostra_chiave_pubblica(self):
         pkey = self.entry_pkey.get_text().strip()
         if not pkey:
-            self._alert("Seleziona o genera prima una chiave SSH.")
+            self._alert(t("sd.pubkey.no_key"))
             return
         pub_path = pkey + ".pub"
         if not os.path.exists(pub_path):
-            self._alert(f"Chiave pubblica non trovata:\n{pub_path}")
+            self._alert(t("sd.pubkey.not_found", path=pub_path))
             return
         try:
             contenuto = open(pub_path).read().strip()
@@ -931,7 +931,7 @@ class SessionDialog(Gtk.Dialog):
             return
 
         dlg = Gtk.Dialog(
-            title=f"Chiave pubblica — {os.path.basename(pub_path)}",
+            title=t("sd.pubkey.view_title", name=os.path.basename(pub_path)),
             transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
             modal=True,
         )
@@ -956,15 +956,15 @@ class SessionDialog(Gtk.Dialog):
         box.pack_start(scroll, True, True, 0)
 
         box.show_all()
-        dlg.add_button("✖ Chiudi", Gtk.ResponseType.CLOSE)
-        btn_copia = dlg.add_button("📋 Copia negli appunti", Gtk.ResponseType.APPLY)
+        dlg.add_button(t("sd.pubkey.close_btn"), Gtk.ResponseType.CLOSE)
+        btn_copia = dlg.add_button(t("sd.pubkey.clipboard_btn"), Gtk.ResponseType.APPLY)
 
         def _on_resp(d, r):
             if r == Gtk.ResponseType.APPLY:
                 try:
                     cb = Gtk.Clipboard.get_for_display(d.get_display(), Gdk.SELECTION_CLIPBOARD)
                     cb.set_text(contenuto, -1)
-                    btn_copia.set_label("✅ Copiata!")
+                    btn_copia.set_label(t("sd.pubkey.copied"))
                 except Exception:
                     pass
                 return
@@ -986,7 +986,7 @@ class SessionDialog(Gtk.Dialog):
         box.pack_start(lbl, False, False, 0)
         box.pack_start(entry, False, False, 0)
         box.show_all()
-        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("dialog.cancel"), Gtk.ResponseType.CANCEL)
         dlg.add_button("OK", Gtk.ResponseType.OK)
         dlg.set_default_response(Gtk.ResponseType.OK)
         resp = dlg.run()
@@ -995,7 +995,7 @@ class SessionDialog(Gtk.Dialog):
         return result
 
     def _chiedi_password_dlg(self, label: str) -> str | None:
-        dlg = Gtk.Dialog(title="Passphrase chiave SSH",
+        dlg = Gtk.Dialog(title=t("sd.passphrase.title"),
                          transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
                          modal=True)
         dlg.set_default_size(360, -1)
@@ -1007,7 +1007,7 @@ class SessionDialog(Gtk.Dialog):
         box.pack_start(lbl, False, False, 0)
         box.pack_start(entry, False, False, 0)
         box.show_all()
-        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("dialog.cancel"), Gtk.ResponseType.CANCEL)
         dlg.add_button("OK", Gtk.ResponseType.OK)
         dlg.set_default_response(Gtk.ResponseType.OK)
         resp = dlg.run()
@@ -1036,7 +1036,7 @@ class SessionDialog(Gtk.Dialog):
             parent=self,
             action=Gtk.FileChooserAction.OPEN
         )
-        dlg.add_buttons("_Annulla", Gtk.ResponseType.CANCEL, "_Apri", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sd.filechooser.cancel"), Gtk.ResponseType.CANCEL, t("sd.filechooser.open"), Gtk.ResponseType.OK)
         if dlg.run() == Gtk.ResponseType.OK:
             self.entry_pkey.set_text(dlg.get_filename())
         dlg.destroy()
@@ -1046,7 +1046,7 @@ class SessionDialog(Gtk.Dialog):
             title=title, parent=self,
             action=Gtk.FileChooserAction.SELECT_FOLDER
         )
-        dlg.add_buttons("_Annulla", Gtk.ResponseType.CANCEL, "_Seleziona", Gtk.ResponseType.OK)
+        dlg.add_buttons(t("sd.filechooser.cancel"), Gtk.ResponseType.CANCEL, t("sd.filechooser.select"), Gtk.ResponseType.OK)
         if dlg.run() == Gtk.ResponseType.OK:
             entry.set_text(dlg.get_filename())
         dlg.destroy()
@@ -1080,7 +1080,7 @@ class SessionDialog(Gtk.Dialog):
                 transient_for=self, modal=True,
                 message_type=_Gtk.MessageType.ERROR,
                 buttons=_Gtk.ButtonsType.OK,
-                text="keepassxc_manager.py non trovato"
+                text=t("sd.keepass.missing")
             )
             dlg.run(); dlg.destroy()
             return

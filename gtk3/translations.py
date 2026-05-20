@@ -1035,6 +1035,15 @@ _T: dict[str, dict[str, str]] = {
     "variables.btn_cancel": {"it": "Annulla",                            "en": "Cancel",                          "de": "Abbrechen",                       "fr": "Annuler",                          "es": "Cancelar"},
     "variables.confirm_delete_title": {"it": "Conferma eliminazione",    "en": "Confirm deletion",                "de": "Löschen bestätigen",              "fr": "Confirmer la suppression",         "es": "Confirmar eliminación"},
     "variables.confirm_delete_msg":   {"it": "Eliminare la variabile '{name}'?", "en": "Delete variable '{name}'?", "de": "Variable '{name}' löschen?",  "fr": "Supprimer la variable « {name} » ?", "es": "¿Eliminar la variable '{name}'?"},
+    "variables.info_label": {
+        "it": "Le variabili nel formato {NOME} verranno sostituite automaticamente nei comandi della sessione.",
+        "en": "Variables in {NAME} format will be automatically replaced in session commands.",
+        "de": "Variablen im Format {NAME} werden automatisch in Sitzungsbefehlen ersetzt.",
+        "fr": "Les variables au format {NOM} seront automatiquement remplacées dans les commandes de session.",
+        "es": "Las variables en formato {NOMBRE} se sustituirán automáticamente en los comandos de sesión.",
+    },
+    "variables.new_var_name":  {"it": "NUOVA_VAR", "en": "NEW_VAR", "de": "NEUE_VAR", "fr": "NOUVELLE_VAR", "es": "NUEVA_VAR"},
+    "variables.new_var_value": {"it": "valore",    "en": "value",   "de": "Wert",     "fr": "valeur",       "es": "valor"},
 
     # ── ftp_server_dialog — chiavi aggiuntive ─────────────────────────────────
     "ftp.tab_settings":     {"it": "Impostazioni",                       "en": "Settings",                        "de": "Einstellungen",                   "fr": "Paramètres",                       "es": "Configuración"},
@@ -1360,4 +1369,93 @@ _T: dict[str, dict[str, str]] = {
         "es": "Recuperar nombre de usuario y contraseña directamente desde KeePassXC a través de la integración del navegador. KeePassXC debe estar en ejecución con la base de datos desbloqueada",
     },
     "menu.tools.keepass": {"it": "🔑 Impostazioni KeePassXC…", "en": "🔑 KeePassXC settings…", "de": "🔑 KeePassXC-Einstellungen…", "fr": "🔑 Paramètres KeePassXC…", "es": "🔑 Configuración de KeePassXC…"},
+
+    # ── Tab Home ──────────────────────────────────────────────────────────────
+    "app.home_tab": {"it": "Home", "en": "Home", "de": "Start", "fr": "Accueil", "es": "Inicio"},
+
+    # ── Import sessioni ───────────────────────────────────────────────────────
+    "import.title":         {"it": "Importa sessioni", "en": "Import sessions", "de": "Sitzungen importieren", "fr": "Importer des sessions", "es": "Importar sesiones"},
+    "import.label":         {"it": "Importa connessioni da sorgente esterna", "en": "Import connections from external source", "de": "Verbindungen aus externer Quelle importieren", "fr": "Importer des connexions depuis une source externe", "es": "Importar conexiones desde fuente externa"},
+    "import.source_lbl":    {"it": "Sorgente:", "en": "Source:", "de": "Quelle:", "fr": "Source :", "es": "Fuente:"},
+    "import.source_remmina":{"it": "Remmina (.remmina)", "en": "Remmina (.remmina)", "de": "Remmina (.remmina)", "fr": "Remmina (.remmina)", "es": "Remmina (.remmina)"},
+    "import.source_rdm":    {"it": "Remote Desktop Manager — RDM (.rdm / .json)", "en": "Remote Desktop Manager — RDM (.rdm / .json)", "de": "Remote Desktop Manager — RDM (.rdm / .json)", "fr": "Remote Desktop Manager — RDM (.rdm / .json)", "es": "Remote Desktop Manager — RDM (.rdm / .json)"},
+    "import.file_chooser":  {"it": "Seleziona file da importare", "en": "Select file to import", "de": "Importdatei auswählen", "fr": "Sélectionner le fichier à importer", "es": "Seleccionar archivo a importar"},
+    "import.filter_all":    {"it": "Tutti i file", "en": "All files", "de": "Alle Dateien", "fr": "Tous les fichiers", "es": "Todos los archivos"},
+    "import.filter_rdmxml": {"it": "RDM XML", "en": "RDM XML", "de": "RDM XML", "fr": "RDM XML", "es": "RDM XML"},
+    "import.filter_rdmjson":{"it": "RDM JSON", "en": "RDM JSON", "de": "RDM JSON", "fr": "RDM JSON", "es": "RDM JSON"},
+    "import.overwrite":     {"it": "Sovrascrivi sessioni esistenti con lo stesso nome", "en": "Overwrite existing sessions with the same name", "de": "Vorhandene Sitzungen mit demselben Namen überschreiben", "fr": "Écraser les sessions existantes portant le même nom", "es": "Sobrescribir sesiones existentes con el mismo nombre"},
+    "import.btn":           {"it": "Importa", "en": "Import", "de": "Importieren", "fr": "Importer", "es": "Importar"},
+    "import.no_file":       {"it": "Nessun file selezionato.", "en": "No file selected.", "de": "Keine Datei ausgewählt.", "fr": "Aucun fichier sélectionné.", "es": "Ningún archivo seleccionado."},
+    "import.result":        {"it": "✓ Importate {n} sessioni{skipped}.", "en": "✓ Imported {n} sessions{skipped}.", "de": "✓ {n} Sitzungen importiert{skipped}.", "fr": "✓ {n} sessions importées{skipped}.", "es": "✓ {n} sesiones importadas{skipped}."},
+    "import.skipped":       {"it": ", {n} saltate", "en": ", {n} skipped", "de": ", {n} übersprungen", "fr": ", {n} ignorées", "es": ", {n} omitidas"},
+    "import.error":         {"it": "Errore: {e}", "en": "Error: {e}", "de": "Fehler: {e}", "fr": "Erreur : {e}", "es": "Error: {e}"},
+
+    # ── Statusbar ─────────────────────────────────────────────────────────────
+    "status.ready":         {"it": "Pronto", "en": "Ready", "de": "Bereit", "fr": "Prêt", "es": "Listo"},
+    "status.connected":     {"it": "Connesso: {name}", "en": "Connected: {name}", "de": "Verbunden: {name}", "fr": "Connecté : {name}", "es": "Conectado: {name}"},
+    "status.connected_ext": {"it": "Connesso (esterno): {name}", "en": "Connected (external): {name}", "de": "Verbunden (extern): {name}", "fr": "Connecté (externe) : {name}", "es": "Conectado (externo): {name}"},
+    "status.terminated":    {"it": "✖ Terminata: {name}  —  {state}", "en": "✖ Terminated: {name}  —  {state}", "de": "✖ Beendet: {name}  —  {state}", "fr": "✖ Terminée : {name}  —  {state}", "es": "✖ Terminada: {name}  —  {state}"},
+    "status.active":        {"it": "Connesso: {name}  —  {state}", "en": "Connected: {name}  —  {state}", "de": "Verbunden: {name}  —  {state}", "fr": "Connecté : {name}  —  {state}", "es": "Conectado: {name}  —  {state}"},
+
+    # ── VNC esterno ───────────────────────────────────────────────────────────
+    "vnc.unavailable":      {"it": "Comando VNC non disponibile.\nDettagli in {log}", "en": "VNC command not available.\nDetails in {log}", "de": "VNC-Befehl nicht verfügbar.\nDetails in {log}", "fr": "Commande VNC non disponible.\nDétails dans {log}", "es": "Comando VNC no disponible.\nDetalles en {log}"},
+    "vnc.exit_early":       {"it": "VNC uscito subito (codice {rc}).\nVedi {log}", "en": "VNC exited early (code {rc}).\nSee {log}", "de": "VNC vorzeitig beendet (Code {rc}).\nSiehe {log}", "fr": "VNC a quitté tôt (code {rc}).\nVoir {log}", "es": "VNC salió prematuramente (código {rc}).\nVer {log}"},
+    "vnc.started":          {"it": "VNC avviato: {name}  — log: {log}", "en": "VNC started: {name}  — log: {log}", "de": "VNC gestartet: {name}  — Log: {log}", "fr": "VNC démarré : {name}  — log : {log}", "es": "VNC iniciado: {name}  — log: {log}"},
+    "vnc.error":            {"it": "Errore avvio VNC: {e}", "en": "VNC startup error: {e}", "de": "VNC-Startfehler: {e}", "fr": "Erreur de démarrage VNC : {e}", "es": "Error al iniciar VNC: {e}"},
+
+    # ── Terminale esterno ─────────────────────────────────────────────────────
+    "term_ext.press_enter":  {"it": "Premi Invio per chiudere...", "en": "Press Enter to close...", "de": "Drücke Enter zum Schließen...", "fr": "Appuyez sur Entrée pour fermer...", "es": "Pulsa Intro para cerrar..."},
+    "term_ext.not_found":    {"it": "Terminale non trovato: {term}\nVerifica che sia installato.", "en": "Terminal not found: {term}\nMake sure it is installed.", "de": "Terminal nicht gefunden: {term}\nPrüfen Sie, ob es installiert ist.", "fr": "Terminal introuvable : {term}\nVérifiez qu'il est installé.", "es": "Terminal no encontrado: {term}\nVerifique que esté instalado."},
+
+    # ── KeePass mancante ──────────────────────────────────────────────────────
+    "keepass.missing":       {"it": "keepassxc_manager.py non trovato nella cartella PCM.", "en": "keepassxc_manager.py not found in the PCM folder.", "de": "keepassxc_manager.py nicht im PCM-Ordner gefunden.", "fr": "keepassxc_manager.py introuvable dans le dossier PCM.", "es": "keepassxc_manager.py no encontrado en la carpeta PCM."},
+    "keepass.missing_short": {"it": "keepassxc_manager.py non trovato", "en": "keepassxc_manager.py not found", "de": "keepassxc_manager.py nicht gefunden", "fr": "keepassxc_manager.py introuvable", "es": "keepassxc_manager.py no encontrado"},
+
+    # ── Broadcast add-enter checkbox ──────────────────────────────────────────
+    "broadcast.add_enter":   {"it": "Aggiungi Invio alla fine", "en": "Add Enter at the end", "de": "Enter am Ende hinzufügen", "fr": "Ajouter Entrée à la fin", "es": "Agregar Intro al final"},
+
+    # ── Audit CSV export FileChooser ──────────────────────────────────────────
+    "audit.csv_title":       {"it": "Esporta CSV", "en": "Export CSV", "de": "CSV exportieren", "fr": "Exporter en CSV", "es": "Exportar CSV"},
+    "audit.csv_cancel":      {"it": "Annulla", "en": "Cancel", "de": "Abbrechen", "fr": "Annuler", "es": "Cancelar"},
+    "audit.csv_save":        {"it": "Salva", "en": "Save", "de": "Speichern", "fr": "Enregistrer", "es": "Guardar"},
+
+    # ── Quick connect labels hardcoded ────────────────────────────────────────
+    "quickconn.proto_lbl":   {"it": "Protocollo:", "en": "Protocol:", "de": "Protokoll:", "fr": "Protocole :", "es": "Protocolo:"},
+    "quickconn.host_lbl":    {"it": "Host:", "en": "Host:", "de": "Host:", "fr": "Hôte :", "es": "Host:"},
+    "quickconn.port_lbl":    {"it": "Porta:", "en": "Port:", "de": "Port:", "fr": "Port :", "es": "Puerto:"},
+    "quickconn.user_lbl":    {"it": "Utente:", "en": "Username:", "de": "Benutzer:", "fr": "Utilisateur :", "es": "Usuario:"},
+    "quickconn.pass_lbl":    {"it": "Password:", "en": "Password:", "de": "Passwort:", "fr": "Mot de passe :", "es": "Contraseña:"},
+    "quickconn.no_host":     {"it": "Inserire un host", "en": "Enter a host", "de": "Host eingeben", "fr": "Saisissez un hôte", "es": "Ingrese un host"},
+
+    # ── About dialog ─────────────────────────────────────────────────────────
+    "about.dev_label":        {"it": "Sviluppato in Python/GTK3.", "en": "Developed in Python/GTK3.", "de": "Entwickelt in Python/GTK3.", "fr": "Développé en Python/GTK3.", "es": "Desarrollado en Python/GTK3."},
+    "about.proto_label":      {"it": "<b>Protocolli supportati:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, SSH Tunnel, Mosh, Seriale", "en": "<b>Supported protocols:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, SSH Tunnel, Mosh, Serial", "de": "<b>Unterstützte Protokolle:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, SSH-Tunnel, Mosh, Seriell", "fr": "<b>Protocoles pris en charge :</b> SSH, Telnet, SFTP, FTP, RDP, VNC, Tunnel SSH, Mosh, Série", "es": "<b>Protocolos admitidos:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, SSH Tunnel, Mosh, Serie"},
+    "about.license_label":    {"it": "<b>Licenza:</b> European Union Public Licence (EUPL) v1.2", "en": "<b>License:</b> European Union Public Licence (EUPL) v1.2", "de": "<b>Lizenz:</b> European Union Public Licence (EUPL) v1.2", "fr": "<b>Licence :</b> European Union Public Licence (EUPL) v1.2", "es": "<b>Licencia:</b> European Union Public Licence (EUPL) v1.2"},
+
+    # ── session_dialog: copia chiave pubblica ─────────────────────────────────
+    "sd.pubkey.copy_title":    {"it": "Copia chiave pubblica sul server", "en": "Copy public key to server", "de": "Öffentlichen Schlüssel auf Server kopieren", "fr": "Copier la clé publique sur le serveur", "es": "Copiar clave pública al servidor"},
+    "sd.pubkey.send_info":     {"it": "Invierà la chiave pubblica a:\n<b>{target}</b>  porta {port}\n\nChiave: <tt>{pub_key}</tt>", "en": "Will send the public key to:\n<b>{target}</b>  port {port}\n\nKey: <tt>{pub_key}</tt>", "de": "Sendet den öffentlichen Schlüssel an:\n<b>{target}</b>  Port {port}\n\nSchlüssel: <tt>{pub_key}</tt>", "fr": "Enverra la clé publique à :\n<b>{target}</b>  port {port}\n\nClé : <tt>{pub_key}</tt>", "es": "Enviará la clave pública a:\n<b>{target}</b>  puerto {port}\n\nClave: <tt>{pub_key}</tt>"},
+    "sd.pubkey.content_lbl":   {"it": "Contenuto chiave pubblica:", "en": "Public key content:", "de": "Inhalt des öffentlichen Schlüssels:", "fr": "Contenu de la clé publique :", "es": "Contenido de la clave pública:"},
+    "sd.pubkey.copy_btn":      {"it": "📋 Copia chiave", "en": "📋 Copy key", "de": "📋 Schlüssel kopieren", "fr": "📋 Copier la clé", "es": "📋 Copiar clave"},
+    "sd.pubkey.sshcopyid_btn": {"it": "📤 Esegui ssh-copy-id", "en": "📤 Run ssh-copy-id", "de": "📤 ssh-copy-id ausführen", "fr": "📤 Exécuter ssh-copy-id", "es": "📤 Ejecutar ssh-copy-id"},
+    "sd.pubkey.view_title":    {"it": "Chiave pubblica — {name}", "en": "Public key — {name}", "de": "Öffentlicher Schlüssel — {name}", "fr": "Clé publique — {name}", "es": "Clave pública — {name}"},
+    "sd.pubkey.close_btn":     {"it": "✖ Chiudi", "en": "✖ Close", "de": "✖ Schließen", "fr": "✖ Fermer", "es": "✖ Cerrar"},
+    "sd.pubkey.clipboard_btn": {"it": "📋 Copia negli appunti", "en": "📋 Copy to clipboard", "de": "📋 In die Zwischenablage kopieren", "fr": "📋 Copier dans le presse-papiers", "es": "📋 Copiar al portapapeles"},
+    "sd.pubkey.copied":        {"it": "✅ Copiata!", "en": "✅ Copied!", "de": "✅ Kopiert!", "fr": "✅ Copiée !", "es": "✅ ¡Copiada!"},
+    "sd.pubkey.no_key":        {"it": "Seleziona o genera prima una chiave SSH.", "en": "Select or generate an SSH key first.", "de": "Wählen oder generieren Sie zuerst einen SSH-Schlüssel.", "fr": "Sélectionnez ou générez d'abord une clé SSH.", "es": "Seleccione o genere primero una clave SSH."},
+    "sd.pubkey.not_found":     {"it": "Chiave pubblica non trovata:\n{path}", "en": "Public key not found:\n{path}", "de": "Öffentlicher Schlüssel nicht gefunden:\n{path}", "fr": "Clé publique introuvable :\n{path}", "es": "Clave pública no encontrada:\n{path}"},
+    "sd.pubkey.read_err":      {"it": "(impossibile leggere)", "en": "(unable to read)", "de": "(nicht lesbar)", "fr": "(impossible à lire)", "es": "(imposible leer)"},
+    "sd.pubkey.ssh_title":     {"it": "PCM — ssh-copy-id", "en": "PCM — ssh-copy-id", "de": "PCM — ssh-copy-id", "fr": "PCM — ssh-copy-id", "es": "PCM — ssh-copy-id"},
+    "sd.pubkey.press_enter":   {"it": "Premi Invio...", "en": "Press Enter...", "de": "Drücke Enter...", "fr": "Appuyez sur Entrée...", "es": "Pulsa Intro..."},
+    "sd.pubkey.host_required": {"it": "Inserisci prima l'host nel tab Connessione.", "en": "Enter the host in the Connection tab first.", "de": "Geben Sie zuerst den Host im Tab Verbindung ein.", "fr": "Saisissez d'abord l'hôte dans l'onglet Connexion.", "es": "Introduzca primero el host en la pestaña Conexión."},
+
+    # ── session_dialog: passphrase / file chooser ─────────────────────────────
+    "sd.passphrase.title":     {"it": "Passphrase chiave SSH", "en": "SSH key passphrase", "de": "SSH-Schlüssel-Passphrase", "fr": "Phrase secrète de la clé SSH", "es": "Frase de contraseña de clave SSH"},
+    "sd.filechooser.cancel":   {"it": "_Annulla", "en": "_Cancel", "de": "_Abbrechen", "fr": "_Annuler", "es": "_Cancelar"},
+    "sd.filechooser.open":     {"it": "_Apri", "en": "_Open", "de": "_Öffnen", "fr": "_Ouvrir", "es": "_Abrir"},
+    "sd.filechooser.select":   {"it": "_Seleziona", "en": "_Select", "de": "_Auswählen", "fr": "_Sélectionner", "es": "_Seleccionar"},
+    "sd.keepass.missing":      {"it": "keepassxc_manager.py non trovato", "en": "keepassxc_manager.py not found", "de": "keepassxc_manager.py nicht gefunden", "fr": "keepassxc_manager.py introuvable", "es": "keepassxc_manager.py no encontrado"},
+
+    # ── RDP widget ────────────────────────────────────────────────────────────
+    "rdp.external_label":      {"it": "Sessione RDP avviata in finestra esterna.", "en": "RDP session started in external window.", "de": "RDP-Sitzung in externem Fenster gestartet.", "fr": "Session RDP démarrée dans une fenêtre externe.", "es": "Sesión RDP iniciada en ventana externa."},
 }

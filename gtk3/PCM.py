@@ -419,7 +419,7 @@ class MainWindow(Gtk.ApplicationWindow):
         welcome.connect("nuova-sessione",   lambda w: self._on_nuova_sessione())
         welcome.connect("terminale-locale", lambda w: self._on_terminale_locale())
         welcome.show_all()
-        lbl = Gtk.Label(label="Home")
+        lbl = Gtk.Label(label=t("app.home_tab"))
         self._notebook.append_page(welcome, lbl)
 
     # ------------------------------------------------------------------
@@ -468,7 +468,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._apri_rdp(nome, dati)
             elif proto == "vnc":
                 self._apri_vnc(nome, dati)
-            self._status(f"Connesso: {nome}")
+            self._status(t("status.connected", name=nome))
         except Exception as e:
             _status = "error"
             self._warn(str(e))
@@ -516,7 +516,8 @@ class MainWindow(Gtk.ApplicationWindow):
             term = dati.get("terminal_type", "Terminale Interno")
             if term and term != "Terminale Interno":
                 import shlex, shutil as _sh
-                inner = cmd + "; echo ''; read -rp 'Premi Invio per chiudere...' _x"
+                _press_enter_msg = t("term_ext.press_enter")
+                inner = cmd + f"; echo ''; read -rp '{_press_enter_msg}' _x"
                 inner_q = shlex.quote(inner)
                 t = term.lower()
                 if "xfce4-terminal" in t:
@@ -539,8 +540,8 @@ class MainWindow(Gtk.ApplicationWindow):
                                      stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL)
                 except FileNotFoundError:
-                    self._warn(f"Terminale non trovato: {term}\nVerifica che sia installato.")
-                self._status(f"Connesso (esterno): {nome}")
+                    self._warn(t("term_ext.not_found", term=term))
+                self._status(t("status.connected_ext", name=nome))
                 return
 
         # Modalità INTERNA: usa TerminalWidget VTE
@@ -659,7 +660,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
             if not cmd:
                 _log("ERRORE: build_command ha restituito None")
-                self._warn(f"Comando VNC non disponibile.\nDettagli in {_VNC_LOG}")
+                self._warn(t("vnc.unavailable", log=_VNC_LOG))
                 return
 
             _log(f"comando: {cmd}")
@@ -687,14 +688,14 @@ class MainWindow(Gtk.ApplicationWindow):
                     if rc is not None:
                         _log(f"ATTENZIONE: uscito subito con codice {rc}")
                         GLib.idle_add(self._warn,
-                            f"VNC uscito subito (codice {rc}).\nVedi {_VNC_LOG}")
+                            t("vnc.exit_early", rc=rc, log=_VNC_LOG))
                     log_f.close()
                     return False
                 GLib.timeout_add(1500, _check_exit)
-                self._status(f"VNC avviato: {nome}  — log: {_VNC_LOG}")
+                self._status(t("vnc.started", name=nome, log=_VNC_LOG))
             except Exception as _e:
                 _log(f"ECCEZIONE Popen: {_e}")
-                self._warn(f"Errore avvio VNC: {_e}")
+                self._warn(t("vnc.error", e=_e))
 
     # ------------------------------------------------------------------
     # Tab label con pulsante chiudi
@@ -1020,7 +1021,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_importa_sessioni(self):
         """Dialog di importazione sessioni da sorgenti esterne."""
         dlg = Gtk.Dialog(
-            title="Importa sessioni",
+            title=t("import.title"),
             transient_for=self,
             modal=True,
             destroy_with_parent=True
@@ -1032,20 +1033,20 @@ class MainWindow(Gtk.ApplicationWindow):
         area.set_margin_top(16);  area.set_margin_bottom(8)
 
         lbl = Gtk.Label()
-        lbl.set_markup("<b>Importa connessioni da sorgente esterna</b>")
+        lbl.set_markup(f"<b>{t('import.label')}</b>")
         area.pack_start(lbl, False, False, 0)
 
         # Sorgenti: 0=Remmina, 1=RDM, 2=PuTTY, 3=SSH Config
         # (indici usati in _esegui e _on_src_changed)
         SORGENTI = [
-            "Remmina (.remmina)",
-            "Remote Desktop Manager — RDM (.rdm / .json)",
+            t("import.source_remmina"),
+            t("import.source_rdm"),
             t("importer.putty_title"),
             t("importer.ssh_cfg_title"),
         ]
 
         sorgente_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lbl_src = Gtk.Label(label="Sorgente:")
+        lbl_src = Gtk.Label(label=t("import.source_lbl"))
         lbl_src.set_xalign(0.0)
         combo_src = Gtk.ComboBoxText()
         for s in SORGENTI:
@@ -1057,13 +1058,13 @@ class MainWindow(Gtk.ApplicationWindow):
         area.pack_start(sorgente_box, False, False, 0)
 
         # Selettore file (solo per sorgenti file: Remmina e RDM)
-        fc = Gtk.FileChooserButton(title="Seleziona file da importare",
+        fc = Gtk.FileChooserButton(title=t("import.file_chooser"),
                                    action=Gtk.FileChooserAction.OPEN)
         fc.set_hexpand(True)
         area.pack_start(fc, False, False, 0)
 
-        _filters_remmina = [("Remmina", "*.remmina"), ("Tutti i file", "*")]
-        _filters_rdm     = [("RDM XML", "*.rdm"), ("RDM JSON", "*.json"), ("Tutti i file", "*")]
+        _filters_remmina = [("Remmina", "*.remmina"), (t("import.filter_all"), "*")]
+        _filters_rdm     = [(t("import.filter_rdmxml"), "*.rdm"), (t("import.filter_rdmjson"), "*.json"), (t("import.filter_all"), "*")]
 
         def _set_filters(filtri):
             for old in fc.list_filters():
@@ -1085,16 +1086,16 @@ class MainWindow(Gtk.ApplicationWindow):
 
         combo_src.connect("changed", _on_src_changed)
 
-        chk_sost = Gtk.CheckButton(label="Sovrascrivi sessioni esistenti con lo stesso nome")
+        chk_sost = Gtk.CheckButton(label=t("import.overwrite"))
         area.pack_start(chk_sost, False, False, 0)
 
         lbl_result = Gtk.Label(label="")
         lbl_result.set_xalign(0.0); lbl_result.set_line_wrap(True)
         area.pack_start(lbl_result, False, False, 0)
 
-        btn_import = dlg.add_button("Importa", Gtk.ResponseType.APPLY)
+        btn_import = dlg.add_button(t("import.btn"), Gtk.ResponseType.APPLY)
         btn_import.get_style_context().add_class("suggested-action")
-        dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+        dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
 
         def _esegui(b):
             import importer as _imp
@@ -1103,13 +1104,13 @@ class MainWindow(Gtk.ApplicationWindow):
                 if src == 0:  # Remmina
                     percorso = fc.get_filename()
                     if not percorso:
-                        lbl_result.set_markup("<span foreground='red'>Nessun file selezionato.</span>")
+                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
                         return
                     nuovi = _imp.importa_remmina(percorso)
                 elif src == 1:  # RDM
                     percorso = fc.get_filename()
                     if not percorso:
-                        lbl_result.set_markup("<span foreground='red'>Nessun file selezionato.</span>")
+                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
                         return
                     nuovi = _imp.importa_rdm(percorso)
                 elif src == 2:  # PuTTY
@@ -1124,13 +1125,13 @@ class MainWindow(Gtk.ApplicationWindow):
                         return
 
                 aggiunti, saltati = _imp.unisci_in_pcm(nuovi, chk_sost.get_active())
+                _skipped_str = t("import.skipped", n=saltati) if saltati else ""
                 lbl_result.set_markup(
-                    f"<span foreground='green'>✓ Importate {aggiunti} sessioni"
-                    f"{f', {saltati} saltate' if saltati else ''}.</span>"
+                    f"<span foreground='green'>{t('import.result', n=aggiunti, skipped=_skipped_str)}</span>"
                 )
                 self._pannello.aggiorna()
             except Exception as e:
-                lbl_result.set_markup(f"<span foreground='red'>Errore: {e}</span>")
+                lbl_result.set_markup(f"<span foreground='red'>{t('import.error', e=e)}</span>")
 
         btn_import.connect("clicked", _esegui)
         dlg.show_all()
@@ -1185,11 +1186,11 @@ class MainWindow(Gtk.ApplicationWindow):
         entry_user = Gtk.Entry(); entry_user.set_hexpand(True)
         entry_pass = Gtk.Entry(); entry_pass.set_visibility(False); entry_pass.set_hexpand(True)
 
-        grid.attach(_lbl("Protocollo:"), 0, 0, 1, 1); grid.attach(combo_proto, 1, 0, 1, 1)
-        grid.attach(_lbl("Host:"),       0, 1, 1, 1); grid.attach(entry_host,  1, 1, 1, 1)
-        grid.attach(_lbl("Porta:"),      0, 2, 1, 1); grid.attach(entry_port,  1, 2, 1, 1)
-        grid.attach(_lbl("Utente:"),     0, 3, 1, 1); grid.attach(entry_user,  1, 3, 1, 1)
-        grid.attach(_lbl("Password:"),   0, 4, 1, 1); grid.attach(entry_pass,  1, 4, 1, 1)
+        grid.attach(_lbl(t("quickconn.proto_lbl")), 0, 0, 1, 1); grid.attach(combo_proto, 1, 0, 1, 1)
+        grid.attach(_lbl(t("quickconn.host_lbl")),  0, 1, 1, 1); grid.attach(entry_host,  1, 1, 1, 1)
+        grid.attach(_lbl(t("quickconn.port_lbl")),  0, 2, 1, 1); grid.attach(entry_port,  1, 2, 1, 1)
+        grid.attach(_lbl(t("quickconn.user_lbl")),  0, 3, 1, 1); grid.attach(entry_user,  1, 3, 1, 1)
+        grid.attach(_lbl(t("quickconn.pass_lbl")),  0, 4, 1, 1); grid.attach(entry_pass,  1, 4, 1, 1)
         area.pack_start(grid, False, False, 0)
 
         lbl_err = Gtk.Label(label=""); lbl_err.set_xalign(0.0)
@@ -1197,7 +1198,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         btn_conn = dlg.add_button(t("quickconn.connect"), Gtk.ResponseType.OK)
         btn_conn.get_style_context().add_class("suggested-action")
-        dlg.add_button("Annulla", Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("dialog.cancel"), Gtk.ResponseType.CANCEL)
 
         # Porta default per protocollo
         _default_port = {"SSH": "22", "Telnet": "23", "FTP/SFTP": "22",
@@ -1211,7 +1212,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if dlg.run() == Gtk.ResponseType.OK:
             host = entry_host.get_text().strip()
             if not host:
-                lbl_err.set_markup("<span foreground='red'>Inserire un host</span>")
+                lbl_err.set_markup(f"<span foreground='red'>{t('quickconn.no_host')}</span>")
                 dlg.destroy()
                 return
             proto_idx  = combo_proto.get_active()
@@ -1316,7 +1317,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if not terminali:
             lbl_no = Gtk.Label(label=t("broadcast.no_terminals"))
             area.pack_start(lbl_no, True, True, 0)
-            dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+            dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
             dlg.show_all(); dlg.run(); dlg.destroy()
             return
 
@@ -1361,7 +1362,7 @@ class MainWindow(Gtk.ApplicationWindow):
         sw_txt.add(tv)
         area.pack_start(sw_txt, True, True, 0)
 
-        chk_newline = Gtk.CheckButton(label="Aggiungi Invio alla fine")
+        chk_newline = Gtk.CheckButton(label=t("broadcast.add_enter"))
         chk_newline.set_active(True)
         area.pack_start(chk_newline, False, False, 0)
 
@@ -1371,7 +1372,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         btn_send = dlg.add_button(t("broadcast.send"), Gtk.ResponseType.APPLY)
         btn_send.get_style_context().add_class("suggested-action")
-        dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+        dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
 
         def _invia(b):
             buf = tv.get_buffer()
@@ -1460,11 +1461,11 @@ class MainWindow(Gtk.ApplicationWindow):
         def _esporta_csv(_b):
             import csv, io
             fc = Gtk.FileChooserDialog(
-                title="Esporta CSV", transient_for=dlg,
+                title=t("audit.csv_title"), transient_for=dlg,
                 action=Gtk.FileChooserAction.SAVE
             )
-            fc.add_button("Annulla", Gtk.ResponseType.CANCEL)
-            fc.add_button("Salva",   Gtk.ResponseType.OK)
+            fc.add_button(t("audit.csv_cancel"), Gtk.ResponseType.CANCEL)
+            fc.add_button(t("audit.csv_save"),   Gtk.ResponseType.OK)
             fc.set_current_name("pcm_audit.csv")
             if fc.run() == Gtk.ResponseType.OK:
                 path = fc.get_filename()
@@ -1479,7 +1480,7 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_row.pack_end(btn_csv, False, False, 0)
         area.pack_start(btn_row, False, False, 0)
 
-        dlg.add_button("Chiudi", Gtk.ResponseType.CLOSE)
+        dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
         dlg.show_all()
         dlg.run()
         dlg.destroy()
@@ -1496,7 +1497,7 @@ class MainWindow(Gtk.ApplicationWindow):
             dlg.run()
             dlg.destroy()
         except ImportError:
-            self._warn("keepassxc_manager.py non trovato nella cartella PCM.")
+            self._warn(t("keepass.missing"))
 
     def _on_variabili_globali(self):
         """Dialog variabili globali (variabili {VAR} usabili nei comandi)."""
@@ -1549,7 +1550,7 @@ class MainWindow(Gtk.ApplicationWindow):
             title="PCM — Python Connection Manager",
             transient_for=self,
             modal=True,
-        )
+        )  # titolo app: non tradotto intenzionalmente
         dlg.set_default_size(400, -1)
         dlg.add_button("OK", Gtk.ResponseType.OK)
 
@@ -1565,15 +1566,12 @@ class MainWindow(Gtk.ApplicationWindow):
         lbl_title.set_xalign(0.0)
         box.pack_start(lbl_title, False, False, 0)
 
-        lbl_desc = Gtk.Label(label="Sviluppato in Python/GTK3.")
+        lbl_desc = Gtk.Label(label=t("about.dev_label"))
         lbl_desc.set_xalign(0.0)
         box.pack_start(lbl_desc, False, False, 0)
 
         lbl_proto = Gtk.Label()
-        lbl_proto.set_markup(
-            "<b>Protocolli supportati:</b> SSH, Telnet, SFTP, FTP, RDP, VNC, "
-            "SSH Tunnel, Mosh, Seriale"
-        )
+        lbl_proto.set_markup(t("about.proto_label"))
         lbl_proto.set_xalign(0.0)
         lbl_proto.set_line_wrap(True)
         box.pack_start(lbl_proto, False, False, 0)
@@ -1596,9 +1594,7 @@ class MainWindow(Gtk.ApplicationWindow):
         box.pack_start(lbl_gh, False, False, 0)
 
         lbl_lic = Gtk.Label()
-        lbl_lic.set_markup(
-            "<b>Licenza:</b> European Union Public Licence (EUPL) v1.2"
-        )
+        lbl_lic.set_markup(t("about.license_label"))
         lbl_lic.set_xalign(0.0)
         box.pack_start(lbl_lic, False, False, 0)
 
@@ -1647,10 +1643,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._notebook_attivo = notebook
         is_home = page not in self._tab_labels
         if is_home:
-            self._status("Pronto")
+            self._status(t("status.ready"))
         else:
             nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
-            self._status(f"Connesso: {nome_pulito}")
+            self._status(t("status.connected", name=nome_pulito))
 
     def _aggiorna_stato_live(self) -> bool:
         """Timer ogni 3s: aggiorna la statusbar con le stat live del terminale attivo."""
@@ -1675,9 +1671,9 @@ class MainWindow(Gtk.ApplicationWindow):
             return True
         nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
         if terminato:
-            self._status(f"✖ Terminata: {nome_pulito}  —  {stato}")
+            self._status(t("status.terminated", name=nome_pulito, state=stato))
         else:
-            self._status(f"Connesso: {nome_pulito}  —  {stato}")
+            self._status(t("status.active", name=nome_pulito, state=stato))
         return True  # continua il timer
 
     def _status(self, msg: str):
