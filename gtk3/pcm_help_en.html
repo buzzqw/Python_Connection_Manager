@@ -992,6 +992,139 @@ sudo pacman -S freerdp</pre>
 
 </div>
 
+<!-- ══════════════════════════════════════════════════ COMMAND LINE LAUNCH -->
+<h2 id="cli">⌨ Command line launch</h2>
+
+<p>PCM supports opening connections directly from the command line via URI. If PCM is already running, the connection is added as a new tab in the existing window — without asking for the master password again if credentials are already unlocked.</p>
+
+<div class="new-feature">
+  <div class="nf-title">🖥 Smart single-instance</div>
+  <p>PCM uses D-Bus to detect if it is already open. A second invocation sends the URI to the existing instance via D-Bus and exits immediately — no duplicate PCM windows.</p>
+</div>
+
+<h3>URI format</h3>
+<pre><code>python3 PCM.py  proto://[user@]host[:port][?options]</code></pre>
+
+<table>
+  <tr><th>Protocol</th><th>URI scheme</th><th>Default port</th></tr>
+  <tr><td>SSH</td><td><code>ssh://</code></td><td>22</td></tr>
+  <tr><td>Telnet</td><td><code>telnet://</code></td><td>23</td></tr>
+  <tr><td>RDP</td><td><code>rdp://</code></td><td>3389</td></tr>
+  <tr><td>VNC</td><td><code>vnc://</code></td><td>5900</td></tr>
+  <tr><td>SFTP</td><td><code>sftp://</code></td><td>22</td></tr>
+  <tr><td>FTP</td><td><code>ftp://</code></td><td>21</td></tr>
+  <tr><td>FTPS</td><td><code>ftps://</code></td><td>21</td></tr>
+  <tr><td>Mosh</td><td><code>mosh://</code></td><td>60001</td></tr>
+</table>
+
+<h3>Query string options</h3>
+<p>Only for ad-hoc connections (host not found among saved sessions):</p>
+<table>
+  <tr><th>Parameter</th><th>Values</th><th>Description</th></tr>
+  <tr><td><code>mode</code></td><td><code>internal</code> / <code>external</code></td><td>Force embedded tab in PCM or external window/client</td></tr>
+  <tr><td><code>terminal</code></td><td><code>xterm</code>, <code>kitty</code>, …</td><td>Specific external terminal to use (SSH/Telnet with mode=external only)</td></tr>
+</table>
+
+<h3>Saved session lookup</h3>
+<p>When a URI is passed, PCM searches for a matching session in this order:</p>
+<ol>
+  <li>Session name equals the host in the URI (case-insensitive)</li>
+  <li>Session hostname equals the URI host, same protocol</li>
+  <li>Session hostname equals the URI host, any protocol</li>
+  <li>No match → ad-hoc connection using URI parameters</li>
+</ol>
+<p>When a saved session is found, all its settings are used (password, key, macros, etc.). User and port from the URI can override the saved values.</p>
+
+<h3>Examples — Saved sessions</h3>
+<pre><code># Open saved session named "jiraapp" (or with hostname "jiraapp")
+python3 PCM.py ssh://jiraapp
+
+# Open saved RDP session "windowsserver"
+python3 PCM.py rdp://windowsserver
+
+# Open saved SFTP session "nas"
+python3 PCM.py sftp://nas
+
+# Open Telnet session — if PCM is already open, adds a new tab
+python3 PCM.py telnet://router-core
+
+# Override the user of saved session "webserver"
+python3 PCM.py ssh://root@webserver</code></pre>
+
+<h3>Examples — Ad-hoc connections (not saved)</h3>
+<pre><code># SSH with user and host
+python3 PCM.py ssh://admin@192.168.1.10
+
+# SSH with non-standard port
+python3 PCM.py ssh://deploy@prodserver.example.com:2222
+
+# SSH in internal terminal (default)
+python3 PCM.py ssh://user@host
+
+# SSH in external terminal
+python3 PCM.py 'ssh://user@host?mode=external'
+
+# SSH in specific external terminal
+python3 PCM.py 'ssh://user@host?mode=external&amp;terminal=kitty'
+
+# SSH in specific external terminal (another example)
+python3 PCM.py 'ssh://user@host?mode=external&amp;terminal=xterm'
+
+# RDP ad-hoc: opens xfreerdp (external by default)
+python3 PCM.py rdp://192.168.1.50
+
+# RDP with user, embedded in PCM panel
+python3 PCM.py 'rdp://administrator@192.168.1.50?mode=internal'
+
+# VNC external viewer
+python3 PCM.py vnc://raspberrypi
+
+# VNC embedded viewer with port
+python3 PCM.py 'vnc://192.168.1.60:5901?mode=internal'
+
+# SFTP ad-hoc with user
+python3 PCM.py sftp://backup@nas.lan
+
+# FTP ad-hoc
+python3 PCM.py ftp://ftp.example.com
+
+# FTPS ad-hoc
+python3 PCM.py ftps://secure-ftp.example.com
+
+# Telnet with custom port
+python3 PCM.py telnet://cisco-switch:2323
+
+# Mosh ad-hoc
+python3 PCM.py mosh://user@remotehost</code></pre>
+
+<h3>Useful aliases in ~/.bashrc</h3>
+<pre><code># Quick access to frequent hosts
+alias jira='python3 ~/PCM/gtk3/PCM.py ssh://jiraapp'
+alias nas='python3 ~/PCM/gtk3/PCM.py sftp://nas'
+alias vpn-gw='python3 ~/PCM/gtk3/PCM.py ssh://vpn-gateway'
+
+# RDP to Windows workstation
+alias winpc='python3 ~/PCM/gtk3/PCM.py rdp://workpc'
+
+# Generic function: open any SSH host in PCM
+pcm() { python3 ~/PCM/gtk3/PCM.py "ssh://$1"; }</code></pre>
+
+<h3>Behavior with encrypted credentials</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>PCM is not open</h4>
+    <p>PCM starts normally, shows the master password unlock dialog, and <b>after</b> unlocking opens the requested connection automatically. No need to re-run the command.</p>
+  </div>
+  <div class="card">
+    <h4>PCM is already open and unlocked</h4>
+    <p>The connection opens immediately as a new tab. No master password prompt.</p>
+  </div>
+</div>
+
+<div class="tip">💡 Make sure to start PCM at least once with the new code before using the URI feature: the first launch registers the D-Bus flag needed for URI forwarding to the existing instance.</div>
+
+<hr>
+
 <!-- ══════════════════════════════════════════════════ FOOTER -->
 <div class="footer">
   PCM — Python Connection Manager &nbsp;·&nbsp; License EUPL-1.2 &nbsp;·&nbsp;

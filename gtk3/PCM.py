@@ -24,11 +24,12 @@ import shutil
 import threading
 import tempfile
 import contextlib
+from urllib.parse import urlparse
 
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import Gtk, Gdk, GLib, GObject
+from gi.repository import Gtk, Gdk, GLib, GObject, Gio
 
 # ---------------------------------------------------------------------------
 # Moduli PCM (tutti GTK3)
@@ -134,6 +135,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._setup_accels()
         self._pannello.aggiorna()
 
+        self._pending_cli_uri: str | None = None   # URI da aprire dopo unlock crypto
+
         # Sblocco credenziali cifrate — 300ms dopo avvio per dare tempo al rendering
         GLib.timeout_add(300, self._check_crypto_unlock)
         # Timer live stat: aggiorna statusbar ogni 3s con stato del terminale attivo
@@ -220,6 +223,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if resp == Gtk.ResponseType.OK and pwd:
             if crypto_manager.unlock(pwd):
                 self._pannello.aggiorna()
+                if self._pending_cli_uri:
+                    uri, self._pending_cli_uri = self._pending_cli_uri, None
+                    GLib.idle_add(self.apri_da_cli, uri)
             else:
                 err = Gtk.MessageDialog(
                     transient_for=self,
@@ -452,6 +458,125 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         self._apri_protocollo(proto, nome, dati)
+
+    def apri_da_cli(self, uri: str):
+        """Apre una connessione da URI passato via riga di comando.
+
+        Formati supportati:
+          ssh://nome_sessione          — cerca sessione salvata per nome o hostname
+          ssh://user@host:port         — connessione ad-hoc
+          rdp://host?mode=external     — forza client esterno
+          sftp://host / ftp://host     — file transfer
+          vnc://host / telnet://host   — altri protocolli
+
+        Query string opzionali (solo connessioni ad-hoc):
+          ?mode=external               — apre in terminale/client esterno
+          ?terminal=xterm              — emulatore esterno specifico
+        """
+        _PROTO_MAP = {
+            "ssh": "ssh", "telnet": "telnet", "mosh": "mosh", "serial": "serial",
+            "rdp": "rdp", "vnc": "vnc",
+            "sftp": "file_transfer", "ftp": "file_transfer", "ftps": "file_transfer",
+        }
+        _DEFAULT_PORTS = {
+            "ssh": "22", "telnet": "23", "mosh": "60001", "rdp": "3389",
+            "vnc": "5900", "file_transfer": "22", "ftp": "21", "ftps": "21",
+        }
+        _FT_PROTO = {"sftp": "SFTP", "ftp": "FTP", "ftps": "FTPS"}
+
+        # Se crypto è abilitato ma non ancora sbloccato, rimanda dopo l'unlock
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and not crypto_manager.is_unlocked():
+                self._pending_cli_uri = uri
+                return
+        except ImportError:
+            pass
+
+        parsed = urlparse(uri)
+        scheme = (parsed.scheme or "ssh").lower()
+        proto = _PROTO_MAP.get(scheme)
+        if not proto:
+            self._warn(f"Protocollo non supportato nella URI: {scheme}")
+            return
+
+        host = parsed.hostname or ""
+        port = str(parsed.port) if parsed.port else ""
+        user = parsed.username or ""
+        password = parsed.password or ""
+
+        # Opzioni da query string (solo per connessioni ad-hoc)
+        from urllib.parse import parse_qs
+        qs = parse_qs(parsed.query)
+        mode_ext = qs.get("mode", [""])[0].lower() == "external"
+        terminal_ext = qs.get("terminal", [""])[0]
+
+        # --- Cerca sessione salvata ---
+        profili = config_manager.load_profiles()
+        nome_match = None
+        dati_match = None
+
+        # 1. Nome sessione == host nella URI (case-insensitive)
+        for nome_s, dati_s in profili.items():
+            if nome_s.lower() == host.lower():
+                nome_match, dati_match = nome_s, dati_s
+                break
+
+        # 2. Hostname + stesso protocollo
+        if not dati_match:
+            for nome_s, dati_s in profili.items():
+                if (dati_s.get("host", "").lower() == host.lower()
+                        and dati_s.get("protocol") == proto):
+                    nome_match, dati_match = nome_s, dati_s
+                    break
+
+        # 3. Hostname qualsiasi protocollo
+        if not dati_match:
+            for nome_s, dati_s in profili.items():
+                if dati_s.get("host", "").lower() == host.lower():
+                    nome_match, dati_match = nome_s, dati_s
+                    break
+
+        if dati_match:
+            dati = dict(dati_match)
+            if user:
+                dati["user"] = user
+            if port:
+                dati["port"] = port
+            self._on_connetti(None, nome_match, dati)
+            return
+
+        # --- Connessione ad-hoc ---
+        dati = {
+            "protocol": proto,
+            "host": host,
+            "port": port or _DEFAULT_PORTS.get(proto, ""),
+            "user": user,
+            "password": password,
+        }
+        if scheme in _FT_PROTO:
+            dati["ft_protocol"] = _FT_PROTO[scheme]
+
+        # Modalità apertura per protocollo
+        mode = qs.get("mode", [""])[0].lower()   # "external" | "internal" | ""
+        if proto in ("ssh", "telnet", "mosh", "serial"):
+            if mode in ("external", "internal"):
+                dati["ssh_open_mode"] = mode
+            if terminal_ext:
+                dati["terminal_type"] = terminal_ext
+        elif proto == "rdp":
+            # default RDP è già "external"; accetta esplicito "internal"
+            if mode in ("external", "internal"):
+                dati["rdp_open_mode"] = mode
+        elif proto == "vnc":
+            # vnc_internal=True → viewer embedded, False → client esterno
+            if mode == "internal":
+                dati["vnc_internal"] = True
+            elif mode == "external":
+                dati["vnc_internal"] = False
+
+        nome_display = f"{scheme}://{host}"
+        self._on_connetti(None, nome_display, dati)
 
     def _apri_protocollo(self, proto: str, nome: str, dati: dict):
         from datetime import datetime
@@ -1892,13 +2017,34 @@ class _CryptoUnlockDialog(Gtk.Dialog):
 class PCMApp(Gtk.Application):
 
     def __init__(self):
-        super().__init__(application_id="it.pcm.connectionmanager")
+        super().__init__(
+            application_id="it.pcm.connectionmanager",
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+        )
         self.connect("activate", self._on_activate)
+        self.connect("command-line", self._on_command_line)
 
     def _on_activate(self, app):
         apply_css()
         win = MainWindow(app)
         win.show_all()
+
+    def _on_command_line(self, app, cmdline):
+        args = cmdline.get_arguments()   # args[0] = nome programma
+        uri = args[1] if len(args) > 1 else None
+
+        # Porta la finestra principale in primo piano (o la crea)
+        wins = self.get_windows()
+        if not wins:
+            self.activate()
+            wins = self.get_windows()
+
+        if wins:
+            wins[0].present()
+            if uri:
+                GLib.idle_add(wins[0].apri_da_cli, uri)
+
+        return 0
 
 
 def main():

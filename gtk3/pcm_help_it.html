@@ -1599,6 +1599,139 @@ Se manca: <code>uv pip install paramiko</code> dalla cartella gtk3.</p>
 
 </div>
 
+<!-- ══════════════════════════════════════════════════ AVVIO DA RIGA DI COMANDO -->
+<h2 id="cli">⌨ Avvio dalla riga di comando</h2>
+
+<p>PCM supporta l'apertura di connessioni direttamente dalla riga di comando tramite URI. Se PCM è già in esecuzione, la connessione viene aggiunta come nuova tab nella finestra esistente, senza chiedere nuovamente la password master se le credenziali sono già sbloccate.</p>
+
+<div class="new-feature">
+  <div class="nf-title">🖥 Istanza unica intelligente</div>
+  <p>PCM usa D-Bus per rilevare se è già aperto. Il secondo invocation invia l'URI all'istanza esistente via D-Bus e termina subito: non si aprono due finestre PCM.</p>
+</div>
+
+<h3>Formato URI</h3>
+<pre><code>python3 PCM.py  proto://[utente@]host[:porta][?opzioni]</code></pre>
+
+<table>
+  <tr><th>Protocollo</th><th>Schema URI</th><th>Porta default</th></tr>
+  <tr><td>SSH</td><td><code>ssh://</code></td><td>22</td></tr>
+  <tr><td>Telnet</td><td><code>telnet://</code></td><td>23</td></tr>
+  <tr><td>RDP</td><td><code>rdp://</code></td><td>3389</td></tr>
+  <tr><td>VNC</td><td><code>vnc://</code></td><td>5900</td></tr>
+  <tr><td>SFTP</td><td><code>sftp://</code></td><td>22</td></tr>
+  <tr><td>FTP</td><td><code>ftp://</code></td><td>21</td></tr>
+  <tr><td>FTPS</td><td><code>ftps://</code></td><td>21</td></tr>
+  <tr><td>Mosh</td><td><code>mosh://</code></td><td>60001</td></tr>
+</table>
+
+<h3>Opzioni query string</h3>
+<p>Solo per connessioni ad-hoc (host non presente tra le sessioni salvate):</p>
+<table>
+  <tr><th>Parametro</th><th>Valori</th><th>Descrizione</th></tr>
+  <tr><td><code>mode</code></td><td><code>internal</code> / <code>external</code></td><td>Forza apertura embedded nel tab PCM oppure in finestra/client esterno</td></tr>
+  <tr><td><code>terminal</code></td><td><code>xterm</code>, <code>kitty</code>, …</td><td>Terminale esterno specifico da usare (solo SSH/Telnet con mode=external)</td></tr>
+</table>
+
+<h3>Ricerca sessione salvata</h3>
+<p>Quando si passa un URI, PCM cerca la sessione nell'ordine seguente:</p>
+<ol>
+  <li>Nome sessione uguale all'host nell'URI (confronto case-insensitive)</li>
+  <li>Hostname della sessione uguale all'host nell'URI, con lo stesso protocollo</li>
+  <li>Hostname della sessione uguale all'host nell'URI, qualsiasi protocollo</li>
+  <li>Nessuna corrispondenza → connessione ad-hoc con i parametri dell'URI</li>
+</ol>
+<p>Se viene trovata una sessione salvata, vengono usate tutte le sue impostazioni (password, chiave, macro, ecc.). È possibile sovrascrivere utente e porta nell'URI.</p>
+
+<h3>Esempi — Sessioni salvate</h3>
+<pre><code># Apre la sessione di nome "jiraapp" (o con hostname "jiraapp")
+python3 PCM.py ssh://jiraapp
+
+# Apre la sessione RDP salvata "windowsserver"
+python3 PCM.py rdp://windowsserver
+
+# Apre la sessione SFTP salvata "nas"
+python3 PCM.py sftp://nas
+
+# Apre la sessione Telnet — se PCM è già aperto, aggiunge un tab
+python3 PCM.py telnet://router-core
+
+# Sovrascrive l'utente della sessione salvata "webserver"
+python3 PCM.py ssh://root@webserver</code></pre>
+
+<h3>Esempi — Connessioni ad-hoc (non salvate)</h3>
+<pre><code># SSH con utente e host
+python3 PCM.py ssh://admin@192.168.1.10
+
+# SSH con porta non standard
+python3 PCM.py ssh://deploy@prodserver.example.com:2222
+
+# SSH nel terminale interno (default)
+python3 PCM.py ssh://user@host
+
+# SSH in terminale esterno
+python3 PCM.py 'ssh://user@host?mode=external'
+
+# SSH in terminale esterno specifico
+python3 PCM.py 'ssh://user@host?mode=external&amp;terminal=kitty'
+
+# SSH in terminale esterno specifico (altro esempio)
+python3 PCM.py 'ssh://user@host?mode=external&amp;terminal=xterm'
+
+# RDP ad-hoc: si apre xfreerdp (default esterno)
+python3 PCM.py rdp://192.168.1.50
+
+# RDP con utente, embedded nel pannello PCM
+python3 PCM.py 'rdp://administrator@192.168.1.50?mode=internal'
+
+# VNC viewer esterno
+python3 PCM.py vnc://raspberrypi
+
+# VNC viewer embedded con porta
+python3 PCM.py 'vnc://192.168.1.60:5901?mode=internal'
+
+# SFTP ad-hoc con utente
+python3 PCM.py sftp://backup@nas.lan
+
+# FTP ad-hoc
+python3 PCM.py ftp://ftp.example.com
+
+# FTPS ad-hoc
+python3 PCM.py ftps://secure-ftp.example.com
+
+# Telnet con porta personalizzata
+python3 PCM.py telnet://cisco-switch:2323
+
+# Mosh ad-hoc
+python3 PCM.py mosh://user@remotehost</code></pre>
+
+<h3>Alias consigliati in ~/.bashrc</h3>
+<pre><code># Connessione rapida agli host più usati
+alias jira='python3 ~/PCM/gtk3/PCM.py ssh://jiraapp'
+alias nas='python3 ~/PCM/gtk3/PCM.py sftp://nas'
+alias vpn-gw='python3 ~/PCM/gtk3/PCM.py ssh://vpn-gateway'
+
+# RDP al PC Windows
+alias winpc='python3 ~/PCM/gtk3/PCM.py rdp://workpc'
+
+# Funzione generica: apri qualsiasi host SSH in PCM
+pcm() { python3 ~/PCM/gtk3/PCM.py "ssh://$1"; }</code></pre>
+
+<h3>Comportamento con credenziali cifrate</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>PCM non è aperto</h4>
+    <p>PCM si avvia normalmente, mostra il dialog di sblocco password master, e <b>dopo</b> l'unlock apre automaticamente la connessione richiesta. Non è necessario rilanciare il comando.</p>
+  </div>
+  <div class="card">
+    <h4>PCM è già aperto e sbloccato</h4>
+    <p>La connessione viene aperta immediatamente come nuova tab. Nessuna richiesta di password master.</p>
+  </div>
+</div>
+
+<div class="tip">💡 Ricorda di avviare almeno una volta PCM con il nuovo codice prima di usare la funzione URI: la prima apertura registra il flag D-Bus necessario per il passaggio dell'URI all'istanza esistente.</div>
+
+<hr>
+
 <!-- ══════════════════════════════════════════════════ FOOTER -->
 <div class="footer">
   PCM — Python Connection Manager &nbsp;·&nbsp; Licenza EUPL-1.2 &nbsp;·&nbsp;
