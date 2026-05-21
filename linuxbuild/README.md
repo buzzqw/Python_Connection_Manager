@@ -2,7 +2,7 @@
 
 Questa cartella contiene gli strumenti per impacchettare PCM (variante GTK3) come archivio distribuibile per Linux.
 
-> ℹ️ La variante **PyQt6** non viene pacchettizzata: usa PyInstaller che richiede Windows per la versione GTK3 non è applicabile. La variante GTK3 usa librerie di sistema (PyGObject, VTE, ecc.) che non possono essere bundlate in un singolo eseguibile — il pacchetto distribuisce quindi i sorgenti Python con un launcher e tutte le istruzioni di installazione.
+> ℹ️ La variante **PyQt6** non viene pacchettizzata. Usa PyInstaller, la variante GTK3 usa librerie di sistema (PyGObject, VTE, ecc.) che non possono essere bundlate in un singolo eseguibile. Il pacchetto distribuisce quindi sia i sorgenti Python con un launcher e tutte le istruzioni di installazione oppure come pacchetto .deb
 
 ---
 
