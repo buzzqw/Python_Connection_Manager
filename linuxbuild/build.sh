@@ -150,11 +150,6 @@ for f in "${GTK3_DIR}"/*.html; do
     [[ -e "$f" ]] && cp "$f" "${STAGING}/"
 done
 
-# Immagini radice progetto
-if [[ -d "${PROJECT_ROOT}/immagini" ]]; then
-    cp -r "${PROJECT_ROOT}/immagini" "${STAGING}/immagini"
-fi
-
 # connections.json di default (senza dati utente — solo se non esiste già)
 # Si copia come template; al primo avvio PCM usa quello nella home utente
 if [[ -f "${GTK3_DIR}/connections.json" ]]; then
@@ -313,8 +308,6 @@ if $MAKE_DEB; then
         for f in "${GTK3_DIR}"/*.html; do
             [[ -e "$f" ]] && cp "$f" "${DEB_INSTALL_DIR}/"
         done
-        [[ -d "${PROJECT_ROOT}/immagini" ]] && \
-            cp -r "${PROJECT_ROOT}/immagini" "${DEB_INSTALL_DIR}/immagini"
         [[ -f "${GTK3_DIR}/connections.json" ]] && \
             cp "${GTK3_DIR}/connections.json" "${DEB_INSTALL_DIR}/connections.json.example"
         [[ -f "${GTK3_DIR}/pcm_settings.json" ]] && \
