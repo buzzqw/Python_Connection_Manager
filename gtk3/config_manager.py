@@ -343,24 +343,61 @@ def clear_recent():
 
 _AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit_log.json")
 
+# Chiavi considerate sensibili: i loro valori vengono oscurati prima di
+# scrivere nel log e prima del calcolo dell'hash di integrità.
+_SENSITIVE_KEYS: frozenset = frozenset({
+    "password", "passwd", "pwd", "secret", "token", "credential",
+    "private_key", "pkey", "key", "passphrase", "pass",
+    "auth", "authorization", "api_key", "apikey",
+})
+
+
+def _sanitize_audit_entry(obj):
+    """Restituisce una copia dell'oggetto con i valori sensibili oscurati.
+
+    Ricorre ricorsivamente su dict e list; qualsiasi chiave il cui nome
+    (in minuscolo) sia in ``_SENSITIVE_KEYS`` viene sostituita con la
+    stringa ``"[REDACTED]"``.
+    """
+    if isinstance(obj, dict):
+        return {
+            k: "[REDACTED]" if k.lower() in _SENSITIVE_KEYS else _sanitize_audit_entry(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_sanitize_audit_entry(item) for item in obj]
+    return obj
+
 
 def _audit_hash(entry: dict, prev_hash: str) -> str:
-    """Calcola l'SHA-256 di una voce incluso l'hash della voce precedente (hash chaining)."""
+    """Calcola l'SHA-256 di una voce incluso l'hash della voce precedente (hash chaining).
+
+    L'entry passata qui deve essere già sanificata (nessun valore sensibile).
+    SHA-256 è usato esclusivamente per garantire l'integrità della catena,
+    non per derivare o proteggere segreti.
+    """
     raw = json.dumps(entry, sort_keys=True, ensure_ascii=False) + prev_hash
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def audit_append(entry: dict):
-    """Aggiunge una voce all'audit log con hash chaining (integrità) e permessi 0600."""
+    """Aggiunge una voce all'audit log con hash chaining (integrità) e permessi 0600.
+
+    I valori sensibili (password, token, chiavi) vengono rimossi dalla copia
+    che viene scritta su disco e usata per il calcolo dell'hash, così da
+    evitare che dati riservati transitino nell'audit log.
+    """
     try:
         if os.path.exists(_AUDIT_FILE):
             with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
                 log = json.load(f)
         else:
             log = []
+        # Sanifica prima di toccare il log: nessun dato sensibile su disco
+        safe_entry = _sanitize_audit_entry(entry)
         prev_hash = log[-1].get("_hash", "") if log else ""
-        entry["_hash"] = _audit_hash(entry, prev_hash)
-        log.append(entry)
+        safe_entry["_hash"] = _audit_hash(safe_entry, prev_hash)
+        log.append(safe_entry)
         fd = os.open(_AUDIT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(log, f, indent=2, ensure_ascii=False)
