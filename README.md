@@ -5,10 +5,13 @@
 [![GTK3](https://img.shields.io/badge/UI-GTK3-green.svg)](https://docs.gtk.org/gtk3/)
 [![Wayland](https://img.shields.io/badge/Wayland-nativo-purple.svg)](#note-wayland)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20FreeBSD-lightgrey.svg)](#installazione)
+[![Build](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml/badge.svg)](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=azanzani@gmail.com&item_name=Support+PCM+Project)
 
 > **L'alternativa Linux a MobaXterm** — tutto in una finestra: SSH, RDP, VNC, SFTP, FTP, Telnet, Mosh, Seriale.  
 > Scritto in Python con GTK3 e terminale VTE nativo. Funziona su **X11 e Wayland** senza XWayland.
+
+> 📦 **Download ultima versione** — pacchetto `.deb` per Debian/Ubuntu, archivio `.tar.gz` e `.zip` disponibili nella scheda [**Actions → ultima run**](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml) (sezione *Artifacts*) oppure nella pagina [**Releases**](https://github.com/buzzqw/Python_Connection_Manager/releases) per le versioni taggate.
 
 ---
 

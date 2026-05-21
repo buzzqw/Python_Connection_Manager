@@ -133,6 +133,29 @@ cp ~/Applicazioni/PCM_v1.0.0_Linux_GTK3/pcm.desktop \
 
 ---
 
+## Download pacchetti precompilati
+
+> 💡 Non vuoi buildare da soli? Ad ogni commit il workflow CI produce automaticamente i pacchetti pronti all'uso.
+
+### Ultima versione di sviluppo (ogni commit)
+
+1. Vai su **[GitHub → Actions → Build PCM Linux GTK3](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml)**
+2. Clicca sull'ultima run completata (segno di spunta verde ✅)
+3. Scorri fino alla sezione **Artifacts** in fondo alla pagina
+4. Scarica il file che ti serve:
+
+| File | Descrizione |
+|------|-------------|
+| `PCM_v..._Linux_GTK3.tar.gz` | Archivio tar.gz — estrai e lancia |
+| `PCM_v..._Linux_GTK3.zip` | Archivio zip — alternativa |
+| `pcm_..._all.deb` | Pacchetto Debian/Ubuntu — installa con `sudo dpkg -i` |
+
+### Release ufficiali (versioni taggate)
+
+I pacchetti delle versioni stabili sono pubblicati nella pagina **[Releases](https://github.com/buzzqw/Python_Connection_Manager/releases)** con `tar.gz`, `zip` e `.deb` allegati direttamente a ogni release.
+
+---
+
 ## GitHub Actions (CI/CD)
 
 Il progetto include un workflow GitHub Actions in `.github/workflows/build.yml` che si attiva automaticamente a ogni commit.
@@ -148,11 +171,6 @@ Il progetto include un workflow GitHub Actions in `.github/workflows/build.yml` 
 
 - **Da tag** (`git tag v1.2.0 && git push --tags`): versione = `1.2.0`
 - **Da commit** (senza tag): versione = `0.0.0-<short SHA>` (build di sviluppo)
-
-### Come scaricare gli artefatti
-
-1. Vai su **GitHub → Actions → Build PCM Linux GTK3** → click sull'ultima run
-2. Nella sezione **Artifacts** in fondo alla pagina trovi i tre file scaricabili
 
 ### Come creare una release ufficiale
 
