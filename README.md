@@ -11,8 +11,7 @@
 > **L'alternativa Linux a MobaXterm** — tutto in una finestra: SSH, RDP, VNC, SFTP, FTP, Telnet, Mosh, Seriale.  
 > Scritto in Python con GTK3 e terminale VTE nativo. Funziona su **X11 e Wayland** senza XWayland.
 
-> 📦 **Download ultima versione** — pacchetto `.deb` per Debian/Ubuntu, archivio `.tar.gz` e `.zip` disponibili nella scheda [**Actions → ultima run**](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml) (sezione *Artifacts*) oppure nella pagina [**Releases**](https://github.com/buzzqw/Python_Connection_Manager/releases) per le versioni taggate.
-
+> 📦 **Download ultima versione** — pacchetto `.deb` per Debian/Ubuntu, archivio `.tar.gz` e `.zip` disponibili nella scheda [**Actions → ultima run**](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml) (sezione *Artifacts*).
 ---
 
 ## Versioni disponibili
