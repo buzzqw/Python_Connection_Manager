@@ -43,7 +43,7 @@ from session_panel import SessionPanel
 from session_dialog import SessionDialog
 from session_command import build_command, check_dipendenze
 from settings_dialog import SettingsDialog
-from tunnel_manager import TunnelManagerDialog
+from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel
 from vnc_widget import VncWebWidget
 from rdp_widget import RdpEmbedWidget
 from sftp_browser import SftpBrowserWidget
@@ -327,12 +327,29 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_qc.connect("clicked", lambda b: self._on_quick_connect())
         hb.pack_start(btn_qc)
 
-        # Pulsante tunnel
-        btn_tun = Gtk.Button()
-        btn_tun.set_tooltip_text(t("toolbar.tunnel.tooltip"))
-        btn_tun.add(Gtk.Image.new_from_icon_name("network-wired-symbolic", Gtk.IconSize.BUTTON))
-        btn_tun.connect("clicked", lambda b: self._on_tunnel_manager())
-        hb.pack_start(btn_tun)
+        # Bottone tunnel unificato: indicatore stato + accesso al gestore
+        self._btn_tun_ind = Gtk.MenuButton()
+        _tun_box = Gtk.Box(spacing=2)
+        self._img_tun = Gtk.Image.new_from_icon_name("network-vpn-symbolic", Gtk.IconSize.BUTTON)
+        _tun_box.pack_start(self._img_tun, False, False, 0)
+        self._lbl_tun_count = Gtk.Label(label="")
+        _tun_box.pack_start(self._lbl_tun_count, False, False, 0)
+        self._btn_tun_ind.add(_tun_box)
+        self._btn_tun_ind.set_tooltip_text(t("tunnel.indicator_tooltip"))
+
+        self._tun_pop = Gtk.Popover()
+        self._tun_pop_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self._tun_pop_box.set_margin_start(8)
+        self._tun_pop_box.set_margin_end(8)
+        self._tun_pop_box.set_margin_top(8)
+        self._tun_pop_box.set_margin_bottom(8)
+        self._tun_pop.add(self._tun_pop_box)
+        self._tun_pop.connect("show", self._on_tun_pop_show)
+        self._btn_tun_ind.set_popover(self._tun_pop)
+        hb.pack_start(self._btn_tun_ind)
+
+        GLib.timeout_add(3000, self._aggiorna_tun_indicator)
+        self._aggiorna_tun_indicator()
 
         # Pulsante split
         btn_split = Gtk.MenuButton()
@@ -865,6 +882,17 @@ class MainWindow(Gtk.ApplicationWindow):
         if lbl:
             lbl.set_text(nome)
 
+    def _get_open_session_names(self) -> set:
+        """Nomi delle sessioni con tab aperta e processo ancora vivo (no ✖)."""
+        names = set()
+        for nb in (self._notebook, self._notebook2):
+            for i in range(nb.get_n_pages()):
+                page = nb.get_nth_page(i)
+                nome = self._get_tab_nome(page)
+                if nome and not nome.startswith("✖"):
+                    names.add(nome)
+        return names
+
     def _append_tab(self, widget, nome: str, on_close=None):
         """Aggiunge un tab con label personalizzata (nome + pulsante X)."""
         cb = on_close or (lambda: self._chiudi_tab(widget))
@@ -874,6 +902,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._notebook.set_tab_reorderable(widget, True)
         self._notebook.set_current_page(self._notebook.get_n_pages() - 1)
         GLib.idle_add(widget.grab_focus)
+        GLib.idle_add(lambda: self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names()))
 
     # ------------------------------------------------------------------
     # Split pannelli
@@ -1069,6 +1098,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._tab_labels.pop(widget, None)
         if nb is self._notebook2 and nb.get_n_pages() == 0:
             self._notebook2.hide()
+        self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
 
     def _on_processo_terminato(self, widget, tab_label=None):
         """Marca la tab come terminata aggiungendo '✖' al nome (entrambi i notebook)."""
@@ -1078,6 +1108,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 nome = self._get_tab_nome(page)
                 if nome and not nome.startswith("✖"):
                     self._set_tab_nome(page, f"✖ {nome}")
+                self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
                 return
 
     # ------------------------------------------------------------------
@@ -1139,6 +1170,71 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg = TunnelManagerDialog(parent=self)
         dlg.run()
         dlg.destroy()
+
+    # ------------------------------------------------------------------
+    # Indicatore tunnel attivi nella toolbar
+    # ------------------------------------------------------------------
+
+    def _aggiorna_tun_indicator(self) -> bool:
+        attivi = get_active_tunnels()
+        n = len(attivi)
+        self._lbl_tun_count.set_text(str(n) if n > 0 else "")
+        if n > 0:
+            col = Gdk.RGBA()
+            col.parse("#22cc55")
+            tip_key = "tunnel.indicator_tooltip_active1" if n == 1 else "tunnel.indicator_tooltip_activeN"
+            self._btn_tun_ind.set_tooltip_text(t(tip_key).format(n=n))
+            self._img_tun.override_color(Gtk.StateFlags.NORMAL, col)
+            self._lbl_tun_count.override_color(Gtk.StateFlags.NORMAL, col)
+        else:
+            self._btn_tun_ind.set_tooltip_text(t("tunnel.indicator_tooltip"))
+            self._img_tun.override_color(Gtk.StateFlags.NORMAL, None)
+            self._lbl_tun_count.override_color(Gtk.StateFlags.NORMAL, None)
+        return True  # mantieni il timer
+
+    def _on_tun_pop_show(self, popover):
+        for w in self._tun_pop_box.get_children():
+            w.destroy()
+
+        attivi = get_active_tunnels()
+
+        hdr = Gtk.Label()
+        hdr.set_markup(f"<b>{t('tunnel.indicator_header')}</b>")
+        hdr.set_halign(Gtk.Align.START)
+        self._tun_pop_box.pack_start(hdr, False, False, 0)
+        self._tun_pop_box.pack_start(Gtk.Separator(), False, False, 0)
+
+        if not attivi:
+            self._tun_pop_box.pack_start(
+                Gtk.Label(label=t("tunnel.none_active")), False, False, 0
+            )
+        else:
+            for tun in attivi:
+                row = Gtk.Box(spacing=8)
+                nome = tun.get("nome", "?")
+                tipo = tun.get("tipo", "")
+                lport = str(tun.get("local_port", ""))
+                lbl = Gtk.Label(label=f"{nome}  ({tipo} :{lport})")
+                lbl.set_halign(Gtk.Align.START)
+                lbl.set_hexpand(True)
+                btn_stop = Gtk.Button(label=t("tunnel.btn_stop"))
+                idx = tun["_idx"]
+                btn_stop.connect("clicked", lambda b, i=idx: self._ferma_da_ind(i))
+                row.pack_start(lbl, True, True, 0)
+                row.pack_start(btn_stop, False, False, 0)
+                self._tun_pop_box.pack_start(row, False, False, 0)
+
+        self._tun_pop_box.pack_start(Gtk.Separator(), False, False, 0)
+        btn_mgr = Gtk.Button(label=t("tunnel.open_manager"))
+        btn_mgr.connect("clicked", lambda b: (self._tun_pop.popdown(), self._on_tunnel_manager()))
+        self._tun_pop_box.pack_start(btn_mgr, False, False, 0)
+
+        self._tun_pop_box.show_all()
+
+    def _ferma_da_ind(self, idx: int):
+        stop_tunnel(idx)
+        self._tun_pop.popdown()
+        self._aggiorna_tun_indicator()
 
     def _on_impostazioni(self):
         dlg = SettingsDialog(parent=self)

@@ -69,6 +69,7 @@ class SessionPanel(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.get_style_context().add_class("session-sidebar")
         self._profili: dict = {}
+        self._open_sessions: set = set()
         self._init_ui()
         self.aggiorna()
 
@@ -141,10 +142,10 @@ class SessionPanel(Gtk.Box):
         self._tree.connect("row-activated", self._on_row_activated)
         self._tree.connect("button-press-event", self._on_button_press)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(self._tree)
-        self.pack_start(scroll, True, True, 0)
+        self._scroll = Gtk.ScrolledWindow()
+        self._scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self._scroll.add(self._tree)
+        self.pack_start(self._scroll, True, True, 0)
 
     # ------------------------------------------------------------------
     # Aggiornamento modello
@@ -154,7 +155,15 @@ class SessionPanel(Gtk.Box):
         self._profili = profili if profili is not None else config_manager.load_profiles()
         self._ricostruisci(self._search.get_text())
 
+    def aggiorna_sessioni_aperte(self, open_sessions: set):
+        """Aggiorna solo l'indicatore sessioni aperte senza ricaricare profili da disco."""
+        self._open_sessions = open_sessions
+        self._ricostruisci(self._search.get_text())
+
     def _ricostruisci(self, filtro: str = ""):
+        adj = self._scroll.get_vadjustment()
+        saved_scroll = adj.get_value()
+
         self._store.clear()
         filtro = filtro.strip().lower()
 
@@ -180,9 +189,10 @@ class SessionPanel(Gtk.Box):
                     user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
                     sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
                     ts_sub = f" <span foreground='#666' size='smaller'>{GLib.markup_escape_text(r.get('ts', ''))}</span>"
+                    dot = "<span foreground='#22cc55'>●</span> " if nome in self._open_sessions else ""
                     markup = (
                         f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
-                        f"{GLib.markup_escape_text(nome)}{sub}{ts_sub}"
+                        f"{dot}{GLib.markup_escape_text(nome)}{sub}{ts_sub}"
                     )
                     pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
                     self._store.append(rec_iter, [pb, markup, nome, False])
@@ -213,15 +223,19 @@ class SessionPanel(Gtk.Box):
                 user_display = "" if user.startswith("ENC:") else user
                 user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
                 sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
+                dot = "<span foreground='#22cc55'>●</span> " if nome in self._open_sessions else ""
                 markup = (
                     f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
-                    f"{GLib.markup_escape_text(nome)}{sub}"
+                    f"{dot}{GLib.markup_escape_text(nome)}{sub}"
                 )
 
                 pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
                 self._store.append(grp_iter, [pb, markup, nome, False])
 
         self._tree.expand_all()
+
+        if saved_scroll > 0:
+            GLib.idle_add(adj.set_value, saved_scroll)
 
     def _on_search(self, entry):
         self._ricostruisci(entry.get_text())

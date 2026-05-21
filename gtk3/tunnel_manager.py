@@ -23,6 +23,53 @@ from translations import t
 # Proxy leggero per tracciare processi riagganciati (solo PID)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Stato condiviso a livello di modulo: sopravvive alla chiusura del dialogo
+# ---------------------------------------------------------------------------
+
+_active_procs: dict = {}  # idx → Popen | _PidProxy
+
+
+def _proc_vivo(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def get_active_tunnels() -> list:
+    """Restituisce lista di dict (con chiave _idx) per i tunnel attivi."""
+    tunnels = config_manager.load_tunnels()
+    result = []
+    dead = []
+    for idx, proc in _active_procs.items():
+        if _proc_vivo(proc.pid):
+            if idx < len(tunnels):
+                tun = dict(tunnels[idx])
+                tun["_idx"] = idx
+                result.append(tun)
+        else:
+            dead.append(idx)
+    for idx in dead:
+        _active_procs.pop(idx, None)
+    return result
+
+
+def stop_tunnel(idx: int):
+    """Ferma un tunnel per indice (usabile senza aprire il dialogo)."""
+    if idx in _active_procs:
+        proc = _active_procs.pop(idx)
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Proxy leggero per tracciare processi riagganciati (solo PID)
+# ---------------------------------------------------------------------------
+
 class _PidProxy:
     """Oggetto minimo compatibile con subprocess.Popen per tracciare un PID esterno."""
     __slots__ = ("pid", "returncode")
@@ -172,7 +219,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         )
         self.set_default_size(750, 550)
         self._tunnels: list[dict] = config_manager.load_tunnels()
-        self._procs:   dict[int, subprocess.Popen] = {}  # idx → processo
+        self._procs = _active_procs  # alias al dict condiviso a livello di modulo
         self._init_ui()
         self._ricarica_e_riaggancia()
         self.show_all()
@@ -264,6 +311,9 @@ class TunnelManagerDialog(Gtk.Dialog):
         chiusura e riapertura della finestra.
         """
         for i, tun in enumerate(self._tunnels):
+            if i in self._procs:
+                # già tracciato dal dict condiviso (sopravvissuto alla chiusura del dialogo)
+                continue
             pid = tun.get("pid")
             if pid and self._processo_vivo(pid):
                 # Crea un oggetto proxy per tracciare il PID

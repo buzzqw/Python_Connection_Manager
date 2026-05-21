@@ -1064,6 +1064,12 @@ _T: dict[str, dict[str, str]] = {
     "tunnel.warn_stop_first":{"it":"Ferma il tunnel prima di modificarlo.", "en": "Stop the tunnel before editing it.", "de": "Stoppe den Tunnel vor der Bearbeitung.", "fr": "Arrêtez le tunnel avant de le modifier.", "es": "Detén el túnel antes de editarlo."},
     "tunnel.field_ssh_user":{"it": "SSH utente:",                        "en": "SSH user:",                       "de": "SSH-Benutzer:",                   "fr": "Utilisateur SSH :",                "es": "Usuario SSH:"},
     "tunnel.field_ssh_pwd": {"it": "SSH password:",                      "en": "SSH password:",                   "de": "SSH-Passwort:",                   "fr": "Mot de passe SSH :",               "es": "Contraseña SSH:"},
+    "tunnel.indicator_tooltip":       {"it": "Nessun tunnel attivo",         "en": "No active tunnels",               "de": "Keine aktiven Tunnel",            "fr": "Aucun tunnel actif",               "es": "Sin túneles activos"},
+    "tunnel.indicator_tooltip_active1":{"it": "1 tunnel attivo",              "en": "1 active tunnel",                 "de": "1 aktiver Tunnel",                "fr": "1 tunnel actif",                   "es": "1 túnel activo"},
+    "tunnel.indicator_tooltip_activeN":{"it": "{n} tunnel attivi",            "en": "{n} active tunnels",              "de": "{n} aktive Tunnel",               "fr": "{n} tunnels actifs",               "es": "{n} túneles activos"},
+    "tunnel.none_active":             {"it": "Nessun tunnel attivo",         "en": "No active tunnels",               "de": "Keine aktiven Tunnel",            "fr": "Aucun tunnel actif",               "es": "Sin túneles activos"},
+    "tunnel.indicator_header":        {"it": "Tunnel attivi",                "en": "Active tunnels",                  "de": "Aktive Tunnel",                   "fr": "Tunnels actifs",                   "es": "Túneles activos"},
+    "tunnel.open_manager":            {"it": "Apri gestore tunnel…",         "en": "Open tunnel manager…",           "de": "Tunnel-Verwaltung öffnen…",       "fr": "Ouvrir le gestionnaire…",          "es": "Abrir gestor de túneles…"},
 
     # ── sftp_browser — tooltip pulsanti ──────────────────────────────────────
     "sftp.tooltip_up":      {"it": "Cartella superiore",                 "en": "Parent folder",                   "de": "Übergeordneter Ordner",           "fr": "Dossier parent",                   "es": "Carpeta padre"},
