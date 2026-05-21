@@ -1,0 +1,91 @@
+name: Build PCM Linux GTK3
+
+on:
+  push:
+    branches: ["**"]
+    tags:
+      - "v*"
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    name: Build tar.gz + zip + deb
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="0.0.0-${SHORT_SHA}"
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Versione: ${VERSION}"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends dpkg
+
+      - name: Build packages
+        run: |
+          bash linuxbuild/build.sh "${{ steps.version.outputs.VERSION }}" --zip --deb
+
+      - name: Upload tar.gz
+        uses: actions/upload-artifact@v4
+        with:
+          name: PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
+          path: dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
+          if-no-files-found: error
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
+          path: dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
+          if-no-files-found: error
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcm_${{ steps.version.outputs.VERSION }}_all.deb
+          path: dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PCM v${{ steps.version.outputs.VERSION }}"
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.deb
