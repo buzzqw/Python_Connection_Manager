@@ -4,6 +4,7 @@ Supporta: SSH, Telnet, SFTP, RDP, VNC, SSH Tunnel, Mosh, Seriale.
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 from typing import Optional, Tuple
@@ -159,10 +160,10 @@ def _build_ssh(p: dict) -> str:
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
     
-    args = [f"-p {port}", "-o StrictHostKeyChecking=accept-new", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
+    args = [f"-p {_esc(port)}", "-o StrictHostKeyChecking=yes", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
 
     if pkey and os.path.exists(pkey):
-        args.append(f"-i '{pkey}'")
+        args.append(f"-i {_q(pkey)}")
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
     if p.get("agent_forward"): args.append("-A")
@@ -170,8 +171,11 @@ def _build_ssh(p: dict) -> str:
         args.append("-o ServerAliveInterval=60")
     
     if p.get("jump_host"):
-        ju = f"{p.get('jump_user')}@" if p.get('jump_user') else ""
-        args.append(f"-J {ju}{p.get('jump_host')}:{p.get('jump_port', '22')}")
+        jhost = p.get('jump_host', '')
+        juser = p.get('jump_user', '')
+        jport = p.get('jump_port', '22')
+        jtarget = _q(f"{juser}@{jhost}:{jport}") if juser else _q(f"{jhost}:{jport}")
+        args.append(f"-J {jtarget}")
 
     # Compatibilità SSH legacy (server datati, router, NAS, Cisco, ecc.)
     if p.get("legacy_kex"):
@@ -186,7 +190,7 @@ def _build_ssh(p: dict) -> str:
         args.append("-o PubkeyAcceptedAlgorithms=+ssh-rsa")
 
     args_str = " ".join(args)
-    target = f"{user}@{host}" if user else host
+    target = _q(f"{user}@{host}") if user else _q(host)
     ssh_exe = _get_tool("ssh")
 
     base = f"\"{ssh_exe}\" {args_str} {target}"
@@ -205,9 +209,9 @@ def _build_telnet(p: dict) -> str:
     if not _tool_exists("telnet"):
         return f"bash -c 'echo \"telnet non trovato. Installa telnet.\"; sleep 5'"
 
-    cmd = f"\"{telnet_exe}\" {host} {port}"
+    cmd = f"\"{telnet_exe}\" {_q(host)} {_q(port)}"
     if user:
-        cmd = f"\"{telnet_exe}\" -l {user} {host} {port}"
+        cmd = f"\"{telnet_exe}\" -l {_q(user)} {_q(host)} {_q(port)}"
     return cmd
 
 
@@ -270,19 +274,19 @@ def _build_sftp_cli(p: dict) -> str:
     pkey = p.get("private_key", "").strip()
     pwd  = p.get("password", "")
 
-    args = [f"-P {port}", "-o StrictHostKeyChecking=accept-new"]
+    args = [f"-P {_q(port)}", "-o StrictHostKeyChecking=yes"]
     if pkey and os.path.exists(pkey):
-        args.append(f"-i '{pkey}'")
+        args.append(f"-i {_q(pkey)}")
     args_str = " ".join(args)
-    target = f"{user}@{host}" if user else host
+    target = _q(f"{user}@{host}") if user else _q(host)
     sftp_exe = _get_tool("sftp")
 
     if pkey and os.path.exists(pkey):
         return f"\"{sftp_exe}\" {args_str} {target}"
 
     if pwd and _tool_exists("lftp"):
-        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user else f"sftp://{host}:{port}"
-        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {host}"
+        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{_esc(host)}:{_esc(port)}" if user else f"sftp://{_esc(host)}:{_esc(port)}"
+        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {_esc(host)}"
 
     return f"\"{sftp_exe}\" {args_str} {target}"
 
@@ -298,9 +302,9 @@ def _build_rdp(p: dict) -> str:
     exe = _get_tool(client)
 
     if client in ("xfreerdp", "xfreerdp3"):
-        args = [f"/v:{host}:{port}"]
-        if user: args.append(f"/u:{user}")
-        if domain: args.append(f"/d:{domain}")
+        args = [f"/v:{_q(host)}:{_q(port)}"]
+        if user: args.append(f"/u:{_q(user)}")
+        if domain: args.append(f"/d:{_q(domain)}")
         if pwd: args.append(f"/p:'{_esc(pwd)}'")
         args.append("/cert:ignore")
         if p.get("fullscreen"): args.append("/f")
@@ -317,11 +321,11 @@ def _build_rdp(p: dict) -> str:
 
     elif client == "rdesktop":
         args = ["-a 16"]
-        if user: args.append(f"-u {user}")
-        if domain: args.append(f"-d {domain}")
-        if pwd: args.append(f"-p '{_esc(pwd)}'")
+        if user: args.append(f"-u {_q(user)}")
+        if domain: args.append(f"-d {_q(domain)}")
+        if pwd: args.append(f"-p {_q(pwd)}")
         if p.get("fullscreen"): args.append("-f")
-        return f"\"{exe}\" {' '.join(args)} {host}:{port}"
+        return f"\"{exe}\" {' '.join(args)} {_q(host)}:{_q(port)}"
 
     return f"\"{exe}\" {host}:{port}"
 
@@ -426,11 +430,13 @@ def _build_mosh(p: dict) -> str:
         return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
     if pkey and os.path.exists(pkey):
-        args = [f"--ssh='{_get_tool('ssh')} -p {port} -i {pkey}'"]
+        ssh_inner = f"{_get_tool('ssh')} -p {_q(port)} -i {_q(pkey)}"
+        args = [f"--ssh={shlex.quote(ssh_inner)}"]
     else:
-        args = [f"--ssh='{_get_tool('ssh')} -p {port}'"]
+        ssh_inner = f"{_get_tool('ssh')} -p {_q(port)}"
+        args = [f"--ssh={shlex.quote(ssh_inner)}"]
 
-    target = f"{user}@{host}" if user else host
+    target = _q(f"{user}@{host}") if user else _q(host)
     return f"\"{mosh_exe}\" {' '.join(args)} {target}"
 
 
@@ -439,17 +445,23 @@ def _build_serial(p: dict) -> str:
     baud   = p.get("baud", "115200")
 
     if _tool_exists("picocom"):
-        return f"\"{_get_tool('picocom')}\" -b {baud} {device}"
+        return f"\"{_get_tool('picocom')}\" -b {_q(baud)} {_q(device)}"
     elif _tool_exists("minicom"):
-        return f"\"{_get_tool('minicom')}\" -b {baud} -D {device}"
+        return f"\"{_get_tool('minicom')}\" -b {_q(baud)} -D {_q(device)}"
     elif _tool_exists("screen"):
-        return f"\"{_get_tool('screen')}\" {device} {baud}"
+        return f"\"{_get_tool('screen')}\" {_q(device)} {_q(baud)}"
     else:
         return f"bash -c 'echo \"Nessun client seriale trovato.\"; sleep 5'"
 
 
 def _esc(s: str) -> str:
+    """Escape per virgolette singole in contesto bash single-quoted."""
     return s.replace("'", "'\\''")
+
+
+def _q(s: str) -> str:
+    """shlex.quote: escape sicuro per qualsiasi parametro shell (previene command injection)."""
+    return shlex.quote(str(s))
 
 
 def check_dipendenze() -> dict:

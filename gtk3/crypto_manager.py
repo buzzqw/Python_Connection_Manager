@@ -140,11 +140,16 @@ def setup(password: str):
     key = _derive_key(password, salt)
     f = Fernet(key)
 
+    # Canary casuale: previene attacchi a dizionario offline su plaintext noto
+    canary = secrets.token_bytes(32)
+    verify_data = b"pcm-verify:" + canary
+
     s = _load_settings()
     s["crypto"] = {
         "enabled": True,
         "salt":    base64.b64encode(salt).decode("ascii"),
-        "verify":  f.encrypt(b"pcm-verify").decode("ascii"),
+        "canary":  base64.b64encode(canary).decode("ascii"),
+        "verify":  f.encrypt(verify_data).decode("ascii"),
     }
     _save_settings(s)
 
@@ -171,8 +176,16 @@ def unlock(password: str) -> bool:
 
         f = Fernet(key)
         decrypted = f.decrypt(verify_token.encode("ascii"))
-        if decrypted != b"pcm-verify":
-            return False
+        # Supporta sia il formato vecchio (b"pcm-verify") che il nuovo (b"pcm-verify:" + canary)
+        canary_b64 = s.get("crypto", {}).get("canary", "")
+        if canary_b64:
+            canary = base64.b64decode(canary_b64)
+            if decrypted != b"pcm-verify:" + canary:
+                return False
+        else:
+            # Compatibilità con installazioni precedenti senza canary
+            if decrypted != b"pcm-verify":
+                return False
 
         with _lock:
             _KEY = key

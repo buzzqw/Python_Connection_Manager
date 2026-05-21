@@ -165,7 +165,10 @@ class SftpBrowserWidget(Gtk.Box):
             pkey = self._profilo.get("private_key", "")
 
             self._ssh = paramiko.SSHClient()
-            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            # RejectPolicy: rifiuta host sconosciuti invece di accettarli silenziosamente.
+            # known_hosts dell'utente viene caricato automaticamente da load_system_host_keys().
+            self._ssh.load_system_host_keys()
+            self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
             kwargs = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):
@@ -182,6 +185,19 @@ class SftpBrowserWidget(Gtk.Box):
             self._cwd = home
 
             GLib.idle_add(self._naviga_ui, home)
+        except paramiko.ssh_exception.SSHException as e:
+            msg = str(e)
+            if "not found in known_hosts" in msg or "Unknown server" in msg.lower():
+                # Host non presente nei known_hosts: mostra istruzioni all'utente
+                avviso = (
+                    f"Chiave host di '{host}' non trovata nei known_hosts.\n"
+                    f"Verifica l'impronta con il server e aggiungi manualmente:\n"
+                    f"  ssh-keyscan -H {host} >> ~/.ssh/known_hosts\n"
+                    f"oppure connettiti prima via terminale SSH per accettare la chiave."
+                )
+                GLib.idle_add(self._set_status, avviso)
+            else:
+                GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
         except Exception as e:
             GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
 

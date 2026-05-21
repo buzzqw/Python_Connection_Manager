@@ -207,6 +207,9 @@ class TerminalWidget(Gtk.Box):
             print(f"[terminal] Errore feed_child: {e}")
 
     def _registra_comando(self, testo: str, sorgente: str = "macro"):
+        # Non registrare le password inviate automaticamente (sorgente "auto_password")
+        if sorgente == "auto_password":
+            return
         self._comandi_inviati.append({
             "ts":       datetime.now().isoformat(timespec="seconds"),
             "cmd":      testo,

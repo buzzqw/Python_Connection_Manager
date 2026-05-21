@@ -360,8 +360,7 @@ class TunnelManagerDialog(Gtk.Dialog):
                 env=env,
             )
             self._procs[idx] = proc
-            self._tunnels[idx]["pid"] = proc.pid
-            config_manager.save_tunnels(self._tunnels)
+            # Il PID rimane solo in memoria (_procs); non viene persistito su disco.
 
             # Rendiamo l'output non-bloccante per leggerlo in tempo reale
             fd = proc.stdout.fileno()
@@ -401,8 +400,6 @@ class TunnelManagerDialog(Gtk.Dialog):
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
             except Exception:
                 pass
-            self._tunnels[idx]["pid"] = None
-            config_manager.save_tunnels(self._tunnels)
 
     @staticmethod
     def _build_cmd(t: dict) -> list:
@@ -420,7 +417,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         cmd = [
             "ssh", "-N",
             "-p", sport,
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "StrictHostKeyChecking=yes",
             "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=60"
         ]
@@ -448,8 +445,6 @@ class TunnelManagerDialog(Gtk.Dialog):
             if not vivo and idx in self._procs:
                 # processo morto inaspettatamente: pulizia
                 self._procs.pop(idx)
-                self._tunnels[idx]["pid"] = None
-                config_manager.save_tunnels(self._tunnels)
             self._store.set_value(it, 6, t("tunnel.status_active") if vivo else t("tunnel.status_idle"))
             it = self._store.iter_next(it)
         return True  # mantieni il timer attivo
@@ -458,8 +453,8 @@ class TunnelManagerDialog(Gtk.Dialog):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
         # I tunnel SSH rimangono attivi dopo la chiusura della finestra.
-        # I processi sopravvivono grazie a os.setsid(); i PID sono salvati
-        # in config e verranno riagganciati alla prossima apertura.
+        # I processi sopravvivono grazie a os.setsid(); i PID sono tenuti
+        # solo in memoria e non vengono persistiti su disco.
 
     def ferma_tutti_alla_chiusura(self):
         """Chiama questo alla chiusura dell'app principale se vuoi

@@ -67,8 +67,12 @@
 ### 🔐 Sicurezza — sopra la media
 
 - **Password mai sulla command line**: PCM digita la password direttamente nel terminale quando il server la richiede, esattamente come farebbe un utente. Nessun `sshpass`, nessun argomento visibile in `ps aux`.
-- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: se SSH gestisce l'auth prima che appaia un prompt (keyboard-interactive), PCM crea uno script helper temporaneo (mode `0700`) che legge la password da variabile d'ambiente — mai scritta nel file su disco.
-- **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco.
+- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: lo script helper è creato in `~/.cache/pcm/` (permessi `0700`, non in `/tmp`) ed eliminato dopo 5 secondi. La password è passata solo via variabile d'ambiente, mai scritta nel file.
+- **Protezione command injection**: tutti i parametri dei profili (host, porta, utente, device, ecc.) sono sanificati con `shlex.quote()` prima di essere usati nei comandi shell. Il pre-comando è eseguito con `shell=False`.
+- **File credenziali protetti** (`connections.json`, `pcm_settings.json`, `audit_log.json`): scritti con permessi `0600` — leggibili solo dal proprietario.
+- **Verifica host key SSH attiva**: `StrictHostKeyChecking=yes` su tutte le connessioni. Il browser SFTP usa `RejectPolicy` di paramiko con caricamento automatico di `known_hosts`.
+- **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco. Il token di verifica usa un canary casuale per prevenire attacchi a dizionario offline.
+- **Audit log con hash chaining**: ogni voce include l'SHA-256 della voce precedente — le manomissioni sono rilevabili.
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
 - **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
@@ -348,10 +352,11 @@ Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 
 | File | Contenuto |
 |---|---|
-| `gtk3/connections.json` | Profili sessione — JSON leggibile, modificabile a mano |
-| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti |
-| `gtk3/audit_log.json` | Log audit connessioni (solo metadata, nessuna credenziale) |
-| `/tmp/pcm_logs/` | Log output terminali, percorso configurabile |
+| `gtk3/connections.json` | Profili sessione — JSON leggibile, modificabile a mano. Permessi `0600`. |
+| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti. Permessi `0600`. |
+| `gtk3/audit_log.json` | Log audit connessioni con hash chaining SHA-256. Permessi `0600`. |
+| `~/.local/share/pcm/logs/` | Log output terminali (default), percorso configurabile |
+| `~/.cache/pcm/` | File temporanei SSH_ASKPASS (dir `0700`, file eliminati dopo 5s) |
 
 ---
 
@@ -436,8 +441,12 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 ### 🔐 Security — above average
 
 - **Password never on command line**: PCM types the password directly into the terminal when the server asks for it, just like a user would. No `sshpass`, nothing visible in `ps aux`.
-- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: if SSH handles auth before a prompt appears (keyboard-interactive), PCM creates a temporary helper script (mode `0700`) that reads the password from an environment variable — never written to the script file on disk.
-- **AES-256 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk.
+- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: the helper script is created in `~/.cache/pcm/` (permissions `0700`, not in `/tmp`) and deleted after 5 seconds. The password is passed via environment variable only, never written to the file.
+- **Command injection protection**: all profile parameters (host, port, user, device, etc.) are sanitised with `shlex.quote()` before use in shell commands. Pre-commands run with `shell=False`.
+- **Protected credential files** (`connections.json`, `pcm_settings.json`, `audit_log.json`): written with permissions `0600` — readable only by the owner.
+- **SSH host key verification enabled**: `StrictHostKeyChecking=yes` on all connections. The SFTP browser uses paramiko `RejectPolicy` with automatic `known_hosts` loading.
+- **AES-256 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
+- **Audit log with hash chaining**: each entry includes the SHA-256 of the previous entry — tampering is detectable.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.
@@ -706,10 +715,11 @@ The `gtk-vnc` VNC viewer works natively on Wayland.
 
 | File | Contents |
 |---|---|
-| `gtk3/connections.json` | Session profiles — human-readable JSON, editable by hand |
-| `gtk3/pcm_settings.json` | Global settings, shortcuts, recent sessions |
-| `gtk3/audit_log.json` | Connection audit log (metadata only, no credentials) |
-| `/tmp/pcm_logs/` | Terminal output logs, path configurable |
+| `gtk3/connections.json` | Session profiles — human-readable JSON, editable by hand. Permissions `0600`. |
+| `gtk3/pcm_settings.json` | Global settings, shortcuts, recent sessions. Permissions `0600`. |
+| `gtk3/audit_log.json` | Connection audit log with SHA-256 hash chaining. Permissions `0600`. |
+| `~/.local/share/pcm/logs/` | Terminal output logs (default), path configurable |
+| `~/.cache/pcm/` | SSH_ASKPASS temp files (dir `0700`, deleted after 5s) |
 
 ---
 

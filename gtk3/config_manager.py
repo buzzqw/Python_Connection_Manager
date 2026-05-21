@@ -2,8 +2,10 @@
 config_manager.py - Gestione profili sessioni e impostazioni globali PCM
 """
 
+import hashlib
 import json
 import os
+import secrets
 
 # Import lazy: crypto_manager potrebbe non avere cryptography installato
 def _crypto():
@@ -66,8 +68,7 @@ def save_profiles(profiles: dict) -> bool:
         to_save = profiles
 
     try:
-        with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump(to_save, f, indent=4, ensure_ascii=False)
+        _write_json_secure(SESSIONS_FILE, to_save)
         return True
     except Exception as e:
         print(f"[config] Errore salvataggio sessioni: {e}")
@@ -187,7 +188,7 @@ DEFAULT_SETTINGS = {
         "scrollback_lines": 10000,
         "confirm_on_close": True,
         "log_output": False,
-        "log_dir": "/tmp/pcm_logs",
+        "log_dir": os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs"),
         "word_delimiters": "/~+-.&?$%",
         "warn_multiline_paste": True,
     },
@@ -234,10 +235,16 @@ def load_settings() -> dict:
         return dict(DEFAULT_SETTINGS)
 
 
+def _write_json_secure(path: str, data: dict):
+    """Scrive JSON con permessi 0600 (solo proprietario)."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+
 def save_settings(settings: dict) -> bool:
     try:
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=4, ensure_ascii=False)
+        _write_json_secure(SETTINGS_FILE, settings)
         return True
     except Exception as e:
         print(f"[config] Errore salvataggio settings: {e}")
@@ -337,16 +344,25 @@ def clear_recent():
 _AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit_log.json")
 
 
+def _audit_hash(entry: dict, prev_hash: str) -> str:
+    """Calcola l'SHA-256 di una voce incluso l'hash della voce precedente (hash chaining)."""
+    raw = json.dumps(entry, sort_keys=True, ensure_ascii=False) + prev_hash
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def audit_append(entry: dict):
-    """Aggiunge una voce all'audit log (append atomico)."""
+    """Aggiunge una voce all'audit log con hash chaining (integrità) e permessi 0600."""
     try:
         if os.path.exists(_AUDIT_FILE):
             with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
                 log = json.load(f)
         else:
             log = []
+        prev_hash = log[-1].get("_hash", "") if log else ""
+        entry["_hash"] = _audit_hash(entry, prev_hash)
         log.append(entry)
-        with open(_AUDIT_FILE, "w", encoding="utf-8") as f:
+        fd = os.open(_AUDIT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(log, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[audit] Errore scrittura: {e}")
@@ -364,7 +380,8 @@ def audit_load() -> list:
 
 def audit_clear():
     try:
-        with open(_AUDIT_FILE, "w", encoding="utf-8") as f:
+        fd = os.open(_AUDIT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump([], f)
     except Exception as e:
         print(f"[audit] Errore cancellazione: {e}")

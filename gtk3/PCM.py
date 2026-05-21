@@ -446,7 +446,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 if pre_cmd:
                     timeout = dati.get("pre_cmd_timeout", 15)
                     try:
-                        subprocess.run(pre_cmd, shell=True, timeout=timeout)
+                        import shlex as _shlex_pre
+                        subprocess.run(_shlex_pre.split(pre_cmd), shell=False, timeout=timeout)
                     except Exception as e:
                         GLib.idle_add(self._warn, f"Pre-cmd fallito: {e}")
                 if wol_mac:
@@ -623,19 +624,25 @@ class MainWindow(Gtk.ApplicationWindow):
         pwd  = dati.get("password", "")
         pkey = dati.get("private_key", "").strip()
         if pwd and not pkey:
-            # SSH_ASKPASS: script temp mode 0700, password via env (non embedded nel file)
-            _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir="/tmp", text=True)
-            with os.fdopen(_fd, "w") as _f:
-                _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
-            os.chmod(_askpass, 0o700)
-            env_extra["PCM_ASKPASS_PASSWORD"] = pwd
-            env_extra["SSH_ASKPASS"] = _askpass
-            env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
-            def _cleanup_askpass(path=_askpass):
-                with contextlib.suppress(Exception):
-                    os.unlink(path)
-                return False
-            GLib.timeout_add(15000, _cleanup_askpass)    # pulizia dopo 15 s
+            # SSH_ASKPASS: script temp in directory privata (non /tmp), password via env
+            _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
+            # Verifica che la directory sia di proprietà dell'utente corrente
+            if os.stat(_askpass_dir).st_uid != os.getuid():
+                self._warn("Attenzione: ~/.cache/pcm non è di proprietà dell'utente corrente. SSH_ASKPASS disabilitato.")
+            else:
+                _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
+                with os.fdopen(_fd, "w") as _f:
+                    _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+                os.chmod(_askpass, 0o700)
+                env_extra["PCM_ASKPASS_PASSWORD"] = pwd
+                env_extra["SSH_ASKPASS"] = _askpass
+                env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
+                def _cleanup_askpass(path=_askpass):
+                    with contextlib.suppress(Exception):
+                        os.unlink(path)
+                    return False
+                GLib.timeout_add(5000, _cleanup_askpass)    # pulizia dopo 5 s
 
         # Modalità terminale ESTERNO: lancia nel terminal emulator scelto
         if modalita and modalita.endswith("_term_ext"):
