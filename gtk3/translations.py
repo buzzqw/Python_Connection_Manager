@@ -409,6 +409,7 @@ _T: dict[str, dict[str, str]] = {
     "settings.general.home_dir":      {"it": "Home directory:", "en": "Home directory:", "de": "Home-Verzeichnis:", "fr": "Répertoire personnel :", "es": "Directorio home:"},
     "settings.general.editor":        {"it": "Editor di testo:", "en": "Text editor:", "de": "Texteditor:", "fr": "Éditeur de texte :", "es": "Editor de texto:"},
     "settings.general.confirm_exit":  {"it": "Chiedi conferma alla chiusura", "en": "Ask for confirmation on exit", "de": "Beim Beenden bestätigen", "fr": "Demander confirmation à la fermeture", "es": "Pedir confirmación al salir"},
+    "settings.general.audit_log":     {"it": "Abilita registro audit connessioni", "en": "Enable connection audit log", "de": "Verbindungs-Auditprotokoll aktivieren", "fr": "Activer le journal d'audit des connexions", "es": "Habilitar registro de auditoría de conexiones"},
     "settings.general.language":      {"it": "Language / Lingua:", "en": "Language / Lingua:", "de": "Language / Lingua:", "fr": "Language / Lingua:", "es": "Language / Lingua:"},
     "settings.general.language_note": {"it": "Riavvia PCM per applicare la lingua.", "en": "Restart PCM to apply the language.", "de": "PCM neu starten, um die Sprache zu übernehmen.", "fr": "Redémarrez PCM pour appliquer la langue.", "es": "Reinicia PCM para aplicar el idioma."},
 

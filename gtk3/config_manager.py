@@ -180,6 +180,7 @@ DEFAULT_SETTINGS = {
         "confirm_on_exit": True,
         "language": "it",
         "protected_mode": False,
+        "audit_log_enabled": False,
     },
     "terminal": {
         "default_theme": "Scuro (Default)",
@@ -383,10 +384,13 @@ def _audit_hash(entry: dict, prev_hash: str) -> str:
 def audit_append(entry: dict):
     """Aggiunge una voce all'audit log con hash chaining (integrità) e permessi 0600.
 
+    Non scrive nulla se audit_log_enabled è False nelle impostazioni.
     I valori sensibili (password, token, chiavi) vengono rimossi dalla copia
     che viene scritta su disco e usata per il calcolo dell'hash, così da
     evitare che dati riservati transitino nell'audit log.
     """
+    if not load_settings().get("general", {}).get("audit_log_enabled", False):
+        return
     try:
         if os.path.exists(_AUDIT_FILE):
             with open(_AUDIT_FILE, "r", encoding="utf-8") as f:

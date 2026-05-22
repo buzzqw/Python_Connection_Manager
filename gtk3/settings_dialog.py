@@ -129,6 +129,10 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_confirm_exit = Gtk.CheckButton(label=t("settings.general.confirm_exit"))
         grid.attach(self.chk_confirm_exit, 0, row, 2, 1); row += 1
 
+        # Audit log
+        self.chk_audit_log = Gtk.CheckButton(label=t("settings.general.audit_log"))
+        grid.attach(self.chk_audit_log, 0, row, 2, 1); row += 1
+
         # Separatore
         sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         sep.set_margin_top(4)
@@ -438,6 +442,7 @@ class SettingsDialog(Gtk.Dialog):
             child.set_text(ed)
 
         self.chk_confirm_exit.set_active(g.get("confirm_on_exit", True))
+        self.chk_audit_log.set_active(g.get("audit_log_enabled", False))
 
         lang_code = g.get("language", "it")
         if lang_code in self._lang_codes:
@@ -472,6 +477,7 @@ class SettingsDialog(Gtk.Dialog):
         ed_child = self.combo_editor.get_child()
         s["general"]["default_editor"] = ed_child.get_text() if ed_child else "nano"
         s["general"]["confirm_on_exit"] = self.chk_confirm_exit.get_active()
+        s["general"]["audit_log_enabled"] = self.chk_audit_log.get_active()
 
         idx_lang = self.combo_lingua.get_active()
         if 0 <= idx_lang < len(self._lang_codes):
