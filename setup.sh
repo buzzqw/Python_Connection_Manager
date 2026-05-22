@@ -111,31 +111,31 @@ echo
 echo -e "  Versione selezionata: ${BOLD}${VARIANT}${NC}"
 
 # ── Configurazione pacchetti per variante e distro ────────────────────────
-USE_UV=false
+USE_VENV=false
 
 if [[ "$VARIANT" == "gtk3" ]]; then
     # ── GTK3 ──
     if [[ "$DISTRO" == "debian" ]]; then
         SYS_PKGS="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
         PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=true
+        USE_VENV=true
     elif [[ "$DISTRO" == "fedora" ]]; then
         SYS_PKGS="python3 python3-devel curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
         PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=true
+        USE_VENV=true
     elif [[ "$DISTRO" == "arch" ]]; then
         SYS_PKGS="python curl gtk3 vte3 gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
         PIP_PACKAGES=()
-        USE_UV=false
+        USE_VENV=false
     elif [[ "$DISTRO" == "freebsd" ]]; then
         PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "311")
         SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
         PIP_PACKAGES=()
-        USE_UV=false
+        USE_VENV=false
     else
         SYS_PKGS=""
         PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=false
+        USE_VENV=false
     fi
     VARIANT_DIR="${PROJECT_DIR}/gtk3"
     CHECK_CMD_PY='import gi; gi.require_version("Gtk","3.0"); from gi.repository import Gtk'
@@ -149,24 +149,24 @@ else
     if [[ "$DISTRO" == "debian" ]]; then
         SYS_PKGS="python3 python3-venv curl openssh-client mosh freerdp3-x11 tigervnc-viewer novnc websockify xdotool wakeonlan xdg-utils telnet"
         PIP_PACKAGES=("PyQt6>=6.0.0" "PyQt6-WebEngine" "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=true
+        USE_VENV=true
     elif [[ "$DISTRO" == "fedora" ]]; then
         SYS_PKGS="python3 python3-devel curl openssh-clients mosh freerdp tigervnc novnc python3-websockify xdotool wol xdg-utils telnet"
         PIP_PACKAGES=("PyQt6>=6.0.0" "PyQt6-WebEngine" "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=true
+        USE_VENV=true
     elif [[ "$DISTRO" == "arch" ]]; then
         SYS_PKGS="python curl openssh mosh freerdp tigervnc novnc python-websockify xdotool wol xdg-utils inetutils python-pyqt6 python-pyqt6-webengine python-cryptography python-paramiko python-pyftpdlib"
         PIP_PACKAGES=()
-        USE_UV=false
+        USE_VENV=false
     elif [[ "$DISTRO" == "freebsd" ]]; then
         PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "311")
         SYS_PKGS="bash python3 curl mosh freerdp3 tigervnc-viewer novnc py${PY_VER}-websockify xdotool wakeonlan xdg-utils py${PY_VER}-qt6-pyqt py${PY_VER}-qt6-webengine py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
         PIP_PACKAGES=()
-        USE_UV=false
+        USE_VENV=false
     else
         SYS_PKGS=""
         PIP_PACKAGES=("PyQt6>=6.0.0" "PyQt6-WebEngine" "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
-        USE_UV=false
+        USE_VENV=false
     fi
     VARIANT_DIR="${PROJECT_DIR}/pyqt6"
     CHECK_CMD_PY='from PyQt6.QtWidgets import QApplication'
@@ -190,20 +190,11 @@ install_system_deps() {
 }
 
 setup_python_env() {
-    if [[ "$USE_UV" == true ]]; then
-        hdr "Verifica UV"
-        if ! command -v uv &>/dev/null; then
-            warn "uv non trovato. Installazione in corso..."
-            curl -LsSf https://astral.sh/uv/install.sh | sh
-            export PATH="$HOME/.cargo/bin:$PATH"
-        else
-            ok "uv è installato"
-        fi
-
+    if [[ "$USE_VENV" == true ]]; then
         hdr "Ambiente virtuale (.venv)"
         VENV_DIR="${VARIANT_DIR}/.venv"
         if [[ ! -d "$VENV_DIR" ]]; then
-            uv venv --system-site-packages "$VENV_DIR"
+            python3 -m venv --system-site-packages "$VENV_DIR"
             ok "Ambiente .venv creato in ${VENV_DIR}"
         else
             ok "Ambiente .venv esistente: ${VENV_DIR}"
@@ -211,7 +202,7 @@ setup_python_env() {
 
         if [[ ${#PIP_PACKAGES[@]} -gt 0 ]]; then
             echo "  Installazione moduli Python nel venv..."
-            uv pip install --python "$VENV_DIR/bin/python3" "${PIP_PACKAGES[@]}"
+            "$VENV_DIR/bin/pip" install --quiet "${PIP_PACKAGES[@]}"
         fi
 
         PYTHON_CMD="${VENV_DIR}/bin/python3"
@@ -270,7 +261,7 @@ check_status() {
     hdr "Verifica finale ambiente (${VARIANT})"
 
     local PYTHON_CHK="${PYTHON_CMD:-python3}"
-    [[ "$USE_UV" == true && -d "${VARIANT_DIR}/.venv" ]] && PYTHON_CHK="${VARIANT_DIR}/.venv/bin/python3"
+    [[ "$USE_VENV" == true && -d "${VARIANT_DIR}/.venv" ]] && PYTHON_CHK="${VARIANT_DIR}/.venv/bin/python3"
 
     if $PYTHON_CHK -c "import cryptography, paramiko, pyftpdlib" &>/dev/null; then
         ok "Moduli Python principali (cryptography, paramiko, pyftpdlib) trovati"

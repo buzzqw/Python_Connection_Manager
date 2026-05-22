@@ -1576,7 +1576,7 @@ ssh altro-server                           <span class="cm"># autenticazione tra
 <h4>Il browser SFTP non si connette</h4>
 <p>Il browser SFTP usa <code>paramiko</code>. Verifica l'installazione:<br>
 <code>.venv/bin/python3 -c "import paramiko"</code><br>
-Se manca: <code>uv pip install paramiko</code> dalla cartella gtk3.</p>
+Se manca: <code>.venv/bin/pip install paramiko</code> dalla cartella gtk3.</p>
 
 <h4>Le macro sono lente / arrivano con ritardo</h4>
 <p>PCM invia le macro tramite la clipboard GDK (nativa GTK3) in modo istantaneo, indipendentemente dalla lunghezza del comando. Se su sessioni X11 riscontri problemi di clipboard, verifica che <code>xclip</code> sia installato: <code>which xclip</code>. Su Wayland la clipboard è gestita nativamente senza dipendenze esterne.</p>

@@ -13,8 +13,8 @@
 #   bash setup.sh
 #
 # Lo script rileva automaticamente la distribuzione e installa tutte le
-# dipendenze. Su Debian e Fedora usa uv come gestore di pacchetti Python
-# (evita il blocco PEP-668); su Arch e FreeBSD usa i pacchetti di sistema.
+# dipendenze. Su Debian e Fedora crea un venv Python per isolare le
+# dipendenze pip (evita il blocco PEP-668); su Arch e FreeBSD usa i pacchetti di sistema.
 #
 # Verifica senza installare:
 #   bash setup.sh --check
@@ -33,13 +33,10 @@
 #       xdotool wakeonlan xdg-utils \
 #       telnet
 #
-# Pacchetti Python (tramite uv — raccomandato):
-#   uv venv --system-site-packages
-#   uv pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
-#                  "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
-#
-# Oppure con pip:
-#   pip install --user PyQt6 PyQt6-WebEngine cryptography paramiko pyftpdlib
+# Pacchetti Python (tramite venv):
+#   python3 -m venv --system-site-packages .venv
+#   .venv/bin/pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
+#                         "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
 
 # ===========================================================================
 # Arch Linux
@@ -66,13 +63,10 @@
 #       xdotool xdg-utils wol \
 #       telnet
 #
-# Pacchetti Python (tramite uv — raccomandato):
-#   uv venv --system-site-packages
-#   uv pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
-#                  "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
-#
-# Oppure con pip:
-#   pip install --user PyQt6 PyQt6-WebEngine cryptography paramiko pyftpdlib
+# Pacchetti Python (tramite venv):
+#   python3 -m venv --system-site-packages .venv
+#   .venv/bin/pip install "PyQt6>=6.0.0" PyQt6-WebEngine \
+#                         "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
 
 # ===========================================================================
 # FreeBSD (pkg)
