@@ -43,7 +43,7 @@ from session_panel import SessionPanel
 from session_dialog import SessionDialog
 from session_command import build_command, check_dipendenze
 from settings_dialog import SettingsDialog
-from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel
+from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel, reattach_tunnels
 from vnc_widget import VncWebWidget
 from rdp_widget import RdpEmbedWidget
 from sftp_browser import SftpBrowserWidget
@@ -141,6 +141,8 @@ class MainWindow(Gtk.ApplicationWindow):
         GLib.timeout_add(300, self._check_crypto_unlock)
         # Timer live stat: aggiorna statusbar ogni 3s con stato del terminale attivo
         GLib.timeout_add(3000, self._aggiorna_stato_live)
+        # Notifica tunnel attivi all'avvio — 1s dopo per dare tempo al rendering
+        GLib.timeout_add(1000, self._notifica_tunnel_avvio)
 
     # ------------------------------------------------------------------
     # Sblocco credenziali cifrate
@@ -1175,6 +1177,15 @@ class MainWindow(Gtk.ApplicationWindow):
     # Indicatore tunnel attivi nella toolbar
     # ------------------------------------------------------------------
 
+    def _notifica_tunnel_avvio(self) -> bool:
+        """Chiamato 1s dopo l'avvio: riagganicia i tunnel con PID persistito e mostra notifica."""
+        reattach_tunnels()  # popola _active_procs dai PID salvati nella config
+        attivi = get_active_tunnels()
+        if attivi:
+            nomi = ", ".join(tun.get("nome", "?") for tun in attivi)
+            self._status(t("tunnel.startup_found").format(n=len(attivi)) + f": {nomi}")
+        return False  # esegui una volta sola
+
     def _aggiorna_tun_indicator(self) -> bool:
         attivi = get_active_tunnels()
         n = len(attivi)
@@ -1856,6 +1867,45 @@ class MainWindow(Gtk.ApplicationWindow):
                 dlg.destroy()
                 if resp != Gtk.ResponseType.YES:
                     return True  # blocca la chiusura
+        # Controlla tunnel SSH attivi
+        tunnel_attivi = get_active_tunnels()
+        if tunnel_attivi:
+            nomi = "\n".join(f"  • {tun.get('nome', '?')}" for tun in tunnel_attivi)
+            dlg = Gtk.Dialog(
+                title=t("tunnel.close_warning_title"),
+                transient_for=self,
+                modal=True,
+                destroy_with_parent=True,
+            )
+            dlg.set_default_size(400, 0)
+            area = dlg.get_content_area()
+            area.set_spacing(8)
+            area.set_margin_start(16); area.set_margin_end(16)
+            area.set_margin_top(16);  area.set_margin_bottom(8)
+            lbl = Gtk.Label()
+            msg = t("tunnel.close_warning_msg").replace("<b>", "").replace("</b>", "").format(
+                n=len(tunnel_attivi), names=nomi
+            )
+            lbl.set_text(msg)
+            lbl.set_line_wrap(True)
+            lbl.set_xalign(0.0)
+            area.pack_start(lbl, False, False, 0)
+            area.show_all()
+            # Pulsanti: Annulla | Lascia attivi | Ferma tunnel
+            _RESP_CANCEL = 0
+            _RESP_KEEP   = 1
+            _RESP_STOP   = 2
+            dlg.add_button(t("tunnel.close_cancel"), _RESP_CANCEL)
+            dlg.add_button(t("tunnel.close_keep"),   _RESP_KEEP)
+            dlg.add_button(t("tunnel.close_stop"),   _RESP_STOP)
+            resp = dlg.run()
+            dlg.destroy()
+            if resp == _RESP_CANCEL:
+                return True  # blocca la chiusura
+            if resp == _RESP_STOP:
+                for tun in tunnel_attivi:
+                    stop_tunnel(tun["_idx"])
+            # _RESP_KEEP: lascia i tunnel attivi, si chiude normalmente
         # Chiudi tutti i processi aperti
         for i in range(self._notebook.get_n_pages()):
             page = self._notebook.get_nth_page(i)

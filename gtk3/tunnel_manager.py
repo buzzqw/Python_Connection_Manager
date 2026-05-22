@@ -6,6 +6,7 @@ Aggiunto supporto a sshpass, campo Utente, e Log terminal integrato.
 """
 
 import os
+import glob
 import shutil
 import signal
 import subprocess
@@ -38,6 +39,38 @@ def _proc_vivo(pid: int) -> bool:
         return False
 
 
+def _porta_in_ascolto(port: int) -> int | None:
+    """Cerca in /proc/net/tcp e /proc/net/tcp6 se la porta locale è in LISTEN.
+    Restituisce il PID del processo che la tiene aperta, oppure None.
+    Funziona senza dipendenze esterne su qualsiasi Linux."""
+    hex_port = format(int(port), '04X')
+    # Costruisce mappa inode → PID leggendo i symlink /proc/<pid>/fd/*
+    inode_to_pid: dict[str, int] = {}
+    for fdpath in glob.glob('/proc/[0-9]*/fd/*'):
+        try:
+            target = os.readlink(fdpath)
+            if target.startswith('socket:['):
+                inode = target[8:-1]
+                pid = int(fdpath.split('/')[2])
+                inode_to_pid[inode] = pid
+        except Exception:
+            pass
+    for path in ('/proc/net/tcp', '/proc/net/tcp6'):
+        try:
+            with open(path) as fh:
+                for line in fh:
+                    parts = line.split()
+                    if len(parts) < 10:
+                        continue
+                    local, state, inode = parts[1], parts[3], parts[9]
+                    lport = local.split(':')[1]
+                    if lport.upper() == hex_port and state == '0A':  # 0A = LISTEN
+                        return inode_to_pid.get(inode)  # PID o None
+        except Exception:
+            pass
+    return None
+
+
 def get_active_tunnels() -> list:
     """Restituisce lista di dict (con chiave _idx) per i tunnel attivi."""
     tunnels = config_manager.load_tunnels()
@@ -64,6 +97,50 @@ def stop_tunnel(idx: int):
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
         except Exception:
             pass
+        # Azzera il PID salvato nella config
+        tunnels = config_manager.load_tunnels()
+        if idx < len(tunnels):
+            tunnels[idx]["pid"] = None
+            config_manager.save_tunnels(tunnels)
+
+
+def reattach_tunnels():
+    """Rileva tunnel lasciati attivi usando due strategie complementari:
+    1. Controlla se la porta locale è ancora in ascolto via /proc/net/tcp (più affidabile).
+    2. Fallback: verifica il PID salvato nella config.
+    Da chiamare all'avvio dell'app."""
+    tunnels = config_manager.load_tunnels()
+    changed = False
+    for i, tun in enumerate(tunnels):
+        if i in _active_procs:
+            continue
+        lport = tun.get("local_port")
+        pid_conf = tun.get("pid")
+
+        # Strategia 1 — porta di rete ancora in ascolto?
+        if lport:
+            pid_net = _porta_in_ascolto(int(lport))
+            if pid_net is not None:
+                # La porta è occupata: tunnel attivo (pid_net può essere None se
+                # non riusciamo a risolvere l'inode→PID, ma la porta c'è)
+                effective_pid = pid_net or pid_conf
+                if effective_pid:
+                    _active_procs[i] = _PidProxy(effective_pid)
+                    if tunnels[i].get("pid") != effective_pid:
+                        tunnels[i]["pid"] = effective_pid
+                        changed = True
+                continue  # trovato via rete, non serve il fallback
+
+        # Strategia 2 — fallback: PID salvato nella config
+        if pid_conf and _proc_vivo(pid_conf):
+            _active_procs[i] = _PidProxy(pid_conf)
+        elif pid_conf:
+            # PID non più valido: azzera nella config
+            tunnels[i]["pid"] = None
+            changed = True
+
+    if changed:
+        config_manager.save_tunnels(tunnels)
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +487,9 @@ class TunnelManagerDialog(Gtk.Dialog):
                 env=env,
             )
             self._procs[idx] = proc
-            # Il PID rimane solo in memoria (_procs); non viene persistito su disco.
+            # Persisti il PID nella config per rilevarlo al prossimo avvio
+            self._tunnels[idx]["pid"] = proc.pid
+            config_manager.save_tunnels(self._tunnels)
 
             # Rendiamo l'output non-bloccante per leggerlo in tempo reale
             fd = proc.stdout.fileno()
@@ -450,6 +529,10 @@ class TunnelManagerDialog(Gtk.Dialog):
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
             except Exception:
                 pass
+            # Azzera il PID salvato nella config
+            if idx < len(self._tunnels):
+                self._tunnels[idx]["pid"] = None
+                config_manager.save_tunnels(self._tunnels)
 
     @staticmethod
     def _build_cmd(t: dict) -> list:
@@ -503,8 +586,8 @@ class TunnelManagerDialog(Gtk.Dialog):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
         # I tunnel SSH rimangono attivi dopo la chiusura della finestra.
-        # I processi sopravvivono grazie a os.setsid(); i PID sono tenuti
-        # solo in memoria e non vengono persistiti su disco.
+        # I processi sopravvivono grazie a os.setsid(); i PID sono persistiti
+        # su disco e verranno rilevati al prossimo avvio di PCM.
 
     def ferma_tutti_alla_chiusura(self):
         """Chiama questo alla chiusura dell'app principale se vuoi
