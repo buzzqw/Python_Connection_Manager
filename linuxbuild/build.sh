@@ -319,6 +319,19 @@ if $MAKE_DEB; then
         [[ -f "${GTK3_DIR}/INSTALL.txt" ]] && \
             cp "${GTK3_DIR}/INSTALL.txt" "${DEB_DOC_DIR}/"
 
+        # Man page
+        DEB_MAN_DIR="${DEB_ROOT}/usr/share/man/man1"
+        mkdir -p "${DEB_MAN_DIR}"
+        if command -v pandoc &>/dev/null && [[ -f "${GTK3_DIR}/pcm.1.md" ]]; then
+            pandoc "${GTK3_DIR}/pcm.1.md" -s -t man | gzip -9 > "${DEB_MAN_DIR}/pcm.1.gz"
+            ok "Man page generata da pcm.1.md"
+        elif [[ -f "${GTK3_DIR}/pcm.1.gz" ]]; then
+            cp "${GTK3_DIR}/pcm.1.gz" "${DEB_MAN_DIR}/pcm.1.gz"
+            ok "Man page copiata da pcm.1.gz"
+        else
+            warn "Man page non disponibile (pandoc non trovato e pcm.1.gz assente)"
+        fi
+
         # Icona principale
         if [[ -f "${GTK3_DIR}/icons/pcm_icon.png" ]]; then
             cp "${GTK3_DIR}/icons/pcm_icon.png" "${DEB_ICONS_DIR}/pcm.png"
@@ -377,6 +390,9 @@ if command -v update-desktop-database >/dev/null 2>&1; then
 fi
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache /usr/share/icons/hicolor || true
+fi
+if command -v mandb >/dev/null 2>&1; then
+    mandb --quiet || true
 fi
 POSTINST
         chmod 0755 "${DEB_ROOT}/DEBIAN/postinst"

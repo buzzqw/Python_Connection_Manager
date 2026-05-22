@@ -311,6 +311,28 @@ fi
 install_system_deps
 setup_python_env
 create_launcher
+
+# ── Man page ──────────────────────────────────────────────────────────────
+if [[ "$OS" == "Linux" ]]; then
+    hdr "Man page (man pcm)"
+    MAN_DIR="/usr/local/share/man/man1"
+    MAN_SRC="${PROJECT_DIR}/gtk3/pcm.1.md"
+    MAN_GZ="${PROJECT_DIR}/gtk3/pcm.1.gz"
+    if command -v pandoc &>/dev/null && [[ -f "$MAN_SRC" ]]; then
+        pandoc "$MAN_SRC" -s -t man | gzip -9 > /tmp/pcm.1.gz
+        sudo install -Dm644 /tmp/pcm.1.gz "${MAN_DIR}/pcm.1.gz"
+        rm -f /tmp/pcm.1.gz
+        sudo mandb --quiet 2>/dev/null || true
+        ok "Man page installata → ${MAN_DIR}/pcm.1.gz (usa: man pcm)"
+    elif [[ -f "$MAN_GZ" ]]; then
+        sudo install -Dm644 "$MAN_GZ" "${MAN_DIR}/pcm.1.gz"
+        sudo mandb --quiet 2>/dev/null || true
+        ok "Man page installata → ${MAN_DIR}/pcm.1.gz (usa: man pcm)"
+    else
+        warn "Man page non disponibile (pandoc non trovato e pcm.1.gz assente — opzionale)"
+    fi
+fi
+
 check_status
 
 # Salva il marker di installazione
