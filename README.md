@@ -94,6 +94,7 @@
 ### 📁 Gestione sessioni
 
 - Organizzate per **gruppo** con barra di ricerca live
+- **Indicatore sessioni attive** — pallino verde ● accanto al nome delle sessioni con connessione aperta
 - **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
 - **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
 - Doppio clic per connettere, tasto destro per menu contestuale ricco
@@ -103,7 +104,7 @@
 
 ### 🛠 Strumenti integrati
 
-- **Tunnel SSH** grafici — avvia, ferma, monitora tunnel in background
+- **Tunnel SSH** grafici — avvia, ferma, monitora tunnel in background; **indicatore nella toolbar** con popup rapido per fermare i tunnel senza aprire il gestore
 - **Server FTP locale** (pyftpdlib) — espone una cartella locale via FTP/FTPS in un clic
 - **Variabili globali** `{NOME}` — riutilizzabili nei comandi di tutte le sessioni
 - **Wake-on-LAN** — invia magic packet prima di connettersi
@@ -263,8 +264,8 @@ Al primo avvio PCM crea `connections.json` con sessioni di esempio e propone di 
 ```bash
 sudo apt install \
     python3 python3-gi python3-gi-cairo \
-    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtkvnc-2.0 \
-    openssh-client freerdp3-x11 tigervnc-viewer \
+    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 \
+    openssh-client mosh freerdp3-x11 tigervnc-viewer \
     xdotool xdg-utils wakeonlan
 
 pip install --user cryptography paramiko pyftpdlib
@@ -277,7 +278,7 @@ pip install --user cryptography paramiko pyftpdlib
 ```bash
 sudo pacman -Sy --needed \
     python python-gobject gtk3 vte3 gtk-vnc \
-    openssh freerdp tigervnc xdotool xdg-utils wol \
+    openssh mosh freerdp tigervnc xdotool xdg-utils wol \
     python-cryptography python-paramiko python-pyftpdlib
 ```
 </details>
@@ -288,7 +289,7 @@ sudo pacman -Sy --needed \
 ```bash
 sudo dnf install \
     python3-gobject gtk3 vte291 gtk-vnc2 \
-    openssh-clients freerdp tigervnc xdotool xdg-utils
+    openssh-clients mosh freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
@@ -301,7 +302,7 @@ pip install --user cryptography paramiko pyftpdlib
 sudo zypper install \
     python3-gobject typelib-1_0-Gtk-3_0 \
     typelib-1_0-Vte-2.91 typelib-1_0-GtkVnc-2_0 \
-    openssh freerdp tigervnc xdotool xdg-utils
+    openssh mosh freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
@@ -328,7 +329,7 @@ sudo pkg install \
 
 | Pacchetto | Funzionalità abilitata |
 |---|---|
-| `gir1.2-gtkvnc-2.0` / `gtk-vnc` | VNC integrato nativo (raccomandato) |
+| `gir1.2-gtk-vnc-2.0` / `gtk-vnc` | VNC integrato nativo (raccomandato) |
 | `tigervnc-viewer` / `xtightvncviewer` | VNC via client esterno (fallback) |
 | `freerdp3-x11` / `xfreerdp` | RDP |
 | `mosh` | Connessioni Mosh |
@@ -468,6 +469,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 ### 📁 Session management
 
 - Organized by **group** with live search bar
+- **Active session indicator** — green dot ● next to session names with an open connection
 - **Recent sessions** section at the top of the sidebar: last 20 sessions with timestamps
 - **Quick Connect**: `user@host:port` from the toolbar — connects without saving a profile
 - Double-click to connect, right-click for rich context menu
@@ -477,7 +479,7 @@ Se PCM ti è utile e vuoi ringraziare lo sviluppatore, puoi offrire un caffè tr
 
 ### 🛠 Integrated tools
 
-- **Graphical SSH tunnels** — start, stop, monitor background tunnels
+- **Graphical SSH tunnels** — start, stop, monitor background tunnels; **toolbar indicator** with quick popup to stop tunnels without opening the full manager
 - **Local FTP server** (pyftpdlib) — expose a local folder via FTP/FTPS in one click
 - **Global variables** `{NAME}` — reusable in commands across all sessions
 - **Wake-on-LAN** — sends magic packet before connecting
@@ -626,8 +628,8 @@ bash setup.sh --check
 ```bash
 sudo apt install \
     python3 python3-gi python3-gi-cairo \
-    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtkvnc-2.0 \
-    openssh-client freerdp3-x11 tigervnc-viewer \
+    gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 \
+    openssh-client mosh freerdp3-x11 tigervnc-viewer \
     xdotool xdg-utils wakeonlan
 
 pip install --user cryptography paramiko pyftpdlib
@@ -640,7 +642,7 @@ pip install --user cryptography paramiko pyftpdlib
 ```bash
 sudo pacman -Sy --needed \
     python python-gobject gtk3 vte3 gtk-vnc \
-    openssh freerdp tigervnc xdotool xdg-utils wol \
+    openssh mosh freerdp tigervnc xdotool xdg-utils wol \
     python-cryptography python-paramiko python-pyftpdlib
 ```
 </details>
@@ -651,7 +653,7 @@ sudo pacman -Sy --needed \
 ```bash
 sudo dnf install \
     python3-gobject gtk3 vte291 gtk-vnc2 \
-    openssh-clients freerdp tigervnc xdotool xdg-utils
+    openssh-clients mosh freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
@@ -664,7 +666,7 @@ pip install --user cryptography paramiko pyftpdlib
 sudo zypper install \
     python3-gobject typelib-1_0-Gtk-3_0 \
     typelib-1_0-Vte-2.91 typelib-1_0-GtkVnc-2_0 \
-    openssh freerdp tigervnc xdotool xdg-utils
+    openssh mosh freerdp tigervnc xdotool xdg-utils
 
 pip install --user cryptography paramiko pyftpdlib
 ```
@@ -691,7 +693,7 @@ sudo pkg install \
 
 | Package | Feature enabled |
 |---|---|
-| `gir1.2-gtkvnc-2.0` / `gtk-vnc` | Native embedded VNC (recommended) |
+| `gir1.2-gtk-vnc-2.0` / `gtk-vnc` | Native embedded VNC (recommended) |
 | `tigervnc-viewer` / `xtightvncviewer` | VNC via external client (fallback) |
 | `freerdp3-x11` / `xfreerdp` | RDP |
 | `mosh` | Mosh connections |
