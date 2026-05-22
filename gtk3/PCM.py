@@ -10,11 +10,11 @@ Dipendenze:
   python3-gi
   gir1.2-gtk-3.0
   gir1.2-vte-2.91
-  gir1.2-webkit2-4.1   (per VNC/web)
+  gir1.2-gtk-vnc-2.0   (VNC integrato nativo)
   python3-paramiko      (SFTP)
 
 FreeBSD equivalenti:
-  py311-gobject3  vte3  webkit2-gtk3  py311-paramiko
+  py311-gobject3  vte3  gtk-vnc  py311-paramiko
 """
 
 import sys

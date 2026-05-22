@@ -230,13 +230,13 @@ AVVIO RAPIDO
        # Debian / Ubuntu
        sudo apt install python3-gi python3-gi-cairo \\
            gir1.2-gtk-3.0 gir1.2-vte-2.91 \\
-           gir1.2-webkit2-4.1 gir1.2-gtk-vnc-2.0 \\
+           gir1.2-gtk-vnc-2.0 \\
            openssh-client freerdp3-x11 tigervnc-viewer \\
            mosh xdotool xdg-utils wakeonlan
 
        # Fedora
        sudo dnf install python3-gobject gtk3 vte291 \\
-           webkit2gtk4.1 gtk-vnc2 openssh-clients mosh freerdp
+           gtk-vnc2 openssh-clients mosh freerdp
 
        # Arch
        sudo pacman -Sy python-gobject gtk3 vte3 gtk-vnc \\
@@ -357,7 +357,7 @@ Architecture: all
 Maintainer: Andres Zanzani <azanzani@gmail.com>
 Installed-Size: ${INSTALLED_SIZE}
 Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-vte-2.91
-Recommends: gir1.2-webkit2-4.1, gir1.2-gtk-vnc-2.0, openssh-client, freerdp3-x11, tigervnc-viewer, mosh, novnc, websockify, xdotool, xdg-utils, wakeonlan, python3-cryptography, python3-paramiko, python3-pyftpdlib, python3-serial
+Recommends: gir1.2-gtk-vnc-2.0, openssh-client, freerdp3-x11, tigervnc-viewer, mosh, xdotool, xdg-utils, wakeonlan, python3-cryptography, python3-paramiko, python3-pyftpdlib, python3-serial
 Section: net
 Priority: optional
 Homepage: https://github.com/buzzqw/Python_Connection_Manager

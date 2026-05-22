@@ -116,20 +116,20 @@ USE_UV=false
 if [[ "$VARIANT" == "gtk3" ]]; then
     # ── GTK3 ──
     if [[ "$DISTRO" == "debian" ]]; then
-        SYS_PKGS="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-webkit2-4.1 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer novnc websockify xdotool wakeonlan xdg-utils"
+        SYS_PKGS="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
         PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
         USE_UV=true
     elif [[ "$DISTRO" == "fedora" ]]; then
-        SYS_PKGS="python3 python3-devel curl gtk3 vte291 webkit2gtk4.1 gtk-vnc2 openssh-clients mosh freerdp tigervnc novnc python3-websockify xdotool wol xdg-utils"
+        SYS_PKGS="python3 python3-devel curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
         PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
         USE_UV=true
     elif [[ "$DISTRO" == "arch" ]]; then
-        SYS_PKGS="python curl gtk3 vte3 webkit2gtk gtk-vnc openssh mosh freerdp tigervnc novnc python-websockify xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
+        SYS_PKGS="python curl gtk3 vte3 gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
         PIP_PACKAGES=()
         USE_UV=false
     elif [[ "$DISTRO" == "freebsd" ]]; then
         PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "311")
-        SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 webkit2-gtk_41 gtk-vnc mosh freerdp3 tigervnc-viewer novnc py${PY_VER}-websockify xdotool wakeonlan xdg-utils py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
+        SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
         PIP_PACKAGES=()
         USE_UV=false
     else

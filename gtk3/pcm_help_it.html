@@ -427,7 +427,7 @@
 <ul>
   <li><b>Sessione</b> — nuova sessione remota</li>
   <li><b>Locale</b> — terminale bash locale in una nuova scheda</li>
-  <li><b>Tunnel</b> — gestore tunnel SSH grafici</li>
+  <li><b>Indicatore Tunnel</b> — mostra il numero di tunnel SSH attivi; cliccando si apre un popup con l'elenco dei tunnel attivi e il pulsante <b>Stop</b> individuale per ciascuno; si aggiorna automaticamente ogni 3 secondi. Il Gestore Tunnel completo è accessibile dal popup o da <b>Strumenti → Gestore Tunnel SSH</b></li>
   <li><b>Impostazioni</b> — preferenze globali</li>
   <li><b>Split ▼</b> — menu per la modalità di divisione dei pannelli</li>
 </ul>
@@ -781,7 +781,8 @@ automaticamente tutto l'output in un file <code>pcm_YYYYMMDD_HHMMSS.log</code> n
 <!-- ══════════════════════════════════════════════════ TUNNEL -->
 <h2 id="tunnel">🔀 Gestione Tunnel SSH</h2>
 
-<p>Da <b>Toolbar → Tunnel</b> (oppure <b>Strumenti → Gestore Tunnel SSH</b>) gestisci tutti i tunnel SSH da un'unica interfaccia grafica dedicata.</p>
+<p>L'<b>Indicatore Tunnel</b> nella toolbar mostra a colpo d'occhio il numero di tunnel attivi. Cliccandolo si apre un popup rapido con l'elenco dei tunnel attivi, lo stato, e un pulsante <b>Stop</b> individuale — senza aprire il Gestore completo. L'indicatore si aggiorna ogni 3 secondi e lo stato dei tunnel sopravvive alla chiusura e riapertura del dialog.</p>
+<p>Per la gestione completa (aggiungere, modificare, avviare, fermare tutti i tunnel) usa <b>Apri Gestore Tunnel</b> dal popup oppure <b>Strumenti → Gestore Tunnel SSH</b>.</p>
 <div class="info">ℹ️ I tunnel SSH si gestiscono <b>esclusivamente</b> dal Gestore Tunnel — non esiste più il protocollo "SSH Tunnel" nella lista sessioni. Questo evita duplicazioni e permette di avviare, fermare e monitorare tutti i tunnel da un solo posto.</div>
 
 <h3>Creare un tunnel SOCKS (proxy)</h3>
@@ -1317,6 +1318,18 @@ ssh altro-server                           <span class="cm"># autenticazione tra
 <div class="info">ℹ️ Gli ID monitor si trovano con: <code>xfreerdp3 /list:monitors</code>. La modalità multi-monitor richiede xfreerdp3 o xfreerdp — non è supportata da rdesktop. Disponibile solo in modalità finestra esterna.</div>
 
 <hr>
+
+<!-- ── INDICATORE SESSIONI ATTIVE ── -->
+<div class="new-feature">
+  <div class="nf-title">Indicatore sessioni attive nel pannello</div>
+  <p>Le sessioni con una connessione aperta mostrano un <b><span style="color:#22cc55">●</span> pallino verde</b> accanto al nome nel pannello laterale sinistro. L'indicatore si aggiorna in tempo reale all'apertura e alla chiusura delle sessioni.</p>
+</div>
+
+<!-- ── INDICATORE TUNNEL ── -->
+<div class="new-feature">
+  <div class="nf-title">Indicatore tunnel attivi nella toolbar</div>
+  <p>La toolbar mostra un <b>Indicatore Tunnel</b> che riporta il numero di tunnel SSH attivi. Cliccandolo si apre un popup con l'elenco dei tunnel attivi e il pulsante <b>Stop</b> individuale — senza aprire il Gestore Tunnel. L'indicatore si aggiorna ogni 3 secondi e lo stato dei tunnel sopravvive alla chiusura del dialog.</p>
+</div>
 
 <!-- ── SESSIONI RECENTI ── -->
 <div class="new-feature">

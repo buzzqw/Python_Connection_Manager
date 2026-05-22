@@ -390,6 +390,7 @@
   <li><b>Right-click</b> on a group — add session, rename, delete group</li>
   <li><b>Search</b> — filter sessions in real time (search box at the top)</li>
   <li><b>Recent</b> — last connected sessions at the top of the list</li>
+  <li><b><span style="color:#22cc55">●</span> Active indicator</b> — sessions with an open connection show a green dot next to their name</li>
   <li>Panel width is adjustable by dragging the separator</li>
 </ul>
 
@@ -398,7 +399,7 @@
 <ul>
   <li><b>New Session</b> — opens the dialog to create a new connection</li>
   <li><b>Local Terminal</b> — opens a local terminal tab</li>
-  <li><b>New Tunnel</b> — creates an SSH tunnel</li>
+  <li><b>Tunnel Indicator</b> — shows the number of active SSH tunnels; click to open a popup listing each active tunnel with an individual <b>Stop</b> button; the indicator refreshes automatically every 3 seconds. The full Tunnel Manager is accessible from the popup or via <span class="menu-path">Tools <span>›</span> SSH Tunnels…</span></li>
   <li><b>Settings</b> — opens the settings dialog</li>
   <li><b>Split ▼</b> — split the terminal area vertically or horizontally</li>
 </ul>
@@ -717,7 +718,14 @@
 </table>
 
 <h3>Manage tunnels</h3>
-<p>Active tunnels are displayed in the <b>Tunnels</b> tab at the top. Each tunnel shows: status, server, type, ports. You can start/stop individual tunnels.</p>
+<p>The <b>Tunnel Indicator</b> in the toolbar shows the number of active tunnels at a glance. Click it to open the quick-access popup:</p>
+<ul>
+  <li>Lists each active tunnel with server, type, and ports</li>
+  <li>Individual <b>Stop</b> button per tunnel — no need to open the full manager</li>
+  <li>Indicator refreshes automatically every 3 seconds</li>
+  <li>Tunnel state persists even if the Tunnel Manager dialog is closed and reopened</li>
+</ul>
+<p>For full management (add, edit, start, stop all tunnels) click <b>Open Tunnel Manager</b> in the popup or use <span class="menu-path">Tools <span>›</span> SSH Tunnels…</span>.</p>
 
 <!-- ══════════════════════════════════════════════════ ADVANCED -->
 <h2 id="advanced">⚙ Advanced Features</h2>
@@ -850,6 +858,16 @@
   <p>RDP sessions now support advanced monitor management: single monitor, span all monitors, or custom selection.</p>
 </div>
 
+<div class="new-feature">
+  <div class="nf-title">Tunnel indicator in toolbar</div>
+  <p>The toolbar now shows a <b>Tunnel Indicator</b> that displays the number of active SSH tunnels. Clicking it opens a popup with the list of active tunnels and individual <b>Stop</b> buttons — no need to open the full Tunnel Manager. The indicator refreshes every 3 seconds and tunnel state survives dialog close/reopen.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">Active session indicator in panel</div>
+  <p>Sessions with an open connection show a <b><span style="color:#22cc55">●</span> green dot</b> next to their name in the left panel. The indicator updates in real time as sessions are opened or closed.</p>
+</div>
+
 <h3>Configuration</h3>
 <p>In the RDP session dialog, <b>Connection</b> tab → <b>RDP Options</b> section:</p>
 
@@ -903,28 +921,13 @@
   <li><b>Default editor</b> — text editor for opening config files</li>
 </ul>
 
-<h3>Terminal</h3>
-<ul>
-  <li><b>Color theme</b> — pre-built themes (Solarized, Dracula, Nord, Monokai, …)</li>
-  <li><b>Font</b> — monospace font and size for terminals</li>
-  <li><b>Scrollback</b> — lines kept in history (default: 10 000)</li>
-  <li><b>Bell</b> — enable/disable terminal bell</li>
-</ul>
+<h3>Shortcuts</h3>
+<p>Customize keyboard shortcuts for all PCM actions. Changes take effect immediately without restart.</p>
 
-<h3>Security</h3>
-<ul>
-  <li><b>Protected Mode</b> — master password to encrypt sessions file</li>
-  <li><b>Auto-lock</b> — lock PCM after inactivity timeout</li>
-</ul>
-
-<h3>Connections</h3>
-<ul>
-  <li><b>SSH options</b> — global SSH flags appended to all SSH connections</li>
-  <li><b>Default ports</b> — default ports for each protocol</li>
-</ul>
-
-<h3>Executable paths</h3>
+<h3>Tools</h3>
 <p>PCM auto-detects the paths of external clients (xfreerdp, tigervnc, mosh, etc.). Use <span class="menu-path">Tools <span>›</span> Check dependencies</span> to verify detection and manually override paths if needed.</p>
+
+<div class="info">ℹ️ Terminal settings (theme, font, scrollback, bell) and SSH options are now configured <b>per session</b> in the session dialog — <b>Connection</b> and <b>Terminal</b> tabs. There are no longer global terminal or SSH settings.</div>
 
 <!-- ══════════════════════════════════════════════════ FAQ -->
 <h2 id="faq">❓ FAQ</h2>
