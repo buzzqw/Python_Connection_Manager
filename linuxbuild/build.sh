@@ -369,8 +369,8 @@ Version: ${VERSION}
 Architecture: all
 Maintainer: Andres Zanzani <azanzani@gmail.com>
 Installed-Size: ${INSTALLED_SIZE}
-Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-vte-2.91
-Recommends: gir1.2-gtk-vnc-2.0, openssh-client, freerdp3-x11, tigervnc-viewer, mosh, xdotool, xdg-utils, wakeonlan, python3-cryptography, python3-paramiko, python3-pyftpdlib, python3-serial
+Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-vte-2.91, gir1.2-gtk-vnc-2.0, openssh-client
+Recommends: freerdp3-x11, tigervnc-viewer, mosh, xdotool, xdg-utils, wakeonlan, python3-cryptography, python3-paramiko, python3-pyftpdlib, python3-serial
 Section: net
 Priority: optional
 Homepage: https://github.com/buzzqw/Python_Connection_Manager
