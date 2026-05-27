@@ -263,6 +263,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Paned terminali: supporta split verticale/orizzontale
         self._paned_term = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self._paned_term.set_wide_handle(True)
+        self._paned_term.set_position(99999)  # handle fuori schermo in single mode
         right_box.pack_start(self._paned_term, True, True, 0)
 
         # Notebook primario (sempre visibile)
@@ -1013,6 +1014,7 @@ class MainWindow(Gtk.ApplicationWindow):
         while self._notebook2.get_n_pages() > 0:
             self._sposta_tab(self._notebook2, self._notebook, 0)
         self._notebook2.hide()
+        self._paned_term.set_position(99999)  # handle fuori schermo
 
     def _split_verticale(self):
         """Due notebook affiancati."""

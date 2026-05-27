@@ -93,6 +93,17 @@ class TerminalWidget(Gtk.Box):
         self._applica_tema()
         self._applica_font()
 
+        # Padding sinistro: impedisce che il primo carattere finisca
+        # sotto il cursore di resize del Paned
+        _css = Gtk.CssProvider()
+        _css.load_from_data(b"vte-terminal { padding-left: 8px; }")
+        self._vte.get_style_context().add_provider(
+            _css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        # Cursore I-beam (testo) sull'intera area VTE
+        self._vte.connect("realize", self._on_vte_realize)
+
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(self._vte)
@@ -110,10 +121,14 @@ class TerminalWidget(Gtk.Box):
         self._vte.connect("button-press-event", self._on_button_press)
         self._vte.connect("key-press-event", self._on_key_press)
         
+    def _on_vte_realize(self, widget):
+        cursor = Gdk.Cursor.new_for_display(widget.get_display(), Gdk.CursorType.XTERM)
+        widget.get_window().set_cursor(cursor)
+
     def _on_selection_changed(self, terminal):
         """Copia automaticamente il testo evidenziato nella clipboard principale."""
         if terminal.get_has_selection():
-            terminal.copy_clipboard()    
+            terminal.copy_clipboard()
 
     def get_stato(self) -> tuple[str, bool]:
         """Restituisce (testo_stato, è_terminato) per la statusbar di PCM."""
