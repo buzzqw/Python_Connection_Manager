@@ -1474,4 +1474,15 @@ _T: dict[str, dict[str, str]] = {
 
     # ── RDP widget ────────────────────────────────────────────────────────────
     "rdp.external_label":      {"it": "Sessione RDP avviata in finestra esterna.", "en": "RDP session started in external window.", "de": "RDP-Sitzung in externem Fenster gestartet.", "fr": "Session RDP démarrée dans une fenêtre externe.", "es": "Sesión RDP iniciada en ventana externa."},
+
+    # ── Credential profiles ───────────────────────────────────────────────────
+    "settings.tab.credentials": {"it": "🔑 Credenziali",        "en": "🔑 Credentials",        "de": "🔑 Anmeldedaten",       "fr": "🔑 Identifiants",       "es": "🔑 Credenciales"},
+    "settings.cred.edit_title": {"it": "Profilo credenziali",   "en": "Credential profile",    "de": "Anmeldeprofil",         "fr": "Profil d'identifiants", "es": "Perfil de credenciales"},
+    "settings.cred.name":       {"it": "Nome profilo",          "en": "Profile name",          "de": "Profilname",            "fr": "Nom du profil",         "es": "Nombre de perfil"},
+    "sd.cred.from_session":     {"it": "— dal profilo sessione —", "en": "— from session —",   "de": "— aus Sitzung —",       "fr": "— depuis la session —", "es": "— del perfil sesión —"},
+    "sd.cred.ask":              {"it": "Chiedi al momento",     "en": "Ask at login",          "de": "Beim Login fragen",     "fr": "Demander à la connexion","es": "Preguntar al conectar"},
+    "tt.credential_profile":    {"it": "Profilo credenziali da usare per questa sessione", "en": "Credential profile to use for this session", "de": "Anmeldeprofil für diese Sitzung", "fr": "Profil d'identifiants à utiliser pour cette session", "es": "Perfil de credenciales para esta sesión"},
+    "btn.add":                  {"it": "➕ Aggiungi",           "en": "➕ Add",                "de": "➕ Hinzufügen",         "fr": "➕ Ajouter",            "es": "➕ Agregar"},
+    "btn.edit":                 {"it": "✏ Modifica",            "en": "✏ Edit",                "de": "✏ Bearbeiten",          "fr": "✏ Modifier",            "es": "✏ Editar"},
+    "btn.delete":               {"it": "🗑 Elimina",             "en": "🗑 Delete",              "de": "🗑 Löschen",             "fr": "🗑 Supprimer",           "es": "🗑 Eliminar"},
 }

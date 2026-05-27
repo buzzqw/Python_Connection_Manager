@@ -194,6 +194,14 @@ class SessionDialog(Gtk.Dialog):
         self._row_password = self._conn_row(t("sd.password"), self.entry_password)
         vbox.pack_start(self._row_password, False, False, 0)
 
+        self.combo_credential_profile = Gtk.ComboBoxText()
+        self.combo_credential_profile.append("", t("sd.cred.from_session"))
+        self.combo_credential_profile.append("ask", t("sd.cred.ask"))
+        self._refresh_credential_profiles()
+        self.combo_credential_profile.set_tooltip_text(t("tt.credential_profile"))
+        self._row_credential_profile = self._conn_row("Profilo credenziali:", self.combo_credential_profile)
+        vbox.pack_start(self._row_credential_profile, False, False, 0)
+
         pkey_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_pkey = _entry()
         self.entry_pkey.set_tooltip_text(t("tt.pkey"))
@@ -766,6 +774,18 @@ class SessionDialog(Gtk.Dialog):
         else:
             self.entry_pkey.set_text("")
 
+    def _refresh_credential_profiles(self):
+        """Populate combo_credential_profile from settings."""
+        combo = self.combo_credential_profile
+        # Remove all items after the first two fixed ones (index 0 and 1)
+        while combo.get_model() is not None and len(combo.get_model()) > 2:
+            combo.remove(2)
+        for p in config_manager.load_credential_profiles():
+            name = p.get("name", "")
+            if name:
+                combo.append(name, name)
+        combo.set_active_id("")
+
     def _genera_chiave_ssh(self):
         if not shutil.which("ssh-keygen"):
             self._alert("ssh-keygen non trovato. Installa openssh-client.")
@@ -1299,6 +1319,10 @@ class SessionDialog(Gtk.Dialog):
         buf = self._textview_notes.get_buffer()
         buf.set_text(dati.get("notes", ""))
 
+        # Profilo credenziali
+        cred_prof = dati.get("credential_profile", "")
+        self.combo_credential_profile.set_active_id(cred_prof if cred_prof else "")
+
     # ------------------------------------------------------------------
     # Validazione e raccolta dati
     # ------------------------------------------------------------------
@@ -1399,5 +1423,6 @@ class SessionDialog(Gtk.Dialog):
             "pre_cmd_timeout": int(self.spin_pre_cmd_timeout.get_value()),
             "notes":          notes,
             "macros":         macros,
+            "credential_profile": self.combo_credential_profile.get_active_id() or "",
         }
         return self.entry_nome.get_text().strip(), d

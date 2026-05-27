@@ -217,7 +217,8 @@ DEFAULT_SETTINGS = {
         "toggle_sidebar": "Ctrl+Shift+B",
         "find": "Ctrl+Shift+F",
         "fullscreen": "F11",
-    }
+    },
+    "credential_profiles": [],
 }
 
 
@@ -426,6 +427,27 @@ def audit_clear():
             json.dump([], f)
     except Exception as e:
         print(f"[audit] Errore cancellazione: {e}")
+
+
+def load_credential_profiles() -> list:
+    """Load credential profiles with passwords decrypted."""
+    import crypto_manager
+    profiles = load_settings().get("credential_profiles", [])
+    return [
+        {**p, "password": crypto_manager.decrypt_field(p.get("password", ""))}
+        for p in profiles
+    ]
+
+
+def save_credential_profiles(profiles: list) -> bool:
+    """Save credential profiles encrypting passwords if crypto is active."""
+    import crypto_manager
+    s = load_settings()
+    s["credential_profiles"] = [
+        {**p, "password": crypto_manager.encrypt_field(p.get("password", ""))}
+        for p in profiles
+    ]
+    return save_settings(s)
 
 
 if __name__ == "__main__":

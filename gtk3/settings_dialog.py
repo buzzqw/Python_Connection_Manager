@@ -12,6 +12,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 import config_manager
+import crypto_manager
 from themes import TERMINAL_THEMES
 from translations import t, AVAILABLE_LANGUAGES, set_lang
 
@@ -53,6 +54,7 @@ class SettingsDialog(Gtk.Dialog):
 
         self._notebook.append_page(self._build_generale(),    Gtk.Label(label=t("settings.tab.general")))
         self._notebook.append_page(self._build_scorciatoie(), Gtk.Label(label=t("settings.tab.shortcuts")))
+        self._notebook.append_page(self._build_credenziali(), Gtk.Label(label=t("settings.tab.credentials")))
         self._notebook.append_page(self._build_strumenti(),   Gtk.Label(label=t("settings.tab.tools")))
 
         self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
@@ -237,6 +239,115 @@ class SettingsDialog(Gtk.Dialog):
         grid.attach(self.chk_sftp_auto, 0, row, 2, 1); row += 1
 
         return grid
+
+    # ------------------------------------------------------------------
+    # Tab Credenziali
+    # ------------------------------------------------------------------
+
+    def _build_credenziali(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.set_margin_start(8)
+        box.set_margin_end(8)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+
+        # TreeView
+        self._cred_store = Gtk.ListStore(str, str, str, str)  # name, user, domain, password
+        tv = Gtk.TreeView(model=self._cred_store)
+        for i, title in enumerate(["Nome", "Utente", "Dominio"]):
+            col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=i)
+            col.set_expand(i == 0)
+            tv.append_column(col)
+        tv.set_headers_visible(True)
+        tv.get_selection().set_mode(Gtk.SelectionMode.SINGLE)
+        self._cred_tv = tv
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_hexpand(True)
+        sw.set_vexpand(True)
+        sw.set_min_content_height(180)
+        sw.add(tv)
+        box.pack_start(sw, True, True, 0)
+
+        # Buttons
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        btn_add  = Gtk.Button(label=t("btn.add"))
+        btn_edit = Gtk.Button(label=t("btn.edit"))
+        btn_del  = Gtk.Button(label=t("btn.delete"))
+        btn_add.connect("clicked",  lambda _: self._cred_aggiungi())
+        btn_edit.connect("clicked", lambda _: self._cred_modifica())
+        btn_del.connect("clicked",  lambda _: self._cred_elimina())
+        for b in (btn_add, btn_edit, btn_del):
+            btn_box.pack_start(b, False, False, 0)
+        box.pack_start(btn_box, False, False, 0)
+
+        return box
+
+    def _cred_dialogo(self, nome="", user="", domain="", password=""):
+        """Show add/edit dialog. Returns (nome, user, domain, password) or None."""
+        dlg = Gtk.Dialog(
+            title=t("settings.cred.edit_title"),
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        dlg.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                        Gtk.STOCK_OK,     Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        dlg.set_default_size(320, -1)
+
+        grid = Gtk.Grid(column_spacing=8, row_spacing=6,
+                        margin_start=12, margin_end=12,
+                        margin_top=12, margin_bottom=8)
+        entries = {}
+        for row_i, (key, label, vis) in enumerate([
+            ("name",     t("settings.cred.name")     + ":", True),
+            ("user",     t("sd.user")                + ":", True),
+            ("domain",   "Domain:",                    True),
+            ("password", t("sd.password")            + ":", False),
+        ]):
+            lbl = Gtk.Label(label=label, xalign=1.0)
+            val = {"name": nome, "user": user, "domain": domain, "password": password}[key]
+            e = Gtk.Entry(text=val, visibility=vis)
+            e.set_hexpand(True)
+            e.set_activates_default(True)
+            grid.attach(lbl, 0, row_i, 1, 1)
+            grid.attach(e,   1, row_i, 1, 1)
+            entries[key] = e
+
+        dlg.get_content_area().add(grid)
+        dlg.show_all()
+        resp = dlg.run()
+        result = None
+        if resp == Gtk.ResponseType.OK:
+            result = (
+                entries["name"].get_text().strip(),
+                entries["user"].get_text().strip(),
+                entries["domain"].get_text().strip(),
+                entries["password"].get_text(),
+            )
+        dlg.destroy()
+        return result
+
+    def _cred_aggiungi(self):
+        result = self._cred_dialogo()
+        if result and result[0]:
+            self._cred_store.append(list(result))
+
+    def _cred_modifica(self):
+        model, it = self._cred_tv.get_selection().get_selected()
+        if not it:
+            return
+        row = list(model[it])
+        result = self._cred_dialogo(*row)
+        if result and result[0]:
+            for i, v in enumerate(result):
+                model.set_value(it, i, v)
+
+    def _cred_elimina(self):
+        model, it = self._cred_tv.get_selection().get_selected()
+        if it:
+            model.remove(it)
 
     # ------------------------------------------------------------------
     # Tab Strumenti personalizzati (VNC / RDP)
@@ -458,6 +569,16 @@ class SettingsDialog(Gtk.Dialog):
             for e in ct.get(key, []):
                 store.append([e.get("label", ""), e.get("path", ""), e.get("syntax", "")])
 
+        # Credenziali
+        self._cred_store.clear()
+        for p in self._settings.get("credential_profiles", []):
+            self._cred_store.append([
+                p.get("name", ""),
+                p.get("user", ""),
+                p.get("domain", ""),
+                crypto_manager.decrypt_field(p.get("password", "")),
+            ])
+
     @staticmethod
     def _set_combo_text(combo: Gtk.ComboBoxText, value: str):
         model = combo.get_model()
@@ -494,5 +615,16 @@ class SettingsDialog(Gtk.Dialog):
             "rdp": [{"label": r[0], "path": r[1], "syntax": r[2]}
                     for r in self._store_rdp if r[0] and r[1]],
         }
+
+        # Credenziali
+        profiles = []
+        for row in self._cred_store:
+            profiles.append({
+                "name":     row[0],
+                "user":     row[1],
+                "domain":   row[2],
+                "password": crypto_manager.encrypt_field(row[3]),
+            })
+        s["credential_profiles"] = profiles
 
         config_manager.save_settings(s)

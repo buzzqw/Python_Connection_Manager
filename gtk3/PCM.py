@@ -629,6 +629,7 @@ class MainWindow(Gtk.ApplicationWindow):
             })
 
     def _apri_terminale(self, nome: str, dati: dict):
+        self._resolve_credentials(dati)
         log_dir = dati.get("log_dir", "") if dati.get("log_output") else ""
 
         cmd, modalita = build_command(dati)
@@ -753,6 +754,21 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._apri_ftp(nome_tab, dati_ft)
         dlg.destroy()
 
+    def _resolve_credentials(self, dati: dict):
+        """Inject user/password/domain from a named credential profile into dati."""
+        profile_name = dati.get("credential_profile", "")
+        if not profile_name or profile_name == "ask":
+            return
+        for p in config_manager.load_credential_profiles():
+            if p.get("name") == profile_name:
+                if p.get("user"):
+                    dati["user"] = p["user"]
+                if p.get("password"):
+                    dati["password"] = p["password"]
+                if p.get("domain"):
+                    dati["rdp_domain"] = p["domain"]
+                return
+
     def _chiedi_credenziali_rdp(self, nome: str, dati: dict) -> bool:
         """Mostra un dialogo per user/password mancanti. Aggiorna dati in-place.
         Ritorna False se l'utente annulla."""
@@ -851,6 +867,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._warn(f"Errore salvataggio credenziali: {e}")
 
     def _apri_rdp(self, nome: str, dati: dict):
+        self._resolve_credentials(dati)
         if not self._chiedi_credenziali_rdp(nome, dati):
             return
         open_mode = dati.get("rdp_open_mode", "external")
@@ -882,6 +899,7 @@ class MainWindow(Gtk.ApplicationWindow):
                            lambda w: self._on_processo_terminato(w))
 
     def _apri_vnc(self, nome: str, dati: dict):
+        self._resolve_credentials(dati)
         if dati.get("vnc_internal", False):
             # Viewer integrato
             def _salva_password_vnc(pwd: str):
