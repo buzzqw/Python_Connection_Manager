@@ -753,7 +753,106 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._apri_ftp(nome_tab, dati_ft)
         dlg.destroy()
 
+    def _chiedi_credenziali_rdp(self, nome: str, dati: dict) -> bool:
+        """Mostra un dialogo per user/password mancanti. Aggiorna dati in-place.
+        Ritorna False se l'utente annulla."""
+        user   = dati.get("user", "").strip()
+        domain = dati.get("rdp_domain", "").strip()
+        pwd    = dati.get("password", "")
+        if user and pwd:
+            return True  # già tutto presente, nessun dialogo
+
+        host = dati.get("host", "")
+        dlg = Gtk.Dialog(
+            title=f"Credenziali RDP — {host}",
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        dlg.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK,     Gtk.ResponseType.OK,
+        )
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        dlg.set_default_size(340, -1)
+
+        warn = Gtk.Label()
+        warn.set_markup(
+            "<small><i>⚠  Credenziali non complete nel profilo sessione.\n"
+            "Completarle qui per accesso diretto, oppure salvarle nella sessione.</i></small>"
+        )
+        warn.set_xalign(0.0)
+        warn.set_line_wrap(True)
+        warn.set_margin_start(12)
+        warn.set_margin_end(12)
+        warn.set_margin_top(10)
+        warn.set_margin_bottom(4)
+        dlg.get_content_area().add(warn)
+
+        grid = Gtk.Grid(column_spacing=8, row_spacing=6,
+                        margin_start=12, margin_end=12,
+                        margin_top=4, margin_bottom=8)
+        row = 0
+
+        def _row(label_text, widget):
+            nonlocal row
+            lbl = Gtk.Label(label=label_text, xalign=1.0)
+            grid.attach(lbl,    0, row, 1, 1)
+            grid.attach(widget, 1, row, 1, 1)
+            widget.set_hexpand(True)
+            row += 1
+
+        e_user = Gtk.Entry(text=user)
+        e_user.set_activates_default(True)
+        _row(t("sd.user") + ":", e_user)
+
+        e_domain = Gtk.Entry(text=domain)
+        e_domain.set_activates_default(True)
+        _row("Domain:", e_domain)
+
+        e_pwd = Gtk.Entry(text=pwd, visibility=False)
+        e_pwd.set_activates_default(True)
+        _row(t("sd.password") + ":", e_pwd)
+
+        chk_salva = Gtk.CheckButton(label="Salva nel profilo sessione")
+        chk_salva.set_margin_start(12)
+        chk_salva.set_margin_bottom(8)
+
+        dlg.get_content_area().add(grid)
+        dlg.get_content_area().add(chk_salva)
+        dlg.show_all()
+        resp = dlg.run()
+        if resp == Gtk.ResponseType.OK:
+            new_user   = e_user.get_text().strip()
+            new_domain = e_domain.get_text().strip()
+            new_pwd    = e_pwd.get_text()
+            dati["user"]       = new_user
+            dati["rdp_domain"] = new_domain
+            dati["password"]   = new_pwd
+            if chk_salva.get_active():
+                self._salva_credenziali_sessione(
+                    nome, {"user": new_user, "rdp_domain": new_domain, "password": new_pwd}
+                )
+        dlg.destroy()
+        return resp == Gtk.ResponseType.OK
+
+    def _salva_credenziali_sessione(self, nome: str, credenziali: dict):
+        try:
+            profili = config_manager.load_profiles()
+            for gruppo in profili.values():
+                if isinstance(gruppo, dict) and nome in gruppo:
+                    gruppo[nome].update(credenziali)
+                    config_manager.save_profiles(profili)
+                    return
+            if nome in profili:
+                profili[nome].update(credenziali)
+                config_manager.save_profiles(profili)
+        except Exception as e:
+            self._warn(f"Errore salvataggio credenziali: {e}")
+
     def _apri_rdp(self, nome: str, dati: dict):
+        if not self._chiedi_credenziali_rdp(nome, dati):
+            return
         open_mode = dati.get("rdp_open_mode", "external")
         if open_mode == "internal":
             widget = RdpEmbedWidget(dati, open_mode="internal")
@@ -762,10 +861,25 @@ class MainWindow(Gtk.ApplicationWindow):
             self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
             widget.avvia()
         else:
-            # Apre xfreerdp in finestra esterna
+            # Apre xfreerdp in finestra esterna con output visibile nel tab VTE
+            import shlex as _shlex
             from rdp_widget import _build_freerdp_cmd
-            cmd = _build_freerdp_cmd(dati)
-            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            cmd_parts = _build_freerdp_cmd(dati)
+            cmd_shell  = " ".join(_shlex.quote(p) for p in cmd_parts)
+            cmd_display = " ".join(
+                p if not p.startswith("/p:") else "/p:****" for p in cmd_parts
+            )
+            _press = t("term_ext.press_enter")
+            full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
+            widget = TerminalWidget.da_profilo(dati)
+            widget.comando_display = cmd_display
+            widget._pcm_dati = dati
+            widget.show_all()
+            self._append_tab(widget, nome)
+            GLib.idle_add(widget.grab_focus)
+            widget.avvia(full_cmd)
+            widget.connect("processo-terminato",
+                           lambda w: self._on_processo_terminato(w))
 
     def _apri_vnc(self, nome: str, dati: dict):
         if dati.get("vnc_internal", False):
@@ -797,58 +911,23 @@ class MainWindow(Gtk.ApplicationWindow):
             widget.show_all()
             self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
         else:
-            # Client VNC esterno — con logging su /tmp/pcm_vnc.log
+            # Client VNC esterno con output visibile nel tab VTE
             cmd, _ = build_command(dati)
-            _VNC_LOG = "/tmp/pcm_vnc.log"
-            import shutil as _sh, datetime as _dt, shlex as _shlex
-
-            def _log(msg: str):
-                ts = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                with open(_VNC_LOG, "a") as _f:
-                    _f.write(f"[{ts}] {msg}\n")
-
-            _log(f"--- nuova connessione VNC: {nome} ---")
-            _log(f"host={dati.get('host')} port={dati.get('port')} "
-                 f"client={dati.get('vnc_client')} vnc_internal={dati.get('vnc_internal')}")
-
             if not cmd:
-                _log("ERRORE: build_command ha restituito None")
-                self._warn(t("vnc.unavailable", log=_VNC_LOG))
+                self._warn(t("vnc.unavailable", log=""))
                 return
-
-            _log(f"comando: {cmd}")
-
-            # Verifica eseguibile
-            try:
-                exe_token = _shlex.split(cmd)[0].strip('"').strip("'")
-                exe_found = _sh.which(exe_token) or (
-                    exe_token.startswith("/") and __import__("os").path.isfile(exe_token))
-                _log(f"eseguibile '{exe_token}': {'trovato' if exe_found else 'NON TROVATO'}")
-            except Exception as _e:
-                _log(f"warning verifica exe: {_e}")
-
-            try:
-                log_f = open(_VNC_LOG, "a")
-                proc = subprocess.Popen(
-                    cmd, shell=True,
-                    stdout=log_f, stderr=log_f,
-                    close_fds=True
-                )
-                _log(f"PID={proc.pid}")
-
-                def _check_exit(proc=proc, log_f=log_f):
-                    rc = proc.poll()
-                    if rc is not None:
-                        _log(f"ATTENZIONE: uscito subito con codice {rc}")
-                        GLib.idle_add(self._warn,
-                            t("vnc.exit_early", rc=rc, log=_VNC_LOG))
-                    log_f.close()
-                    return False
-                GLib.timeout_add(1500, _check_exit)
-                self._status(t("vnc.started", name=nome, log=_VNC_LOG))
-            except Exception as _e:
-                _log(f"ECCEZIONE Popen: {_e}")
-                self._warn(t("vnc.error", e=_e))
+            import shlex as _shlex
+            _press = t("term_ext.press_enter")
+            full_cmd = f'{cmd}; echo; read -rp "{_press}" _x'
+            widget = TerminalWidget.da_profilo(dati)
+            widget.comando_display = nome
+            widget._pcm_dati = dati
+            widget.show_all()
+            self._append_tab(widget, nome)
+            GLib.idle_add(widget.grab_focus)
+            widget.avvia(full_cmd)
+            widget.connect("processo-terminato",
+                           lambda w: self._on_processo_terminato(w))
 
     # ------------------------------------------------------------------
     # Tab label con pulsante chiudi

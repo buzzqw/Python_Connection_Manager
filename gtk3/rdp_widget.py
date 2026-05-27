@@ -93,12 +93,31 @@ class RdpEmbedWidget(Gtk.Box):
         self.pack_start(sep, False, False, 0)
 
         if self._open_mode == "internal":
-            # Label attesa (visibile durante polling)
+            # Container log: label di stato + text view per output xfreerdp
+            self._log_container = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            self._log_container.set_hexpand(True)
+            self._log_container.set_vexpand(True)
+
             self._lbl_attesa = Gtk.Label(label=t("rdp.embed.waiting"))
-            self._lbl_attesa.set_valign(Gtk.Align.CENTER)
-            self._lbl_attesa.set_hexpand(True)
-            self._lbl_attesa.set_vexpand(True)
-            self.pack_start(self._lbl_attesa, True, True, 0)
+            self._lbl_attesa.set_xalign(0.0)
+            self._lbl_attesa.set_margin_start(6)
+            self._lbl_attesa.set_margin_top(4)
+            self._lbl_attesa.set_margin_bottom(2)
+            self._log_container.pack_start(self._lbl_attesa, False, False, 0)
+
+            self._log_view = Gtk.TextView()
+            self._log_view.set_editable(False)
+            self._log_view.set_cursor_visible(False)
+            self._log_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            self._log_view.set_monospace(True)
+            self._log_scroll = Gtk.ScrolledWindow()
+            self._log_scroll.set_hexpand(True)
+            self._log_scroll.set_vexpand(True)
+            self._log_scroll.add(self._log_view)
+            self._log_container.pack_start(self._log_scroll, True, True, 0)
+
+            self.pack_start(self._log_container, True, True, 0)
 
             # Gtk.Socket per embedding X11
             self._socket = Gtk.Socket()
@@ -215,11 +234,17 @@ class RdpEmbedWidget(Gtk.Box):
         try:
             self._proc = subprocess.Popen(
                 args, preexec_fn=os.setsid,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 env=env,
             )
             self._t_avvio = datetime.datetime.now()
             print(f"[RDP] Avviato {client} PID={self._proc.pid}")
+            if hasattr(self, "_log_view"):
+                GLib.io_add_watch(
+                    self._proc.stdout.fileno(),
+                    GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR,
+                    self._on_rdp_output,
+                )
         except Exception as e:
             self._mostra_errore(str(e))
             return False
@@ -237,7 +262,7 @@ class RdpEmbedWidget(Gtk.Box):
 
     def _avvia_rdesktop(self, host, port, user, pwd, domain, clips, drives):
         # Il socket deve essere realizzato prima di passare il XID a rdesktop
-        self._lbl_attesa.set_visible(False)
+        self._log_container.set_visible(False)
         self._socket.set_visible(True)
         self._socket.show()
 
@@ -363,7 +388,7 @@ class RdpEmbedWidget(Gtk.Box):
 
     def _esegui_reparent(self, wid_rdp: str):
         """Reparenta la finestra xfreerdp dentro il Gtk.Socket."""
-        self._lbl_attesa.set_visible(False)
+        self._log_container.set_visible(False)
         self._socket.set_visible(True)
         self._socket.show()
 
@@ -544,6 +569,29 @@ class RdpEmbedWidget(Gtk.Box):
                 self._proc = None
 
     # ------------------------------------------------------------------
+    # Output log (internal mode)
+    # ------------------------------------------------------------------
+
+    def _on_rdp_output(self, fd, condition):
+        import os as _os
+        if condition & GLib.IO_IN:
+            try:
+                data = _os.read(fd, 4096)
+                if data:
+                    text = data.decode("utf-8", errors="replace")
+                    buf = self._log_view.get_buffer()
+                    buf.insert(buf.get_end_iter(), text)
+                    GLib.idle_add(self._scroll_log_bottom)
+            except OSError:
+                return False
+        return not bool(condition & (GLib.IO_HUP | GLib.IO_ERR))
+
+    def _scroll_log_bottom(self):
+        adj = self._log_scroll.get_vadjustment()
+        adj.set_value(adj.get_upper() - adj.get_page_size())
+        return False
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 
@@ -551,6 +599,8 @@ class RdpEmbedWidget(Gtk.Box):
         if hasattr(self, "_lbl_attesa"):
             self._lbl_attesa.set_text(f"⚠  {msg}")
             self._lbl_attesa.set_visible(True)
+        if hasattr(self, "_log_container"):
+            self._log_container.set_visible(True)
         if hasattr(self, "_socket"):
             self._socket.set_visible(False)
         self._info.set_text(f"  ✖  {msg}")
