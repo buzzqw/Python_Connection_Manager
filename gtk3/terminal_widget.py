@@ -74,6 +74,8 @@ class TerminalWidget(Gtk.Box):
         self._t_connessione = None
         self._char_inviati = 0
         self._comandi_inviati: list = []
+        self._tipo_sessione = "locale"
+        self._exit_code: int | None = None
 
         self._init_ui()
 
@@ -349,9 +351,33 @@ class TerminalWidget(Gtk.Box):
             GLib.source_remove(self._keepalive_source)
             self._keepalive_source = None
 
-        self._stato_testo = t("terminal.session_ended")
+        if os.WIFEXITED(status):
+            self._exit_code = os.WEXITSTATUS(status)
+        elif os.WIFSIGNALED(status):
+            self._exit_code = -(os.WTERMSIG(status))
+        else:
+            self._exit_code = None
+
+        if self._exit_code and self._exit_code != 0 and self._tipo_sessione != "locale":
+            msg = self._exit_msg(self._exit_code)
+            self._vte.feed(f"\r\n\x1b[1;33m[PCM] {msg}\x1b[0m\r\n".encode("utf-8"))
+            self._stato_testo = f"✖  {msg}"
+        else:
+            self._stato_testo = t("terminal.session_ended")
+
         self._stato_terminato = True
         self.emit("processo-terminato")
+
+    def _exit_msg(self, code: int) -> str:
+        if self._tipo_sessione == "ssh":
+            if code == 255:
+                return t("terminal.exit.ssh_connection_error")
+            if code < 0:
+                return t("terminal.exit.signal", sig=-code)
+            return t("terminal.exit.error_code", code=code)
+        if code < 0:
+            return t("terminal.exit.signal", sig=-code)
+        return t("terminal.exit.error_code", code=code)
 
     # ------------------------------------------------------------------
     # Cleanup

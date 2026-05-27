@@ -700,6 +700,7 @@ class MainWindow(Gtk.ApplicationWindow):
         widget = TerminalWidget.da_profilo(dati, log_dir=log_dir)
         widget.comando_display   = nome
         widget.comando_originale = cmd
+        widget._tipo_sessione    = dati.get("protocol", "ssh")
 
         # SFTP browser laterale (solo SSH con sftp_browser attivo)
         if dati.get("sftp_browser") and dati.get("protocol") == "ssh":
