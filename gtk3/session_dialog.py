@@ -375,14 +375,14 @@ class SessionDialog(Gtk.Dialog):
         self.spin_scrollback_lines = Gtk.SpinButton.new_with_range(100, 100000, 1000)
         self.spin_scrollback_lines.set_value(10000)
         self.spin_scrollback_lines.set_tooltip_text(t("tt.term_sb_lines"))
-        _form_row("Righe scrollback:", self.spin_scrollback_lines, grid, row); row += 1
+        _form_row(t("settings.terminal.scrollback"), self.spin_scrollback_lines, grid, row); row += 1
 
-        self.chk_confirm_close = _check("Conferma chiusura tab con processo attivo")
+        self.chk_confirm_close = _check(t("settings.terminal.confirm_close"))
         self.chk_confirm_close.set_active(True)
         self.chk_confirm_close.set_tooltip_text(t("tt.term_confirm"))
         grid.attach(self.chk_confirm_close, 0, row, 2, 1); row += 1
 
-        self.chk_warn_paste = _check("Avvisa prima di incollare più righe")
+        self.chk_warn_paste = _check(t("settings.terminal.warn_paste"))
         self.chk_warn_paste.set_active(True)
         self.chk_warn_paste.set_tooltip_text(t("tt.term_warn_paste"))
         grid.attach(self.chk_warn_paste, 0, row, 2, 1); row += 1
