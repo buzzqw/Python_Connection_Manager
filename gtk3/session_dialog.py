@@ -175,31 +175,48 @@ class SessionDialog(Gtk.Dialog):
 
         self.entry_host = _entry("es. 192.168.1.100")
         self.entry_host.set_tooltip_text(t("tt.host"))
-        self._row_host = self._conn_row(t("sd.host"), self.entry_host)
-        vbox.pack_start(self._row_host, False, False, 0)
 
         self.entry_port = _entry("22")
         self.entry_port.set_width_chars(8); self.entry_port.set_hexpand(False)
         self.entry_port.set_tooltip_text(t("tt.port"))
-        self._row_port = self._conn_row(t("sd.port"), self.entry_port)
-        vbox.pack_start(self._row_port, False, False, 0)
+
+        _LW = 14  # label width matches _conn_row
+        self._row_host_port = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._row_host_port.set_margin_start(4); self._row_host_port.set_margin_end(4)
+        _lbl_h = Gtk.Label(label=t("sd.host"))
+        _lbl_h.set_xalign(1.0); _lbl_h.set_width_chars(_LW); _lbl_h.set_margin_end(4)
+        _lbl_p = Gtk.Label(label=t("sd.port"))
+        _lbl_p.set_xalign(1.0); _lbl_p.set_margin_start(12); _lbl_p.set_margin_end(4)
+        self._row_host_port.pack_start(_lbl_h, False, False, 0)
+        self._row_host_port.pack_start(self.entry_host, True, True, 0)
+        self._row_host_port.pack_start(_lbl_p, False, False, 0)
+        self._row_host_port.pack_start(self.entry_port, False, False, 0)
+        vbox.pack_start(self._row_host_port, False, False, 0)
 
         self.entry_user = _entry()
         self.entry_user.set_tooltip_text(t("tt.user"))
-        self._row_user = self._conn_row(t("sd.user"), self.entry_user)
-        vbox.pack_start(self._row_user, False, False, 0)
 
         self.entry_password = _entry(password=True)
         self.entry_password.set_tooltip_text(t("tt.password"))
-        self._row_password = self._conn_row(t("sd.password"), self.entry_password)
-        vbox.pack_start(self._row_password, False, False, 0)
+
+        self._row_user_pwd = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._row_user_pwd.set_margin_start(4); self._row_user_pwd.set_margin_end(4)
+        _lbl_u = Gtk.Label(label=t("sd.user"))
+        _lbl_u.set_xalign(1.0); _lbl_u.set_width_chars(_LW); _lbl_u.set_margin_end(4)
+        _lbl_pw = Gtk.Label(label=t("sd.password"))
+        _lbl_pw.set_xalign(1.0); _lbl_pw.set_margin_start(12); _lbl_pw.set_margin_end(4)
+        self._row_user_pwd.pack_start(_lbl_u, False, False, 0)
+        self._row_user_pwd.pack_start(self.entry_user, True, True, 0)
+        self._row_user_pwd.pack_start(_lbl_pw, False, False, 0)
+        self._row_user_pwd.pack_start(self.entry_password, True, True, 0)
+        vbox.pack_start(self._row_user_pwd, False, False, 0)
 
         self.combo_credential_profile = Gtk.ComboBoxText()
         self.combo_credential_profile.append("", t("sd.cred.from_session"))
         self.combo_credential_profile.append("ask", t("sd.cred.ask"))
         self._refresh_credential_profiles()
         self.combo_credential_profile.set_tooltip_text(t("tt.credential_profile"))
-        self._row_credential_profile = self._conn_row("Profilo credenziali:", self.combo_credential_profile)
+        self._row_credential_profile = self._conn_row(t("settings.cred.edit_title") + ":", self.combo_credential_profile)
         vbox.pack_start(self._row_credential_profile, False, False, 0)
 
         pkey_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -338,18 +355,35 @@ class SessionDialog(Gtk.Dialog):
     # ------------------------------------------------------------------
 
     def _build_tab_terminale(self) -> Gtk.Widget:
+        # Griglia 4 colonne: [lbl|widget|lbl|widget]
+        # Col 0 e col 2: label, width_chars fisso → stessa larghezza → allineamento perfetto
+        # Col 1 e col 3: widget con hexpand=True → spazio residuo diviso al 50%
+        # Checkbox: span 2 col con halign=START → si allineano con i label della stessa colonna
         grid = _make_grid()
         row = 0
+        _LW = 13
 
+        def _lbl(text):
+            l = Gtk.Label(label=text)
+            l.set_xalign(0.0)
+            return l
+
+        def _lbl_r(text):
+            l = Gtk.Label(label=text)
+            l.set_xalign(1.0); l.set_width_chars(_LW)
+            return l
+
+        # ── Theme ───────────────────────────────────────────────────────
+        _ts = config_manager.load_settings().get('terminal', {})
         self.combo_tema = _combo(*TERMINAL_THEMES.keys())
         self.combo_tema.set_tooltip_text(t("tt.term_theme"))
-        # Imposta subito il tema di default dalle impostazioni globali
-        _def = config_manager.load_settings().get("terminal", {}).get("default_theme", "")
+        _def = _ts.get("default_theme", "")
         if _def:
             self._set_combo_active_text(self.combo_tema, _def)
-        _form_row(t("sd.term.theme"), self.combo_tema, grid, row); row += 1
+        grid.attach(_lbl(t("sd.term.theme")), 0, row, 1, 1)
+        grid.attach(self.combo_tema,          1, row, 3, 1); row += 1
 
-        _ts = config_manager.load_settings().get('terminal', {})
+        # ── Font | Font size ────────────────────────────────────────────
         _def_font = _ts.get('default_font', 'Monospace')
         _def_size = _ts.get('default_font_size', 11)
 
@@ -358,43 +392,114 @@ class SessionDialog(Gtk.Dialog):
                   "Fira Code","Source Code Pro","Inconsolata","Terminus"]:
             self.combo_font.append_text(f)
         self._set_combo_active_text(self.combo_font, _def_font)
-        self.combo_font.set_hexpand(True)
         self.combo_font.set_tooltip_text(t("tt.term_font"))
-        _form_row(t("sd.term.font"), self.combo_font, grid, row); row += 1
+        self.combo_font.set_hexpand(True)
 
         self.spin_font_size = Gtk.SpinButton.new_with_range(6, 32, 1)
         self.spin_font_size.set_value(_def_size)
         self.spin_font_size.set_tooltip_text(t("tt.term_fsize"))
-        _form_row(t("sd.term.font_size"), self.spin_font_size, grid, row); row += 1
+        self.spin_font_size.set_hexpand(True)
 
-        self.chk_infinite_scrollback = _check(t("settings.terminal.infinite_scrollback") if not t("settings.terminal.infinite_scrollback").startswith("settings.") else "Scrollback illimitato")
+        grid.attach(_lbl(t("sd.term.font")),      0, row, 1, 1)
+        grid.attach(self.combo_font,              1, row, 1, 1)
+        grid.attach(_lbl_r(t("sd.term.font_size")), 2, row, 1, 1)
+        grid.attach(self.spin_font_size,           3, row, 1, 1); row += 1
+
+        # ── Unlimited scrollback | Scrollback lines ─────────────────────
+        _inf_lbl = (t("settings.terminal.infinite_scrollback")
+                    if not t("settings.terminal.infinite_scrollback").startswith("settings.")
+                    else "Scrollback illimitato")
+        self.chk_infinite_scrollback = _check(_inf_lbl)
         self.chk_infinite_scrollback.set_tooltip_text(t("tt.term_inf_sb"))
-        grid.attach(self.chk_infinite_scrollback, 0, row, 2, 1); row += 1
-        self.chk_infinite_scrollback.connect("toggled", lambda c: self.spin_scrollback_lines.set_sensitive(not c.get_active()))
+        self.chk_infinite_scrollback.set_halign(Gtk.Align.START)
 
         self.spin_scrollback_lines = Gtk.SpinButton.new_with_range(100, 100000, 1000)
         self.spin_scrollback_lines.set_value(10000)
         self.spin_scrollback_lines.set_tooltip_text(t("tt.term_sb_lines"))
-        _form_row(t("settings.terminal.scrollback"), self.spin_scrollback_lines, grid, row); row += 1
+        self.spin_scrollback_lines.set_hexpand(True)
 
+        _sb_lbl = (t("settings.terminal.scrollback")
+                   if not t("settings.terminal.scrollback").startswith("settings.")
+                   else "Righe scrollback")
+        self._lbl_scrollback = _lbl_r(_sb_lbl)
+
+        grid.attach(self.chk_infinite_scrollback, 0, row, 2, 1)
+        grid.attach(self._lbl_scrollback,         2, row, 1, 1)
+        grid.attach(self.spin_scrollback_lines,   3, row, 1, 1); row += 1
+
+        self.chk_infinite_scrollback.connect(
+            "toggled",
+            lambda c: [w.set_sensitive(not c.get_active())
+                       for w in (self.spin_scrollback_lines, self._lbl_scrollback)]
+        )
+
+        # ── Encoding | Bell ─────────────────────────────────────────────
+        self.combo_encoding = _combo(
+            "UTF-8", "ISO-8859-1", "ISO-8859-15", "CP1252", "KOI8-R", "KOI8-U"
+        )
+        self.combo_encoding.set_tooltip_text(t("tt.term_encoding"))
+
+        self.combo_bell = _combo(
+            t("term.bell.none"), t("term.bell.audible"), t("term.bell.visual")
+        )
+        self.combo_bell.set_tooltip_text(t("tt.term_bell"))
+
+        grid.attach(_lbl(t("sd.term.encoding")), 0, row, 1, 1)
+        grid.attach(self.combo_encoding,         1, row, 1, 1)
+        grid.attach(_lbl_r(t("sd.term.bell")),   2, row, 1, 1)
+        grid.attach(self.combo_bell,             3, row, 1, 1); row += 1
+
+        # ── Confirm close | Warn paste ──────────────────────────────────
         self.chk_confirm_close = _check(t("settings.terminal.confirm_close"))
         self.chk_confirm_close.set_active(True)
         self.chk_confirm_close.set_tooltip_text(t("tt.term_confirm"))
-        grid.attach(self.chk_confirm_close, 0, row, 2, 1); row += 1
+        self.chk_confirm_close.set_halign(Gtk.Align.START)
 
         self.chk_warn_paste = _check(t("settings.terminal.warn_paste"))
         self.chk_warn_paste.set_active(True)
         self.chk_warn_paste.set_tooltip_text(t("tt.term_warn_paste"))
-        grid.attach(self.chk_warn_paste, 0, row, 2, 1); row += 1
+        self.chk_warn_paste.set_halign(Gtk.Align.START)
 
+        grid.attach(self.chk_confirm_close, 0, row, 2, 1)
+        grid.attach(self.chk_warn_paste,    2, row, 2, 1); row += 1
+
+        # ── Auto-reconnect | Reconnect delay ────────────────────────────
+        self.chk_auto_reconnect = _check(t("sd.term.auto_reconnect"))
+        self.chk_auto_reconnect.set_tooltip_text(t("tt.term_auto_reconnect"))
+        self.chk_auto_reconnect.set_halign(Gtk.Align.START)
+
+        self.spin_reconnect_delay = Gtk.SpinButton.new_with_range(1, 300, 1)
+        self.spin_reconnect_delay.set_value(5)
+        self.spin_reconnect_delay.set_tooltip_text(t("tt.term_reconnect_delay"))
+        self.spin_reconnect_delay.set_hexpand(True)
+
+        self._lbl_reconnect_delay = _lbl_r(t("sd.term.reconnect_delay"))
+
+        grid.attach(self.chk_auto_reconnect,   0, row, 2, 1)
+        grid.attach(self._lbl_reconnect_delay, 2, row, 1, 1)
+        grid.attach(self.spin_reconnect_delay, 3, row, 1, 1); row += 1
+
+        self.chk_auto_reconnect.connect(
+            "toggled",
+            lambda c: [w.set_sensitive(c.get_active())
+                       for w in (self.spin_reconnect_delay, self._lbl_reconnect_delay)]
+        )
+        self.spin_reconnect_delay.set_sensitive(False)
+        self._lbl_reconnect_delay.set_sensitive(False)
+
+        # ── Log output | Paste with right-click ─────────────────────────
         self.chk_log = _check(t("sd.term.log"))
         self.chk_log.set_tooltip_text(t("tt.term_log"))
-        grid.attach(self.chk_log, 0, row, 2, 1); row += 1
+        self.chk_log.set_halign(Gtk.Align.START)
 
         self.chk_paste_right = _check(t("sd.term.paste_right"))
         self.chk_paste_right.set_tooltip_text(t("tt.term_paste_r"))
-        grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
+        self.chk_paste_right.set_halign(Gtk.Align.START)
 
+        grid.attach(self.chk_log,         0, row, 2, 1)
+        grid.attach(self.chk_paste_right, 2, row, 2, 1); row += 1
+
+        # ── Log folder ───────────────────────────────────────────────────
         log_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_log_dir = _entry("/tmp/pcm_logs")
         self.entry_log_dir.set_tooltip_text(t("tt.term_log_dir"))
@@ -402,31 +507,37 @@ class SessionDialog(Gtk.Dialog):
         btn_log.connect("clicked", lambda b: self._browse_dir(self.entry_log_dir, "Log folder"))
         log_box.pack_start(self.entry_log_dir, True, True, 0)
         log_box.pack_start(btn_log, False, False, 0)
-        _form_row(t("sd.term.log_dir"), log_box, grid, row); row += 1
+        grid.attach(_lbl(t("sd.term.log_dir")), 0, row, 1, 1)
+        grid.attach(log_box,                    1, row, 3, 1); row += 1
 
-        # Terminale esterno
+        # ── Terminal type | SSH open mode ────────────────────────────────
         ext_tools = _available_tools(
-            ["xterm","gnome-terminal","konsole","xfce4-terminal","alacritty","kitty","foot"],
-            always_include=[t("sd.open_int_terminal")]
+            ["xterm","gnome-terminal","konsole","xfce4-terminal","alacritty","kitty","foot"]
         )
         self.combo_term_ext = _combo(*ext_tools)
         self.combo_term_ext.set_tooltip_text(t("tt.term_ext"))
-        _form_row(t("sd.terminal_lbl"), self.combo_term_ext, grid, row); row += 1
 
-        # Modalità apertura SSH
-        self._lbl_ssh_open = Gtk.Label(label=t("sd.grp.ssh_open"))
-        self._lbl_ssh_open.set_xalign(1.0)
-        self._lbl_ssh_open.set_margin_end(6)
         self.combo_ssh_open = _combo(t("sd.rdp.open_int"), t("sd.rdp.open_ext"))
         self.combo_ssh_open.set_tooltip_text(t("tt.ssh_open"))
-        grid.attach(self._lbl_ssh_open, 0, row, 1, 1)
-        grid.attach(self.combo_ssh_open, 1, row, 1, 1)
-        row += 1
 
-        # Modalità apertura SFTP
-        self._lbl_sftp_open = Gtk.Label(label=t("sd.grp.sftp_open"))
-        self._lbl_sftp_open.set_xalign(1.0)
-        self._lbl_sftp_open.set_margin_end(6)
+        self._lbl_term_ext = _lbl(t("sd.terminal_lbl"))
+        self._lbl_ssh_open = _lbl_r(t("sd.grp.ssh_open"))
+
+        grid.attach(self._lbl_term_ext,  0, row, 1, 1)
+        grid.attach(self.combo_term_ext, 1, row, 1, 1)
+        grid.attach(self._lbl_ssh_open,  2, row, 1, 1)
+        grid.attach(self.combo_ssh_open, 3, row, 1, 1); row += 1
+
+        def _on_ssh_open_changed(combo):
+            is_ext = combo.get_active() == 1
+            self.combo_term_ext.set_sensitive(is_ext)
+            self._lbl_term_ext.set_sensitive(is_ext)
+        self.combo_ssh_open.connect("changed", _on_ssh_open_changed)
+        self.combo_term_ext.set_sensitive(False)
+        self._lbl_term_ext.set_sensitive(False)
+
+        # ── SFTP open mode (visibile solo per SFTP) ──────────────────────
+        self._lbl_sftp_open = _lbl(t("sd.grp.sftp_open"))
         self.combo_sftp_open = _combo(
             t("sd.open_int"),
             t("sd.open_browser_ext"),
@@ -434,9 +545,8 @@ class SessionDialog(Gtk.Dialog):
             t("sd.sftp.open_term_ext"),
         )
         self.combo_sftp_open.set_tooltip_text(t("tt.sftp_open"))
-        grid.attach(self._lbl_sftp_open, 0, row, 1, 1)
-        grid.attach(self.combo_sftp_open, 1, row, 1, 1)
-        row += 1
+        grid.attach(self._lbl_sftp_open,  0, row, 1, 1)
+        grid.attach(self.combo_sftp_open, 1, row, 3, 1); row += 1
 
         return grid
 
@@ -484,25 +594,74 @@ class SessionDialog(Gtk.Dialog):
         self.chk_sftp_browser.set_tooltip_text(t("tt.ssh_sftp_br"))
         self.chk_agent_forward = _check(t("sd.ssh.agent_forward"))
         self.chk_agent_forward.set_tooltip_text(t("tt.ssh_agent"))
-        for chk in [self.chk_x11, self.chk_compression, self.chk_keepalive,
-                    self.chk_strict_host, self.chk_sftp_browser, self.chk_agent_forward]:
-            vbox.pack_start(chk, False, False, 0)
+        for _chk in (self.chk_x11, self.chk_compression, self.chk_keepalive,
+                     self.chk_strict_host, self.chk_sftp_browser, self.chk_agent_forward):
+            _chk.set_halign(Gtk.Align.START)
+
+        # Left column checkboxes (X11, Keepalive, SFTP browser)
+        _chk_left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        _chk_left_box.pack_start(self.chk_x11,          False, False, 0)
+        _chk_left_box.pack_start(self.chk_keepalive,     False, False, 0)
+        _chk_left_box.pack_start(self.chk_sftp_browser,  False, False, 0)
+
+        # Right column checkboxes (Compression, Strict host, Agent forward)
+        _chk_right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        _chk_right_box.pack_start(self.chk_compression,   False, False, 0)
+        _chk_right_box.pack_start(self.chk_strict_host,   False, False, 0)
+        _chk_right_box.pack_start(self.chk_agent_forward, False, False, 0)
+
+        _ssh_chk_outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        _ssh_chk_outer.pack_start(_chk_left_box,  False, False, 0)
+        _ssh_chk_outer.pack_start(_chk_right_box, True,  True,  0)
+        vbox.pack_start(_ssh_chk_outer, False, False, 0)
+
         self.spin_keepalive_interval = Gtk.SpinButton.new_with_range(0, 3600, 10)
         self.spin_keepalive_interval.set_value(60)
         self.spin_keepalive_interval.set_tooltip_text(t("tt.ssh_ka_int"))
-        vbox.pack_start(self._adv_row("Keepalive (sec):", self.spin_keepalive_interval), False, False, 0)
         self.entry_startup_cmd = _entry("es. htop")
         self.entry_startup_cmd.set_tooltip_text(t("tt.ssh_startup"))
-        self.entry_jump_host   = _entry("jump.example.com")
+
+        # Keepalive (sec) + Startup command — SizeGroup aligns right checkboxes
+        # with entry_startup_cmd: _ka_pre and _chk_left_box share the same width.
+        _sg_adv = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL)
+        _sg_adv.add_widget(_chk_left_box)
+
+        _lbl_ka = Gtk.Label(label="Keepalive (s):")
+        _lbl_ka.set_xalign(1.0); _lbl_ka.set_width_chars(16)
+        self.spin_keepalive_interval.set_hexpand(False)
+        _lbl_startup = Gtk.Label(label=t("sd.term.startup_cmd"))
+
+        _ka_pre = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        _ka_pre.pack_start(_lbl_ka, False, False, 0)
+        _ka_pre.pack_start(self.spin_keepalive_interval, False, False, 0)
+        _ka_pre.pack_start(_lbl_startup, False, False, 0)
+        _sg_adv.add_widget(_ka_pre)
+
+        _ka_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        _ka_row.pack_start(_ka_pre, False, False, 0)
+        _ka_row.pack_start(self.entry_startup_cmd, True, True, 0)
+        vbox.pack_start(_ka_row, False, False, 0)
+
+        self.entry_jump_host = _entry("jump.example.com")
         self.entry_jump_host.set_tooltip_text(t("tt.jump_host"))
-        self.entry_jump_user   = _entry()
+        vbox.pack_start(self._adv_row(t("sd.jump.host"), self.entry_jump_host), False, False, 0)
+
+        # Jump user + Jump port sulla stessa riga
+        self.entry_jump_user = _entry()
         self.entry_jump_user.set_tooltip_text(t("tt.jump_user"))
-        self.entry_jump_port   = _entry("22")
+        self.entry_jump_port = _entry("22")
         self.entry_jump_port.set_tooltip_text(t("tt.jump_port"))
-        vbox.pack_start(self._adv_row(t("sd.term.startup_cmd"), self.entry_startup_cmd), False, False, 0)
-        vbox.pack_start(self._adv_row(t("sd.jump.host"),   self.entry_jump_host),   False, False, 0)
-        vbox.pack_start(self._adv_row(t("sd.jump.user"),   self.entry_jump_user),   False, False, 0)
-        vbox.pack_start(self._adv_row(t("sd.jump.port"),   self.entry_jump_port),   False, False, 0)
+        _jump_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        _lbl_ju = Gtk.Label(label=t("sd.jump.user"))
+        _lbl_ju.set_xalign(1.0); _lbl_ju.set_width_chars(16)
+        _jump_row.pack_start(_lbl_ju, False, False, 0)
+        _jump_row.pack_start(self.entry_jump_user, True, True, 0)
+        _lbl_jp = Gtk.Label(label=t("sd.jump.port"))
+        _lbl_jp.set_margin_start(12)
+        self.entry_jump_port.set_width_chars(6); self.entry_jump_port.set_hexpand(False)
+        _jump_row.pack_start(_lbl_jp, False, False, 0)
+        _jump_row.pack_start(self.entry_jump_port, False, False, 0)
+        vbox.pack_start(_jump_row, False, False, 0)
 
         # ── RDP ──────────────────────────────────────────────────────
         self._frame_rdp, vbox = self._section_frame("RDP")
@@ -1129,10 +1288,8 @@ class SessionDialog(Gtk.Dialog):
         has_pkey   = proto in ("ssh", "mosh") or is_ft_sftp
 
         # Connection tab rows
-        self._row_host.set_visible(is_net)
-        self._row_port.set_visible(is_net)
-        self._row_user.set_visible(is_net)
-        self._row_password.set_visible(is_net)
+        self._row_host_port.set_visible(is_net)
+        self._row_user_pwd.set_visible(is_net)
         self._row_pkey.set_visible(has_pkey)
         self._frame_chiavi.set_visible(has_pkey)
         self._row_ft_proto.set_visible(proto == "file_transfer")
@@ -1227,10 +1384,19 @@ class SessionDialog(Gtk.Dialog):
             font_child.set_text(dati.get("term_font", "Monospace"))
         self.spin_font_size.set_value(int(dati.get("term_size", 11)))
         self.spin_scrollback_lines.set_value(int(dati.get("term_scrollback_lines", 10000)))
-        self.chk_infinite_scrollback.set_active(dati.get("term_infinite_scrollback", False))
-        self.spin_scrollback_lines.set_sensitive(not dati.get("term_infinite_scrollback", False))
+        _inf_sb = dati.get("term_infinite_scrollback", False)
+        self.chk_infinite_scrollback.set_active(_inf_sb)
+        self.spin_scrollback_lines.set_sensitive(not _inf_sb)
+        self._lbl_scrollback.set_sensitive(not _inf_sb)
+        self._set_combo_active_text(self.combo_encoding, dati.get("term_encoding", "UTF-8"))
+        self.combo_bell.set_active({"none": 0, "audible": 1, "visual": 2}.get(dati.get("term_bell", "none"), 0))
         self.chk_confirm_close.set_active(dati.get("term_confirm_close", True))
         self.chk_warn_paste.set_active(dati.get("term_warn_paste", True))
+        _auto_rec = dati.get("auto_reconnect", False)
+        self.chk_auto_reconnect.set_active(_auto_rec)
+        self.spin_reconnect_delay.set_value(int(dati.get("reconnect_delay", 5)))
+        self.spin_reconnect_delay.set_sensitive(_auto_rec)
+        self._lbl_reconnect_delay.set_sensitive(_auto_rec)
         self.entry_startup_cmd.set_text(dati.get("startup_cmd", ""))
 
         # Avanzate SSH
@@ -1378,8 +1544,12 @@ class SessionDialog(Gtk.Dialog):
             "paste_on_right_click": self.chk_paste_right.get_active(),
             "term_scrollback_lines": int(self.spin_scrollback_lines.get_value()),
             "term_infinite_scrollback": self.chk_infinite_scrollback.get_active(),
+            "term_encoding":  self.combo_encoding.get_active_text() or "UTF-8",
+            "term_bell":      ["none", "audible", "visual"][max(0, self.combo_bell.get_active())],
             "term_confirm_close": self.chk_confirm_close.get_active(),
             "term_warn_paste": self.chk_warn_paste.get_active(),
+            "auto_reconnect":  self.chk_auto_reconnect.get_active(),
+            "reconnect_delay": int(self.spin_reconnect_delay.get_value()),
             "x11":            self.chk_x11.get_active(),
             "compression":    self.chk_compression.get_active(),
             "keepalive":      self.chk_keepalive.get_active(),

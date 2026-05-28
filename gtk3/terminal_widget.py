@@ -60,7 +60,7 @@ class TerminalWidget(Gtk.Box):
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
                  font_size=11, log_dir="", paste_on_right_click=False,
-                 warn_paste=False, parent=None):
+                 warn_paste=False, encoding="UTF-8", bell="none", parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -70,6 +70,8 @@ class TerminalWidget(Gtk.Box):
         self._log_dir = log_dir
         self._paste_on_right_click = paste_on_right_click
         self._warn_paste = warn_paste
+        self._encoding = encoding
+        self._bell = bell
         self._pid = -1
         self._comando_corrente = ""
         self._keepalive_tick = 0
@@ -95,6 +97,20 @@ class TerminalWidget(Gtk.Box):
         self._applica_tema()
         self._applica_font()
 
+        # Encoding (deprecato in VTE 0.54 ma ancora funzionante)
+        if self._encoding and self._encoding.upper() != "UTF-8":
+            try:
+                self._vte.set_encoding(self._encoding)
+            except Exception:
+                pass
+
+        # Bell
+        self._vte.set_audible_bell(self._bell == "audible")
+        if self._bell == "visual":
+            self._vte.connect("bell", self._on_bell)
+        else:
+            self._vte.set_audible_bell(self._bell == "audible")
+
         # Padding sinistro: impedisce che il primo carattere finisca
         # sotto il cursore di resize del Paned
         _css = Gtk.CssProvider()
@@ -111,6 +127,9 @@ class TerminalWidget(Gtk.Box):
         scroll.add(self._vte)
         self.pack_start(scroll, True, True, 0)
 
+        # Barra di ricerca (nascosta di default, Ctrl+F per aprirla)
+        self._init_search_bar()
+
         # _stato_testo: testo live letto dalla statusbar di PCM via get_stato()
         self._stato_testo = ""
         self._stato_terminato = False
@@ -118,11 +137,45 @@ class TerminalWidget(Gtk.Box):
         # Segnale fine processo e selezione testo
         self._vte.connect("child-exited", self._on_child_exited)
         self._vte.connect("selection-changed", self._on_selection_changed)
-        
+
         # Clic destro → incolla; Ctrl+Shift+V → incolla esplicito
         self._vte.connect("button-press-event", self._on_button_press)
         self._vte.connect("key-press-event", self._on_key_press)
         
+    def _init_search_bar(self):
+        self._search_bar = Gtk.SearchBar()
+        self._search_bar.set_show_close_button(True)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+
+        self._search_entry = Gtk.SearchEntry()
+        self._search_entry.set_placeholder_text(t("term.search.placeholder"))
+        self._search_entry.set_width_chars(35)
+        self._search_entry.connect("search-changed", lambda _: self._aggiorna_ricerca())
+        self._search_entry.connect("activate", lambda _: self._cerca_avanti())
+        self._search_entry.connect("key-press-event", self._on_search_key_press)
+        box.pack_start(self._search_entry, True, True, 0)
+
+        btn_prev = Gtk.Button.new_from_icon_name("go-up-symbolic", Gtk.IconSize.BUTTON)
+        btn_prev.set_tooltip_text(t("term.search.prev_tt"))
+        btn_prev.connect("clicked", lambda _: self._cerca_indietro())
+        box.pack_start(btn_prev, False, False, 0)
+
+        btn_next = Gtk.Button.new_from_icon_name("go-down-symbolic", Gtk.IconSize.BUTTON)
+        btn_next.set_tooltip_text(t("term.search.next_tt"))
+        btn_next.connect("clicked", lambda _: self._cerca_avanti())
+        box.pack_start(btn_next, False, False, 0)
+
+        self._chk_case = Gtk.CheckButton(label="Aa")
+        self._chk_case.set_tooltip_text(t("term.search.case_tt"))
+        self._chk_case.connect("toggled", lambda _: self._aggiorna_ricerca())
+        box.pack_start(self._chk_case, False, False, 0)
+
+        self._search_bar.add(box)
+        self._search_bar.connect_entry(self._search_entry)
+        self.pack_start(self._search_bar, False, False, 0)
+        self.reorder_child(self._search_bar, 0)
+
     def _on_vte_realize(self, widget):
         cursor = Gdk.Cursor.new_for_display(widget.get_display(), Gdk.CursorType.XTERM)
         widget.get_window().set_cursor(cursor)
@@ -444,7 +497,7 @@ class TerminalWidget(Gtk.Box):
         return False
 
     def _on_key_press(self, terminal, event):
-        """Ctrl+Shift+V / Shift+Insert → incolla esplicito."""
+        """Ctrl+Shift+V / Shift+Insert → incolla; Ctrl+F → search bar."""
         ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
         key   = Gdk.keyval_name(event.keyval).upper()
@@ -454,7 +507,74 @@ class TerminalWidget(Gtk.Box):
         if shift and key == "INSERT":
             self._incolla_primary()
             return True
+        if ctrl and not shift and key == "F":
+            self.mostra_cerca()
+            return True
         return False
+
+    def _on_search_key_press(self, widget, event):
+        """Shift+Enter nella search entry → cerca indietro; Escape → chiudi."""
+        shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
+        key   = Gdk.keyval_name(event.keyval).upper()
+        if key == "RETURN" and shift:
+            self._cerca_indietro()
+            return True
+        if key == "ESCAPE":
+            self._search_bar.set_search_mode(False)
+            self._vte.grab_focus()
+            return True
+        return False
+
+    def mostra_cerca(self):
+        """Attiva/disattiva la search bar (Ctrl+F)."""
+        attiva = not self._search_bar.get_search_mode()
+        self._search_bar.set_search_mode(attiva)
+        if attiva:
+            self._search_entry.grab_focus()
+        else:
+            self._vte.search_set_regex(None, 0)
+            self._vte.grab_focus()
+
+    def _aggiorna_ricerca(self):
+        pattern = self._search_entry.get_text()
+        if not pattern:
+            self._vte.search_set_regex(None, 0)
+            self._search_entry.get_style_context().remove_class("error")
+            return
+        import re as _re
+        escaped = _re.escape(pattern)
+        PCRE2_CASELESS = 0x00000008
+        flags = 0 if self._chk_case.get_active() else PCRE2_CASELESS
+        try:
+            regex = Vte.Regex.new_for_search(escaped, len(escaped.encode("utf-8")), flags)
+            self._vte.search_set_regex(regex, 0)
+            self._vte.search_set_wrap_around(True)
+            self._search_entry.get_style_context().remove_class("error")
+        except Exception:
+            self._search_entry.get_style_context().add_class("error")
+
+    def _cerca_avanti(self):
+        if not self._vte.search_find_next():
+            self._search_entry.get_style_context().add_class("error")
+        else:
+            self._search_entry.get_style_context().remove_class("error")
+
+    def _cerca_indietro(self):
+        if not self._vte.search_find_previous():
+            self._search_entry.get_style_context().add_class("error")
+        else:
+            self._search_entry.get_style_context().remove_class("error")
+
+    def _on_bell(self, terminal):
+        """Visual bell: flash breve del widget."""
+        css = Gtk.CssProvider()
+        css.load_from_data(b"vte-terminal { background-color: #888888; }")
+        ctx = self._vte.get_style_context()
+        ctx.add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+        def _ripristina():
+            ctx.remove_provider(css)
+            return False
+        GLib.timeout_add(120, _ripristina)
 
     def _incolla_clipboard(self):
         """Incolla dalla CLIPBOARD (Ctrl+C/Ctrl+X) nel terminale."""
@@ -540,10 +660,13 @@ class TerminalWidget(Gtk.Box):
         size = profilo.get("term_size", 11)
         paste_right = profilo.get("paste_on_right_click", False)
         warn_paste  = profilo.get("term_warn_paste", False)
+        encoding    = profilo.get("term_encoding", "UTF-8")
+        bell        = profilo.get("term_bell", "none")
         scrollback = profilo.get("term_scrollback_lines", 10000)
         infinite_sb = profilo.get("term_infinite_scrollback", False)
         widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
-                     paste_on_right_click=paste_right, warn_paste=warn_paste)
+                     paste_on_right_click=paste_right, warn_paste=warn_paste,
+                     encoding=encoding, bell=bell)
         if infinite_sb:
             widget.imposta_scrollback(-1)
         else:

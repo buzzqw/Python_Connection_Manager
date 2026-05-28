@@ -728,6 +728,26 @@ class MainWindow(Gtk.ApplicationWindow):
         widget.connect("processo-terminato",
                        lambda w: self._on_processo_terminato(w))
 
+        if dati.get("auto_reconnect"):
+            delay = max(1, int(dati.get("reconnect_delay", 5)))
+            _pcm = self
+            _cmd, _env, _pwd, _pkey = cmd, env_extra, pwd, pkey
+            _nome = nome
+
+            def _do_reconnect(w=widget):
+                for nb in (_pcm._notebook, _pcm._notebook2):
+                    _, page = _pcm._trova_in_notebook(nb, w)
+                    if page is not None:
+                        _pcm._set_tab_nome(page, _nome)
+                        break
+                w.avvia(_cmd, env_extra=_env)
+                if _pwd and not _pkey:
+                    w.imposta_auto_password(_pwd)
+                return False
+
+            widget._pcm_reconnect = _do_reconnect
+            widget._pcm_reconnect_delay = delay
+
     def _apri_sftp(self, nome: str, dati: dict):
         widget = WinScpWidget(dati)
         widget._pcm_dati = dati
@@ -1203,13 +1223,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
 
     def _on_processo_terminato(self, widget, tab_label=None):
-        """Marca la tab come terminata aggiungendo '✖' al nome (entrambi i notebook)."""
+        """Marca la tab come terminata. Se auto_reconnect, programma riconnessione."""
         for nb in (self._notebook, self._notebook2):
             idx, page = self._trova_in_notebook(nb, widget)
             if idx >= 0:
                 nome = self._get_tab_nome(page)
-                if nome and not nome.startswith("✖"):
-                    self._set_tab_nome(page, f"✖ {nome}")
+                reconnect = getattr(widget, "_pcm_reconnect", None)
+                if reconnect:
+                    delay = getattr(widget, "_pcm_reconnect_delay", 5)
+                    nome_clean = nome.lstrip("↻✖ ") if nome else ""
+                    self._set_tab_nome(page, f"↻ {nome_clean} ({delay}s)")
+                    GLib.timeout_add(delay * 1000, reconnect)
+                else:
+                    if nome and not nome.startswith("✖"):
+                        self._set_tab_nome(page, f"✖ {nome}")
                 self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
                 return
 

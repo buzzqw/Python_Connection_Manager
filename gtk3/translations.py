@@ -1486,6 +1486,28 @@ _T: dict[str, dict[str, str]] = {
     "btn.edit":                 {"it": "✏ Modifica",            "en": "✏ Edit",                "de": "✏ Bearbeiten",          "fr": "✏ Modifier",            "es": "✏ Editar"},
     "btn.delete":               {"it": "🗑 Elimina",             "en": "🗑 Delete",              "de": "🗑 Löschen",             "fr": "🗑 Supprimer",           "es": "🗑 Eliminar"},
 
+    # ── terminal: search bar ─────────────────────────────────────────────────
+    "term.search.placeholder":  {"it": "Cerca nel terminale…",        "en": "Search in terminal…",          "de": "Im Terminal suchen…",           "fr": "Rechercher dans le terminal…",  "es": "Buscar en el terminal…"},
+    "term.search.case_tt":      {"it": "Distingui maiuscole/minuscole","en": "Case sensitive",               "de": "Groß-/Kleinschreibung",         "fr": "Respecter la casse",            "es": "Distinguir mayúsculas"},
+    "term.search.next_tt":      {"it": "Successivo (Invio)",          "en": "Next (Enter)",                 "de": "Nächster (Enter)",              "fr": "Suivant (Entrée)",              "es": "Siguiente (Intro)"},
+    "term.search.prev_tt":      {"it": "Precedente (Shift+Invio)",    "en": "Previous (Shift+Enter)",       "de": "Vorheriger (Shift+Enter)",      "fr": "Précédent (Maj+Entrée)",        "es": "Anterior (Mayús+Intro)"},
+    "term.search.no_match":     {"it": "Nessun risultato",            "en": "No matches",                   "de": "Keine Treffer",                 "fr": "Aucun résultat",                "es": "Sin resultados"},
+
+    # ── terminal: bell ────────────────────────────────────────────────────────
+    "term.bell.none":           {"it": "Disattivato",                 "en": "None",                         "de": "Deaktiviert",                   "fr": "Désactivé",                     "es": "Desactivado"},
+    "term.bell.audible":        {"it": "Sonoro",                      "en": "Audible",                      "de": "Akustisch",                     "fr": "Sonore",                        "es": "Sonoro"},
+    "term.bell.visual":         {"it": "Visivo (flash)",              "en": "Visual (flash)",               "de": "Visuell (Blinken)",             "fr": "Visuel (flash)",                "es": "Visual (flash)"},
+
+    # ── session_dialog: terminal extra fields ─────────────────────────────────
+    "sd.term.encoding":         {"it": "Encoding:",                   "en": "Encoding:",                    "de": "Kodierung:",                    "fr": "Encodage :",                    "es": "Codificación:"},
+    "sd.term.bell":             {"it": "Bell:",                       "en": "Bell:",                        "de": "Bell:",                         "fr": "Bell :",                        "es": "Bell:"},
+    "sd.term.auto_reconnect":   {"it": "Riconnessione automatica",    "en": "Auto-reconnect",               "de": "Automatisch verbinden",         "fr": "Reconnexion automatique",       "es": "Reconexión automática"},
+    "sd.term.reconnect_delay":  {"it": "Attesa riconnessione (s):",   "en": "Reconnect delay (s):",         "de": "Wartezeit (s):",                "fr": "Délai reconnexion (s) :",       "es": "Espera reconexión (s):"},
+    "tt.term_encoding":         {"it": "Encoding del terminale. La maggior parte dei sistemi moderni usa UTF-8", "en": "Terminal encoding. Most modern systems use UTF-8", "de": "Terminal-Kodierung. Die meisten modernen Systeme verwenden UTF-8", "fr": "Encodage du terminal. La plupart des systèmes modernes utilisent UTF-8", "es": "Codificación del terminal. La mayoría de los sistemas modernos usan UTF-8"},
+    "tt.term_bell":             {"it": "Comportamento del segnale Bell (BEL, \\a)", "en": "Behaviour of the Bell signal (BEL, \\a)", "de": "Verhalten des Bell-Signals (BEL, \\a)", "fr": "Comportement du signal Bell (BEL, \\a)", "es": "Comportamiento de la señal Bell (BEL, \\a)"},
+    "tt.term_auto_reconnect":   {"it": "Riconnette automaticamente se la sessione si chiude inaspettatamente", "en": "Automatically reconnects if the session closes unexpectedly", "de": "Stellt automatisch die Verbindung her, wenn die Sitzung unerwartet endet", "fr": "Se reconnecte automatiquement si la session se ferme de façon inattendue", "es": "Se reconecta automáticamente si la sesión se cierra inesperadamente"},
+    "tt.term_reconnect_delay":  {"it": "Secondi di attesa prima di tentare la riconnessione", "en": "Seconds to wait before attempting reconnection", "de": "Sekunden warten vor dem Verbindungsversuch", "fr": "Secondes à attendre avant de tenter la reconnexion", "es": "Segundos de espera antes de intentar la reconexión"},
+
     # ── paste warning dialog ──────────────────────────────────────────────────
     "paste_warn.title":         {"it": "Incolla più righe?",                  "en": "Paste multiple lines?",               "de": "Mehrere Zeilen einfügen?",            "fr": "Coller plusieurs lignes ?",           "es": "¿Pegar varias líneas?"},
     "paste_warn.body":          {"it": "Stai per incollare {n} righe nel terminale.\nProcedendo verranno eseguite automaticamente.", "en": "You are about to paste {n} lines into the terminal.\nThey will be executed automatically.", "de": "Sie möchten {n} Zeilen ins Terminal einfügen.\nDiese werden automatisch ausgeführt.", "fr": "Vous êtes sur le point de coller {n} lignes dans le terminal.\nElles seront exécutées automatiquement.", "es": "Estás a punto de pegar {n} líneas en el terminal.\nSe ejecutarán automáticamente."},
