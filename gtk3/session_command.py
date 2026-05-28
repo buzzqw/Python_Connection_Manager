@@ -58,13 +58,13 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
     proto = profilo.get("protocol", "ssh").lower()
 
     if proto == "ssh":
-        mode = profilo.get("ssh_open_mode", "Terminale interno")
-        if mode.startswith("Terminale esterno"):
+        mode = profilo.get("ssh_open_mode", "internal")
+        if mode in ("external", "Terminale esterno") or mode.startswith("Terminale esterno"):
             return _wrap_pre(_build_ssh(profilo), profilo), "ssh_term_ext"
         return _wrap_pre(_build_ssh(profilo), profilo), "embedded"
     elif proto == "mosh":
-        mode = profilo.get("ssh_open_mode", "Terminale interno")
-        if mode.startswith("Terminale esterno"):
+        mode = profilo.get("ssh_open_mode", "internal")
+        if mode in ("external", "Terminale esterno") or mode.startswith("Terminale esterno"):
             return _wrap_pre(_build_mosh(profilo), profilo), "ssh_term_ext"
         return _wrap_pre(_build_mosh(profilo), profilo), "embedded"
     elif proto == "telnet":

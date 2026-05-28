@@ -673,18 +673,18 @@ class MainWindow(Gtk.ApplicationWindow):
                 _press_enter_msg = t("term_ext.press_enter")
                 inner = cmd + f"; echo ''; read -rp '{_press_enter_msg}' _x"
                 inner_q = shlex.quote(inner)
-                t = term.lower()
-                if "xfce4-terminal" in t:
+                term_lower = term.lower()
+                if "xfce4-terminal" in term_lower:
                     args = [term, f"--command=bash -c {inner_q}"]
-                elif "gnome-terminal" in t or "mate-terminal" in t:
+                elif "gnome-terminal" in term_lower or "mate-terminal" in term_lower:
                     args = [term, "--", "bash", "-c", inner]
-                elif "konsole" in t:
+                elif "konsole" in term_lower:
                     args = [term, "-e", "bash", "-c", inner]
-                elif "tilix" in t:
+                elif "tilix" in term_lower:
                     args = [term, "-e", f"bash -c {inner_q}"]
-                elif "alacritty" in t:
+                elif "alacritty" in term_lower:
                     args = [term, "-e", "bash", "-c", inner]
-                elif "kitty" in t or "foot" in t:
+                elif "kitty" in term_lower or "foot" in term_lower:
                     args = [term, "bash", "-c", inner]
                 else:
                     # xterm e generici: -e bash -c CMD
