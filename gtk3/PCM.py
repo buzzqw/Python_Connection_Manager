@@ -1403,13 +1403,14 @@ class MainWindow(Gtk.ApplicationWindow):
         lbl.set_markup(f"<b>{t('import.label')}</b>")
         area.pack_start(lbl, False, False, 0)
 
-        # Sorgenti: 0=Remmina, 1=RDM, 2=PuTTY, 3=SSH Config
+        # Sorgenti: 0=Remmina, 1=RDM, 2=PuTTY, 3=SSH Config, 4=MobaXterm
         # (indici usati in _esegui e _on_src_changed)
         SORGENTI = [
             t("import.source_remmina"),
             t("import.source_rdm"),
             t("importer.putty_title"),
             t("importer.ssh_cfg_title"),
+            t("importer.moba_title"),
         ]
 
         sorgente_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -1432,6 +1433,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         _filters_remmina = [("Remmina", "*.remmina"), (t("import.filter_all"), "*")]
         _filters_rdm     = [(t("import.filter_rdmxml"), "*.rdm"), (t("import.filter_rdmjson"), "*.json"), (t("import.filter_all"), "*")]
+        _filters_moba    = [("MobaXterm sessions", "*.mxtsessions"), ("MobaXterm config", "*.mobaconf"), (t("import.filter_all"), "*")]
 
         def _set_filters(filtri):
             for old in fc.list_filters():
@@ -1444,12 +1446,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
         def _on_src_changed(_combo):
             src = combo_src.get_active()
-            file_based = src in (0, 1)
+            file_based = src in (0, 1, 4)
             fc.set_sensitive(file_based)
             if src == 0:
                 _set_filters(_filters_remmina)
             elif src == 1:
                 _set_filters(_filters_rdm)
+            elif src == 4:
+                _set_filters(_filters_moba)
 
         combo_src.connect("changed", _on_src_changed)
 
@@ -1468,6 +1472,7 @@ class MainWindow(Gtk.ApplicationWindow):
             import importer as _imp
             src = combo_src.get_active()
             try:
+                _moba_warn = False
                 if src == 0:  # Remmina
                     percorso = fc.get_filename()
                     if not percorso:
@@ -1485,16 +1490,29 @@ class MainWindow(Gtk.ApplicationWindow):
                     if not nuovi:
                         lbl_result.set_markup(f"<span foreground='orange'>{t('importer.putty_none')}</span>")
                         return
-                else:  # SSH Config
+                elif src == 3:  # SSH Config
                     nuovi = _imp.importa_ssh_config()
                     if not nuovi:
                         lbl_result.set_markup(f"<span foreground='orange'>{t('importer.ssh_cfg_none')}</span>")
                         return
+                else:  # MobaXterm
+                    percorso = fc.get_filename()
+                    if not percorso:
+                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
+                        return
+                    nuovi = _imp.importa_mobaxterm(percorso)
+                    if not nuovi:
+                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.moba_none')}</span>")
+                        return
+                    _moba_warn = True
 
                 aggiunti, saltati = _imp.unisci_in_pcm(nuovi, chk_sost.get_active())
                 _skipped_str = t("import.skipped", n=saltati) if saltati else ""
+                _res = t("import.result", n=aggiunti, skipped=_skipped_str)
+                if _moba_warn:
+                    _res += f"\n{t('importer.moba_warn')}"
                 lbl_result.set_markup(
-                    f"<span foreground='green'>{t('import.result', n=aggiunti, skipped=_skipped_str)}</span>"
+                    f"<span foreground='green'>{_res}</span>"
                 )
                 self._pannello.aggiorna()
             except Exception as e:

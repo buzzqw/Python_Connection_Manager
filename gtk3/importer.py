@@ -570,16 +570,261 @@ def importa_ssh_config(percorso: Optional[str] = None) -> dict:
 
 
 # ===========================================================================
+# MobaXterm (.mxtsessions / .mobaconf)
+# ===========================================================================
+
+# Tipo sessione → protocollo PCM
+_MOBA_TYPES: dict[int, str] = {
+    0: "ssh",
+    1: "telnet",
+    4: "rdp",
+    5: "vnc",
+    6: "ftp",
+    7: "sftp",
+    8: "serial",
+}
+
+
+def importa_mobaxterm(percorso: str) -> dict:
+    """
+    Legge sessioni da file MobaXterm (.mxtsessions o .mobaconf).
+    Formato INI con sezioni [Bookmarks] / [Bookmarks_N].
+    """
+    p = Path(percorso)
+    if not p.exists():
+        raise FileNotFoundError(f"File non trovato: {percorso}")
+
+    try:
+        content = p.read_text(encoding="cp1252")
+    except Exception:
+        content = p.read_text(encoding="utf-8", errors="replace")
+
+    profili: dict = {}
+    current_subrep = ""
+    in_bookmarks = False
+
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(";"):
+            continue
+
+        # Sezione
+        if line.startswith("[") and line.endswith("]"):
+            sec = line[1:-1]
+            in_bookmarks = sec.lower().startswith("bookmarks")
+            current_subrep = ""
+            continue
+
+        if not in_bookmarks:
+            continue
+
+        # SubRep / ImgNum (metadati della sezione, nessun #)
+        if "#" not in line:
+            eq = line.find("=")
+            if eq == -1:
+                continue
+            k = line[:eq].strip().lower()
+            v = line[eq + 1:].strip()
+            if k == "subrep":
+                current_subrep = v.replace("\\", "/")
+            continue
+
+        # Riga sessione: key=...=#IconNum#Type%...  oppure  key=#IconNum#Type%...
+        hash_pos = line.find("#")
+        prefix   = line[:hash_pos]
+        eq_pos   = prefix.rfind("=")
+        if eq_pos == -1:
+            continue
+        nome_raw = prefix[:eq_pos].strip()
+        value    = line[hash_pos:]          # inizia con #
+
+        pr = _parse_moba_entry(nome_raw, value, current_subrep)
+        if pr:
+            nome = pr.pop("__nome__")
+            profili[_univoco(nome, profili)] = pr
+
+    return profili
+
+
+def _moba_decode(s: str) -> str:
+    return (s.replace("__PTVIRG__", ";")
+             .replace("__DBLQUO__", '"')
+             .replace("__PIPE__",   "|")
+             .replace("__DIEZE__",  "#")
+             .replace("__PERCENT__", "%")
+             .replace("_CurrentDrive_", "C:"))
+
+
+def _parse_moba_entry(nome_raw: str, value: str, subrep: str) -> Optional[dict]:
+    """
+    Decodifica una singola riga sessione MobaXterm.
+    value = '#IconNum#Type%field1%field2%...#termfields#displaymode#comment#color'
+    """
+    parts = value.split("#")
+    # parts[0]='', parts[1]=IconNum, parts[2]='Type%f1%f2...', parts[3+]=terminal/meta
+    if len(parts) < 3:
+        return None
+
+    conn_parts = parts[2].split("%")
+    if not conn_parts:
+        return None
+
+    try:
+        sess_type = int(conn_parts[0])
+    except (ValueError, IndexError):
+        return None
+
+    proto = _MOBA_TYPES.get(sess_type)
+    if proto is None:
+        return None
+
+    def _f(idx: int, default: str = "") -> str:
+        try:
+            v = conn_parts[idx].strip()
+            return _moba_decode(v) if v else default
+        except IndexError:
+            return default
+
+    def _jump_first(raw: str) -> str:
+        # gateway field può contenere più host separati da __PIPE__ (già decodificato da _f)
+        return raw.split("|")[0].strip() if raw else ""
+
+    group   = subrep or "MobaXterm"
+    comment = _moba_decode(parts[5].strip()) if len(parts) > 5 else ""
+    nome    = _moba_decode(nome_raw) or ""
+
+    if proto == "ssh":
+        host = _f(1);  port = _f(2, "22") or "22"
+        user = _f(3)
+        x11         = _f(5, "0") == "-1"
+        compression = _f(6, "0") == "-1"
+        exec_cmd    = _f(7)
+        jump_raw    = _f(8)
+        jump_host   = _jump_first(_moba_decode(jump_raw)) if jump_raw else ""
+        jump_port   = _jump_first(_f(9, "22")) or "22"
+        jump_user   = _jump_first(_f(10))
+        pkey        = _f(14)
+        if not host:
+            return None
+        return {
+            "__nome__":    nome or host,
+            "protocol":   "ssh",
+            "host":        host,      "port":      port,
+            "user":        user,      "password":  "",
+            "private_key": pkey,
+            "x11":         x11,       "compression": compression,
+            "startup_cmd": exec_cmd,
+            "jump_host":   jump_host, "jump_port": jump_port, "jump_user": jump_user,
+            "group":       group,     "notes":     comment,
+            "_sorgente":  "mobaxterm",
+        }
+
+    elif proto == "rdp":
+        host = _f(1);  port = _f(2, "3389") or "3389"
+        user = _f(3)
+        if not host or host.lower() == "localhost":
+            return None
+        return {
+            "__nome__":         nome or host,
+            "protocol":        "rdp",
+            "host":             host,   "port":              port,
+            "user":             user,   "password":          "",
+            "rdp_client":      "xfreerdp",
+            "fullscreen":       False,
+            "redirect_clipboard": True,
+            "redirect_drives":  False,
+            "group":            group,  "notes":             comment,
+            "_sorgente":       "mobaxterm",
+        }
+
+    elif proto == "vnc":
+        host = _f(1);  port = _f(2, "5900") or "5900"
+        if not host:
+            return None
+        return {
+            "__nome__":   nome or host,
+            "protocol":  "vnc",
+            "host":       host,   "port":     port,
+            "user":       "",     "password": "",
+            "vnc_client": "vncviewer",
+            "group":      group,  "notes":    comment,
+            "_sorgente": "mobaxterm",
+        }
+
+    elif proto == "ftp":
+        host = _f(1);  port = _f(2, "21") or "21"
+        user = _f(3)
+        if not host:
+            return None
+        return {
+            "__nome__":    nome or host,
+            "protocol":   "file_transfer",
+            "ft_protocol": "FTP",
+            "host":        host,   "port":     port,
+            "user":        user,   "password": "",
+            "ftp_passive": True,
+            "group":       group,  "notes":    comment,
+            "_sorgente":  "mobaxterm",
+        }
+
+    elif proto == "sftp":
+        host = _f(1);  port = _f(2, "22") or "22"
+        user = _f(3);  pkey = _f(9)
+        if not host:
+            return None
+        return {
+            "__nome__":    nome or host,
+            "protocol":   "file_transfer",
+            "ft_protocol": "SFTP",
+            "host":        host,   "port":     port,
+            "user":        user,   "password": "",
+            "private_key": pkey,
+            "group":       group,  "notes":    comment,
+            "_sorgente":  "mobaxterm",
+        }
+
+    elif proto == "telnet":
+        host = _f(1);  port = _f(2, "23") or "23"
+        user = _f(3)
+        if not host:
+            return None
+        return {
+            "__nome__":  nome or host,
+            "protocol": "telnet",
+            "host":      host,   "port":     port,
+            "user":      user,   "password": "",
+            "group":     group,  "notes":    comment,
+            "_sorgente": "mobaxterm",
+        }
+
+    elif proto == "serial":
+        device = _f(1, "/dev/ttyS0")
+        baud   = _f(2, "9600")
+        return {
+            "__nome__":  nome or device,
+            "protocol": "serial",
+            "host":      device,
+            "port":      baud,
+            "user":      "",    "password": "",
+            "group":     group, "notes":    comment,
+            "_sorgente": "mobaxterm",
+        }
+
+    return None
+
+
+# ===========================================================================
 # CLI
 # ===========================================================================
 
 def _uso():
     print("Uso:")
-    print("  python importer.py remmina  [percorso]")
-    print("  python importer.py rdm      file.xml|json")
-    print("  python importer.py putty    [percorso]")
+    print("  python importer.py remmina   [percorso]")
+    print("  python importer.py rdm       file.xml|json")
+    print("  python importer.py putty     [percorso]")
     print("  python importer.py sshconfig [percorso]")
-    print("  python importer.py test     file.xml|json   ← solo stampa, non salva")
+    print("  python importer.py mobaxterm file.mxtsessions|.mobaconf")
+    print("  python importer.py test      file.xml|json   ← solo stampa, non salva")
     sys.exit(1)
 
 
@@ -610,6 +855,11 @@ if __name__ == "__main__":
         percorso = sys.argv[2] if len(sys.argv) > 2 else None
         print(f"[importer] SSH config: {percorso or '~/.ssh/config'}")
         profili = importa_ssh_config(percorso)
+    elif cmd == "mobaxterm":
+        if len(sys.argv) < 3:
+            _uso()
+        print(f"[importer] MobaXterm: {sys.argv[2]}")
+        profili = importa_mobaxterm(sys.argv[2])
     else:
         _uso()
 
