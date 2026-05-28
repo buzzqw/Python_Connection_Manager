@@ -1485,4 +1485,11 @@ _T: dict[str, dict[str, str]] = {
     "btn.add":                  {"it": "➕ Aggiungi",           "en": "➕ Add",                "de": "➕ Hinzufügen",         "fr": "➕ Ajouter",            "es": "➕ Agregar"},
     "btn.edit":                 {"it": "✏ Modifica",            "en": "✏ Edit",                "de": "✏ Bearbeiten",          "fr": "✏ Modifier",            "es": "✏ Editar"},
     "btn.delete":               {"it": "🗑 Elimina",             "en": "🗑 Delete",              "de": "🗑 Löschen",             "fr": "🗑 Supprimer",           "es": "🗑 Eliminar"},
+
+    # ── paste warning dialog ──────────────────────────────────────────────────
+    "paste_warn.title":         {"it": "Incolla più righe?",                  "en": "Paste multiple lines?",               "de": "Mehrere Zeilen einfügen?",            "fr": "Coller plusieurs lignes ?",           "es": "¿Pegar varias líneas?"},
+    "paste_warn.body":          {"it": "Stai per incollare {n} righe nel terminale.\nProcedendo verranno eseguite automaticamente.", "en": "You are about to paste {n} lines into the terminal.\nThey will be executed automatically.", "de": "Sie möchten {n} Zeilen ins Terminal einfügen.\nDiese werden automatisch ausgeführt.", "fr": "Vous êtes sur le point de coller {n} lignes dans le terminal.\nElles seront exécutées automatiquement.", "es": "Estás a punto de pegar {n} líneas en el terminal.\nSe ejecutarán automáticamente."},
+    "paste_warn.more_lines":    {"it": "righe in più",                        "en": "more lines",                          "de": "weitere Zeilen",                      "fr": "lignes supplémentaires",              "es": "líneas más"},
+    "paste_warn.cancel":        {"it": "Annulla",                             "en": "Cancel",                              "de": "Abbrechen",                           "fr": "Annuler",                             "es": "Cancelar"},
+    "paste_warn.confirm":       {"it": "Incolla comunque",                    "en": "Paste anyway",                        "de": "Trotzdem einfügen",                   "fr": "Coller quand même",                   "es": "Pegar de todos modos"},
 }

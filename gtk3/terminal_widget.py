@@ -59,7 +59,8 @@ class TerminalWidget(Gtk.Box):
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
-                 font_size=11, log_dir="", paste_on_right_click=False, parent=None):
+                 font_size=11, log_dir="", paste_on_right_click=False,
+                 warn_paste=False, parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -68,6 +69,7 @@ class TerminalWidget(Gtk.Box):
         self._font_size = self._parse_int(font_size, 11)
         self._log_dir = log_dir
         self._paste_on_right_click = paste_on_right_click
+        self._warn_paste = warn_paste
         self._pid = -1
         self._comando_corrente = ""
         self._keepalive_tick = 0
@@ -442,21 +444,91 @@ class TerminalWidget(Gtk.Box):
         return False
 
     def _on_key_press(self, terminal, event):
-        """Ctrl+Shift+V → incolla esplicito (fallback se VTE non lo gestisce)."""
+        """Ctrl+Shift+V / Shift+Insert → incolla esplicito."""
         ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
         key   = Gdk.keyval_name(event.keyval).upper()
         if ctrl and shift and key == "V":
             self._incolla_clipboard()
             return True
+        if shift and key == "INSERT":
+            self._incolla_primary()
+            return True
         return False
 
     def _incolla_clipboard(self):
-        """Incolla dalla CLIPBOARD (Ctrl+C/Ctrl+X) nel terminale tramite feed_child."""
+        """Incolla dalla CLIPBOARD (Ctrl+C/Ctrl+X) nel terminale."""
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         testo = clipboard.wait_for_text()
         if testo:
-            self._vte.feed_child(testo.encode("utf-8"))
+            self._incolla_testo(testo)
+
+    def _incolla_primary(self):
+        """Incolla dalla PRIMARY selection (selezione mouse, Shift+Insert)."""
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
+        testo = clipboard.wait_for_text()
+        if testo:
+            self._incolla_testo(testo)
+
+    def _incolla_testo(self, testo: str):
+        """Punto di ingresso unico per ogni incolla: applica warn_paste se attivo."""
+        if self._warn_paste and len(testo.splitlines()) > 1:
+            if not self._conferma_incolla(testo):
+                return
+        self._vte.feed_child(testo.encode("utf-8"))
+
+    def _conferma_incolla(self, testo: str) -> bool:
+        righe = testo.splitlines()
+        n = len(righe)
+        parent = self.get_toplevel()
+        if not isinstance(parent, Gtk.Window):
+            parent = None
+
+        dlg = Gtk.MessageDialog(
+            transient_for=parent,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text=t("paste_warn.title"),
+        )
+        dlg.format_secondary_text(t("paste_warn.body", n=n))
+
+        preview_lines = []
+        for line in righe[:5]:
+            preview_lines.append(line[:100] + ("…" if len(line) > 100 else ""))
+        if n > 5:
+            preview_lines.append(f"… ({n - 5} {t('paste_warn.more_lines')})")
+
+        buf = Gtk.TextBuffer()
+        buf.set_text("\n".join(preview_lines))
+        tv = Gtk.TextView(buffer=buf)
+        tv.set_editable(False)
+        tv.set_cursor_visible(False)
+        tv.set_monospace(True)
+        tv.set_margin_start(4)
+        tv.set_margin_end(4)
+        tv.set_margin_top(4)
+        tv.set_margin_bottom(4)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_min_content_height(90)
+        sw.add(tv)
+        sw.set_margin_start(12)
+        sw.set_margin_end(12)
+        sw.set_margin_bottom(8)
+
+        dlg.get_content_area().pack_start(sw, True, True, 0)
+        sw.show_all()
+
+        dlg.add_button(t("paste_warn.cancel"), Gtk.ResponseType.CANCEL)
+        btn_ok = dlg.add_button(t("paste_warn.confirm"), Gtk.ResponseType.OK)
+        btn_ok.get_style_context().add_class("destructive-action")
+        dlg.set_default_response(Gtk.ResponseType.CANCEL)
+
+        resp = dlg.run()
+        dlg.destroy()
+        return resp == Gtk.ResponseType.OK
 
     @classmethod
     def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
@@ -467,10 +539,11 @@ class TerminalWidget(Gtk.Box):
         font = profilo.get("term_font", "Monospace")
         size = profilo.get("term_size", 11)
         paste_right = profilo.get("paste_on_right_click", False)
+        warn_paste  = profilo.get("term_warn_paste", False)
         scrollback = profilo.get("term_scrollback_lines", 10000)
         infinite_sb = profilo.get("term_infinite_scrollback", False)
         widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
-                     paste_on_right_click=paste_right)
+                     paste_on_right_click=paste_right, warn_paste=warn_paste)
         if infinite_sb:
             widget.imposta_scrollback(-1)
         else:
