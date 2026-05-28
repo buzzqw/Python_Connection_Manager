@@ -28,19 +28,20 @@
 
 ## Why PCM?
 
-| | PCM | Remmina | Asbru | mRemoteNG |
-|---|---|---|---|---|
-| SSH with integrated terminal | ✅ Native VTE | ❌ RDP/VNC only | ✅ xterm | ✅ |
-| RDP + VNC + SSH + FTP in one tool | ✅ | partial | ✅ | ✅ |
-| Integrated SFTP/FTP browser | ✅ dual-pane | ❌ | partial | ❌ |
-| Graphical SSH tunnels | ✅ | ❌ | ✅ | ❌ |
-| Broadcast to multiple terminals | ✅ | ❌ | ✅ cluster | ❌ |
-| KeePassXC integration | ✅ | ❌ | ❌ | ❌ |
-| Native Wayland (no XWayland) | ✅ | partial | ❌ | ❌ Linux |
-| Password NEVER on command line | ✅ autotyped into terminal | ❌ | ⚠️ expect | — |
-| Command line launch (URI) | ✅ | ❌ | ❌ | ❌ |
-| Human-readable config | ✅ JSON | complex XML | YAML | XML |
-| License | EUPL-1.2 | GPL-2 | GPL-3 | GPL-2 |
+| | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
+|---|---|---|---|---|---|
+| SSH with integrated terminal | ✅ Native VTE | ✅ | ❌ RDP/VNC only | ✅ xterm | ✅ |
+| RDP + VNC + SSH + FTP in one tool | ✅ | ✅ | partial | ✅ | ✅ |
+| Integrated SFTP/FTP browser | ✅ dual-pane | ✅ dual-pane | ❌ | partial | ❌ |
+| Graphical SSH tunnels | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Broadcast to multiple terminals | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
+| KeePassXC integration | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Native Wayland (no XWayland) | ✅ | ❌ Windows only | partial | ❌ | ❌ Linux |
+| Password NEVER on command line | ✅ autotyped into terminal | ✅ | ❌ | ⚠️ expect | — |
+| Command line launch (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Human-readable config | ✅ JSON | ❌ proprietary | complex XML | YAML | XML |
+| Platform | Linux / FreeBSD | Windows only | Linux | Linux | Windows |
+| License | EUPL-1.2 | Proprietary | GPL-2 | GPL-3 | GPL-2 |
 
 ---
 
@@ -393,19 +394,20 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 
 ## Perché PCM?
 
-| | PCM | Remmina | Asbru | mRemoteNG |
-|---|---|---|---|---|
-| SSH con terminale integrato | ✅ VTE nativo | ❌ solo RDP/VNC | ✅ xterm | ✅ |
-| RDP + VNC + SSH + FTP in un tool | ✅ | parziale | ✅ | ✅ |
-| Browser SFTP/FTP integrato | ✅ dual-pane | ❌ | parziale | ❌ |
-| Tunnel SSH grafici | ✅ | ❌ | ✅ | ❌ |
-| Broadcast a più terminali | ✅ | ❌ | ✅ cluster | ❌ |
-| KeePassXC integrato | ✅ | ❌ | ❌ | ❌ |
-| Wayland nativo (no XWayland) | ✅ | parziale | ❌ | ❌ Linux |
-| Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ❌ | ⚠️ expect | — |
-| Avvio da riga di comando (URI) | ✅ | ❌ | ❌ | ❌ |
-| Configurazione leggibile | ✅ JSON | XML complesso | YAML | XML |
-| Licenza | EUPL-1.2 | GPL-2 | GPL-3 | GPL-2 |
+| | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
+|---|---|---|---|---|---|
+| SSH con terminale integrato | ✅ VTE nativo | ✅ | ❌ solo RDP/VNC | ✅ xterm | ✅ |
+| RDP + VNC + SSH + FTP in un tool | ✅ | ✅ | parziale | ✅ | ✅ |
+| Browser SFTP/FTP integrato | ✅ dual-pane | ✅ dual-pane | ❌ | parziale | ❌ |
+| Tunnel SSH grafici | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Broadcast a più terminali | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
+| KeePassXC integrato | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Wayland nativo (no XWayland) | ✅ | ❌ solo Windows | parziale | ❌ | ❌ Linux |
+| Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ✅ | ❌ | ⚠️ expect | — |
+| Avvio da riga di comando (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Configurazione leggibile | ✅ JSON | ❌ proprietario | XML complesso | YAML | XML |
+| Piattaforma | Linux / FreeBSD | solo Windows | Linux | Linux | Windows |
+| Licenza | EUPL-1.2 | Proprietario | GPL-2 | GPL-3 | GPL-2 |
 
 ---
 
