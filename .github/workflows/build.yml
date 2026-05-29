@@ -76,14 +76,12 @@ jobs:
 
       - name: Create GitHub Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.RELEASE_TAG }}
-          name: ${{ steps.version.outputs.RELEASE_NAME }}
-          body_path: /tmp/release_notes.txt
-          draft: false
-          prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
-          files: |
-            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
-            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
-            dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.RELEASE_TAG }}" \
+            --title "${{ steps.version.outputs.RELEASE_NAME }}" \
+            --notes-file /tmp/release_notes.txt \
+            "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz" \
+            "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip" \
+            "dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb"
