@@ -12,21 +12,38 @@ jobs:
   build:
     name: Build tar.gz + zip + deb
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Determine version
+      - name: Determine version and release info
         id: version
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
+            RELEASE_TAG="v${VERSION}"
+            IS_PRERELEASE=false
+            RELEASE_NAME="PCM v${VERSION}"
           else
             SHORT_SHA=$(git rev-parse --short HEAD)
             VERSION="0.0.0-${SHORT_SHA}"
+            RELEASE_TAG="dev-${SHORT_SHA}"
+            IS_PRERELEASE=true
+            COMMIT_SUBJECT=$(git log -1 --pretty=%s)
+            RELEASE_NAME="PCM dev ${SHORT_SHA} — ${COMMIT_SUBJECT}"
           fi
-          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${VERSION}"           >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+          echo "IS_PRERELEASE=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          {
+            echo "COMMIT_BODY<<EOF"
+            git log -1 --pretty=%B
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
           echo "Versione: ${VERSION}"
 
       - name: Install build dependencies
@@ -59,33 +76,16 @@ jobs:
           path: dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
           if-no-files-found: error
 
-  release:
-    name: Create GitHub Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Determine version
-        id: version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: Create release
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          name: "PCM v${{ steps.version.outputs.VERSION }}"
+          tag_name: ${{ steps.version.outputs.RELEASE_TAG }}
+          name: ${{ steps.version.outputs.RELEASE_NAME }}
+          body: ${{ steps.version.outputs.COMMIT_BODY }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.IS_PRERELEASE }}
           files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
-            artifacts/**/*.deb
+            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
+            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
+            dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
