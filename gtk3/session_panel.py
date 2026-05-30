@@ -56,13 +56,15 @@ PROTO_LABEL = {
 class SessionPanel(Gtk.Box):
 
     __gsignals__ = {
-        "connetti":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
-        "nuova":      (GObject.SignalFlags.RUN_FIRST, None, ()),
-        "modifica":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
-        "elimina":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
-        "duplica":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
-        "apri-ft":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
-        "ping":       (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "connetti":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "nuova":        (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "modifica":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "elimina":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "duplica":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "apri-ft":      (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "ping":         (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "apri-log":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "apri-monitor": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -311,6 +313,10 @@ class SessionPanel(Gtk.Box):
         if proto in ("ssh", "telnet", "mosh", "serial"):
             menu.append(Gtk.SeparatorMenuItem())
             _item(t("panel.open_ft_here"), lambda: self.emit("apri-ft", nome, dati))
+
+        if proto == "ssh":
+            _item(t("panel.apri_log"),     lambda: self.emit("apri-log",     nome, dati))
+            _item(t("panel.apri_monitor"), lambda: self.emit("apri-monitor", nome, dati))
 
         host = dati.get("host", "")
         if host and proto not in ("serial", "exec"):

@@ -48,6 +48,9 @@ from vnc_widget import VncWebWidget
 from rdp_widget import RdpEmbedWidget
 from sftp_browser import SftpBrowserWidget
 from winscp_widget import WinScpWidget, FtpWinScpWidget
+from log_viewer import LogViewerWidget
+from sysmon_widget import SysMonitorWidget
+from panel_monitor import InfoPanelWidget
 
 # ---------------------------------------------------------------------------
 # Percorso icone
@@ -143,6 +146,8 @@ class MainWindow(Gtk.ApplicationWindow):
         GLib.timeout_add(3000, self._aggiorna_stato_live)
         # Notifica tunnel attivi all'avvio — 1s dopo per dare tempo al rendering
         GLib.timeout_add(1000, self._notifica_tunnel_avvio)
+        # Ripristino sessioni precedenti — 2s dopo per dare tempo alla UI
+        GLib.timeout_add(2000, self._ripristina_sessioni)
 
     # ------------------------------------------------------------------
     # Sblocco credenziali cifrate
@@ -256,9 +261,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello = SessionPanel()
         self._paned.pack1(self._pannello, False, False)
 
-        # --- Area lavoro destra ---
+        # --- Area lavoro destra: paned orizzontale [terminali | pannello info] ---
+        self._paned_right = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self._paned.pack2(self._paned_right, True, True)
+
         right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self._paned.pack2(right_box, True, True)
+        self._paned_right.pack1(right_box, True, True)
+
+        self._info_panel = InfoPanelWidget()
+        self._info_panel.set_no_show_all(True)
+        # shrink=True: l'utente può trascinare il Paned per restringere il pannello
+        self._paned_right.pack2(self._info_panel, False, True)
 
         # Paned terminali: supporta split verticale/orizzontale
         self._paned_term = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
@@ -423,8 +436,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
-        self._pannello.connect("apri-ft",  lambda _p, n, d: self._apri_ft_da_sessione(d))
-        self._pannello.connect("ping",     self._on_ping_sessione)
+        self._pannello.connect("apri-ft",      lambda _p, n, d: self._apri_ft_da_sessione(d))
+        self._pannello.connect("ping",         self._on_ping_sessione)
+        self._pannello.connect("apri-log",     lambda _p, n, d: self._apri_log_viewer(n, d))
+        self._pannello.connect("apri-monitor", lambda _p, n, d: self._apri_sysmon(n, d))
         self.connect("delete-event", self._on_close)
 
     def _setup_accels(self):
@@ -760,6 +775,18 @@ class MainWindow(Gtk.ApplicationWindow):
         widget.show_all()
         self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
 
+    def _apri_log_viewer(self, nome: str, dati: dict):
+        widget = LogViewerWidget(dati)
+        widget._pcm_dati = dati
+        widget.show_all()
+        self._append_tab(widget, f"Log: {nome}", lambda: self._chiudi_tab(widget))
+
+    def _apri_sysmon(self, nome: str, dati: dict):
+        widget = SysMonitorWidget(dati)
+        widget._pcm_dati = dati
+        widget.show_all()
+        self._append_tab(widget, f"Mon: {nome}", lambda: self._chiudi_tab(widget))
+
     def _apri_ft_da_sessione(self, dati_ssh: dict):
         """Mostra dialog per aprire SFTP/FTP riciclando le credenziali di una sessione."""
         dlg = _DialogApriFileTransfer(parent=self, dati_ssh=dati_ssh)
@@ -1086,6 +1113,17 @@ class MainWindow(Gtk.ApplicationWindow):
             mi_ft = Gtk.MenuItem(label=t("tab.open_ft_here"))
             mi_ft.connect("activate", lambda _b, d=dati_tab: self._apri_ft_da_sessione(d))
             menu.append(mi_ft)
+
+        if dati_tab and dati_tab.get("protocol") == "ssh":
+            nome_tab = self._get_tab_nome(page)
+            mi_log = Gtk.MenuItem(label="Visualizza log…")
+            mi_log.connect("activate",
+                           lambda _b, n=nome_tab, d=dati_tab: self._apri_log_viewer(n, d))
+            menu.append(mi_log)
+            mi_mon = Gtk.MenuItem(label="Monitor sistema…")
+            mi_mon.connect("activate",
+                           lambda _b, n=nome_tab, d=dati_tab: self._apri_sysmon(n, d))
+            menu.append(mi_mon)
 
         if dati_tab:
             nome_tab = self._get_tab_nome(page)
@@ -2051,6 +2089,27 @@ class MainWindow(Gtk.ApplicationWindow):
                 for tun in tunnel_attivi:
                     stop_tunnel(tun["_idx"])
             # _RESP_KEEP: lascia i tunnel attivi, si chiude normalmente
+        # Salva sessioni aperte per il ripristino al prossimo avvio
+        s_r = config_manager.load_settings()
+        if s_r.get("general", {}).get("restore_sessions_on_start", False):
+            restore_list = []
+            for nb in (self._notebook, self._notebook2):
+                for i in range(nb.get_n_pages()):
+                    pg = nb.get_nth_page(i)
+                    if pg and hasattr(pg, "_pcm_dati"):
+                        d = pg._pcm_dati
+                        restore_list.append({
+                            "host":        d.get("host", ""),
+                            "protocol":    d.get("protocol", "ssh"),
+                            "port":        d.get("port", "22"),
+                            "user":        d.get("user", ""),
+                            "ft_protocol": d.get("ft_protocol", ""),
+                        })
+            s_r["_restore_sessions"] = restore_list
+        else:
+            s_r.pop("_restore_sessions", None)
+        config_manager.save_settings(s_r)
+
         # Chiudi tutti i processi aperti
         for i in range(self._notebook.get_n_pages()):
             page = self._notebook.get_nth_page(i)
@@ -2059,18 +2118,66 @@ class MainWindow(Gtk.ApplicationWindow):
         return False  # permetti chiusura
 
     # ------------------------------------------------------------------
+    # Session restore
+    # ------------------------------------------------------------------
+
+    def _ripristina_sessioni(self) -> bool:
+        s       = config_manager.load_settings()
+        refs    = s.pop("_restore_sessions", [])
+        if not refs:
+            return False
+        config_manager.save_settings(s)
+
+        profili = config_manager.load_profiles()
+
+        for ref in refs:
+            host     = ref.get("host", "")
+            proto    = ref.get("protocol", "ssh")
+            port     = str(ref.get("port", "22"))
+            user     = ref.get("user", "")
+            ft_proto = ref.get("ft_protocol", "")
+            found    = None
+            found_nome = None
+
+            for gruppo in profili.values():
+                if not isinstance(gruppo, dict):
+                    continue
+                for nome, dati in gruppo.items():
+                    if (dati.get("host") == host
+                            and dati.get("protocol") == proto
+                            and str(dati.get("port", "22")) == port
+                            and dati.get("user") == user
+                            and dati.get("ft_protocol", "") == ft_proto):
+                        found = dati
+                        found_nome = nome
+                        break
+                if found:
+                    break
+
+            if found:
+                self._apri_protocollo(proto, found_nome, dict(found))
+
+        return False  # one-shot GLib.timeout_add
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 
     def _on_switch_tab(self, notebook, page, page_num):
-        """Aggiorna statusbar al cambio tab (entrambi i notebook)."""
+        """Aggiorna statusbar e pannello info al cambio tab."""
         self._notebook_attivo = notebook
         is_home = page not in self._tab_labels
         if is_home:
             self._status(t("status.ready"))
+            self._info_panel.nascondi()
         else:
             nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
             self._status(t("status.connected", name=nome_pulito))
+            dati = getattr(page, "_pcm_dati", None)
+            if dati and dati.get("protocol") == "ssh":
+                self._info_panel.aggiorna_per_sessione(dati)
+            else:
+                self._info_panel.nascondi()
 
     def _aggiorna_stato_live(self) -> bool:
         """Timer ogni 3s: aggiorna la statusbar con le stat live del terminale attivo."""

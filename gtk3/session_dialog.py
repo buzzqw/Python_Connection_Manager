@@ -144,6 +144,7 @@ class SessionDialog(Gtk.Dialog):
         self._nb.append_page(self._build_tab_terminale(),   Gtk.Label(label=t("sd.tab.terminal")))
         self._nb.append_page(self._build_tab_advanced(),    Gtk.Label(label=t("sd.tab.advanced")))
         self._nb.append_page(self._build_tab_tunnel(),      Gtk.Label(label=t("sd.tab.tunnel")))
+        self._nb.append_page(self._build_tab_pannelli(),    Gtk.Label(label=t("sd.tab.panels")))
         self._nb.append_page(self._build_tab_macros(),      Gtk.Label(label=t("sd.tab.macros")))
         self._nb.append_page(self._build_tab_notes(),       Gtk.Label(label=t("sd.tab.notes")))
 
@@ -590,19 +591,16 @@ class SessionDialog(Gtk.Dialog):
         self.chk_keepalive.set_tooltip_text(t("tt.ssh_ka"))
         self.chk_strict_host = _check(t("sd.ssh.strict"))
         self.chk_strict_host.set_tooltip_text(t("tt.ssh_strict"))
-        self.chk_sftp_browser= _check(t("sd.term.sftp_auto"))
-        self.chk_sftp_browser.set_tooltip_text(t("tt.ssh_sftp_br"))
         self.chk_agent_forward = _check(t("sd.ssh.agent_forward"))
         self.chk_agent_forward.set_tooltip_text(t("tt.ssh_agent"))
         for _chk in (self.chk_x11, self.chk_compression, self.chk_keepalive,
-                     self.chk_strict_host, self.chk_sftp_browser, self.chk_agent_forward):
+                     self.chk_strict_host, self.chk_agent_forward):
             _chk.set_halign(Gtk.Align.START)
 
-        # Left column checkboxes (X11, Keepalive, SFTP browser)
+        # Left column checkboxes (X11, Keepalive)
         _chk_left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        _chk_left_box.pack_start(self.chk_x11,          False, False, 0)
-        _chk_left_box.pack_start(self.chk_keepalive,     False, False, 0)
-        _chk_left_box.pack_start(self.chk_sftp_browser,  False, False, 0)
+        _chk_left_box.pack_start(self.chk_x11,      False, False, 0)
+        _chk_left_box.pack_start(self.chk_keepalive, False, False, 0)
 
         # Right column checkboxes (Compression, Strict host, Agent forward)
         _chk_right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -805,6 +803,50 @@ class SessionDialog(Gtk.Dialog):
     # ------------------------------------------------------------------
     # Tab Macro
     # ------------------------------------------------------------------
+
+    def _build_tab_pannelli(self) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.set_margin_start(12); box.set_margin_end(12)
+        box.set_margin_top(12);   box.set_margin_bottom(12)
+
+        def _section(title):
+            frame = Gtk.Frame(label=f"  {title}  ")
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            inner.set_margin_start(10); inner.set_margin_end(10)
+            inner.set_margin_top(8);    inner.set_margin_bottom(10)
+            frame.add(inner)
+            box.pack_start(frame, False, False, 0)
+            return inner
+
+        def _chk(label, tooltip=""):
+            c = Gtk.CheckButton(label=label)
+            c.set_halign(Gtk.Align.START)
+            if tooltip:
+                c.set_tooltip_text(tooltip)
+            return c
+
+        # --- Browser file (SSH) ---
+        vb_sftp = _section(t("sd.panels.sftp_section"))
+        self.chk_panel_sftp_side = _chk(t("sd.panels.sftp_side"))
+        vb_sftp.pack_start(self.chk_panel_sftp_side, False, False, 0)
+
+        # --- Pannello informazioni (SSH) ---
+        vb_mon = _section(t("sd.panels.mon_section"))
+        note = Gtk.Label()
+        note.set_markup(f"<small><i>{t('sd.panels.mon_note')}</i></small>")
+        note.set_xalign(0.0)
+        vb_mon.pack_start(note, False, False, 0)
+
+        self.chk_panel_cpu_mem   = _chk(t("sd.panels.cpu_mem"))
+        self.chk_panel_processes = _chk(t("sd.panels.processes"))
+        self.chk_panel_disk      = _chk(t("sd.panels.disk"))
+        self.chk_panel_network   = _chk(t("sd.panels.network"))
+        self.chk_panel_log       = _chk(t("sd.panels.log"))
+        for c in (self.chk_panel_cpu_mem, self.chk_panel_processes,
+                  self.chk_panel_disk, self.chk_panel_network, self.chk_panel_log):
+            vb_mon.pack_start(c, False, False, 0)
+
+        return box
 
     def _build_tab_macros(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -1405,7 +1447,12 @@ class SessionDialog(Gtk.Dialog):
         self.chk_keepalive.set_active(dati.get("keepalive", False))
         self.spin_keepalive_interval.set_value(int(dati.get("keepalive_interval", 60)))
         self.chk_strict_host.set_active(dati.get("strict_host", False))
-        self.chk_sftp_browser.set_active(dati.get("sftp_browser", True))
+        self.chk_panel_sftp_side.set_active(dati.get("sftp_browser", True))
+        self.chk_panel_cpu_mem.set_active(dati.get("panel_cpu_mem", False))
+        self.chk_panel_processes.set_active(dati.get("panel_processes", False))
+        self.chk_panel_disk.set_active(dati.get("panel_disk", False))
+        self.chk_panel_network.set_active(dati.get("panel_network", False))
+        self.chk_panel_log.set_active(dati.get("panel_log", False))
         self.chk_agent_forward.set_active(dati.get("agent_forward", False))
 
         # Jump
@@ -1538,7 +1585,12 @@ class SessionDialog(Gtk.Dialog):
                                if self.combo_font.get_child() else "Monospace"),
             "term_size":      int(self.spin_font_size.get_value()),
             "startup_cmd":    self.entry_startup_cmd.get_text().strip(),
-            "sftp_browser":   self.chk_sftp_browser.get_active(),
+            "sftp_browser":   self.chk_panel_sftp_side.get_active(),
+            "panel_cpu_mem":   self.chk_panel_cpu_mem.get_active(),
+            "panel_processes": self.chk_panel_processes.get_active(),
+            "panel_disk":      self.chk_panel_disk.get_active(),
+            "panel_network":   self.chk_panel_network.get_active(),
+            "panel_log":       self.chk_panel_log.get_active(),
             "log_output":     self.chk_log.get_active(),
             "log_dir":        self.entry_log_dir.get_text().strip(),
             "paste_on_right_click": self.chk_paste_right.get_active(),

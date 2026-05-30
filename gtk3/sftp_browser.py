@@ -152,6 +152,14 @@ class SftpBrowserWidget(Gtk.Box):
         self._status_lbl.set_margin_bottom(2)
         self.pack_start(self._status_lbl, False, False, 0)
 
+        self._progress = Gtk.ProgressBar()
+        self._progress.set_show_text(True)
+        self._progress.set_margin_start(6)
+        self._progress.set_margin_end(6)
+        self._progress.set_margin_bottom(4)
+        self._progress.set_no_show_all(True)
+        self.pack_start(self._progress, False, False, 0)
+
     # ------------------------------------------------------------------
     # Connessione SSH/SFTP
     # ------------------------------------------------------------------
@@ -266,6 +274,23 @@ class SftpBrowserWidget(Gtk.Box):
     def _set_status(self, msg: str):
         self._status_lbl.set_text(msg)
 
+    def _mostra_progress(self, nome: str):
+        self._status_lbl.set_text(f"⟳ {nome}…")
+        self._progress.set_fraction(0.0)
+        self._progress.set_text("0%")
+        self._progress.show()
+
+    def _aggiorna_progress(self, tx: int, tot: int):
+        frac = min(tx / tot, 1.0) if tot > 0 else 0.0
+        self._progress.set_fraction(frac)
+        self._progress.set_text(
+            f"{int(frac * 100)}%  {self._fmt_size(tx)} / {self._fmt_size(tot)}"
+        )
+
+    def _nascondi_progress(self, msg: str):
+        self._progress.hide()
+        self._set_status(msg)
+
     # ------------------------------------------------------------------
     # Interazioni
     # ------------------------------------------------------------------
@@ -322,17 +347,22 @@ class SftpBrowserWidget(Gtk.Box):
         if dlg.run() == Gtk.ResponseType.OK:
             local  = dlg.get_filename()
             remote = self._cwd + "/" + os.path.basename(local)
+            self._mostra_progress(os.path.basename(local))
             threading.Thread(
                 target=self._upload_file, args=(local, remote), daemon=True
             ).start()
         dlg.destroy()
 
     def _upload_file(self, local: str, remote: str):
+        def _cb(tx: int, tot: int):
+            GLib.idle_add(self._aggiorna_progress, tx, tot)
         try:
-            self._sftp.put(local, remote)
+            self._sftp.put(local, remote, callback=_cb)
+            GLib.idle_add(self._nascondi_progress,
+                          t("sftp.upload_done").format(name=os.path.basename(local)))
             GLib.idle_add(self._naviga, self._cwd)
         except Exception as e:
-            GLib.idle_add(self._set_status, t("sftp.upload_err") + f": {e}")
+            GLib.idle_add(self._nascondi_progress, t("sftp.upload_err") + f": {e}")
 
     def _on_download(self, nome: str | None = None):
         if not self._sftp:
@@ -354,17 +384,20 @@ class SftpBrowserWidget(Gtk.Box):
         if dlg.run() == Gtk.ResponseType.OK:
             local  = dlg.get_filename()
             remote = self._cwd + "/" + nome
+            self._mostra_progress(nome)
             threading.Thread(
                 target=self._download_file, args=(remote, local), daemon=True
             ).start()
         dlg.destroy()
 
     def _download_file(self, remote: str, local: str):
+        def _cb(tx: int, tot: int):
+            GLib.idle_add(self._aggiorna_progress, tx, tot)
         try:
-            self._sftp.get(remote, local)
-            GLib.idle_add(self._set_status, t("sftp.download_done"))
+            self._sftp.get(remote, local, callback=_cb)
+            GLib.idle_add(self._nascondi_progress, t("sftp.download_done"))
         except Exception as e:
-            GLib.idle_add(self._set_status, t("sftp.download_err_detail").format(e=e))
+            GLib.idle_add(self._nascondi_progress, t("sftp.download_err_detail").format(e=e))
 
     def _on_mkdir(self):
         if not self._sftp:

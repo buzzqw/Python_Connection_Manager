@@ -728,6 +728,7 @@ class WinScpWidget(Gtk.Box):
             (t("winscp.btn_upload"),        t("winscp.tooltip_upload"),        self._upload_selezione),
             (t("winscp.btn_download"),      t("winscp.tooltip_download"),      self._download_selezione),
             (t("winscp.tooltip_btn_start"), t("winscp.tooltip_start_all"),     self._avvia_coda),
+            (t("sync.btn"),                  t("sync.tooltip"),                      self._on_sincronizza),
             (t("winscp.btn_delete"),        t("winscp.tooltip_delete"),        self._elimina_selezione),
             (t("winscp.btn_refresh"),       t("winscp.tooltip_refresh_both"),  self._aggiorna_tutto),
             (t("winscp.btn_clear"),         t("winscp.tooltip_clear_queue"),   self._pulisci_coda),
@@ -901,6 +902,28 @@ class WinScpWidget(Gtk.Box):
 
     def _pulisci_coda(self):
         self._coda.pulisci()
+
+    # ------------------------------------------------------------------
+    # Sincronizzazione directory locale ↔ remota
+    # ------------------------------------------------------------------
+
+    def _on_sincronizza(self):
+        if not self._sftp or not self._remote_panel:
+            return
+        local_path  = self._local_panel.path
+        remote_path = self._remote_panel.path
+        if not local_path or not remote_path:
+            return
+        dlg = _SyncDialog(
+            parent=self.get_toplevel(),
+            sftp=self._sftp,
+            local_path=local_path,
+            remote_path=remote_path,
+        )
+        if dlg.run() == Gtk.ResponseType.OK:
+            jobs = dlg.get_jobs()
+            self._esegui_jobs(jobs)
+        dlg.destroy()
 
     def _avvia_coda_se_idle(self):
         """Avvia il worker solo se non è già in esecuzione."""
@@ -1778,6 +1801,348 @@ class FtpWinScpWidget(Gtk.Box):
                 self._ftp.quit()
             except Exception:
                 pass
+
+
+# ---------------------------------------------------------------------------
+# _SyncDialog — dialog sincronizzazione cartella locale ↔ remota
+# ---------------------------------------------------------------------------
+
+class _SyncDialog(Gtk.Dialog):
+    """
+    Confronta una cartella locale con una remota (SFTP) e permette di
+    scegliere quali file sincronizzare e in che direzione.
+
+    Criteri di confronto: dimensione + data modifica (mtime).
+    """
+
+    # Colonne store
+    _C_SEL, _C_NOME, _C_STATO, _C_L_SIZE, _C_R_SIZE, _C_L_MTIME, _C_R_MTIME, _C_DIR = range(8)
+
+    def __init__(self, parent, sftp, local_path: str, remote_path: str):
+        super().__init__(
+            title="Sincronizza cartella",
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        self._sftp        = sftp
+        self._local_path  = local_path
+        self._remote_path = remote_path
+        self._jobs: list[TransferJob] = []
+
+        self.set_default_size(820, 520)
+        self.add_buttons("Annulla", Gtk.ResponseType.CANCEL,
+                         "Sincronizza selezionati", Gtk.ResponseType.OK)
+        self.set_response_sensitive(Gtk.ResponseType.OK, False)
+
+        self._build_ui()
+        self.show_all()
+        threading.Thread(target=self._confronta, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # UI
+    # ------------------------------------------------------------------
+
+    def _build_ui(self):
+        area = self.get_content_area()
+        area.set_spacing(0)
+
+        # Info percorsi
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        info_box.set_margin_start(12); info_box.set_margin_end(12)
+        info_box.set_margin_top(8);    info_box.set_margin_bottom(4)
+
+        lbl_l = Gtk.Label()
+        lbl_l.set_markup(f"<b>Locale:</b>  {self._local_path}")
+        lbl_l.set_xalign(0.0)
+        lbl_l.set_hexpand(True)
+        lbl_r = Gtk.Label()
+        lbl_r.set_markup(f"<b>Remoto:</b>  {self._remote_path}")
+        lbl_r.set_xalign(0.0)
+        lbl_r.set_hexpand(True)
+
+        info_box.pack_start(lbl_l, True, True, 0)
+        info_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        info_box.pack_start(lbl_r, True, True, 0)
+        area.pack_start(info_box, False, False, 0)
+
+        # Toolbar filtri
+        tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        tb.set_margin_start(12); tb.set_margin_end(12)
+        tb.set_margin_bottom(4)
+
+        self._chk_local_only  = Gtk.CheckButton(label="Solo locale")
+        self._chk_remote_only = Gtk.CheckButton(label="Solo remoto")
+        self._chk_differ      = Gtk.CheckButton(label="Modificati")
+        self._chk_equal       = Gtk.CheckButton(label="Uguali")
+        for chk in (self._chk_local_only, self._chk_remote_only,
+                    self._chk_differ, self._chk_equal):
+            chk.set_active(True)
+            chk.connect("toggled", self._on_filtro_cambiato)
+            tb.pack_start(chk, False, False, 0)
+
+        sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        tb.pack_start(sep, False, False, 4)
+
+        btn_sel_all  = Gtk.Button(label="Seleziona tutto")
+        btn_desel    = Gtk.Button(label="Deseleziona tutto")
+        btn_inv      = Gtk.Button(label="Inverti selezione")
+        btn_sel_all.connect("clicked", lambda b: self._set_tutti(True))
+        btn_desel.connect("clicked",   lambda b: self._set_tutti(False))
+        btn_inv.connect("clicked",     lambda b: self._inverti_selezione())
+        for b in (btn_sel_all, btn_desel, btn_inv):
+            b.set_relief(Gtk.ReliefStyle.NONE)
+            tb.pack_start(b, False, False, 0)
+
+        area.pack_start(tb, False, False, 0)
+
+        # TreeView
+        # Store: sel(bool), nome, stato, l_size, r_size, l_mtime, r_mtime, dir
+        self._store    = Gtk.ListStore(bool, str, str, str, str, str, str, str)
+        self._filtered = Gtk.TreeModelFilter(child_model=self._store)
+        self._filtered.set_visible_func(self._filtro_visibile)
+
+        tv = Gtk.TreeView(model=self._filtered)
+        tv.set_headers_visible(True)
+        tv.set_headers_clickable(True)
+        tv.get_selection().set_mode(Gtk.SelectionMode.NONE)
+
+        # Colonna checkbox
+        cell_toggle = Gtk.CellRendererToggle()
+        cell_toggle.connect("toggled", self._on_toggled)
+        col_sel = Gtk.TreeViewColumn("", cell_toggle, active=self._C_SEL)
+        col_sel.set_min_width(28)
+        tv.append_column(col_sel)
+
+        col_defs = [
+            ("File",            self._C_NOME,   True,  200),
+            ("Stato",           self._C_STATO,  False, 110),
+            ("Dim. locale",     self._C_L_SIZE, False,  90),
+            ("Dim. remota",     self._C_R_SIZE, False,  90),
+            ("Mod. locale",     self._C_L_MTIME,False, 140),
+            ("Mod. remota",     self._C_R_MTIME,False, 140),
+            ("Direzione",       self._C_DIR,    False,  90),
+        ]
+        for h, col_id, expand, min_w in col_defs:
+            cell = Gtk.CellRendererText()
+            col  = Gtk.TreeViewColumn(h, cell, text=col_id)
+            col.set_resizable(True)
+            col.set_expand(expand)
+            col.set_min_width(min_w)
+            if col_id == self._C_STATO:
+                col.set_cell_data_func(cell, self._colorize_stato)
+            tv.append_column(col)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.add(tv)
+        area.pack_start(scroll, True, True, 0)
+        self._tv = tv
+
+        # Statusbar
+        self._spinner = Gtk.Spinner()
+        self._spinner.start()
+
+        self._status = Gtk.Label(label="Scansione in corso…")
+        self._status.set_xalign(0.0)
+
+        sbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        sbar.set_margin_start(12); sbar.set_margin_end(12)
+        sbar.set_margin_top(4);    sbar.set_margin_bottom(4)
+        sbar.pack_start(self._spinner, False, False, 0)
+        sbar.pack_start(self._status,  True,  True,  0)
+        area.pack_start(sbar, False, False, 0)
+
+    # ------------------------------------------------------------------
+    # Colorazione stato
+    # ------------------------------------------------------------------
+
+    _COLORI = {
+        "Solo locale":  "#6ba3ff",
+        "Solo remoto":  "#ffa26b",
+        "Modificato":   "#ffd93d",
+        "Uguale":       "#888888",
+    }
+
+    def _colorize_stato(self, col, cell, model, it, _data):
+        stato = model.get_value(it, self._C_STATO)
+        cell.set_property("foreground", self._COLORI.get(stato, "#cccccc"))
+
+    # ------------------------------------------------------------------
+    # Confronto in thread
+    # ------------------------------------------------------------------
+
+    def _confronta(self):
+        try:
+            local_files  = self._scan_locale(self._local_path)
+            remote_files = self._scan_remoto(self._remote_path)
+            GLib.idle_add(self._popola, local_files, remote_files)
+        except Exception as e:
+            GLib.idle_add(self._set_status, f"✖ {e}")
+            GLib.idle_add(self._spinner.stop)
+
+    def _scan_locale(self, path: str) -> dict:
+        """Ritorna {nome: (size, mtime)} per i file (non dir) in path."""
+        result = {}
+        try:
+            for entry in os.scandir(path):
+                if entry.is_file(follow_symlinks=False):
+                    st = entry.stat()
+                    result[entry.name] = (st.st_size, st.st_mtime)
+        except (PermissionError, OSError):
+            pass
+        return result
+
+    def _scan_remoto(self, path: str) -> dict:
+        result = {}
+        try:
+            for attr in self._sftp.listdir_attr(path):
+                if not stat.S_ISDIR(attr.st_mode):
+                    result[attr.filename] = (attr.st_size or 0, attr.st_mtime or 0)
+        except Exception:
+            pass
+        return result
+
+    # ------------------------------------------------------------------
+    # Popolamento store
+    # ------------------------------------------------------------------
+
+    def _popola(self, local: dict, remote: dict):
+        self._store.clear()
+        tutti = sorted(set(local) | set(remote))
+
+        for nome in tutti:
+            in_local  = nome in local
+            in_remote = nome in remote
+
+            if in_local and in_remote:
+                l_size, l_mtime = local[nome]
+                r_size, r_mtime = remote[nome]
+                if l_size == r_size and abs(l_mtime - r_mtime) < 2:
+                    stato  = "Uguale"
+                    dir_s  = "—"
+                    sel    = False
+                else:
+                    stato = "Modificato"
+                    # Direzione suggerita: il più recente va verso il più vecchio
+                    dir_s = "→ remoto" if l_mtime >= r_mtime else "← locale"
+                    sel   = True
+            elif in_local:
+                l_size, l_mtime = local[nome]
+                r_size, r_mtime = 0, 0
+                stato  = "Solo locale"
+                dir_s  = "→ remoto"
+                sel    = True
+            else:
+                l_size, l_mtime = 0, 0
+                r_size, r_mtime = remote[nome]
+                stato  = "Solo remoto"
+                dir_s  = "← locale"
+                sel    = True
+
+            self._store.append([
+                sel,
+                nome,
+                stato,
+                _fmt_size(l_size) if l_size else "—",
+                _fmt_size(r_size) if r_size else "—",
+                self._fmt_mtime(l_mtime),
+                self._fmt_mtime(r_mtime),
+                dir_s,
+            ])
+
+        self._spinner.stop()
+        n_sel = sum(1 for row in self._store if row[self._C_SEL])
+        self._set_status(f"{len(tutti)} file confrontati — {n_sel} selezionati per la sincronizzazione")
+        self._aggiorna_btn_ok()
+
+    @staticmethod
+    def _fmt_mtime(ts: float) -> str:
+        if not ts:
+            return "—"
+        try:
+            from datetime import datetime
+            return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M:%S")
+        except Exception:
+            return "—"
+
+    # ------------------------------------------------------------------
+    # Filtro visibilità
+    # ------------------------------------------------------------------
+
+    def _on_filtro_cambiato(self, _chk):
+        self._filtered.refilter()
+
+    def _filtro_visibile(self, model, it, _data):
+        stato = model.get_value(it, self._C_STATO)
+        if stato == "Solo locale"  and not self._chk_local_only.get_active():
+            return False
+        if stato == "Solo remoto"  and not self._chk_remote_only.get_active():
+            return False
+        if stato == "Modificato"   and not self._chk_differ.get_active():
+            return False
+        if stato == "Uguale"       and not self._chk_equal.get_active():
+            return False
+        return True
+
+    # ------------------------------------------------------------------
+    # Selezione
+    # ------------------------------------------------------------------
+
+    def _on_toggled(self, cell, path_str):
+        it = self._filtered.get_iter_from_string(path_str)
+        if it:
+            child_it = self._filtered.convert_iter_to_child_iter(it)
+            val = self._store.get_value(child_it, self._C_SEL)
+            self._store.set_value(child_it, self._C_SEL, not val)
+        self._aggiorna_btn_ok()
+
+    def _set_tutti(self, val: bool):
+        for row in self._store:
+            row[self._C_SEL] = val
+        self._aggiorna_btn_ok()
+
+    def _inverti_selezione(self):
+        for row in self._store:
+            row[self._C_SEL] = not row[self._C_SEL]
+        self._aggiorna_btn_ok()
+
+    def _aggiorna_btn_ok(self):
+        n = sum(1 for row in self._store if row[self._C_SEL])
+        self.set_response_sensitive(Gtk.ResponseType.OK, n > 0)
+        self._set_status(f"{self._store.iter_n_children(None)} file — {n} selezionati")
+
+    def _set_status(self, msg: str):
+        self._status.set_text(msg)
+
+    # ------------------------------------------------------------------
+    # Generazione job
+    # ------------------------------------------------------------------
+
+    def get_jobs(self) -> list:
+        jobs = []
+        for row in self._store:
+            if not row[self._C_SEL]:
+                continue
+            nome  = row[self._C_NOME]
+            dir_s = row[self._C_DIR]
+            local_file  = os.path.join(self._local_path, nome)
+            remote_file = self._remote_path.rstrip("/") + "/" + nome
+
+            if "→" in dir_s:  # locale → remoto (upload)
+                size = os.path.getsize(local_file) if os.path.isfile(local_file) else 0
+                jobs.append(TransferJob("upload", local_file, remote_file,
+                                        size=size, nome=nome))
+            elif "←" in dir_s:  # remoto → locale (download)
+                try:
+                    attr = self._sftp.stat(remote_file)
+                    size = attr.st_size or 0
+                except Exception:
+                    size = 0
+                jobs.append(TransferJob("download", remote_file, local_file,
+                                        size=size, nome=nome))
+        return jobs
 
 
 # ---------------------------------------------------------------------------
