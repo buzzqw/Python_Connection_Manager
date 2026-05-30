@@ -33,11 +33,14 @@
 | SSH with integrated terminal | ✅ Native VTE | ✅ | ❌ RDP/VNC only | ✅ xterm | ✅ |
 | RDP + VNC + SSH + FTP in one tool | ✅ | ✅ | partial | ✅ | ✅ |
 | Integrated SFTP/FTP browser | ✅ dual-pane | ✅ dual-pane | ❌ | partial | ❌ |
+| Directory sync local↔remote | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Graphical SSH tunnels | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Broadcast to multiple terminals | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
+| Live system monitor panel | ✅ | ✅ | ❌ | ❌ | ❌ |
 | KeePassXC integration | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Native Wayland (no XWayland) | ✅ | ❌ Windows only | partial | ❌ | ❌ Linux |
 | Password NEVER on command line | ✅ autotyped into terminal | ✅ | ❌ | ⚠️ expect | — |
+| Session restore on startup | ✅ | ✅ | ❌ | partial | ❌ |
 | Command line launch (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Human-readable config | ✅ JSON | ❌ proprietary | complex XML | YAML | XML |
 | Platform | Linux / FreeBSD | Windows only | Linux | Linux | Windows |
@@ -58,7 +61,7 @@
 | Protocol | How it opens | Strengths |
 |---|---|---|
 | **SSH** | Internal VTE tab or external terminal | Jump Host, X11, Agent Forward, VPN pre-cmd, macros |
-| **SFTP** | Integrated dual-pane browser | Drag & drop, transfer queue, rename |
+| **SFTP** | Integrated dual-pane browser | Drag & drop, transfer queue with progress/speed/ETA, rename, **directory sync local↔remote** |
 | **FTP / FTPS** | Integrated browser or file manager | Explicit TLS, PASV mode |
 | **RDP** | Internal panel or external window | xfreerdp3/xfreerdp/rdesktop, multi-monitor |
 | **VNC** | Native gtk-vnc or external client | Scale, grab input, screenshot |
@@ -81,6 +84,21 @@
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.
 
+### 📊 SSH info panel (right sidebar)
+
+Available for every SSH session, configurable per-session in the **Panels tab** of the session dialog. Opens alongside the terminal without a new window.
+
+| Section | What it shows |
+|---|---|
+| **System Overview** | CPU % (progress bar) and RAM usage (used / total), updated every 2 seconds |
+| **Running Processes** | Sortable table (click any column header) with PID, CPU%, Mem%, Command — kill button per process |
+| **Disk Usage** | One card per partition: mount point, device, used/total, free space, progress bar |
+| **Network Usage** | Download/Upload speed per second with dual-line sparkline (60-sample history), interface selector |
+| **Logs** | Streaming `journalctl` or `tail -f` viewer with regex filter, level colouring and auto-scroll |
+
+The panel reuses the monitor's existing SSH connection — zero extra TCP connections.  
+Each section can be individually enabled or disabled per session.
+
 ### 💻 Advanced terminal
 
 - **Native VTE** — zero X11 dependencies, works on pure Wayland
@@ -99,14 +117,17 @@
 - **Active session indicator** — green dot ● next to session names with an open connection
 - **Recent sessions** section at the top of the sidebar: last 20 sessions with timestamps
 - **Quick Connect**: `user@host:port` from the toolbar — connects without saving a profile
-- Double-click to connect, right-click for rich context menu
+- Double-click to connect, right-click for rich context menu on both the **session list** and the **open tab** — including "View logs…" and "System monitor…" for SSH sessions
 - **TCP Ping** from the sidebar — checks reachability on the configured port (ms)
+- **Session restore** — optionally save open sessions on close and reopen them automatically at the next startup (Settings → General)
 - Duplicate, edit, delete, export `.sh` script to reopen from terminal
 - **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`
 
 ### 🛠 Integrated tools
 
 - **Graphical SSH tunnels** — start, stop, monitor background tunnels; **toolbar indicator** with quick popup to stop tunnels without opening the full manager
+- **SFTP directory sync** — compare a local folder with a remote one (by size + modification time), review the diff table with per-file direction control, execute using the existing transfer queue with progress/speed/ETA
+- **SFTP progress bar** — the lateral SFTP panel shows a real-time progress bar during upload and download (via paramiko callback)
 - **Local FTP server** (pyftpdlib) — expose a local folder via FTP/FTPS in one click
 - **Global variables** `{NAME}` — reusable in commands across all sessions
 - **Wake-on-LAN** — sends magic packet before connecting
@@ -399,11 +420,14 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | SSH con terminale integrato | ✅ VTE nativo | ✅ | ❌ solo RDP/VNC | ✅ xterm | ✅ |
 | RDP + VNC + SSH + FTP in un tool | ✅ | ✅ | parziale | ✅ | ✅ |
 | Browser SFTP/FTP integrato | ✅ dual-pane | ✅ dual-pane | ❌ | parziale | ❌ |
+| Sincronizzazione directory locale↔remota | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Tunnel SSH grafici | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Broadcast a più terminali | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
+| Pannello monitor sistema live | ✅ | ✅ | ❌ | ❌ | ❌ |
 | KeePassXC integrato | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Wayland nativo (no XWayland) | ✅ | ❌ solo Windows | parziale | ❌ | ❌ Linux |
 | Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ✅ | ❌ | ⚠️ expect | — |
+| Ripristino sessioni all'avvio | ✅ | ✅ | ❌ | parziale | ❌ |
 | Avvio da riga di comando (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Configurazione leggibile | ✅ JSON | ❌ proprietario | XML complesso | YAML | XML |
 | Piattaforma | Linux / FreeBSD | solo Windows | Linux | Linux | Windows |
@@ -424,7 +448,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | Protocollo | Come si apre | Punti di forza |
 |---|---|---|
 | **SSH** | Tab VTE interno o terminale esterno | Jump Host, X11, Agent Forward, pre-cmd VPN, macro |
-| **SFTP** | Browser dual-pane integrato | Drag & drop, coda trasferimenti, rinomina |
+| **SFTP** | Browser dual-pane integrato | Drag & drop, coda trasferimenti con progresso/velocità/ETA, rinomina, **sincronizzazione directory locale↔remota** |
 | **FTP / FTPS** | Browser integrato o file manager | TLS esplicito, modalità PASV |
 | **RDP** | Pannello interno o finestra esterna | xfreerdp3/xfreerdp/rdesktop, multi-monitor |
 | **VNC** | gtk-vnc nativo o client esterno | Scala, grab input, screenshot |
@@ -447,6 +471,21 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
 - **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
 
+### 📊 Pannello informazioni sessione SSH (sidebar destra)
+
+Disponibile per ogni sessione SSH, configurabile per-sessione nel **tab Pannelli** del dialogo sessione. Si apre a fianco del terminale senza aprire nuove finestre.
+
+| Sezione | Cosa mostra |
+|---|---|
+| **System Overview** | CPU % (barra) e utilizzo RAM (usato / totale), aggiornati ogni 2 secondi |
+| **Running Processes** | Tabella ordinabile per colonna (PID, CPU%, Mem%, Command) — pulsante kill per processo |
+| **Disk Usage** | Una card per partizione: mount point, device, usato/totale, spazio libero, barra progresso |
+| **Network Usage** | Velocità download/upload in byte/s con sparkline doppia (60 campioni), selettore interfaccia |
+| **Logs** | Streaming `journalctl` o `tail -f` con filtro regex, colorazione per livello, auto-scroll |
+
+Il pannello riusa la connessione SSH del monitor — nessuna connessione TCP aggiuntiva.  
+Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
+
 ### 💻 Terminale avanzato
 
 - **VTE nativo** — zero dipendenze X11, funziona su Wayland puro
@@ -465,14 +504,17 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **Indicatore sessioni attive** — pallino verde ● accanto al nome delle sessioni con connessione aperta
 - **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
 - **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
-- Doppio clic per connettere, tasto destro per menu contestuale ricco
+- Doppio clic per connettere, tasto destro per menu contestuale ricco sia **sull'elenco sessioni** che sui **tab aperti** — include "Visualizza log…" e "Monitor sistema…" per sessioni SSH
 - **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
+- **Ripristino sessioni** — salva opzionalmente le sessioni aperte alla chiusura e le riapre automaticamente al prossimo avvio (Impostazioni → Generale)
 - Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
 - **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`
 
 ### 🛠 Strumenti integrati
 
 - **Tunnel SSH** grafici — avvia, ferma, monitora tunnel in background; **indicatore nella toolbar** con popup rapido per fermare i tunnel senza aprire il gestore
+- **Sincronizzazione directory SFTP** — confronta cartella locale con cartella remota (per dimensione + data modifica), rivedi la tabella diff con controllo della direzione per file, esegui usando la coda trasferimenti esistente con progresso/velocità/ETA
+- **Barra progresso SFTP** — il pannello SFTP laterale mostra una barra di progresso in tempo reale durante upload e download (tramite callback paramiko)
 - **Server FTP locale** (pyftpdlib) — espone una cartella locale via FTP/FTPS in un clic
 - **Variabili globali** `{NOME}` — riutilizzabili nei comandi di tutte le sessioni
 - **Wake-on-LAN** — invia magic packet prima di connettersi

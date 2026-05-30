@@ -349,6 +349,7 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#advanced">⚙ Advanced</a>
+  <a href="#monitor" class="new">📊 SSH Monitor</a>
   <a href="#new" class="new">✦ New features</a>
   <a href="#keys">⌨ Shortcuts</a>
   <a href="#settings">🛠 Settings</a>
@@ -675,22 +676,32 @@
 <!-- ══════════════════════════════════════════════════ SFTP/FTP -->
 <h2 id="sftp">📁 SFTP/FTP File Manager</h2>
 
-<h3>Integrated browser</h3>
-<p>The SFTP and FTP browser is modeled after WinSCP. Main features:</p>
+<h3>SFTP sidebar panel</h3>
+<p>Enable in the session dialog → <b>Panels</b> tab → <b>SFTP side panel</b>. This adds a compact file browser panel alongside the SSH terminal tab without opening a separate tab.</p>
 <ul>
-  <li>Dual-pane view (local ↔ remote) or single-pane</li>
-  <li>Upload / download with progress indicator</li>
-  <li>Drag &amp; drop between local and remote panels</li>
-  <li>Create folders, rename, delete, change permissions (SFTP)</li>
-  <li>Hidden files toggle (dotfiles)</li>
-  <li>Path bar editable directly</li>
+  <li>Upload and download with <b>real-time progress bar</b> (bytes transferred / total)</li>
+  <li>Create folders, rename, delete</li>
+  <li>Permissions, sizes and modification dates</li>
 </ul>
 
-<h3>Open from an SSH session</h3>
-<p>In a connected SSH tab, right-click on the tab → <b>Open file transfer here</b>. This opens a new SFTP/FTP tab reusing credentials from the current SSH session.</p>
+<h3>Dual-pane SFTP browser (dedicated tab)</h3>
+<p>Opens as its own tab when using the SFTP protocol or via right-click → <b>Open file transfer here</b> on an SSH tab.</p>
+<ul>
+  <li>Side-by-side local and remote panels (WinSCP style)</li>
+  <li>Transfer queue with progress, speed (bytes/s) and ETA per file</li>
+  <li>Pause and cancel in-progress transfers</li>
+  <li>Recursive upload/download of entire directory trees</li>
+  <li><b>Directory synchronization</b> — <b>Synchronize</b> button in the toolbar (see below)</li>
+</ul>
 
-<h3>SFTP sidebar</h3>
-<p>In the session dialog, <b>Connection</b> tab → enable <b>SFTP browser</b>. This adds a file browser panel directly alongside the SSH terminal.</p>
+<h3>Directory synchronization local ↔ remote</h3>
+<p>Available in the dual-pane SFTP browser via the <b>Synchronize</b> button.</p>
+
+<div class="step"><div class="step-num">1</div><div class="step-text">Navigate to the desired folder in both the local and remote panels.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Click <b>Synchronize</b> — PCM scans both folders comparing size and modification time.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">The diff table opens: <i>Local only</i>, <i>Remote only</i>, <i>Modified</i>, <i>Equal</i>. The suggested direction (→ remote / ← local) is computed from the more recent modification date.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Filter by status, select/deselect files, adjust direction as needed, then click <b>Sync selected</b>.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">Transfers are queued and executed with the existing transfer queue (progress, speed, ETA visible).</div></div>
 
 <!-- ══════════════════════════════════════════════════ TUNNEL -->
 <h2 id="tunnel">🔀 SSH Tunnels</h2>
@@ -919,6 +930,7 @@
   <li><b>Language</b> — interface language (Italian, English, German, French, Spanish). Requires restart.</li>
   <li><b>Confirm on exit</b> — ask for confirmation before closing with active sessions</li>
   <li><b>Default editor</b> — text editor for opening config files</li>
+  <li><b>Restore open sessions on next startup</b> — saves the list of open tabs on exit and reopens them automatically at the next startup. Requires sessions to be present in <code>connections.json</code> with matching host, protocol, port and user.</li>
 </ul>
 
 <h3>Shortcuts</h3>
@@ -928,6 +940,96 @@
 <p>PCM auto-detects the paths of external clients (xfreerdp, tigervnc, mosh, etc.). Use <span class="menu-path">Tools <span>›</span> Check dependencies</span> to verify detection and manually override paths if needed.</p>
 
 <div class="info">ℹ️ Terminal settings (theme, font, scrollback, bell) and SSH options are now configured <b>per session</b> in the session dialog — <b>Connection</b> and <b>Terminal</b> tabs. There are no longer global terminal or SSH settings.</div>
+
+<!-- ══════════════════════════════════════════════════ SSH MONITOR PANEL -->
+<h2 id="monitor">📊 SSH Session Info Panel <span class="new-badge">NEW</span></h2>
+
+<p>For any SSH session you can enable a <b>persistent right sidebar</b> that shows server resources in real time, organized in two tabs: <b>Monitor</b> and <b>Logs</b>.</p>
+
+<div class="info">ℹ️ The panel reuses the existing SSH connection opened by the monitor — no extra TCP connection. Credentials are the same as the session.</div>
+
+<h3>Enable the panel</h3>
+<p>In the session edit dialog → <b>Panels</b> tab. Each section is independent:</p>
+
+<table>
+  <tr><th>Section</th><th>What it shows</th></tr>
+  <tr><td><b>CPU and Memory</b></td><td>Usage bars with absolute values (MB/GB), updated every 2 seconds</td></tr>
+  <tr><td><b>Processes</b></td><td>Sortable table (click any column header) with PID, CPU%, Mem%, Command — ✖ kill button per row</td></tr>
+  <tr><td><b>Disk Usage</b></td><td>One card per partition: mount point, device, used/total, free space, color-coded progress bar</td></tr>
+  <tr><td><b>Network Usage</b></td><td>Download/upload speed in bytes/s with dual-line sparkline (blue = download, red = upload); network interface selector</td></tr>
+  <tr><td><b>Logs (Logs tab)</b></td><td>Streaming journalctl or tail -f with regex filter, level colouring and auto-scroll</td></tr>
+</table>
+
+<h3>Monitor tab</h3>
+<p>The panel updates every 2 seconds via a persistent remote loop (a single SSH channel stays open for the entire session duration). No new channel is opened per refresh — no "no more sessions" risk.</p>
+
+<h4>Sort processes</h4>
+<p>Click any column header (PID, CPU%, Mem%, Command) to sort the table. Click again to reverse. Default: sorted by CPU% descending.</p>
+
+<h4>Kill a process</h4>
+<p>Click the <b>✖</b> button on the process row — PCM asks for confirmation, then sends <code>kill -15 &lt;pid&gt;</code> (with <code>kill -9</code> as fallback).</p>
+
+<h4>Network interface selector</h4>
+<p>The combo at the top of the Network section is populated automatically with the available interfaces from the first read of <code>/proc/net/dev</code>. Select the interface to monitor (e.g. <code>enp2s0</code>, <code>wlan0</code>).</p>
+
+<h3>Logs tab</h3>
+<p>The Logs tab appears automatically when the monitor SSH connection is established. It shows a streaming log viewer directly in the right panel.</p>
+
+<table>
+  <tr><th>Source</th><th>Command executed</th></tr>
+  <tr><td>journalctl (all)</td><td><code>journalctl -f -n 200</code></td></tr>
+  <tr><td>journalctl (errors)</td><td><code>journalctl -f -n 200 -p err..emerg</code></td></tr>
+  <tr><td>journalctl -u &lt;service&gt;</td><td><code>journalctl -f -n 200 -u service.name</code></td></tr>
+  <tr><td>tail -f &lt;file&gt;</td><td><code>tail -f /path/to/file</code></td></tr>
+</table>
+
+<ul>
+  <li><b>Regex filter</b> — show only lines matching the regular expression</li>
+  <li><b>Automatic colouring</b> — red for error/fail/crit, yellow for warn/notice</li>
+  <li><b>Match highlighting</b> — the parts matching the filter are highlighted in green</li>
+  <li><b>Auto-scroll</b> — follows the output in real time (can be disabled)</li>
+  <li><b>▶ Start</b> — restarts streaming (change source, reinitialize the channel)</li>
+</ul>
+
+<h3>Resize the panel</h3>
+<p>The separator between the terminal area and the info panel is draggable. The panel has a minimum width of 240 px and can be widened freely.</p>
+
+<hr>
+
+<!-- ── CONTEXT MENU ── -->
+<div class="new-feature">
+  <div class="nf-title">📊 View logs and System monitor from the context menu</div>
+  <p>Right-clicking on an SSH session — both in the <b>session list</b> and on an <b>open tab</b> — shows two additional entries for opening monitoring tools in dedicated tabs.</p>
+</div>
+
+<h3>View logs… (standalone tab)</h3>
+<p>Opens a dedicated <b>Log viewer</b> tab for the selected SSH session. Unlike the Logs tab in the right panel, this opens in the main area (useful without the monitor panel, or to have multiple log views at once).</p>
+
+<h3>System monitor… (standalone tab)</h3>
+<p>Opens a dedicated tab with CPU, RAM, disk, network and uptime — a standalone version of the monitor without the sidebar. Updates every 2 seconds.</p>
+
+<hr>
+
+<!-- ── SESSION RESTORE ── -->
+<div class="new-feature">
+  <div class="nf-title">🔄 Session restore on startup</div>
+  <p>PCM can save the list of open sessions on exit and reopen them automatically on the next startup, without having to click each connection manually.</p>
+</div>
+
+<h3>Enable session restore</h3>
+<p>Settings → General → tick <b>"Restore open sessions on next startup"</b>.</p>
+
+<h3>How it works</h3>
+<ul>
+  <li>On exit PCM saves host, protocol, port and user for each open tab in <code>pcm_settings.json</code></li>
+  <li>On next startup (after 2 seconds) it looks up each saved session in <code>connections.json</code> matching those four fields</li>
+  <li>Matching sessions are reopened with their full configuration (saved passwords, macros, terminal settings)</li>
+  <li>Sessions no longer in <code>connections.json</code> (renamed or deleted) are silently skipped</li>
+</ul>
+
+<div class="tip">💡 Session restore uses <code>connections.json</code> as the source — credentials are not duplicated. If credentials are encrypted with a master password, restore happens after unlocking.</div>
+
+<hr>
 
 <!-- ══════════════════════════════════════════════════ FAQ -->
 <h2 id="faq">❓ FAQ</h2>
@@ -992,6 +1094,21 @@ sudo pacman -S freerdp</pre>
   <li>Create a Dynamic (SOCKS) tunnel: <b>New Tunnel</b> → type: Dynamic → local port: 1080</li>
   <li>In Firefox/Chromium → Proxy settings → SOCKS5 → <code>127.0.0.1:1080</code></li>
 </ol>
+
+<h3>The SSH monitor panel doesn't appear</h3>
+<p>Make sure at least one monitor section is enabled in the session (right-click → Edit → <b>Panels</b> tab): CPU/RAM, Processes, Disk, or Network. If no section is active the panel stays hidden. Reconnect the session after changing the setting.</p>
+
+<h3>The monitor panel shows zero or no data</h3>
+<p>The panel connects via SSH (paramiko) directly to the session host. Check: (1) the host is directly reachable from Python without a jump host; (2) the host key is in <code>~/.ssh/known_hosts</code>; (3) if the session uses a jump host, the panel cannot route through it — use the standalone monitor instead (right-click → System monitor…) or set up a manual tunnel.</p>
+
+<h3>The Logs tab in the panel stays as a placeholder</h3>
+<p>The Logs tab appears automatically after the monitor SSH connection is established (5–15 seconds). If the placeholder persists, check the monitor connection status in the panel's status bar. Click <b>▶ Start</b> to (re)start streaming.</p>
+
+<h3>The Synchronize button in the SFTP browser is missing</h3>
+<p>The <b>Synchronize</b> button is only available in the <b>dual-pane SFTP browser</b> (tab opened via SFTP session or right-click → "Open file transfer here"), not in the SFTP sidebar panel. Make sure both local and remote panels are navigated to the desired folder before synchronizing.</p>
+
+<h3>Session restore on startup doesn't work</h3>
+<p>Check: (1) the option is enabled in Settings → General; (2) the session is still present in <code>connections.json</code> with the same host, protocol, port and user as when the session was open at the time of closing. Sessions opened via Quick Connect (no saved profile) are not restored.</p>
 
 </div>
 

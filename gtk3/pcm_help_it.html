@@ -378,6 +378,7 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#avanzate">⚙ Avanzate</a>
+  <a href="#monitor" class="new">📊 Monitor SSH</a>
   <a href="#nuove" class="new">✦ Nuove funzioni</a>
   <a href="#tasti">⌨ Tasti</a>
   <a href="#impostazioni">🛠 Impostazioni</a>
@@ -499,9 +500,12 @@
   Tab <b>⚡ Macro</b>: definisci comandi rapidi inviabili con un clic dal pannello sessioni.
 </div></div>
 <div class="step"><div class="step-num">9</div><div class="step-text">
-  Tab <b>📝 Note</b>: campo testo libero per annotazioni, procedure, link utili.
+  Tab <b>📊 Pannelli</b> (solo SSH): abilita il pannello informazioni laterale destro (CPU/RAM, processi, disco, rete, log streaming) e il browser SFTP laterale. Ogni sezione è attivabile individualmente.
 </div></div>
 <div class="step"><div class="step-num">10</div><div class="step-text">
+  Tab <b>📝 Note</b>: campo testo libero per annotazioni, procedure, link utili.
+</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-text">
   Clicca <b>OK</b> — la sessione viene salvata e la connessione si apre immediatamente.
 </div></div>
 
@@ -513,6 +517,8 @@
   <li><b>📋 Copia comando</b> — copia il comando shell equivalente negli appunti</li>
   <li><b>📄 Esporta apri-connessione.sh…</b> — genera uno script bash standalone per aprire la connessione</li>
   <li><b>📂 Apri SFTP/FTP qui</b> — apre un browser file transfer relativo alla sessione SSH/Telnet/Mosh selezionata</li>
+  <li><b>Visualizza log…</b> — apre un tab di streaming log (journalctl/tail -f) per la sessione SSH selezionata</li>
+  <li><b>Monitor sistema…</b> — apre un tab di monitoraggio risorse (CPU, RAM, disco, rete) per la sessione SSH selezionata</li>
   <li><b>Ping</b> — verifica la raggiungibilità TCP dell'host sulla porta configurata (disponibile per sessioni con host di rete)</li>
   <li><b>⚡ Macro</b> — sottomenu con le macro definite per questa sessione</li>
   <li><b>🗑 Elimina</b> — richiede conferma</li>
@@ -761,17 +767,46 @@ automaticamente tutto l'output in un file <code>pcm_YYYYMMDD_HHMMSS.log</code> n
 <!-- ══════════════════════════════════════════════════ SFTP/FTP -->
 <h2 id="sftp">📁 Browser SFTP e FTP</h2>
 
-<h3>Browser SFTP integrato</h3>
-<p>Si apre automaticamente dopo una connessione SSH (se l'opzione è attiva) oppure aprendo una sessione con protocollo SFTP dedicato. Appare nel tab <b>SFTP</b> della sidebar sinistra.</p>
+<h3>Browser SFTP laterale</h3>
+<p>Si apre automaticamente accanto al terminale SSH (se l'opzione è attiva nel tab Pannelli). Permette di navigare il filesystem remoto senza aprire un tab separato.</p>
 <ul>
   <li>Navigazione cartelle con doppio clic</li>
-  <li>Upload, download, creazione cartelle, rinomina, eliminazione</li>
+  <li>Upload e download con <b>barra di progresso in tempo reale</b> (byte trasferiti / totale)</li>
+  <li>Creazione cartelle, rinomina, eliminazione</li>
   <li>Visualizzazione permessi, dimensioni e date di modifica</li>
-  <li>Cronologia di navigazione (avanti/indietro)</li>
 </ul>
 
+<h3>Browser SFTP dual-pane (tab dedicato)</h3>
+<p>Si apre in un tab autonomo aprendo una sessione con protocollo SFTP o via tasto destro → "Apri SFTP/FTP qui".</p>
+<ul>
+  <li>Pannello locale e remoto affiancati (stile WinSCP)</li>
+  <li>Coda trasferimenti con progresso, velocità (byte/s) ed ETA</li>
+  <li>Pausa e annullamento dei trasferimenti in corso</li>
+  <li>Ricorsività su cartelle (upload/download di alberi di directory)</li>
+  <li><b>Sincronizzazione directory</b> — pulsante <b>Sincronizza</b> nella toolbar (vedi sotto)</li>
+</ul>
+
+<h3>Sincronizzazione directory locale ↔ remota</h3>
+<p>Disponibile nel browser SFTP dual-pane tramite il pulsante <b>Sincronizza</b> nella toolbar.</p>
+
+<div class="step"><div class="step-num">1</div><div class="step-text">
+  Naviga alla cartella voluta nel pannello locale e in quello remoto.
+</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">
+  Clicca <b>Sincronizza</b> — PCM scansiona entrambe le cartelle confrontando dimensione e data di modifica.
+</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">
+  Si apre il dialog con la tabella diff: <i>Solo locale</i>, <i>Solo remoto</i>, <i>Modificato</i>, <i>Uguale</i>. La direzione suggerita (→ remoto / ← locale) è calcolata automaticamente in base alla data più recente.
+</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">
+  Filtra per stato, seleziona/deseleziona i file, modifica la direzione se necessario, poi clicca <b>Sincronizza selezionati</b>.
+</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">
+  I trasferimenti vengono accodati e eseguiti con la coda esistente (progresso, velocità, ETA visibili).
+</div></div>
+
 <h3>Browser FTP/FTPS integrato</h3>
-<p>Stesso comportamento del browser SFTP, ma usa FTP o FTPS:</p>
+<p>Stesso comportamento del browser SFTP dual-pane, ma usa FTP o FTPS:</p>
 <ul>
   <li>FTP plain (porta 21) o FTPS con TLS esplicito</li>
   <li>Modalità passiva (PASV) per NAT/firewall</li>
@@ -1500,6 +1535,96 @@ ssh altro-server                           <span class="cm"># autenticazione tra
 
 <div class="warn">⚠️ KeePassXC mostra una notifica quando PCM accede alle credenziali — questo è il comportamento atteso. Potresti dover approvare la richiesta se KeePassXC è configurato per richiedere conferma per ogni accesso.</div>
 
+<!-- ══════════════════════════════════════════════════ PANNELLO MONITOR SSH -->
+<h2 id="monitor">📊 Pannello informazioni sessione SSH <span class="new-badge">NUOVO</span></h2>
+
+<p>Per ogni sessione SSH puoi abilitare un <b>pannello laterale destro persistente</b> che mostra in tempo reale le risorse del server remoto, organizzato in due tab: <b>Monitor</b> e <b>Logs</b>.</p>
+
+<div class="info">ℹ️ Il pannello riusa la connessione SSH già aperta dal monitor — nessuna connessione TCP aggiuntiva. Le credenziali sono le stesse della sessione.</div>
+
+<h3>Abilitare il pannello</h3>
+<p>Nel dialog di modifica sessione → tab <b>Pannelli</b>. Ogni sezione è indipendente:</p>
+
+<table>
+  <tr><th>Sezione</th><th>Cosa mostra</th></tr>
+  <tr><td><b>CPU e Memoria</b></td><td>Barre di utilizzo con valori assoluti (MB/GB), aggiornate ogni 2 secondi</td></tr>
+  <tr><td><b>Processi</b></td><td>Tabella sortable (clic sull'intestazione colonna) con PID, CPU%, Mem%, Command — pulsante ✖ per terminare il processo</td></tr>
+  <tr><td><b>Disco</b></td><td>Una card per partizione: mount point, device, usato/totale, spazio libero, barra progresso colorata in base all'utilizzo</td></tr>
+  <tr><td><b>Rete</b></td><td>Velocità download/upload in byte/s con sparkline doppia (blu = download, rosso = upload); selettore interfaccia di rete</td></tr>
+  <tr><td><b>Log (tab Logs)</b></td><td>Streaming journalctl o tail -f con filtro regex, colorazione per livello e auto-scroll</td></tr>
+</table>
+
+<h3>Tab Monitor</h3>
+<p>Il pannello si aggiorna ogni 2 secondi tramite un loop remoto persistente (un solo canale SSH aperto per tutta la durata della sessione). Non apre un canale SSH per ogni aggiornamento — nessun rischio di "no more sessions".</p>
+
+<h4>Ordinare i processi</h4>
+<p>Clicca sull'intestazione di qualsiasi colonna (PID, CPU%, Mem%, Command) per ordinare la tabella. Clicca di nuovo per invertire l'ordine. Default: ordinamento per CPU% decrescente.</p>
+
+<h4>Terminare un processo</h4>
+<p>Clicca il pulsante <b>✖</b> a destra della riga nella tabella processi — PCM chiede conferma, poi invia <code>kill -15 &lt;pid&gt;</code> (e <code>kill -9</code> come fallback).</p>
+
+<h4>Selettore interfaccia di rete</h4>
+<p>Il combo in cima alla sezione Rete si popola automaticamente con le interfacce disponibili alla prima lettura di <code>/proc/net/dev</code>. Seleziona l'interfaccia da monitorare (es. <code>enp2s0</code>, <code>wlan0</code>).</p>
+
+<h3>Tab Logs</h3>
+<p>Il tab Logs appare automaticamente quando il pannello è connesso. Mostra un visualizzatore di log in streaming direttamente nel pannello destro.</p>
+
+<table>
+  <tr><th>Sorgente</th><th>Comando eseguito</th></tr>
+  <tr><td>journalctl (tutto)</td><td><code>journalctl -f -n 200</code></td></tr>
+  <tr><td>journalctl (errori)</td><td><code>journalctl -f -n 200 -p err..emerg</code></td></tr>
+  <tr><td>journalctl -u &lt;service&gt;</td><td><code>journalctl -f -n 200 -u nome.service</code></td></tr>
+  <tr><td>tail -f &lt;file&gt;</td><td><code>tail -f /percorso/file</code></td></tr>
+</table>
+
+<ul>
+  <li><b>Filtro regex</b> — mostra solo le righe che corrispondono all'espressione regolare</li>
+  <li><b>Colorazione automatica</b> — rosso per error/fail/crit, giallo per warn/notice</li>
+  <li><b>Evidenziazione match</b> — le parti che corrispondono al filtro vengono evidenziate in verde</li>
+  <li><b>Auto-scroll</b> — segue automaticamente l'output in tempo reale (disabilitabile)</li>
+  <li><b>▶ Avvia</b> — riavvia lo streaming (cambia sorgente, reinizializza il canale)</li>
+</ul>
+
+<h3>Ridimensionare il pannello</h3>
+<p>Il separatore tra l'area terminale e il pannello informazioni è trascinabile con il mouse. Il pannello ha una larghezza minima di 240 px e può essere allargato a piacimento.</p>
+
+<hr>
+
+<!-- ── MENU CONTESTUALE ARRICCHITO ── -->
+<div class="new-feature">
+  <div class="nf-title">📊 Visualizza log e Monitor sistema dal menu contestuale</div>
+  <p>Tasto destro su una sessione SSH — sia nell'<b>elenco sessioni</b> che sul <b>tab aperto</b> — mostra due voci aggiuntive per aprire strumenti di monitoraggio in tab dedicati.</p>
+</div>
+
+<h3>Visualizza log… (tab standalone)</h3>
+<p>Apre un tab dedicato <b>Log viewer</b> per la sessione SSH selezionata. A differenza del tab Logs nel pannello destro, questo si apre nello spazio principale (utile in assenza del pannello monitor, o per avere più viste di log contemporaneamente).</p>
+
+<h3>Monitor sistema… (tab standalone)</h3>
+<p>Apre un tab dedicato con CPU, RAM, disco, rete e uptime — versione standalone del monitor senza il pannello laterale. Aggiornamento ogni 2 secondi tramite <code>exec_command</code>.</p>
+
+<hr>
+
+<!-- ── SESSION RESTORE ── -->
+<div class="new-feature">
+  <div class="nf-title">🔄 Ripristino sessioni all'avvio</div>
+  <p>PCM può salvare la lista delle sessioni aperte alla chiusura e riaprirle automaticamente al prossimo avvio, senza cliccare manualmente su ogni connessione.</p>
+</div>
+
+<h3>Abilitare il ripristino</h3>
+<p>Da <b>Impostazioni → Generale</b> → spunta <b>"Ripristina le sessioni aperte al prossimo avvio"</b>.</p>
+
+<h3>Come funziona</h3>
+<ul>
+  <li>Alla chiusura PCM salva host, protocollo, porta e utente di ogni tab aperta in <code>pcm_settings.json</code></li>
+  <li>All'avvio successivo (dopo 2 secondi, per dare tempo alla UI di caricarsi) cerca ogni sessione salvata in <code>connections.json</code> confrontando i quattro campi</li>
+  <li>Le sessioni trovate vengono riaperte nella loro configurazione completa (incluse password salvate, macro, impostazioni terminale)</li>
+  <li>Le sessioni non più presenti in <code>connections.json</code> (es. eliminate o rinominate) vengono silenziosamente ignorate</li>
+</ul>
+
+<div class="tip">💡 Il ripristino usa la sessione salvata in <code>connections.json</code> come sorgente — le credenziali non vengono duplicate. Se le credenziali sono cifrate con password master, il ripristino avviene dopo lo sblocco.</div>
+
+<hr>
+
 <!-- ══════════════════════════════════════════════════ TASTI -->
 <h2 id="tasti">⌨ Scorciatoie da tastiera</h2>
 
@@ -1541,6 +1666,7 @@ ssh altro-server                           <span class="cm"># autenticazione tra
   <li><b>Editor di testo</b> — usato per aprire file di configurazione (nano, vim, gedit, code…)</li>
   <li><b>Lingua</b> — italiano, inglese, tedesco, francese, spagnolo</li>
   <li><b>Conferma alla chiusura</b> — chiede cosa fare quando ci sono sessioni attive</li>
+  <li><b>Ripristina le sessioni aperte al prossimo avvio</b> — alla chiusura salva la lista delle sessioni aperte e le riapre automaticamente al prossimo avvio. Richiede che le sessioni siano presenti in <code>connections.json</code> con host, protocollo, porta e utente corrispondenti.</li>
 </ul>
 
 <h3>Tab Scorciatoie</h3>
@@ -1609,6 +1735,21 @@ Se manca: <code>.venv/bin/pip install paramiko</code> dalla cartella gtk3.</p>
 
 <h4>Il Broadcast non raggiunge tutti i terminali</h4>
 <p>Il Broadcast funziona solo sui terminali VTE embedded (tab SSH/Telnet/Mosh/Exec aperti in PCM). Le sessioni RDP e VNC in finestra esterna non sono raggiungibili perché non usano il terminale interno.</p>
+
+<h4>Il pannello Monitor SSH non appare</h4>
+<p>Verifica che nella sessione (tasto destro → Modifica → tab <b>Pannelli</b>) sia abilitata almeno una delle sezioni monitor (CPU/RAM, Processi, Disco, Rete). Se nessuna sezione è attiva il pannello rimane nascosto. Riconnetti la sessione dopo la modifica.</p>
+
+<h4>Il pannello Monitor mostra zero o nessun dato</h4>
+<p>Il pannello si connette via SSH (paramiko) all'host della sessione. Verifica: (1) l'host è raggiungibile direttamente da Python senza tramite un jump host; (2) la chiave host è in <code>~/.ssh/known_hosts</code>; (3) se la sessione usa un jump host, il pannello non può passarci — usa il monitor standalone (tasto destro → Monitor sistema…) oppure apri un tunnel manuale.</p>
+
+<h4>Il tab Logs nel pannello non mostra nulla / rimane come placeholder</h4>
+<p>Il tab Logs appare automaticamente dopo che la connessione SSH del monitor è stabilita (circa 5-15 secondi). Se persiste il placeholder, verifica lo stato della connessione monitor nella statusbar del pannello. Clicca <b>▶ Avvia</b> per (ri)avviare lo streaming.</p>
+
+<h4>Il pulsante Sincronizza nel browser SFTP non c'è</h4>
+<p>Il pulsante "Sincronizza" è disponibile solo nel <b>browser dual-pane SFTP</b> (tab aperto tramite sessione SFTP o tasto destro → "Apri SFTP/FTP qui"), non nel browser SFTP laterale. Assicurati di avere entrambi i pannelli (locale e remoto) navigati nella cartella voluta prima di sincronizzare.</p>
+
+<h4>Il ripristino sessioni all'avvio non funziona</h4>
+<p>Verifica: (1) l'opzione è abilitata in <b>Impostazioni → Generale</b>; (2) la sessione è ancora presente in <code>connections.json</code> con host, protocollo, porta e utente identici a quelli della sessione aperta al momento della chiusura. Le sessioni aperte via Quick Connect (senza profilo salvato) non vengono ripristinate.</p>
 
 </div>
 
