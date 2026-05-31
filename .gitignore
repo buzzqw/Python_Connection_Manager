@@ -21,3 +21,6 @@ dist/
 
 # Marker installazione locale
 .pcm_installed
+
+# Launcher generato da setup.sh
+pcm
