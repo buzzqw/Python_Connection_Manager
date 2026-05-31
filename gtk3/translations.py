@@ -1579,15 +1579,18 @@ _T: dict[str, dict[str, str]] = {
 
     # ── Session dialog: tab Pannelli ──────────────────────────────────────────
     "sd.tab.panels":            {"it": "Pannelli",                 "en": "Panels",                "de": "Panels",                  "fr": "Panneaux",                 "es": "Paneles"},
-    "sd.panels.sftp_section":   {"it": "Browser file (SSH)",       "en": "File browser (SSH)",    "de": "Datei-Browser (SSH)",     "fr": "Navigateur de fichiers (SSH)", "es": "Explorador de archivos (SSH)"},
+    "sd.panels.sftp_section":   {"it": "Browser file (via SSH)",   "en": "File browser (via SSH)", "de": "Datei-Browser (via SSH)", "fr": "Navigateur de fichiers (via SSH)", "es": "Explorador de archivos (via SSH)"},
     "sd.panels.sftp_side":      {"it": "Pannello SFTP laterale",   "en": "SFTP side panel",       "de": "SFTP-Seitenpanel",        "fr": "Panneau SFTP latéral",     "es": "Panel SFTP lateral"},
-    "sd.panels.mon_section":    {"it": "Pannello informazioni (solo SSH)", "en": "Info panel (SSH only)", "de": "Infopanel (nur SSH)", "fr": "Panneau info (SSH seul)", "es": "Panel de información (solo SSH)"},
+    "sd.panels.mon_section":    {"it": "Pannello informazioni (SSH)", "en": "Info panel (SSH)",    "de": "Infopanel (SSH)",         "fr": "Panneau info (SSH)",       "es": "Panel de información (SSH)"},
     "sd.panels.mon_note":       {"it": "Apre una connessione SSH aggiuntiva per il monitoraggio in tempo reale.", "en": "Opens an additional SSH connection for real-time monitoring.", "de": "Öffnet eine zusätzliche SSH-Verbindung für Echtzeit-Monitoring.", "fr": "Ouvre une connexion SSH supplémentaire pour la surveillance en temps réel.", "es": "Abre una conexión SSH adicional para el monitoreo en tiempo real."},
+    "sd.panels.ssh_port":       {"it": "Porta SSH",                "en": "SSH port",              "de": "SSH-Port",                "fr": "Port SSH",                 "es": "Puerto SSH"},
+    "sd.panels.ssh_port_note":  {"it": "Connessione SSH allo stesso host (per SFTP browser e monitor). Stesse credenziali della sessione.", "en": "SSH connection to the same host (for SFTP browser and monitor). Uses session credentials.", "de": "SSH-Verbindung zum selben Host (für SFTP-Browser und Monitor). Benutzt Session-Zugangsdaten.", "fr": "Connexion SSH au même hôte (pour navigateur SFTP et monitor). Utilise les identifiants de session.", "es": "Conexión SSH al mismo host (para navegador SFTP y monitor). Usa credenciales de sesión."},
     "sd.panels.cpu_mem":        {"it": "CPU e Memoria",            "en": "CPU and Memory",        "de": "CPU und Arbeitsspeicher", "fr": "CPU et mémoire",           "es": "CPU y memoria"},
     "sd.panels.processes":      {"it": "Processi — tabella con kill","en": "Processes — table with kill","de": "Prozesse — Tabelle mit Kill","fr": "Processus — tableau avec kill","es": "Procesos — tabla con matar"},
     "sd.panels.disk":           {"it": "Disco — utilizzo partizioni","en": "Disk — partition usage","de": "Datenträger — Partitionsnutzung","fr": "Disque — utilisation des partitions","es": "Disco — uso de particiones"},
     "sd.panels.network":        {"it": "Rete — velocità download/upload","en": "Network — download/upload speed","de": "Netzwerk — Down/Upload-Geschwindigkeit","fr": "Réseau — vitesse téléch./envoi","es": "Red — velocidad descarga/subida"},
     "sd.panels.log":            {"it": "Log — journalctl / tail -f","en": "Log — journalctl / tail -f","de": "Protokoll — journalctl / tail -f","fr": "Journal — journalctl / tail -f","es": "Registro — journalctl / tail -f"},
+    "sd.panels.unavail":        {"it": "Nessun pannello disponibile per questo protocollo.", "en": "No panels available for this protocol.", "de": "Keine Panels für dieses Protokoll verfügbar.", "fr": "Aucun panneau disponible pour ce protocole.", "es": "No hay paneles disponibles para este protocolo."},
 
     # ── Settings: general ─────────────────────────────────────────────────────
     "settings.general.restore_sessions": {

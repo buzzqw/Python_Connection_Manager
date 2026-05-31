@@ -6,6 +6,7 @@ Usa UN SOLO canale SSH persistente con loop remoto — nessun exec_command ripet
 Aggiornamento ogni 2 secondi (< 1 Hz, mai più di 1 al secondo).
 """
 
+import base64
 import os
 import re
 import threading
@@ -46,6 +47,56 @@ _REMOTE_LOOP = (
     "echo ===END; "
     f"sleep {_SLEEP}; "
     "done"
+)
+
+# ---------------------------------------------------------------------------
+# Loop Windows — PowerShell via OpenSSH.
+# Output formattato per riusare i parser esistenti (stessi marker ===SECTION).
+# CPU: singolo float percentuale (diverso da /proc/stat — gestito in _dispatch).
+# MEM: "MemTotal: N kB" / "MemAvailable: N kB" — identico a /proc/meminfo.
+# PROCS: "pid cpu_s mem_mb name" (cpu in secondi cumulativi, mem in MB).
+# DISK: "root totG usedG freeG pct% root" — compatibile con il parser df.
+# NET:  "iface: rx 0 0 0 0 0 0 0 tx 0 0 0 0 0 0" — compatibile con /proc/net/dev.
+# ---------------------------------------------------------------------------
+
+_PS_LOOP = """\
+while ($true) {
+  Write-Host '===TICK'
+  Write-Host '===CPU'
+  Write-Host ([string][math]::Round((Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average, 1))
+  Write-Host '===MEM'
+  $os = Get-CimInstance Win32_OperatingSystem
+  Write-Host "MemTotal: $($os.TotalVisibleMemorySize) kB"
+  Write-Host "MemAvailable: $($os.FreePhysicalMemory) kB"
+  Write-Host '===PROCS'
+  Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 12 | ForEach-Object {
+    $c = if ($_.CPU) { [math]::Round($_.CPU, 1) } else { 0.0 }
+    $m = [math]::Round($_.WorkingSet64 / 1MB, 1)
+    Write-Host "$($_.Id) $c $m $($_.ProcessName)"
+  }
+  Write-Host '===DISK'
+  Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used } | ForEach-Object {
+    $tot = $_.Used + $_.Free
+    if ($tot -gt 0) {
+      $pct = [math]::Round(100 * $_.Used / $tot)
+      $root = $_.Root.TrimEnd('\\')
+      Write-Host "$root $([math]::Round($tot/1GB,1))G $([math]::Round($_.Used/1GB,1))G $([math]::Round($_.Free/1GB,1))G $($pct)% $root"
+    }
+  }
+  Write-Host '===NET'
+  Get-NetAdapterStatistics | ForEach-Object {
+    $n = $_.Name -replace ' ','_'
+    Write-Host "$($n): $($_.ReceivedBytes) 0 0 0 0 0 0 0 $($_.SentBytes) 0 0 0 0 0 0"
+  }
+  Write-Host '===END'
+  Start-Sleep -Seconds 2
+}
+"""
+
+# Codificato in UTF-16LE + base64 per passarlo senza problemi di escaping a cmd.exe
+_REMOTE_LOOP_WIN = (
+    "powershell -NonInteractive -NoProfile -EncodedCommand "
+    + base64.b64encode(_PS_LOOP.encode("utf-16-le")).decode("ascii")
 )
 
 
@@ -135,6 +186,12 @@ class _SysOverview(Gtk.Box):
         self._prev_total = 0
         self._prev_idle  = 0
         self._mem_total  = 0
+
+    def aggiorna_win_cpu(self, pct: float):
+        """Aggiorna CPU con percentuale diretta (Windows — non usa delta /proc/stat)."""
+        frac = max(0.0, min(1.0, pct / 100.0))
+        self._cpu_bar.set_fraction(frac)
+        self._cpu_bar.set_text(f"{pct:.1f}%")
 
     def aggiorna(self, cpu_lines: list[str], mem_lines: list[str]):
         # CPU
@@ -528,6 +585,7 @@ class InfoPanelWidget(Gtk.Box):
         self._ssh        = None
         self._channel    = None
         self._attivo     = False
+        self._is_windows = False
         self._log_widget: LogViewerWidget | None = None
         self._last_tick  = time.monotonic()
 
@@ -675,9 +733,12 @@ class InfoPanelWidget(Gtk.Box):
             text=t("mon.kill_confirm").format(pid=pid)
         )
         if dlg.run() == Gtk.ResponseType.YES:
+            if self._is_windows:
+                cmd = f"taskkill /PID {pid} /F"
+            else:
+                cmd = f"kill -15 {pid} 2>/dev/null || kill -9 {pid}"
             threading.Thread(
-                target=lambda: self._ssh.exec_command(
-                    f"kill -15 {pid} 2>/dev/null || kill -9 {pid}"),
+                target=lambda: self._ssh.exec_command(cmd),
                 daemon=True
             ).start()
         dlg.destroy()
@@ -692,8 +753,13 @@ class InfoPanelWidget(Gtk.Box):
         if p is None:
             return
         try:
-            host = p.get("host", "")
-            port = int(p.get("port", 22))
+            proto = p.get("protocol", "ssh")
+            host  = p.get("host", "")
+            # VNC e RDP usano mon_ssh_port (OpenSSH sul loro host), non la porta di sessione
+            if proto in ("rdp", "vnc"):
+                port = int(p.get("mon_ssh_port", 22))
+            else:
+                port = int(p.get("port", 22))
             user = p.get("user", "")
             pwd  = p.get("password", "")
             pkey = p.get("private_key", "")
@@ -715,21 +781,26 @@ class InfoPanelWidget(Gtk.Box):
                 ssh.close()
                 return
 
-            self._ssh    = ssh
-            self._attivo = True
+            self._ssh        = ssh
+            self._attivo     = True
+            self._is_windows = (proto == "rdp")
             GLib.idle_add(self._set_status, f"✔ {host}")
 
             # Apri UN SOLO canale persistente — exec_command invia il loop direttamente
             # a /bin/sh via execl(). NON usare sh -c '...' (le virgolette romperebbero tutto).
+            # Su Windows (RDP) si usa il loop PowerShell codificato in base64.
             transport     = ssh.get_transport()
             self._channel = transport.open_session()
-            self._channel.exec_command(_REMOTE_LOOP)
+            loop = _REMOTE_LOOP_WIN if self._is_windows else _REMOTE_LOOP
+            self._channel.exec_command(loop)
 
             threading.Thread(target=self._leggi_loop, args=(p,), daemon=True).start()
 
-            # Crea LogViewerWidget condividendo questa connessione SSH (nessun
-            # TCP aggiuntivo, nessun problema di known_hosts)
-            GLib.idle_add(self._crea_log_widget_con_ssh, p, ssh)
+            # Log viewer: solo su Linux (journalctl/tail non disponibili su Windows)
+            if not self._is_windows:
+                # Crea LogViewerWidget condividendo questa connessione SSH (nessun
+                # TCP aggiuntivo, nessun problema di known_hosts)
+                GLib.idle_add(self._crea_log_widget_con_ssh, p, ssh)
 
         except paramiko.ssh_exception.SSHException as e:
             msg = str(e)
@@ -798,7 +869,18 @@ class InfoPanelWidget(Gtk.Box):
             return
 
         if p.get("panel_cpu_mem"):
-            self._sys.aggiorna(sec.get("cpu", []), sec.get("mem", []))
+            if self._is_windows:
+                # CPU: singolo float percentuale diretto (non /proc/stat)
+                cpu_lines = sec.get("cpu", [])
+                if cpu_lines:
+                    try:
+                        self._sys.aggiorna_win_cpu(float(cpu_lines[0]))
+                    except ValueError:
+                        pass
+                # RAM: stesso formato MemTotal/MemAvailable kB
+                self._sys.aggiorna([], sec.get("mem", []))
+            else:
+                self._sys.aggiorna(sec.get("cpu", []), sec.get("mem", []))
 
         if p.get("panel_processes"):
             self._procs.aggiorna(sec.get("procs", []))

@@ -786,8 +786,8 @@ class MainWindow(Gtk.ApplicationWindow):
         widget.comando_originale = cmd
         widget._tipo_sessione    = dati.get("protocol", "ssh")
 
-        # SFTP browser laterale (solo SSH con sftp_browser attivo)
-        if dati.get("sftp_browser") and dati.get("protocol") == "ssh":
+        # SFTP browser laterale: SSH e Mosh usano direttamente la porta di sessione
+        if dati.get("sftp_browser") and dati.get("protocol") in ("ssh", "mosh"):
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             sftp = SftpBrowserWidget(dati)
             paned.pack1(widget, True, True)
@@ -981,6 +981,22 @@ class MainWindow(Gtk.ApplicationWindow):
         except Exception as e:
             self._warn(f"Errore salvataggio credenziali: {e}")
 
+    def _sftp_browser_paned(self, widget, dati: dict):
+        """Avvolge widget in Paned con SFTP browser se sftp_browser è attivo.
+        Per VNC/RDP usa mon_ssh_port invece della porta di sessione."""
+        if not dati.get("sftp_browser"):
+            return widget
+        sftp_dati = dati
+        if dati.get("protocol") in ("vnc", "rdp"):
+            sftp_dati = dict(dati)
+            sftp_dati["port"] = dati.get("mon_ssh_port", 22)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        sftp = SftpBrowserWidget(sftp_dati)
+        paned.pack1(widget, True, True)
+        paned.pack2(sftp, False, False)
+        paned.set_position(700)
+        return paned
+
     def _apri_rdp(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
         if not self._chiedi_credenziali_rdp(nome, dati):
@@ -988,9 +1004,10 @@ class MainWindow(Gtk.ApplicationWindow):
         open_mode = dati.get("rdp_open_mode", "external")
         if open_mode == "internal":
             widget = RdpEmbedWidget(dati, open_mode="internal")
-            widget._pcm_dati = dati
             widget.show_all()
-            self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
+            container = self._sftp_browser_paned(widget, dati)
+            container._pcm_dati = dati
+            self._append_tab(container, nome, lambda: self._chiudi_tab(container))
             widget.avvia()
         else:
             # Apre xfreerdp in finestra esterna con output visibile nel tab VTE
@@ -1005,9 +1022,10 @@ class MainWindow(Gtk.ApplicationWindow):
             full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = cmd_display
-            widget._pcm_dati = dati
             widget.show_all()
-            self._append_tab(widget, nome)
+            container = self._sftp_browser_paned(widget, dati)
+            container._pcm_dati = dati
+            self._append_tab(container, nome)
             GLib.idle_add(widget.grab_focus)
             widget.avvia(full_cmd)
             widget.connect("processo-terminato",
@@ -1040,9 +1058,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 quality=dati.get("vnc_quality", 2),
                 on_save_password=_salva_password_vnc,
             )
-            widget._pcm_dati = dati
             widget.show_all()
-            self._append_tab(widget, nome, lambda: self._chiudi_tab(widget))
+            container = self._sftp_browser_paned(widget, dati)
+            container._pcm_dati = dati
+            self._append_tab(container, nome, lambda: self._chiudi_tab(container))
         else:
             # Client VNC esterno con output visibile nel tab VTE
             cmd, _ = build_command(dati)
@@ -1054,9 +1073,10 @@ class MainWindow(Gtk.ApplicationWindow):
             full_cmd = f'{cmd}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = nome
-            widget._pcm_dati = dati
             widget.show_all()
-            self._append_tab(widget, nome)
+            container = self._sftp_browser_paned(widget, dati)
+            container._pcm_dati = dati
+            self._append_tab(container, nome)
             GLib.idle_add(widget.grab_focus)
             widget.avvia(full_cmd)
             widget.connect("processo-terminato",
@@ -2241,7 +2261,7 @@ class MainWindow(Gtk.ApplicationWindow):
             nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
             self._status(t("status.connected", name=nome_pulito))
             dati = getattr(page, "_pcm_dati", None)
-            if dati and dati.get("protocol") == "ssh":
+            if dati and dati.get("protocol") in ("ssh", "mosh", "vnc", "rdp"):
                 self._info_panel.aggiorna_per_sessione(dati)
             else:
                 self._info_panel.nascondi()

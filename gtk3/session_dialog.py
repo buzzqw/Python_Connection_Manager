@@ -816,7 +816,7 @@ class SessionDialog(Gtk.Dialog):
             inner.set_margin_top(8);    inner.set_margin_bottom(10)
             frame.add(inner)
             box.pack_start(frame, False, False, 0)
-            return inner
+            return frame, inner
 
         def _chk(label, tooltip=""):
             c = Gtk.CheckButton(label=label)
@@ -825,17 +825,38 @@ class SessionDialog(Gtk.Dialog):
                 c.set_tooltip_text(tooltip)
             return c
 
-        # --- Browser file (SSH) ---
-        vb_sftp = _section(t("sd.panels.sftp_section"))
+        # --- Browser file (SSH/Mosh/VNC/RDP via OpenSSH) ---
+        self._frame_panels_sftp, vb_sftp = _section(t("sd.panels.sftp_section"))
         self.chk_panel_sftp_side = _chk(t("sd.panels.sftp_side"))
         vb_sftp.pack_start(self.chk_panel_sftp_side, False, False, 0)
 
-        # --- Pannello informazioni (SSH) ---
-        vb_mon = _section(t("sd.panels.mon_section"))
+        # --- Pannello informazioni (SSH/Mosh/VNC Linux/RDP Windows) ---
+        self._frame_panels_mon, vb_mon = _section(t("sd.panels.mon_section"))
         note = Gtk.Label()
         note.set_markup(f"<small><i>{t('sd.panels.mon_note')}</i></small>")
         note.set_xalign(0.0)
         vb_mon.pack_start(note, False, False, 0)
+
+        # Porta SSH per VNC/RDP (stesse credenziali, porta diversa)
+        self._row_panels_ssh_port = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        ssh_port_note = Gtk.Label()
+        ssh_port_note.set_markup(f"<small><i>{t('sd.panels.ssh_port_note')}</i></small>")
+        ssh_port_note.set_xalign(0.0)
+        ssh_port_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lbl_ssh_port = Gtk.Label(label=t("sd.panels.ssh_port"))
+        lbl_ssh_port.set_xalign(0.0)
+        lbl_ssh_port.set_width_chars(14)
+        self.spin_panels_ssh_port = Gtk.SpinButton()
+        self.spin_panels_ssh_port.set_adjustment(
+            Gtk.Adjustment(value=22, lower=1, upper=65535,
+                           step_increment=1, page_increment=10, page_size=0))
+        self.spin_panels_ssh_port.set_digits(0)
+        self.spin_panels_ssh_port.set_width_chars(6)
+        ssh_port_row.pack_start(lbl_ssh_port, False, False, 0)
+        ssh_port_row.pack_start(self.spin_panels_ssh_port, False, False, 0)
+        self._row_panels_ssh_port.pack_start(ssh_port_note, False, False, 0)
+        self._row_panels_ssh_port.pack_start(ssh_port_row, False, False, 0)
+        vb_mon.pack_start(self._row_panels_ssh_port, False, False, 0)
 
         self.chk_panel_cpu_mem   = _chk(t("sd.panels.cpu_mem"))
         self.chk_panel_processes = _chk(t("sd.panels.processes"))
@@ -845,6 +866,14 @@ class SessionDialog(Gtk.Dialog):
         for c in (self.chk_panel_cpu_mem, self.chk_panel_processes,
                   self.chk_panel_disk, self.chk_panel_network, self.chk_panel_log):
             vb_mon.pack_start(c, False, False, 0)
+
+        # Label per protocolli senza pannelli
+        self._lbl_panels_unavail = Gtk.Label()
+        self._lbl_panels_unavail.set_markup(f"<i>{t('sd.panels.unavail')}</i>")
+        self._lbl_panels_unavail.set_halign(Gtk.Align.CENTER)
+        self._lbl_panels_unavail.set_valign(Gtk.Align.CENTER)
+        self._lbl_panels_unavail.set_vexpand(True)
+        box.pack_start(self._lbl_panels_unavail, True, True, 0)
 
         return box
 
@@ -1365,6 +1394,20 @@ class SessionDialog(Gtk.Dialog):
             self._lbl_ssh_open.set_visible(ssh_visible)
             self.combo_ssh_open.set_visible(ssh_visible)
 
+        # Panels tab: mostra sezioni in base al protocollo
+        if hasattr(self, "_frame_panels_sftp"):
+            is_panels_sftp = proto in ("ssh", "mosh", "vnc", "rdp")
+            is_panels_mon  = proto in ("ssh", "mosh", "vnc", "rdp")
+            is_panels_port = proto in ("vnc", "rdp")
+            panels_any     = is_panels_sftp or is_panels_mon
+            self._frame_panels_sftp.set_visible(is_panels_sftp)
+            self._frame_panels_mon.set_visible(is_panels_mon)
+            if is_panels_mon:
+                self._row_panels_ssh_port.set_visible(is_panels_port)
+                # Il log (journalctl/tail) è solo Linux; su Windows (RDP) si nasconde
+                self.chk_panel_log.set_visible(proto != "rdp")
+            self._lbl_panels_unavail.set_visible(not panels_any)
+
         # Port defaults
         if getattr(self, "_proto_changed_by_user", False) or getattr(self, "_is_new", True):
             if proto == "file_transfer":
@@ -1448,6 +1491,7 @@ class SessionDialog(Gtk.Dialog):
         self.spin_keepalive_interval.set_value(int(dati.get("keepalive_interval", 60)))
         self.chk_strict_host.set_active(dati.get("strict_host", False))
         self.chk_panel_sftp_side.set_active(dati.get("sftp_browser", True))
+        self.spin_panels_ssh_port.set_value(int(dati.get("mon_ssh_port", 22)))
         self.chk_panel_cpu_mem.set_active(dati.get("panel_cpu_mem", False))
         self.chk_panel_processes.set_active(dati.get("panel_processes", False))
         self.chk_panel_disk.set_active(dati.get("panel_disk", False))
@@ -1586,6 +1630,7 @@ class SessionDialog(Gtk.Dialog):
             "term_size":      int(self.spin_font_size.get_value()),
             "startup_cmd":    self.entry_startup_cmd.get_text().strip(),
             "sftp_browser":   self.chk_panel_sftp_side.get_active(),
+            "mon_ssh_port":   int(self.spin_panels_ssh_port.get_value()),
             "panel_cpu_mem":   self.chk_panel_cpu_mem.get_active(),
             "panel_processes": self.chk_panel_processes.get_active(),
             "panel_disk":      self.chk_panel_disk.get_active(),
