@@ -783,7 +783,8 @@ class WinScpWidget(Gtk.Box):
 
             # Connessione principale per navigazione
             self._ssh = paramiko.SSHClient()
-            self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self._ssh.load_system_host_keys()
+            self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
             kw = {"hostname": host, "port": port, "username": user, "timeout": 15}
             if pkey and os.path.isfile(pkey):
@@ -796,7 +797,8 @@ class WinScpWidget(Gtk.Box):
 
             # Connessione separata per trasferimenti
             self._ssh_transfer = paramiko.SSHClient()
-            self._ssh_transfer.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self._ssh_transfer.load_system_host_keys()
+            self._ssh_transfer.set_missing_host_key_policy(paramiko.RejectPolicy())
             self._ssh_transfer.connect(**kw)
             self._sftp_transfer = self._ssh_transfer.open_sftp()
 

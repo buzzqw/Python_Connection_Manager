@@ -185,9 +185,7 @@ class LogViewerWidget(Gtk.Box):
 
             ssh = paramiko.SSHClient()
             ssh.load_system_host_keys()
-            # AutoAddPolicy per il log viewer integrato: stessa sessione SSH già
-            # aperta, il rischio di MITM è equivalente al terminale già connesso.
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
             kw = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):
