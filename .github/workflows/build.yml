@@ -25,24 +25,20 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             RELEASE_TAG="v${VERSION}"
-            IS_PRERELEASE=false
-            RELEASE_NAME="PCM v${VERSION}"
+            IS_TAG=true
           else
             SHORT_SHA=$(git rev-parse --short HEAD)
             VERSION="0.0.0-${SHORT_SHA}"
             RELEASE_TAG="dev-${SHORT_SHA}"
-            IS_PRERELEASE=true
+            IS_TAG=false
             COMMIT_SUBJECT=$(git log -1 --pretty=%s)
             RELEASE_NAME="PCM dev ${SHORT_SHA} - ${COMMIT_SUBJECT}"
           fi
-          echo "VERSION=${VERSION}"           >> "$GITHUB_OUTPUT"
-          echo "RELEASE_TAG=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
-          echo "IS_PRERELEASE=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
-          echo "RELEASE_NAME=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${VERSION}"       >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "IS_TAG=${IS_TAG}"         >> "$GITHUB_OUTPUT"
+          echo "RELEASE_NAME=${RELEASE_NAME:-}" >> "$GITHUB_OUTPUT"
           echo "Versione: ${VERSION}"
-
-      - name: Write release notes
-        run: git log -1 --pretty=%B > /tmp/release_notes.txt
 
       - name: Install build dependencies
         run: |
@@ -53,35 +49,50 @@ jobs:
         run: |
           bash linuxbuild/build.sh "${{ steps.version.outputs.VERSION }}" --zip --deb
 
-      - name: Upload tar.gz
+      - name: Upload artifacts (Actions interno — solo per PR e ispezione)
         uses: actions/upload-artifact@v4
         with:
-          name: PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
-          path: dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
+          name: PCM_v${{ steps.version.outputs.VERSION }}_Linux
+          path: |
+            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz
+            dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
+            dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
           if-no-files-found: error
 
-      - name: Upload zip
-        uses: actions/upload-artifact@v4
-        with:
-          name: PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
-          path: dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip
-          if-no-files-found: error
-
-      - name: Upload deb
-        uses: actions/upload-artifact@v4
-        with:
-          name: pcm_${{ steps.version.outputs.VERSION }}_all.deb
-          path: dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb
-          if-no-files-found: error
-
-      - name: Create GitHub Release
-        if: github.event_name == 'push'
+      # ── Release per push su branch (dev build) ──────────────────────────────
+      # Per i tag NON creiamo la release: la crea versiona.sh con le note AI.
+      - name: Create dev release (branch push only)
+        if: github.event_name == 'push' && steps.version.outputs.IS_TAG == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git log -1 --pretty=%B > /tmp/release_notes.txt
           gh release create "${{ steps.version.outputs.RELEASE_TAG }}" \
             --title "${{ steps.version.outputs.RELEASE_NAME }}" \
+            --prerelease \
             --notes-file /tmp/release_notes.txt \
             "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz" \
             "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip" \
             "dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb"
+
+      # ── Upload artefatti su release esistente (tag push) ────────────────────
+      # versiona.sh crea la release con gh release create (che pusha il tag).
+      # Quando Actions riceve il push del tag la release esiste già.
+      # Il loop di attesa copre il caso estremo in cui versiona.sh sia lento.
+      - name: Upload artifacts to existing release (tag push only)
+        if: github.event_name == 'push' && steps.version.outputs.IS_TAG == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_TAG="${{ steps.version.outputs.RELEASE_TAG }}"
+          echo "Attesa release ${RELEASE_TAG}..."
+          for i in $(seq 1 24); do
+            gh release view "${RELEASE_TAG}" &>/dev/null && break
+            echo "Tentativo ${i}/24, attendo 10s..."
+            sleep 10
+          done
+          gh release upload "${RELEASE_TAG}" \
+            "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz" \
+            "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip" \
+            "dist/pcm_${{ steps.version.outputs.VERSION }}_all.deb" \
+            --clobber

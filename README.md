@@ -163,8 +163,13 @@ Instant language change from settings without restart.
 
 | | |
 |---|---|
-| ![SSH Macros GTK3](immagini/pcm64.png) | ![SSH Notes GTK3](immagini/pcm65.png) |
-| *Macros tab — per-session quick commands (name → command), sent to the terminal with one click from the sidebar* | *Notes tab — free-text field for annotations attached to the session* |
+| ![SSH Panels tab GTK3](immagini/pcm86.png) | ![SSH Macros GTK3](immagini/pcm64.png) |
+| *Panels tab — enable/disable per-session: SFTP side panel, Info panel sections (CPU/Memory, Processes with kill, Disk, Network sparkline, Log streaming)* | *Macros tab — per-session quick commands (name → command), sent to the terminal with one click from the sidebar* |
+
+| | |
+|---|---|
+| ![SSH Notes GTK3](immagini/pcm65.png) | |
+| *Notes tab — free-text field for annotations attached to the session* | |
 
 ---
 
@@ -219,6 +224,11 @@ Instant language change from settings without restart.
 
 | | |
 |---|---|
+| ![Session context menu GTK3](immagini/pcm85.png) | ![SSH Monitor panel GTK3](immagini/pcm87.png) |
+| *Session context menu — Connect, Edit, Duplicate, Delete, Open SFTP/FTP browser, View logs, System monitor, Ping* | *SSH Info panel — System Overview (CPU/RAM), Running Processes (sortable, kill button), Disk Usage, Network sparkline, Logs tab* |
+
+| | |
+|---|---|
 | ![SSH Tunnel Manager GTK3](immagini/pcm78.png) | ![App Menu GTK3](immagini/pcm77.png) |
 | *SSH Tunnel Manager — tunnel list with type, host, ports, status; Add/Edit/Delete/Start/Stop buttons; integrated output log* | *Application menu — Tunnel Manager, Broadcast, Global variables, Local FTP server, Import, Audit log, KeePassXC, Dependencies* |
 
@@ -251,7 +261,30 @@ For the full reference with all examples, see the built-in manual (**Help** menu
 
 ---
 
+## Download
+
+The latest release is available on [**GitHub Releases**](https://github.com/buzzqw/Python_Connection_Manager/releases/latest) with:
+
+| Format | Notes |
+|---|---|
+| **AppImage** (`PCM-N-x86_64.AppImage`) | Self-contained, no installation needed. Requires `libgtk-3-0` + `libvte-2.91-0` on the system. |
+| `.deb` | Debian / Ubuntu / Linux Mint |
+| `.tar.gz` / `.zip` | Any distribution |
+
+---
+
 ## Quick install (GTK3 — recommended)
+
+### AppImage (easiest)
+
+```bash
+chmod +x PCM-*-x86_64.AppImage
+./PCM-*-x86_64.AppImage
+```
+
+Configuration and sessions are stored in `~/.config/pcm/` (persistent across updates).
+
+### From source
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -373,6 +406,8 @@ The `gtk-vnc` VNC viewer works natively on Wayland.
 | `~/.local/share/pcm/logs/` | Terminal output logs (default), path configurable |
 | `~/.cache/pcm/` | SSH_ASKPASS temp files (dir `0700`, deleted after 5s) |
 
+> **AppImage**: when running as AppImage, the three JSON files above are stored in `~/.config/pcm/` (the AppImage filesystem is read-only). Configuration persists across AppImage updates.
+
 ---
 
 ## Support the project
@@ -399,7 +434,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 > **L'alternativa Linux a MobaXterm** — tutto in una finestra: SSH, RDP, VNC, SFTP, FTP, Telnet, Mosh, Seriale.  
 > Scritto in Python con GTK3 e terminale VTE nativo. Funziona su **X11 e Wayland** senza XWayland.
 
-> 📦 **Download ultima versione** — pacchetto `.deb` per Debian/Ubuntu, archivio `.tar.gz` e `.zip` disponibili nella scheda [**Actions → ultima run**](https://github.com/buzzqw/Python_Connection_Manager/actions/workflows/build.yml) (sezione *Artifacts*).
+> 📦 **Download ultima versione** — disponibile su [**GitHub Releases**](https://github.com/buzzqw/Python_Connection_Manager/releases/latest): AppImage (pronto all'uso), pacchetto `.deb` per Debian/Ubuntu, archivio `.tar.gz` e `.zip`.
 ---
 
 ## Versioni disponibili
@@ -550,8 +585,13 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 | | |
 |---|---|
-| ![SSH Macros GTK3](immagini/pcm64.png) | ![SSH Notes GTK3](immagini/pcm65.png) |
-| *Tab Macro — comandi rapidi per sessione (nome → comando), inviati al terminale con un clic dalla sidebar* | *Tab Note — campo testo libero per annotazioni associate alla sessione* |
+| ![SSH Panels tab GTK3](immagini/pcm86.png) | ![SSH Macros GTK3](immagini/pcm64.png) |
+| *Tab Pannelli — abilita/disabilita per sessione: pannello SFTP laterale, sezioni Info panel (CPU/Memoria, Processi con kill, Disco, Sparkline rete, Log streaming)* | *Tab Macro — comandi rapidi per sessione (nome → comando), inviati al terminale con un clic dalla sidebar* |
+
+| | |
+|---|---|
+| ![SSH Notes GTK3](immagini/pcm65.png) | |
+| *Tab Note — campo testo libero per annotazioni associate alla sessione* | |
 
 ---
 
@@ -606,6 +646,11 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 
 | | |
 |---|---|
+| ![Session context menu GTK3](immagini/pcm85.png) | ![SSH Monitor panel GTK3](immagini/pcm87.png) |
+| *Menu contestuale sessione — Connetti, Modifica, Duplica, Elimina, Apri browser SFTP/FTP, Visualizza log, Monitor sistema, Ping* | *Pannello Info SSH — System Overview (CPU/RAM), Processi in esecuzione (ordinabile, kill), Utilizzo disco, Sparkline rete, tab Log* |
+
+| | |
+|---|---|
 | ![SSH Tunnel Manager GTK3](immagini/pcm78.png) | ![App Menu GTK3](immagini/pcm77.png) |
 | *SSH Tunnel Manager — elenco tunnel con tipo, host, porte, stato; pulsanti Add/Edit/Delete/Start/Stop; log output integrato* | *Menu applicazione — Tunnel Manager, Broadcast, Variabili globali, Server FTP locale, Import, Audit log, KeePassXC, Dipendenze* |
 
@@ -642,7 +687,17 @@ Per la documentazione completa con tutti gli esempi consulta il manuale integrat
 
 ### GTK3 — versione raccomandata
 
-#### Automatica
+#### AppImage (il modo più semplice)
+
+```bash
+chmod +x PCM-*-x86_64.AppImage
+./PCM-*-x86_64.AppImage
+```
+
+Nessuna installazione richiesta. Sessioni e impostazioni vengono salvate in `~/.config/pcm/` (persistono tra un aggiornamento e l'altro).  
+Richiede sul sistema: `libgtk-3-0` e `libvte-2.91-0` (presenti di default su qualsiasi desktop GTK3).
+
+#### Da sorgente (automatica)
 
 ```bash
 git clone https://github.com/buzzqw/Python_Connection_Manager.git
@@ -657,7 +712,7 @@ Lo script rileva la distribuzione (Debian/Ubuntu, Arch, Fedora, openSUSE, FreeBS
 bash setup.sh --check
 ```
 
-#### Avvio
+#### Avvio (da sorgente)
 
 ```bash
 cd Python_Connection_Manager/gtk3
@@ -770,6 +825,8 @@ Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 | `gtk3/audit_log.json` | Log audit connessioni con hash chaining SHA-256. Permessi `0600`. |
 | `~/.local/share/pcm/logs/` | Log output terminali (default), percorso configurabile |
 | `~/.cache/pcm/` | File temporanei SSH_ASKPASS (dir `0700`, file eliminati dopo 5s) |
+
+> **AppImage**: quando si usa l'AppImage i tre file JSON sopra vengono scritti in `~/.config/pcm/` (il filesystem dell'AppImage è in sola lettura). La configurazione persiste tra un aggiornamento e l'altro.
 
 ---
 
