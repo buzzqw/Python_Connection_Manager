@@ -26,6 +26,73 @@ import tempfile
 import contextlib
 from urllib.parse import urlparse
 
+# ── Controllo dipendenze all'avvio ────────────────────────────────────────────
+def _check_deps():
+    errors = []
+    hints = []
+
+    # Python >= 3.10
+    if sys.version_info < (3, 10):
+        errors.append(f"Python 3.10+ richiesto (trovato {sys.version.split()[0]})")
+        hints.append("Aggiorna Python: https://www.python.org/downloads/")
+
+    # gi / PyGObject
+    try:
+        import gi as _gi
+    except ImportError:
+        errors.append("PyGObject (python3-gi) non installato")
+        hints.append("  Debian/Ubuntu : sudo apt install python3-gi python3-gi-cairo")
+        hints.append("  Arch          : sudo pacman -S python-gobject")
+        hints.append("  Fedora        : sudo dnf install python3-gobject")
+
+    if errors:
+        _die(errors, hints)
+
+    # GTK 3.0
+    try:
+        import gi as _gi
+        _gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk as _Gtk  # noqa: F401
+    except (ValueError, ImportError):
+        errors.append("GTK 3.0 non disponibile (gir1.2-gtk-3.0 / typelib-1_0-Gtk-3_0)")
+        hints.append("  Debian/Ubuntu : sudo apt install gir1.2-gtk-3.0 libgtk-3-0")
+        hints.append("  Arch          : sudo pacman -S gtk3")
+        hints.append("  Fedora        : sudo dnf install gtk3")
+
+    # VTE 2.91
+    try:
+        import gi as _gi
+        _gi.require_version("Vte", "2.91")
+        from gi.repository import Vte as _Vte  # noqa: F401
+    except (ValueError, ImportError):
+        errors.append("VTE 2.91 non disponibile (gir1.2-vte-2.91 / typelib-1_0-Vte-2_91)")
+        hints.append("  Debian/Ubuntu : sudo apt install gir1.2-vte-2.91 libvte-2.91-0")
+        hints.append("  Arch          : sudo pacman -S vte3")
+        hints.append("  Fedora        : sudo dnf install vte291")
+
+    if errors:
+        _die(errors, hints)
+
+
+def _die(errors, hints):
+    SEP = "═" * 62
+    print(f"\n╔{SEP}╗")
+    print( "║  PCM — dipendenze mancanti                               ║")
+    print(f"╠{SEP}╣")
+    for e in errors:
+        print(f"║  ✗  {e}")
+    if hints:
+        print(f"╠{SEP}╣")
+        print( "║  Installa le dipendenze mancanti:                        ║")
+        for h in hints:
+            print(f"║  {h}")
+    print(f"╚{SEP}╝\n")
+    sys.exit(1)
+
+
+_check_deps()
+# ─────────────────────────────────────────────────────────────────────────────
+
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")

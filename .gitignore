@@ -24,3 +24,6 @@ dist/
 
 # Launcher generato da setup.sh
 pcm
+
+# Script release locale — non pushare
+versiona.sh
