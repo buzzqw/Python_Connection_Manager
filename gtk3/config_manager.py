@@ -15,8 +15,20 @@ def _crypto():
     except ImportError:
         return None
 
-# Percorsi ancorati alla cartella di config_manager.py (indipendente dalla CWD)
-_HERE          = os.path.dirname(os.path.abspath(__file__))
+# Percorsi di configurazione.
+# Dentro AppImage la AppDir è read-only: i file vengono spostati in
+# $XDG_CONFIG_HOME/pcm/ (default ~/.config/pcm/).
+# In installazione normale si usa la stessa cartella del modulo.
+def _resolve_config_dir() -> str:
+    if os.environ.get("APPIMAGE"):
+        xdg = os.environ.get("XDG_CONFIG_HOME",
+                             os.path.join(os.path.expanduser("~"), ".config"))
+        d = os.path.join(xdg, "pcm")
+        os.makedirs(d, exist_ok=True)
+        return d
+    return os.path.dirname(os.path.abspath(__file__))
+
+_HERE          = _resolve_config_dir()
 SESSIONS_FILE  = os.path.join(_HERE, "connections.json")
 SETTINGS_FILE  = os.path.join(_HERE, "pcm_settings.json")
 
@@ -343,7 +355,7 @@ def clear_recent():
 # Audit log
 # ---------------------------------------------------------------------------
 
-_AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit_log.json")
+_AUDIT_FILE = os.path.join(_HERE, "audit_log.json")
 
 # Chiavi considerate sensibili: i loro valori vengono oscurati prima di
 # scrivere nel log e prima del calcolo dell'hash di integrità.

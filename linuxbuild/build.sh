@@ -60,21 +60,11 @@ echo ""
 
 # ── Versione ──────────────────────────────────────────────────
 if [[ -z "$VERSION" ]]; then
-    # Prova a leggere dal README
-    VERSION=$(python3 -c "
-import re, pathlib
-txt = pathlib.Path('${PROJECT_ROOT}/README.md').read_text()
-m = re.search(r'[Vv]ersione[^\d]*(\d+\.\d+(?:\.\d+)?)', txt)
-print(m.group(1) if m else '')
-" 2>/dev/null || true)
-
+    # Numero di commit progressivo — unica sorgente di verità
+    VERSION=$(git -C "${PROJECT_ROOT}" rev-list --count HEAD 2>/dev/null || true)
     if [[ -z "$VERSION" ]]; then
-        read -rp "   Versione PCM [1.0.0]: " VERSION
-        VERSION="${VERSION:-1.0.0}"
-    else
-        echo -e "   Versione rilevata: ${CYAN}${VERSION}${NC}"
-        read -rp "   Conferma o inserisci una diversa [${VERSION}]: " _v
-        [[ -n "$_v" ]] && VERSION="$_v"
+        err "Impossibile determinare il numero di commit (non sei in un repo git?)."
+        exit 1
     fi
     echo ""
 fi

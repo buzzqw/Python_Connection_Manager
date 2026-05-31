@@ -14,3 +14,10 @@ TRANSLATION_REPORT.md
 .junie
 CLAUDE.md
 audit_log.json
+
+# Artefatti di build
+build/
+dist/
+
+# Marker installazione locale
+.pcm_installed
