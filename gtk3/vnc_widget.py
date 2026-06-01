@@ -56,12 +56,14 @@ _KEY_SUPER = 0xffeb
 
 class _VncGtkVnc(Gtk.Box):
 
-    def __init__(self, host, port, password, color_depth=0, quality=2, on_save_password=None):
+    def __init__(self, host, port, password, color_depth=0, quality=2,
+                 on_save_password=None, on_vnc_ready=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._host = host
         self._port = str(port)
         self._password = password
         self._on_save_password = on_save_password
+        self._on_vnc_ready = on_vnc_ready
         self._closed = False
         self._scaling = True
         self._pointer_local = False
@@ -279,6 +281,8 @@ class _VncGtkVnc(Gtk.Box):
             f"VNC — {self._host}:{self._port}"
             + (f"  [{nome}]" if nome else "")
         )
+        if self._on_vnc_ready:
+            self._on_vnc_ready()
 
     def _on_disconnected(self, d):
         if not self._closed:
@@ -450,11 +454,12 @@ class _VncSocket(Gtk.Box):
         "xvnc4viewer":    ("-Parent {}",    "-passwd {}"),
     }
 
-    def __init__(self, host, port, password):
+    def __init__(self, host, port, password, on_vnc_ready=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self._host = host
         self._port = str(port)
         self._password = password
+        self._on_vnc_ready = on_vnc_ready
         self._client = _find_vnc_client()
         self._proc = None
         self._closed = False
@@ -563,6 +568,8 @@ class _VncSocket(Gtk.Box):
 
     def _on_plug_added(self, s):
         self._lbl.set_text(f"VNC → {self._host}:{self._port}")
+        if self._on_vnc_ready:
+            self._on_vnc_ready()
 
     def _on_plug_removed(self, s):
         if not self._closed:
@@ -628,7 +635,8 @@ class _VncNoDriver(Gtk.Box):
 # ---------------------------------------------------------------------------
 
 def VncWebWidget(host: str, port: str = "5900", password: str = "",
-                  color_depth: int = 0, quality: int = 2, on_save_password=None):
+                  color_depth: int = 0, quality: int = 2,
+                  on_save_password=None, on_vnc_ready=None):
     """
     Restituisce il miglior widget VNC disponibile:
       1. gtk-vnc nativo (gir1.2-gtk-vnc-2.0)  — toolbar completa
@@ -637,11 +645,14 @@ def VncWebWidget(host: str, port: str = "5900", password: str = "",
 
     color_depth: 0=32bpp, 1=16bpp, 2=8bpp
     quality:     0=best,  1=good,  2=fast
+    on_vnc_ready: callable() invocato sul main thread quando VNC è connesso
     """
     if _GTKV_OK:
         return _VncGtkVnc(host=host, port=port, password=password,
                           color_depth=color_depth, quality=quality,
-                          on_save_password=on_save_password)
+                          on_save_password=on_save_password,
+                          on_vnc_ready=on_vnc_ready)
     if _find_vnc_client():
-        return _VncSocket(host=host, port=port, password=password)
+        return _VncSocket(host=host, port=port, password=password,
+                          on_vnc_ready=on_vnc_ready)
     return _VncNoDriver(host=host, port=port)

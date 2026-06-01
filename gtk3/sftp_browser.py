@@ -166,16 +166,49 @@ class SftpBrowserWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _connetti(self):
-        try:
-            host = self._profilo.get("host", "")
-            port = int(self._profilo.get("port", 22))
+        import socket as _socket
+
+        host = self._profilo.get("host", "")
+        if not host:
+            GLib.idle_add(self._set_status, "Host non configurato")
+            return
+
+        port = int(self._profilo.get("port", 22))
+        pkey = self._profilo.get("private_key", "")
+
+        # Per VNC/RDP la password del profilo è quella VNC/RDP, non SSH.
+        proto = self._profilo.get("protocol", "ssh")
+        if proto in ("vnc", "rdp"):
+            user = ""
+            pwd  = ""
+        else:
             user = self._profilo.get("user", "")
             pwd  = self._profilo.get("password", "")
-            pkey = self._profilo.get("private_key", "")
 
+        # Verifica raggiungibilità porta SSH prima di tentare l'auth.
+        # Una semplice probe TCP non scatena fail2ban.
+        GLib.idle_add(self._set_status, f"Verifica SSH {host}:{port}…")
+        try:
+            probe = _socket.create_connection((host, port), timeout=3)
+            probe.close()
+        except OSError:
+            GLib.idle_add(self._set_status, f"SSH non disponibile su {host}:{port}")
+            return
+
+        # Porta aperta ma credenziali SSH mancanti: chiedi all'utente.
+        if not user:
+            creds = [None]
+            done  = threading.Event()
+            GLib.idle_add(self._mostra_dialog_credenziali_ssh, host, port, creds, done)
+            done.wait(timeout=120)
+            if not creds[0]:
+                GLib.idle_add(self._set_status, "Connessione SSH annullata")
+                return
+            user, pwd = creds[0]
+
+        GLib.idle_add(self._set_status, f"Connessione SSH {user}@{host}:{port}…")
+        try:
             self._ssh = paramiko.SSHClient()
-            # RejectPolicy: rifiuta host sconosciuti invece di accettarli silenziosamente.
-            # known_hosts dell'utente viene caricato automaticamente da load_system_host_keys().
             self._ssh.load_system_host_keys()
             if self._profilo.get("strict_host", False):
                 self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -191,7 +224,6 @@ class SftpBrowserWidget(Gtk.Box):
             self._ssh.connect(**kwargs)
             self._sftp = self._ssh.open_sftp()
 
-            # Home directory
             _, stdout, _ = self._ssh.exec_command("echo $HOME")
             home = stdout.read().decode().strip() or "/"
             self._cwd = home
@@ -200,7 +232,6 @@ class SftpBrowserWidget(Gtk.Box):
         except paramiko.ssh_exception.SSHException as e:
             msg = str(e)
             if "not found in known_hosts" in msg or "Unknown server" in msg.lower():
-                # Host non presente nei known_hosts: mostra istruzioni all'utente
                 avviso = (
                     f"Chiave host di '{host}' non trovata nei known_hosts.\n"
                     f"Verifica l'impronta con il server e aggiungi manualmente:\n"
@@ -212,6 +243,53 @@ class SftpBrowserWidget(Gtk.Box):
                 GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
         except Exception as e:
             GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
+
+    def _mostra_dialog_credenziali_ssh(self, host: str, port: int,
+                                       creds: list, done: threading.Event):
+        """Dialog GTK per inserire username/password SSH. Chiamato sul main thread."""
+        parent = self.get_toplevel()
+        parent = parent if isinstance(parent, Gtk.Window) else None
+        dlg = Gtk.Dialog(
+            title=f"Credenziali SSH — {host}:{port}",
+            transient_for=parent,
+            modal=True,
+        )
+        dlg.add_buttons("Annulla", Gtk.ResponseType.CANCEL,
+                         "Connetti",  Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+
+        area = dlg.get_content_area()
+        area.set_spacing(6)
+        area.set_margin_start(12)
+        area.set_margin_end(12)
+        area.set_margin_top(8)
+        area.set_margin_bottom(8)
+
+        grid = Gtk.Grid(row_spacing=6, column_spacing=8)
+        lbl_u = Gtk.Label(label="Utente SSH:", xalign=1.0)
+        ent_u = Gtk.Entry()
+        ent_u.set_hexpand(True)
+        ent_u.set_activates_default(True)
+        lbl_p = Gtk.Label(label="Password SSH:", xalign=1.0)
+        ent_p = Gtk.Entry()
+        ent_p.set_visibility(False)
+        ent_p.set_hexpand(True)
+        ent_p.set_activates_default(True)
+        grid.attach(lbl_u, 0, 0, 1, 1)
+        grid.attach(ent_u, 1, 0, 1, 1)
+        grid.attach(lbl_p, 0, 1, 1, 1)
+        grid.attach(ent_p, 1, 1, 1, 1)
+        area.pack_start(grid, False, False, 0)
+        dlg.show_all()
+
+        resp = dlg.run()
+        user = ent_u.get_text().strip()
+        pwd  = ent_p.get_text()
+        dlg.destroy()
+
+        if resp == Gtk.ResponseType.OK and user:
+            creds[0] = (user, pwd)
+        done.set()
 
     # ------------------------------------------------------------------
     # Navigazione

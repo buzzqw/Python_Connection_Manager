@@ -1078,6 +1078,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_vnc(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
+        sftp_enabled = dati.get("sftp_browser", False)
+
         if dati.get("vnc_internal", False):
             # Viewer integrato
             def _salva_password_vnc(pwd: str):
@@ -1095,16 +1097,81 @@ class MainWindow(Gtk.ApplicationWindow):
                 except Exception:
                     pass
 
-            widget = VncWebWidget(
-                host=dati.get("host",""),
-                port=dati.get("port","5900"),
-                password=dati.get("password",""),
-                color_depth=dati.get("vnc_color", 0),
-                quality=dati.get("vnc_quality", 2),
-                on_save_password=_salva_password_vnc,
-            )
-            widget.show_all()
-            container = self._sftp_browser_paned(widget, dati)
+            if sftp_enabled:
+                # Pannello SFTP differito: aperto solo dopo che VNC è connesso
+                # e solo se la porta SSH risponde.
+                ssh_host = dati.get("host", "")
+                ssh_port = int(dati.get("mon_ssh_port", 22))
+                sftp_dati = dict(dati)
+                sftp_dati["port"] = ssh_port
+
+                ph_lbl = Gtk.Label(label="In attesa della connessione VNC…")
+                ph_lbl.set_valign(Gtk.Align.CENTER)
+                ph_lbl.set_halign(Gtk.Align.CENTER)
+                ph_lbl.set_line_wrap(True)
+                ph_lbl.set_margin_start(8)
+                ph_lbl.set_margin_end(8)
+                placeholder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                placeholder.set_size_request(220, -1)
+                placeholder.pack_start(ph_lbl, True, True, 0)
+
+                paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+
+                def _on_vnc_ready():
+                    import socket as _sock
+                    ph_lbl.set_text(f"Verifica SSH {ssh_host}:{ssh_port}…")
+
+                    def _probe():
+                        try:
+                            s = _sock.create_connection((ssh_host, ssh_port), timeout=3)
+                            s.close()
+                            GLib.idle_add(_ssh_aperta)
+                        except OSError:
+                            GLib.idle_add(_ssh_chiusa)
+
+                    def _ssh_aperta():
+                        sftp = SftpBrowserWidget(
+                            sftp_dati,
+                            on_apri_editor=lambda c, p: self._apri_sftp_editor(c, p),
+                        )
+                        paned.remove(placeholder)
+                        paned.pack2(sftp, False, False)
+                        sftp.show_all()
+
+                    def _ssh_chiusa():
+                        ph_lbl.set_markup(
+                            f"<small>Porta SSH {ssh_port}\nnon raggiungibile\nsu {ssh_host}</small>"
+                        )
+
+                    threading.Thread(target=_probe, daemon=True).start()
+
+                widget = VncWebWidget(
+                    host=dati.get("host", ""),
+                    port=dati.get("port", "5900"),
+                    password=dati.get("password", ""),
+                    color_depth=dati.get("vnc_color", 0),
+                    quality=dati.get("vnc_quality", 2),
+                    on_save_password=_salva_password_vnc,
+                    on_vnc_ready=_on_vnc_ready,
+                )
+                widget.show_all()
+                paned.pack1(widget, True, True)
+                paned.pack2(placeholder, False, True)
+                paned.set_position(700)
+                paned.show_all()
+                container = paned
+            else:
+                widget = VncWebWidget(
+                    host=dati.get("host", ""),
+                    port=dati.get("port", "5900"),
+                    password=dati.get("password", ""),
+                    color_depth=dati.get("vnc_color", 0),
+                    quality=dati.get("vnc_quality", 2),
+                    on_save_password=_salva_password_vnc,
+                )
+                widget.show_all()
+                container = widget
+
             container._pcm_dati = dati
             self._append_tab(container, nome, lambda: self._chiudi_tab(container))
         else:
@@ -1119,7 +1186,58 @@ class MainWindow(Gtk.ApplicationWindow):
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = nome
             widget.show_all()
-            container = self._sftp_browser_paned(widget, dati)
+
+            if sftp_enabled:
+                # Pannello SFTP differito: probe SSH in background senza attendere VNC
+                ssh_host = dati.get("host", "")
+                ssh_port = int(dati.get("mon_ssh_port", 22))
+                sftp_dati = dict(dati)
+                sftp_dati["port"] = ssh_port
+
+                ph_lbl = Gtk.Label(label=f"Verifica SSH {ssh_host}:{ssh_port}…")
+                ph_lbl.set_valign(Gtk.Align.CENTER)
+                ph_lbl.set_halign(Gtk.Align.CENTER)
+                ph_lbl.set_line_wrap(True)
+                ph_lbl.set_margin_start(8)
+                ph_lbl.set_margin_end(8)
+                placeholder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                placeholder.set_size_request(220, -1)
+                placeholder.pack_start(ph_lbl, True, True, 0)
+
+                paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+                paned.pack1(widget, True, True)
+                paned.pack2(placeholder, False, True)
+                paned.set_position(700)
+                paned.show_all()
+                container = paned
+
+                def _ssh_aperta_ext():
+                    sftp = SftpBrowserWidget(
+                        sftp_dati,
+                        on_apri_editor=lambda c, p: self._apri_sftp_editor(c, p),
+                    )
+                    paned.remove(placeholder)
+                    paned.pack2(sftp, False, False)
+                    sftp.show_all()
+
+                def _ssh_chiusa_ext():
+                    ph_lbl.set_markup(
+                        f"<small>Porta SSH {ssh_port}\nnon raggiungibile\nsu {ssh_host}</small>"
+                    )
+
+                def _probe_ext():
+                    import socket as _sock
+                    try:
+                        s = _sock.create_connection((ssh_host, ssh_port), timeout=3)
+                        s.close()
+                        GLib.idle_add(_ssh_aperta_ext)
+                    except OSError:
+                        GLib.idle_add(_ssh_chiusa_ext)
+
+                threading.Thread(target=_probe_ext, daemon=True).start()
+            else:
+                container = widget
+
             container._pcm_dati = dati
             self._append_tab(container, nome)
             GLib.idle_add(widget.grab_focus)
