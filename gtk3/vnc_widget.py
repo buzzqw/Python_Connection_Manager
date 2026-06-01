@@ -68,8 +68,14 @@ class _VncGtkVnc(Gtk.Box):
         self._keyboard_grab = False
         self._read_only = False
         # 0=32bpp, 1=16bpp, 2=8bpp  |  0=best, 1=good, 2=fast
-        self._color_depth = int(color_depth) if color_depth is not None else 0
-        self._quality = int(quality) if quality is not None else 2
+        try:
+            self._color_depth = int(color_depth) if color_depth is not None else 0
+        except (ValueError, TypeError):
+            self._color_depth = 0
+        try:
+            self._quality = int(quality) if quality is not None else 2
+        except (ValueError, TypeError):
+            self._quality = 2
         self._build()
 
     # ------------------------------------------------------------------
@@ -191,8 +197,10 @@ class _VncGtkVnc(Gtk.Box):
         self._display.set_pointer_local(self._pointer_local)
         self._display.set_keyboard_grab(self._keyboard_grab)
         self._display.set_read_only(self._read_only)
-        # NON chiamare _applica_depth_quality qui: GtkVnc ignora set_depth
-        # prima di vnc-initialized. Viene chiamata in _on_initialized.
+        # Imposta depth/quality sul display appena creato, prima di open_host().
+        # Su Windows VNC (TightVNC, RealVNC, UltraVNC) è necessario farlo
+        # prima della connessione per evitare lo schermo nero.
+        self._applica_depth_quality()
 
         self._display.connect("vnc-connected",       self._on_connected)
         self._display.connect("vnc-initialized",     self._on_initialized)
@@ -207,17 +215,16 @@ class _VncGtkVnc(Gtk.Box):
 
     def _applica_depth_quality(self):
         """Imposta color depth e qualità compressione sul display GtkVnc."""
-        # depth: 0→32bpp, 1→16bpp, 2→8bpp
-        depth_map = {0: 32, 1: 16, 2: 8}
-        depth_bits = depth_map.get(self._color_depth, 32)
+        depth_map = {
+            0: GtkVnc.DisplayDepthColor.FULL,    # 32bpp
+            1: GtkVnc.DisplayDepthColor.MEDIUM,  # 16bpp
+            2: GtkVnc.DisplayDepthColor.LOW,     # 8bpp
+        }
+        depth_enum = depth_map.get(self._color_depth, GtkVnc.DisplayDepthColor.FULL)
         try:
-            self._display.set_depth(GtkVnc.DisplayDepth(depth_bits))
+            self._display.set_depth(depth_enum)
         except Exception:
-            try:
-                self._display.set_depth(depth_bits)
-            except Exception:
-                pass
-        # quality: usa lossy encoding solo in modalità fast
+            pass
         try:
             self._display.set_lossy_encoding(self._quality == 2)
         except Exception:
@@ -263,9 +270,6 @@ class _VncGtkVnc(Gtk.Box):
         self._lbl.set_text(f"VNC — {self._host}:{self._port}  autenticazione…")
 
     def _on_initialized(self, d):
-        # Applica depth/quality ora che la connessione è stabilita.
-        # GtkVnc ignora set_depth prima di questo segnale.
-        self._applica_depth_quality()
         nome = ""
         try:
             nome = self._display.get_name() or ""
@@ -398,7 +402,7 @@ class _VncGtkVnc(Gtk.Box):
 
     def _screenshot(self):
         try:
-            pixbuf = self._display.capture_screenshot()
+            pixbuf = self._display.get_pixbuf()
             if pixbuf is None:
                 return
             import time

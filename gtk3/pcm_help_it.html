@@ -420,7 +420,7 @@
 <ul>
   <li><b>File</b> — nuova sessione, terminale locale, importa/esporta sessioni JSON, impostazioni, esci</li>
   <li><b>Visualizza</b> — mostra/nascondi sidebar, modalità split</li>
-  <li><b>Strumenti</b> — Gestore Tunnel SSH, multi-exec, variabili globali, password globale (cifratura credenziali), server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze, <b>Broadcast terminali</b>, <b>Audit log</b>, <b>KeePassXC</b></li>
+  <li><b>Strumenti</b> — Gestore Tunnel SSH, multi-exec, variabili globali, password globale (cifratura credenziali), server FTP locale, importa da app esterne, modalità protetta, verifica dipendenze, <b>Broadcast terminali</b>, <b>Audit log</b>, <b>KeePassXC</b>, <b>Libreria Snippet</b></li>
   <li><b>?</b> — questa guida (<kbd>F1</kbd>), informazioni su PCM</li>
 </ul>
 
@@ -500,7 +500,7 @@
   Tab <b>⚡ Macro</b>: definisci comandi rapidi inviabili con un clic dal pannello sessioni.
 </div></div>
 <div class="step"><div class="step-num">9</div><div class="step-text">
-  Tab <b>📊 Pannelli</b> (solo SSH): abilita il pannello informazioni laterale destro (CPU/RAM, processi, disco, rete, log streaming) e il browser SFTP laterale. Ogni sezione è attivabile individualmente.
+  Tab <b>📊 Pannelli</b> (SSH, VNC Linux, RDP Windows): abilita il pannello informazioni laterale destro e il browser SFTP laterale. Per SSH e VNC Linux sono disponibili CPU/RAM, processi, disco, rete, log streaming. Per RDP Windows il pannello usa PowerShell via OpenSSH (tab Log nascosto). Ogni sezione è attivabile individualmente.
 </div></div>
 <div class="step"><div class="step-num">10</div><div class="step-text">
   Tab <b>📝 Note</b>: campo testo libero per annotazioni, procedure, link utili.
@@ -886,7 +886,33 @@ Richiede <code>pyftpdlib</code>.</p>
 
 <h3>Verifica dipendenze</h3>
 <p>Da <b>Strumenti → Verifica dipendenze</b> — controlla quali strumenti esterni sono installati.
+La verifica viene eseguita anche automaticamente all’avvio dell’applicazione.
 Utile per diagnosticare perché un protocollo non funziona.</p>
+
+<h3>Libreria Snippet</h3>
+<p>Da <b>Strumenti → Libreria Snippet</b> (oppure tasto destro nel terminale → <b>Inserisci snippet…</b>).
+Permette di salvare comandi riutilizzabili globali con nome e categoria.</p>
+<ul>
+  <li>Aggiungi, modifica, elimina snippet dal gestore dedicato</li>
+  <li>Inserisci lo snippet nel terminale attivo con un doppio clic o il pulsante <b>Inserisci</b></li>
+  <li>Gli snippet sono salvati in <code>pcm_settings.json</code> e disponibili in tutte le sessioni</li>
+</ul>
+
+<h3>Editor file SFTP</h3>
+<p>Nel browser SFTP, fai doppio clic su un file (o tasto destro → <b>Modifica file…</b>) per aprirlo nell’editor.</p>
+<ul>
+  <li>Se è configurato un editor GUI esterno (es. <code>gedit</code>, <code>code</code>, <code>NotePadPQ</code>) in Impostazioni → Editor, il file viene scaricato in un file temporaneo, aperto nell’editor e ricaricato automaticamente al salvataggio</li>
+  <li>Se l’editor è da terminale (<code>nano</code>, <code>vim</code>, ecc.) o non è configurato, si usa l’editor interno con syntax highlighting (GtkSource)</li>
+</ul>
+<div class="tip">💡 Per usare NotePadPQ: vai in Impostazioni → Editor e seleziona o digita <code>NotePadPQ</code>.</div>
+
+<h3>Gestore Cron</h3>
+<p>Tasto destro su un tab SSH → <b>Gestore Cron…</b>. Si connette via SFTP/paramiko al server e mostra il crontab dell’utente remoto.</p>
+<ul>
+  <li>Aggiungi, modifica, elimina voci cron con un dialog dedicato</li>
+  <li>Supporta la sintassi standard <code>* * * * * comando</code> e le scorciatoie <code>@reboot</code>, <code>@daily</code>, <code>@weekly</code></li>
+  <li>Le modifiche vengono scritte direttamente sul server al click di <b>Salva</b></li>
+</ul>
 
 
 <!-- ══════════════════════════════════════════════════ NUOVE FUNZIONI -->
@@ -1663,7 +1689,7 @@ ssh altro-server                           <span class="cm"># autenticazione tra
 <h3>Tab Generale</h3>
 <ul>
   <li><b>Home directory</b> — cartella di partenza per i file dialog</li>
-  <li><b>Editor di testo</b> — usato per aprire file di configurazione (nano, vim, gedit, code…)</li>
+  <li><b>Editor di testo</b> — usato per aprire file remoti dal browser SFTP e file di configurazione locali. Supporta editor GUI (gedit, code, mousepad, <code>NotePadPQ</code>…) e editor da terminale (nano, vim). Seleziona o digita il nome dell’editor nel campo.</li>
   <li><b>Lingua</b> — italiano, inglese, tedesco, francese, spagnolo</li>
   <li><b>Conferma alla chiusura</b> — chiede cosa fare quando ci sono sessioni attive</li>
   <li><b>Ripristina le sessioni aperte al prossimo avvio</b> — alla chiusura salva la lista delle sessioni aperte e le riapre automaticamente al prossimo avvio. Richiede che le sessioni siano presenti in <code>connections.json</code> con host, protocollo, porta e utente corrispondenti.</li>
@@ -1698,6 +1724,20 @@ ssh altro-server                           <span class="cm"># autenticazione tra
 
 <h4>RDP si apre ma lo schermo è nero</h4>
 <p>Prova a cambiare client da xfreerdp3 a xfreerdp nel profilo. Su alcune versioni di Windows Server potrebbe servire aggiungere <code>/sec:rdp</code> tra le opzioni avanzate.</p>
+
+<h4>VNC si connette ma lo schermo è nero (specialmente su Windows)</h4>
+<p>Problema noto con gtk-vnc integrato e server VNC Windows (TightVNC, RealVNC, UltraVNC): il pixel format viene negoziato prima che la depth sia impostata. Suggerimenti:</p>
+<ul>
+  <li>Nel profilo VNC, tab Avanzate, prova la profondità colore <b>16 bpp</b> invece di 32 bpp</li>
+  <li>Oppure usa il client esterno: in Avanzate seleziona <b>Client esterno</b> e scegli tigervncviewer, vncviewer o un client personalizzato</li>
+  <li>Su server Windows, assicurati che il server VNC supporti l’autenticazione RFB standard (VNC password) e non solo Windows NTLMv2</li>
+</ul>
+
+<h4>Client VNC esterno non si apre / errore nel percorso</h4>
+<p>Se hai aggiunto un client VNC personalizzato in <b>Impostazioni → Strumenti personalizzati</b>, verifica che il <b>Percorso</b> sia corretto e che il file sia eseguibile. Per client nel PATH di sistema basta il nome binario (es. <code>vncviewer</code>).</p>
+
+<h4>Lo snippet non appare nel menu contestuale del terminale</h4>
+<p>Il menu contestuale con “Inserisci snippet…” appare solo se è configurato almeno uno snippet nella Libreria. Vai in <b>Strumenti → Libreria Snippet</b>, aggiungi uno snippet e riprova.</p>
 
 <h4>Il browser SFTP non si connette</h4>
 <p>Il browser SFTP usa <code>paramiko</code>. Verifica l'installazione:<br>

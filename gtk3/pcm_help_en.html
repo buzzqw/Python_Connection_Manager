@@ -764,7 +764,7 @@
 <h3>Sessions with unavailable client</h3>
 <p>If a saved profile uses a client that is no longer installed, the combo shows the entry with the <code>⚠ not found</code> suffix. Update the profile choosing an available client before connecting.</p>
 
-<div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system.</div>
+<div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system. The check also runs automatically at startup.</div>
 
 <hr>
 
@@ -838,6 +838,38 @@
 
 <!-- ══════════════════════════════════════════════════ NEW FEATURES -->
 <h2 id="new">✦ Recent New Features</h2>
+
+<div class="new-feature">
+  <div class="nf-title">📌 Snippet Library</div>
+  <p>A global library of reusable commands stored in <code>pcm_settings.json</code>. Access it from <span class="menu-path">Tools › Snippet Library…</span> or from the terminal right-click context menu "Insert snippet…". Supports categories and full CRUD management.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">📄 SFTP File Editor</div>
+  <p>Double-click or right-click "Edit file…" in the SFTP browser to open the file in the configured GUI editor (downloaded to a temp file, auto-re-uploaded on save). Falls back to the built-in GtkSource editor when no GUI editor is set or the editor is terminal-only.</p>
+  <p>Configure in <b>Settings → General → Text editor</b>. Supported: <code>gedit</code>, <code>code</code>, <code>mousepad</code>, <code>NotePadPQ</code>, and any GUI editor in the PATH.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">⏰ Cron Manager</div>
+  <p>Right-click on an SSH tab → <b>Cron Manager…</b>. Connects via paramiko, reads and writes the remote user crontab, and presents it as an editable TreeView with add/edit/delete dialogs. Supports <code>@reboot</code>, <code>@daily</code>, <code>@weekly</code> shortcuts.</p>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">📊 Context-aware SSH / VNC / RDP info panel</div>
+  <p>The right-sidebar info panel is now available for SSH, VNC (Linux) and RDP (Windows) sessions. The panel shows only the sections relevant to the selected protocol:</p>
+  <ul>
+    <li><b>SSH / Mosh</b>: full panel (SFTP browser + CPU/RAM/Processes/Disk/Network/Logs monitor)</li>
+    <li><b>VNC (Linux)</b>: SFTP browser + SSH monitor with configurable SSH port</li>
+    <li><b>RDP (Windows)</b>: SFTP browser + PowerShell-based monitor over OpenSSH; Log tab hidden</li>
+    <li><b>FTP, Telnet, Serial, Exec</b>: informational label — no panels available</li>
+  </ul>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">🔍 Ctrl+Wheel font zoom in terminal</div>
+  <p>Hold <kbd>Ctrl</kbd> and scroll the mouse wheel in a VTE terminal tab to increase or decrease the font size on the fly.</p>
+</div>
 
 <div class="new-feature">
   <div class="nf-title">Duplicate connection (tab right-click)</div>

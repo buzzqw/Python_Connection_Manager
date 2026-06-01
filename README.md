@@ -84,9 +84,9 @@
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.
 
-### 📊 SSH info panel (right sidebar)
+### 📊 SSH / VNC / RDP info panel (right sidebar)
 
-Available for every SSH session, configurable per-session in the **Panels tab** of the session dialog. Opens alongside the terminal without a new window.
+Available for SSH, VNC (Linux) and RDP (Windows) sessions, configurable per-session in the **Panels tab** of the session dialog. Opens alongside the terminal without a new window. The tab shows only the sections relevant to the selected protocol.
 
 | Section | What it shows |
 |---|---|
@@ -94,7 +94,13 @@ Available for every SSH session, configurable per-session in the **Panels tab** 
 | **Running Processes** | Sortable table (click any column header) with PID, CPU%, Mem%, Command — kill button per process |
 | **Disk Usage** | One card per partition: mount point, device, used/total, free space, progress bar |
 | **Network Usage** | Download/Upload speed per second with dual-line sparkline (60-sample history), interface selector |
-| **Logs** | Streaming `journalctl` or `tail -f` viewer with regex filter, level colouring and auto-scroll |
+| **Logs** | Streaming `journalctl` or `tail -f` viewer with regex filter, level colouring and auto-scroll (hidden on Windows) |
+
+Protocol support matrix:
+- **SSH / Mosh**: full panel (SFTP browser + monitor)
+- **VNC (Linux)**: SFTP browser + SSH monitor with configurable SSH port
+- **RDP (Windows)**: SFTP browser + PowerShell-based monitor over OpenSSH; log tab hidden
+- **FTP, Telnet, Serial, Exec**: informational label — no panels available
 
 The panel reuses the monitor's existing SSH connection — zero extra TCP connections.  
 Each section can be individually enabled or disabled per session.
@@ -105,8 +111,10 @@ Each section can be individually enabled or disabled per session.
 - **Vertical/horizontal split** — multiple sessions side by side in one window
 - **Themes**: Dracula, Nord, Gruvbox, Solarized Dark/Light, One Dark, Monokai, Cobalt, Tomorrow Night and more
 - **Per-session macros** — commands sent with one click from the sidebar
+- **Snippet library** — global reusable commands accessible from the right-click context menu ("Insert snippet…")
 - **Terminal broadcast** — send the same text to all selected terminals simultaneously (ideal for clusters)
 - **Multi-exec** — run a command across multiple sessions in sequence
+- **Ctrl+Wheel** to change font size in the VTE terminal
 - File output logging per session (via `script(1)`)
 - Configurable or infinite scrollback per session
 - Local pre-command: activate VPN or mount volume before opening the connection
@@ -126,13 +134,16 @@ Each section can be individually enabled or disabled per session.
 ### 🛠 Integrated tools
 
 - **Graphical SSH tunnels** — start, stop, monitor background tunnels; **toolbar indicator** with quick popup to stop tunnels without opening the full manager
+- **Snippet library** — global command library stored in `pcm_settings.json`, accessible from the Tools menu and from the terminal right-click context menu ("Insert snippet…"); supports categories and full CRUD management
+- **SFTP file editor** — double-click or right-click "Edit file…" in the SFTP browser opens the file in the configured external GUI editor (downloads to a temp file, watches for changes on exit, auto-uploads back); falls back to a built-in GtkSource/GtkTextView editor for terminal editors or when no editor is set
+- **Cron manager** — right-click on an SSH tab → "Cron Manager…"; connects via paramiko, reads/writes the remote user crontab, presents it as an editable TreeView with add/edit/delete dialogs and support for `@reboot`/`@daily`/`@weekly` shortcuts
 - **SFTP directory sync** — compare a local folder with a remote one (by size + modification time), review the diff table with per-file direction control, execute using the existing transfer queue with progress/speed/ETA
 - **SFTP progress bar** — the lateral SFTP panel shows a real-time progress bar during upload and download (via paramiko callback)
 - **Local FTP server** (pyftpdlib) — expose a local folder via FTP/FTPS in one click
 - **Global variables** `{NAME}` — reusable in commands across all sessions
 - **Wake-on-LAN** — sends magic packet before connecting
 - **Audit log** — connection history with timestamp, duration, protocol, status; exportable to CSV
-- **Dependency checker** — automatically checks which tools are installed
+- **Dependency checker** — automatically checks which tools are installed at startup
 
 ### 🌍 Internationalization
 
@@ -506,9 +517,9 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
 - **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
 
-### 📊 Pannello informazioni sessione SSH (sidebar destra)
+### 📊 Pannello informazioni SSH / VNC / RDP (sidebar destra)
 
-Disponibile per ogni sessione SSH, configurabile per-sessione nel **tab Pannelli** del dialogo sessione. Si apre a fianco del terminale senza aprire nuove finestre.
+Disponibile per sessioni SSH, VNC (Linux) e RDP (Windows), configurabile per-sessione nel **tab Pannelli** del dialogo sessione. Si apre a fianco del terminale senza aprire nuove finestre. Il tab mostra solo le sezioni rilevanti per il protocollo selezionato.
 
 | Sezione | Cosa mostra |
 |---|---|
@@ -516,7 +527,13 @@ Disponibile per ogni sessione SSH, configurabile per-sessione nel **tab Pannelli
 | **Running Processes** | Tabella ordinabile per colonna (PID, CPU%, Mem%, Command) — pulsante kill per processo |
 | **Disk Usage** | Una card per partizione: mount point, device, usato/totale, spazio libero, barra progresso |
 | **Network Usage** | Velocità download/upload in byte/s con sparkline doppia (60 campioni), selettore interfaccia |
-| **Logs** | Streaming `journalctl` o `tail -f` con filtro regex, colorazione per livello, auto-scroll |
+| **Logs** | Streaming `journalctl` o `tail -f` con filtro regex, colorazione per livello, auto-scroll (nascosto su Windows) |
+
+Matrice supporto protocolli:
+- **SSH / Mosh**: pannello completo (browser SFTP + monitor)
+- **VNC (Linux)**: browser SFTP + monitor SSH con porta SSH configurabile
+- **RDP (Windows)**: browser SFTP + monitor PowerShell via OpenSSH; tab Log nascosto
+- **FTP, Telnet, Seriale, Exec**: etichetta informativa — nessun pannello disponibile
 
 Il pannello riusa la connessione SSH del monitor — nessuna connessione TCP aggiuntiva.  
 Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
@@ -527,8 +544,10 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Split verticale/orizzontale** — più sessioni affiancate nella stessa finestra
 - **Temi**: Dracula, Nord, Gruvbox, Solarized Dark/Light, One Dark, Monokai, Cobalt, Tomorrow Night e altri
 - **Macro per sessione** — comandi inviati con un clic dalla sidebar
+- **Libreria snippet** — comandi riutilizzabili globali accessibili dal menu contestuale del terminale ("Inserisci snippet…")
 - **Broadcast terminali** — invia lo stesso testo a tutti i terminali selezionati contemporaneamente (ideale per cluster)
 - **Multi-exec** — esegui un comando su più sessioni in sequenza
+- **Ctrl+Rotella** per cambiare la dimensione del font nel terminale VTE
 - Log output su file per ogni sessione (con `script(1)`)
 - Scrollback configurabile o infinito per sessione
 - Pre-comando locale: attiva VPN o monta volume prima di aprire la connessione
@@ -548,13 +567,16 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 ### 🛠 Strumenti integrati
 
 - **Tunnel SSH** grafici — avvia, ferma, monitora tunnel in background; **indicatore nella toolbar** con popup rapido per fermare i tunnel senza aprire il gestore
+- **Libreria snippet** — libreria globale di comandi salvata in `pcm_settings.json`, accessibile dal menu Strumenti e dal menu contestuale del terminale ("Inserisci snippet…"); supporta categorie e gestione CRUD completa
+- **Editor file SFTP** — doppio clic o clic destro "Modifica file…" nel browser SFTP apre il file nell'editor GUI esterno configurato (scarica in file temporaneo, rileva le modifiche all'uscita, carica automaticamente); fallback su editor interno GtkSource/GtkTextView
+- **Gestore cron** — clic destro su un tab SSH → "Gestore Cron…"; si connette via paramiko, legge/scrive il crontab dell'utente remoto, lo presenta come TreeView modificabile con dialoghi add/edit/delete e supporto per `@reboot`/`@daily`/`@weekly`
 - **Sincronizzazione directory SFTP** — confronta cartella locale con cartella remota (per dimensione + data modifica), rivedi la tabella diff con controllo della direzione per file, esegui usando la coda trasferimenti esistente con progresso/velocità/ETA
 - **Barra progresso SFTP** — il pannello SFTP laterale mostra una barra di progresso in tempo reale durante upload e download (tramite callback paramiko)
 - **Server FTP locale** (pyftpdlib) — espone una cartella locale via FTP/FTPS in un clic
 - **Variabili globali** `{NOME}` — riutilizzabili nei comandi di tutte le sessioni
 - **Wake-on-LAN** — invia magic packet prima di connettersi
 - **Audit log** — storico connessioni con timestamp, durata, protocollo, stato; esportabile CSV
-- **Verifica dipendenze** — controlla automaticamente quali tool sono installati
+- **Verifica dipendenze** — controlla automaticamente quali tool sono installati all'avvio
 
 ### 🌍 Internazionalizzazione
 

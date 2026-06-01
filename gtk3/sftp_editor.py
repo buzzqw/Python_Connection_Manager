@@ -51,20 +51,36 @@ _EXT_LANG = {
 def _get_configured_editor() -> str:
     """
     Ritorna il comando editor da Settings, vuoto se non configurato o da terminale.
-    Gestisce sia editor binari ("mousepad", "gedit") sia script Python
-    ("python3 /path/to/main.py" per NotePadPQ e simili).
+    Gestisce:
+      - editor binari nel PATH ("mousepad", "gedit", "NotePadPQ" …)
+      - script Python ("python3 /path/to/main.py")
+      - percorsi assoluti a script/eseguibili
+
+    Se il valore salvato è solo un nome (es. "NotePadPQ"), cerca nel PATH con
+    shutil.which; se non è trovato nel PATH viene comunque accettato come editor
+    GUI (l'utente sa cosa fa) purché non sia un editor da terminale.
     """
     try:
+        import shutil as _shutil
         import config_manager
         ed = config_manager.load_settings().get("general", {}).get("default_editor", "").strip()
         if not ed:
             return ""
         parts = ed.split()
-        # Caso "python3 /path/script.py": il binario è python3, non da terminale
+        # Caso "python3 /path/script.py"
         if parts[0] in ("python3", "python") and len(parts) >= 2:
             return ed
         binary = os.path.basename(parts[0])
-        if binary and binary not in _TERM_EDITORS:
+        # Scarta editor da terminale (nano, vim, vi, …)
+        if binary in _TERM_EDITORS:
+            return ""
+        # Accetta se trovato nel PATH oppure se è un percorso assoluto valido
+        if _shutil.which(parts[0]) or os.path.isfile(parts[0]):
+            return ed
+        # Nome non nel PATH (es. "NotePadPQ" non installato come comando) —
+        # accettalo comunque come editor GUI: sarà subprocess a dare errore
+        # se davvero non esiste, con un messaggio chiaro all'utente.
+        if binary:
             return ed
     except Exception:
         pass
