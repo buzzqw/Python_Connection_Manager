@@ -40,13 +40,14 @@ def _pb(name: str, size: int = 16) -> GdkPixbuf.Pixbuf | None:
 class SftpBrowserWidget(Gtk.Box):
     """Browser SFTP laterale stile MobaXterm (GTK3)."""
 
-    def __init__(self, profilo: dict, parent=None):
+    def __init__(self, profilo: dict, parent=None, on_apri_editor=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_size_request(240, -1)
-        self._profilo = profilo
-        self._sftp    = None
-        self._ssh     = None
-        self._cwd     = "/"
+        self._profilo        = profilo
+        self._sftp           = None
+        self._ssh            = None
+        self._cwd            = "/"
+        self._on_apri_editor = on_apri_editor  # callback(sftp, remote_path)
         self._init_ui()
 
         self.connect("destroy", lambda w: self.chiudi())
@@ -307,6 +308,9 @@ class SftpBrowserWidget(Gtk.Box):
         if is_dir:
             import posixpath
             self._naviga(posixpath.join(self._cwd, nome))
+        elif self._on_apri_editor and self._sftp:
+            import posixpath
+            self._on_apri_editor(self._sftp, posixpath.join(self._cwd, nome))
 
     def _on_button_press(self, view, event):
         if event.button != 3:
@@ -329,6 +333,15 @@ class SftpBrowserWidget(Gtk.Box):
         _mi(t("sftp.download"), lambda n: self._on_download(nome=n))
         _mi(t("sftp.rename"),   self._on_rename)
         _mi(t("sftp.delete"),   lambda n: self._on_delete(nome=n))
+
+        if not self._store.get_value(it, 4) and self._on_apri_editor and self._sftp:
+            import posixpath
+            menu.append(Gtk.SeparatorMenuItem())
+            mi_edit = Gtk.MenuItem(label="✎ Modifica file…")
+            mi_edit.connect("activate",
+                lambda _, n=nome: self._on_apri_editor(
+                    self._sftp, posixpath.join(self._cwd, n)))
+            menu.append(mi_edit)
 
         menu.show_all()
         menu.popup_at_pointer(event)

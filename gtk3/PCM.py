@@ -118,6 +118,9 @@ from winscp_widget import WinScpWidget, FtpWinScpWidget
 from log_viewer import LogViewerWidget
 from sysmon_widget import SysMonitorWidget
 from panel_monitor import InfoPanelWidget
+from cron_widget import CronWidget
+from sftp_editor import SftpEditorWidget
+from snippets_dialog import SnippetsDialog
 
 # ---------------------------------------------------------------------------
 # Percorso icone
@@ -478,6 +481,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.broadcast"),   self._on_broadcast)
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
+        _item("Libreria snippet…",         self._apri_snippet_dialog)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
         _item(t("menu.tools.audit"),       self._on_audit_log)
         _item(t("menu.tools.keepass"),     self._on_keepass_settings)
@@ -789,7 +793,10 @@ class MainWindow(Gtk.ApplicationWindow):
         # SFTP browser laterale: SSH e Mosh usano direttamente la porta di sessione
         if dati.get("sftp_browser") and dati.get("protocol") in ("ssh", "mosh"):
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            sftp = SftpBrowserWidget(dati)
+            sftp = SftpBrowserWidget(
+                dati,
+                on_apri_editor=lambda sftp_c, path, n=nome: self._apri_sftp_editor(sftp_c, path, n),
+            )
             paned.pack1(widget, True, True)
             paned.pack2(sftp, False, False)
             paned.set_position(700)
@@ -853,6 +860,40 @@ class MainWindow(Gtk.ApplicationWindow):
         widget._pcm_dati = dati
         widget.show_all()
         self._append_tab(widget, f"Mon: {nome}", lambda: self._chiudi_tab(widget))
+
+    def _apri_cron(self, nome: str, dati: dict):
+        widget = CronWidget(dati)
+        widget._pcm_dati = dati
+        widget.show_all()
+        self._append_tab(widget, f"Cron: {nome}", lambda: self._chiudi_tab(widget))
+
+    def _apri_sftp_editor(self, sftp, remote_path: str, session_nome: str = ""):
+        fname  = remote_path.rsplit("/", 1)[-1] or remote_path
+        label  = f"Edit: {fname}"
+        widget = SftpEditorWidget(sftp, remote_path)
+        widget.show_all()
+        self._append_tab(widget, label, lambda: self._chiudi_tab(widget))
+
+    def _apri_snippet_dialog(self):
+        """Apre la libreria snippet; invia al terminale attivo se è un TerminalWidget."""
+        nb  = self._notebook_attivo
+        idx = nb.get_current_page()
+        page = nb.get_nth_page(idx)
+        terminal = None
+        if isinstance(page, TerminalWidget):
+            terminal = page
+        elif hasattr(page, "get_child1"):
+            c1 = page.get_child1()
+            if isinstance(c1, TerminalWidget):
+                terminal = c1
+
+        on_invia = None
+        if terminal:
+            on_invia = lambda cmd: terminal.invia_testo(cmd, sorgente="snippet")
+
+        dlg = SnippetsDialog(parent=self, on_invia=on_invia)
+        dlg.run()
+        dlg.destroy()
 
     def _apri_ft_da_sessione(self, dati_ssh: dict):
         """Mostra dialog per aprire SFTP/FTP riciclando le credenziali di una sessione."""
@@ -991,7 +1032,10 @@ class MainWindow(Gtk.ApplicationWindow):
             sftp_dati = dict(dati)
             sftp_dati["port"] = dati.get("mon_ssh_port", 22)
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        sftp = SftpBrowserWidget(sftp_dati)
+        sftp = SftpBrowserWidget(
+            sftp_dati,
+            on_apri_editor=lambda sftp_c, path: self._apri_sftp_editor(sftp_c, path),
+        )
         paned.pack1(widget, True, True)
         paned.pack2(sftp, False, False)
         paned.set_position(700)
@@ -1211,6 +1255,10 @@ class MainWindow(Gtk.ApplicationWindow):
             mi_mon.connect("activate",
                            lambda _b, n=nome_tab, d=dati_tab: self._apri_sysmon(n, d))
             menu.append(mi_mon)
+            mi_cron = Gtk.MenuItem(label="Cron Manager…")
+            mi_cron.connect("activate",
+                            lambda _b, n=nome_tab, d=dati_tab: self._apri_cron(n, d))
+            menu.append(mi_cron)
 
         if dati_tab:
             nome_tab = self._get_tab_nome(page)

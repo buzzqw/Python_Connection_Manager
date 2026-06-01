@@ -231,6 +231,7 @@ DEFAULT_SETTINGS = {
         "fullscreen": "F11",
     },
     "credential_profiles": [],
+    "snippets": [],
 }
 
 

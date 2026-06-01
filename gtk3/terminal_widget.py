@@ -493,12 +493,51 @@ class TerminalWidget(Gtk.Box):
             return default
 
     def _on_button_press(self, terminal, event):
-        """Tasto destro → incolla dalla clipboard CLIPBOARD (stessa di Ctrl+V)."""
+        """Tasto destro → incolla o menu contestuale."""
         if event.button == 3:
             if self._paste_on_right_click:
                 self._incolla_clipboard()
-            return True   # blocca il menu contestuale VTE
+            else:
+                self._mostra_menu_contestuale(event)
+            return True
         return False
+
+    def _mostra_menu_contestuale(self, event):
+        menu = Gtk.Menu()
+
+        mi_copy = Gtk.MenuItem(label="Copia")
+        mi_copy.set_sensitive(self._vte.get_has_selection())
+        mi_copy.connect("activate", lambda _: self._vte.copy_clipboard())
+
+        mi_paste = Gtk.MenuItem(label="Incolla")
+        mi_paste.connect("activate", lambda _: self._incolla_clipboard())
+
+        mi_snippet = Gtk.MenuItem(label="Inserisci snippet…")
+        mi_snippet.connect("activate", lambda _: self._apri_snippet_picker())
+
+        mi_cerca = Gtk.MenuItem(label="Cerca…  (Ctrl+F)")
+        mi_cerca.connect("activate", lambda _: self.mostra_cerca())
+
+        menu.append(mi_copy)
+        menu.append(mi_paste)
+        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(mi_snippet)
+        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(mi_cerca)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def _apri_snippet_picker(self):
+        try:
+            from snippets_dialog import SnippetsDialog
+            dlg = SnippetsDialog(
+                parent=self.get_toplevel(),
+                on_invia=lambda cmd: self.invia_testo(cmd, sorgente="snippet"),
+            )
+            dlg.run()
+            dlg.destroy()
+        except Exception:
+            pass
 
     def _on_scroll(self, terminal, event):
         """Ctrl+rotella → aumenta/diminuisce dimensione font."""

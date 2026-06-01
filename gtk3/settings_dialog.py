@@ -122,7 +122,11 @@ class SettingsDialog(Gtk.Dialog):
 
         # Editor
         self.combo_editor = Gtk.ComboBoxText.new_with_entry()
-        for ed in ["nano", "vim", "vi", "gedit", "kate", "code", "mousepad"]:
+        _notepadpq = "/home/azanzani/Dropbox/NotePadPQ/main.py"
+        _editors = ["nano", "vim", "vi", "gedit", "kate", "code", "mousepad"]
+        if os.path.isfile(_notepadpq):
+            _editors.insert(0, f"python3 {_notepadpq}")
+        for ed in _editors:
             self.combo_editor.append_text(ed)
         self.combo_editor.set_hexpand(True)
         self._form_row(t("settings.general.editor"), self.combo_editor, grid, row); row += 1
