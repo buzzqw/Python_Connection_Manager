@@ -120,7 +120,10 @@ def _rows_to_crontab(rows: list) -> str:
         if "commento" in r:
             lines.append(r["commento"])
             continue
-        line = f"{r['min']} {r['hour']} {r['dom']} {r['mon']} {r['dow']} {r['cmd']}"
+        if r.get("shortcut"):
+            line = f"{r['min']} {r['cmd']}"
+        else:
+            line = f"{r['min']} {r['hour']} {r['dom']} {r['mon']} {r['dow']} {r['cmd']}"
         if not r.get("abilitata", True):
             line = "# " + line
         lines.append(line)
@@ -142,6 +145,7 @@ class _CronEntryDialog(Gtk.Dialog):
         self._build(entry or {})
 
     def _build(self, e: dict):
+        self._is_shortcut = e.get("shortcut", False)
         grid = Gtk.Grid(column_spacing=8, row_spacing=6,
                         margin_start=12, margin_end=12,
                         margin_top=8,   margin_bottom=8)
@@ -158,44 +162,73 @@ class _CronEntryDialog(Gtk.Dialog):
             en.set_hexpand(True)
             return en
 
-        self._e_min  = _entry(e.get("min",  "*"), "0-59, *, */5…")
-        self._e_hour = _entry(e.get("hour", "*"), "0-23, *, */2…")
-        self._e_dom  = _entry(e.get("dom",  "*"), "1-31, *…")
-        self._e_mon  = _entry(e.get("mon",  "*"), "1-12, *…")
-        self._e_dow  = _entry(e.get("dow",  "*"), "0-7 (0=dom), *…")
-        self._e_cmd  = _entry(e.get("cmd",  ""),  "/usr/bin/backup.sh >> /var/log/backup.log 2>&1")
-        self._e_cmd.set_hexpand(True)
+        self._e_cmd = _entry(e.get("cmd", ""), "/usr/bin/backup.sh >> /var/log/backup.log 2>&1")
 
-        for row, (label, widget) in enumerate([
-            ("Minuti:",       self._e_min),
-            ("Ore:",          self._e_hour),
-            ("Giorno mese:",  self._e_dom),
-            ("Mese:",         self._e_mon),
-            ("Giorno sett.:", self._e_dow),
-            ("Comando:",      self._e_cmd),
-        ]):
-            grid.attach(_lbl(label), 0, row, 1, 1)
-            grid.attach(widget,      1, row, 1, 1)
+        if self._is_shortcut:
+            # Solo shortcut + comando
+            shortcuts = ["@reboot", "@hourly", "@daily", "@weekly", "@monthly", "@yearly"]
+            self._combo_sc = Gtk.ComboBoxText.new_with_entry()
+            for s in shortcuts:
+                self._combo_sc.append_text(s)
+            self._combo_sc.set_hexpand(True)
+            child = self._combo_sc.get_child()
+            if child:
+                child.set_text(e.get("min", "@reboot"))
+            grid.attach(_lbl("Shortcut:"), 0, 0, 1, 1)
+            grid.attach(self._combo_sc,    1, 0, 1, 1)
+            grid.attach(_lbl("Comando:"),  0, 1, 1, 1)
+            grid.attach(self._e_cmd,       1, 1, 1, 1)
+            row_hint = 2
+        else:
+            self._e_min  = _entry(e.get("min",  "*"), "0-59, *, */5…")
+            self._e_hour = _entry(e.get("hour", "*"), "0-23, *, */2…")
+            self._e_dom  = _entry(e.get("dom",  "*"), "1-31, *…")
+            self._e_mon  = _entry(e.get("mon",  "*"), "1-12, *…")
+            self._e_dow  = _entry(e.get("dow",  "*"), "0-7 (0=dom), *…")
+            for row, (label, widget) in enumerate([
+                ("Minuti:",       self._e_min),
+                ("Ore:",          self._e_hour),
+                ("Giorno mese:",  self._e_dom),
+                ("Mese:",         self._e_mon),
+                ("Giorno sett.:", self._e_dow),
+                ("Comando:",      self._e_cmd),
+            ]):
+                grid.attach(_lbl(label), 0, row, 1, 1)
+                grid.attach(widget,      1, row, 1, 1)
+            row_hint = 6
 
         hint = Gtk.Label()
         hint.set_markup(
             "<small>Esempio: <tt>0 2 * * 0  /usr/bin/backup.sh</tt>"
             "  →  ogni domenica alle 02:00\n"
             "       <tt>*/15 * * * *  /check.sh</tt>"
-            "  →  ogni 15 minuti</small>"
+            "  →  ogni 15 minuti\n"
+            "       <tt>@reboot  /usr/bin/script.sh</tt>"
+            "  →  ad ogni avvio</small>"
         )
         hint.set_xalign(0.0)
-        grid.attach(hint, 0, 6, 2, 1)
+        grid.attach(hint, 0, row_hint, 2, 1)
 
+        chk_row = row_hint + 1
         self._chk = Gtk.CheckButton(label="Abilitata")
         self._chk.set_active(e.get("abilitata", True))
-        grid.attach(self._chk, 0, 7, 2, 1)
+        grid.attach(self._chk, 0, chk_row, 2, 1)
 
         self.get_content_area().add(grid)
         grid.show_all()
         self.set_default_response(Gtk.ResponseType.OK)
 
     def get_entry(self) -> dict:
+        if self._is_shortcut:
+            child = self._combo_sc.get_child()
+            sc = child.get_text().strip() if child else "@reboot"
+            return {
+                "min":      sc or "@reboot",
+                "hour": "", "dom": "", "mon": "", "dow": "",
+                "cmd":      self._e_cmd.get_text().strip(),
+                "abilitata": self._chk.get_active(),
+                "shortcut": True,
+            }
         return {
             "min":      self._e_min.get_text().strip()  or "*",
             "hour":     self._e_hour.get_text().strip() or "*",

@@ -481,7 +481,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.broadcast"),   self._on_broadcast)
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
-        _item("Libreria snippet…",         self._apri_snippet_dialog)
+        _item(t("menu.tools.snippets"),    self._apri_snippet_dialog)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
         _item(t("menu.tools.audit"),       self._on_audit_log)
         _item(t("menu.tools.keepass"),     self._on_keepass_settings)
@@ -511,6 +511,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("ping",         self._on_ping_sessione)
         self._pannello.connect("apri-log",     lambda _p, n, d: self._apri_log_viewer(n, d))
         self._pannello.connect("apri-monitor", lambda _p, n, d: self._apri_sysmon(n, d))
+        self._pannello.connect("apri-cron",    lambda _p, n, d: self._apri_cron(n, d))
         self.connect("delete-event", self._on_close)
 
     def _setup_accels(self):
@@ -1255,7 +1256,7 @@ class MainWindow(Gtk.ApplicationWindow):
             mi_mon.connect("activate",
                            lambda _b, n=nome_tab, d=dati_tab: self._apri_sysmon(n, d))
             menu.append(mi_mon)
-            mi_cron = Gtk.MenuItem(label="Cron Manager…")
+            mi_cron = Gtk.MenuItem(label=t("panel.apri_cron"))
             mi_cron.connect("activate",
                             lambda _b, n=nome_tab, d=dati_tab: self._apri_cron(n, d))
             menu.append(mi_cron)

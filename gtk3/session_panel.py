@@ -65,6 +65,7 @@ class SessionPanel(Gtk.Box):
         "ping":         (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-log":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-monitor": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "apri-cron":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -317,6 +318,7 @@ class SessionPanel(Gtk.Box):
         if proto == "ssh":
             _item(t("panel.apri_log"),     lambda: self.emit("apri-log",     nome, dati))
             _item(t("panel.apri_monitor"), lambda: self.emit("apri-monitor", nome, dati))
+            _item(t("panel.apri_cron"),    lambda: self.emit("apri-cron",    nome, dati))
 
         host = dati.get("host", "")
         if host and proto not in ("serial", "exec"):

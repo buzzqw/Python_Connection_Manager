@@ -1358,7 +1358,8 @@ _T: dict[str, dict[str, str]] = {
     "audit.no_entries": {"it": "Nessuna connessione registrata", "en": "No connections recorded", "de": "Keine Verbindungen aufgezeichnet", "fr": "Aucune connexion enregistrée", "es": "No hay conexiones registradas"},
     "audit.clear":      {"it": "Cancella log", "en": "Clear log", "de": "Protokoll löschen", "fr": "Effacer le journal", "es": "Borrar registro"},
     "audit.export_csv": {"it": "Esporta CSV", "en": "Export CSV", "de": "CSV exportieren", "fr": "Exporter en CSV", "es": "Exportar CSV"},
-    "menu.tools.audit": {"it": "📋 Registro audit…", "en": "📋 Audit log…", "de": "📋 Auditprotokoll…", "fr": "📋 Journal d'audit…", "es": "📋 Registro de auditoría…"},
+    "menu.tools.audit":    {"it": "📋 Registro audit…",   "en": "📋 Audit log…",        "de": "📋 Auditprotokoll…",    "fr": "📋 Journal d'audit…",      "es": "📋 Registro de auditoría…"},
+    "menu.tools.snippets": {"it": "Libreria snippet…",   "en": "Snippet library…",     "de": "Snippet-Bibliothek…",   "fr": "Bibliothèque de snippets…","es": "Biblioteca de snippets…"},
 
     # ── KeePassXC ─────────────────────────────────────────────────────────────
     "keepass.title":       {"it": "Integrazione KeePassXC", "en": "KeePassXC integration", "de": "KeePassXC-Integration", "fr": "Intégration KeePassXC", "es": "Integración KeePassXC"},
@@ -1521,6 +1522,7 @@ _T: dict[str, dict[str, str]] = {
     # ── Panel monitor (pannello destro) ───────────────────────────────────────
     "panel.apri_log":           {"it": "Visualizza log…",         "en": "View logs…",            "de": "Logs anzeigen…",          "fr": "Afficher les logs…",       "es": "Ver registros…"},
     "panel.apri_monitor":       {"it": "Monitor sistema…",        "en": "System monitor…",       "de": "Systemmonitor…",          "fr": "Moniteur système…",        "es": "Monitor del sistema…"},
+    "panel.apri_cron":          {"it": "Cron Manager…",           "en": "Cron Manager…",         "de": "Cron-Manager…",           "fr": "Gestionnaire cron…",       "es": "Gestor de cron…"},
     "mon.tab_monitor":          {"it": "Monitor",                  "en": "Monitor",               "de": "Monitor",                 "fr": "Moniteur",                 "es": "Monitor"},
     "mon.tab_logs":             {"it": "Logs",                     "en": "Logs",                  "de": "Protokolle",              "fr": "Journaux",                 "es": "Registros"},
     "mon.sys_overview":         {"it": "System Overview",          "en": "System Overview",       "de": "Systemübersicht",         "fr": "Vue système",              "es": "Resumen del sistema"},
