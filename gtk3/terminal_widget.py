@@ -141,6 +141,10 @@ class TerminalWidget(Gtk.Box):
         # Clic destro → incolla; Ctrl+Shift+V → incolla esplicito
         self._vte.connect("button-press-event", self._on_button_press)
         self._vte.connect("key-press-event", self._on_key_press)
+
+        # Ctrl+rotella → zoom font
+        self._vte.add_events(Gdk.EventMask.SCROLL_MASK)
+        self._vte.connect("scroll-event", self._on_scroll)
         
     def _init_search_bar(self):
         self._search_bar = Gtk.SearchBar()
@@ -495,6 +499,27 @@ class TerminalWidget(Gtk.Box):
                 self._incolla_clipboard()
             return True   # blocca il menu contestuale VTE
         return False
+
+    def _on_scroll(self, terminal, event):
+        """Ctrl+rotella → aumenta/diminuisce dimensione font."""
+        if not (event.state & Gdk.ModifierType.CONTROL_MASK):
+            return False
+        direction = event.direction
+        if direction == Gdk.ScrollDirection.SMOOTH:
+            if event.delta_y < 0:
+                direction = Gdk.ScrollDirection.UP
+            elif event.delta_y > 0:
+                direction = Gdk.ScrollDirection.DOWN
+            else:
+                return False
+        if direction == Gdk.ScrollDirection.UP:
+            self._font_size = min(self._font_size + 1, 72)
+        elif direction == Gdk.ScrollDirection.DOWN:
+            self._font_size = max(self._font_size - 1, 4)
+        else:
+            return False
+        self._applica_font()
+        return True
 
     def _on_key_press(self, terminal, event):
         """Ctrl+Shift+V / Shift+Insert → incolla; Ctrl+F → search bar."""
