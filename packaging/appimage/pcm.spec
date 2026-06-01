@@ -121,7 +121,12 @@ a = Analysis(
                 'GObject':    '2.0',
                 'Gio':        '2.0',
                 'Atk':        '1.0',
-            }
+            },
+            # Lista vuota = non raccogliere icon theme e GTK theme di sistema.
+            # PCM usa solo le proprie icone (gtk3/icons/); quelle di sistema
+            # sono già presenti su qualsiasi desktop Linux e non vanno bundlate.
+            'icons':  [],
+            'themes': [],
         }
     },
     runtime_hooks=[],
