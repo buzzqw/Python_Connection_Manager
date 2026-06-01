@@ -176,7 +176,10 @@ class SftpBrowserWidget(Gtk.Box):
             # RejectPolicy: rifiuta host sconosciuti invece di accettarli silenziosamente.
             # known_hosts dell'utente viene caricato automaticamente da load_system_host_keys().
             self._ssh.load_system_host_keys()
-            self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+            if self._profilo.get("strict_host", False):
+                self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+            else:
+                self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
             kwargs = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):
