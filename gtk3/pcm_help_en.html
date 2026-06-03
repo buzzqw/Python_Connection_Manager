@@ -349,11 +349,11 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#advanced">⚙ Advanced</a>
-  <a href="#monitor" class="new">📊 SSH Monitor</a>
-  <a href="#new" class="new">✦ New features</a>
+  <a href="#monitor">📊 SSH Monitor</a>
   <a href="#keys">⌨ Shortcuts</a>
   <a href="#settings">🛠 Settings</a>
   <a href="#faq">❓ FAQ</a>
+  <a href="#cli">⌨ CLI</a>
 </div>
 
 <div class="content">
@@ -383,14 +383,21 @@
 └──────────────┴──────────────────────────────────────────────────┘
 </div>
 
-<h3>Left panel — Sessions</h3>
-<p>The panel on the left shows all saved connections organized in groups. Features:</p>
+<h3>Menu bar</h3>
 <ul>
-  <li><b>Drag &amp; drop</b> — move sessions between groups by dragging</li>
-  <li><b>Right-click</b> on a session — connect, edit, duplicate, delete</li>
-  <li><b>Right-click</b> on a group — add session, rename, delete group</li>
-  <li><b>Search</b> — filter sessions in real time (search box at the top)</li>
-  <li><b>Recent</b> — last connected sessions at the top of the list</li>
+  <li><b>File</b> — new session, local terminal, import/export sessions JSON, settings, quit</li>
+  <li><b>View</b> — show/hide sidebar, split mode</li>
+  <li><b>Tools</b> — SSH Tunnel Manager, multi-exec, global variables, global password (credential encryption), local FTP server, import from external apps, protected mode, check dependencies, <b>Broadcast terminals</b>, <b>Audit log</b>, <b>KeePassXC</b>, <b>Snippet Library</b></li>
+  <li><b>?</b> — this guide (<kbd>F1</kbd>), about PCM</li>
+</ul>
+
+<h3>Sessions sidebar</h3>
+<ul>
+  <li><b>⏱ Recent</b> section at the top (when no filter is active) — last 20 sessions with date/time of last connection</li>
+  <li>Sessions grouped by group, sorted alphabetically</li>
+  <li>Each row shows protocol icon, name and <code>user@host</code></li>
+  <li>Live search field — filters by name, host and user</li>
+  <li>Right-click on the <b>⏱ Recent</b> group → <b>Clear history</b></li>
   <li><b><span style="color:#22cc55">●</span> Active indicator</b> — sessions with an open connection show a green dot next to their name</li>
   <li>Panel width is adjustable by dragging the separator</li>
 </ul>
@@ -430,38 +437,64 @@
 
 <h3>Split panels</h3>
 <p>The terminal area can be split into two panels (vertical or horizontal) via <b>Split ▼</b> in the toolbar or via <span class="menu-path">View <span>›</span> Split</span>. Drag a tab into the second panel to work on two sessions simultaneously.</p>
+<ul>
+  <li><b>Single view</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd></li>
+  <li><b>Vertical split</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>2</kbd> — two panels side by side</li>
+  <li><b>Horizontal split</b> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>3</kbd> — two panels stacked</li>
+</ul>
+
+<h3>System Tray</h3>
+<p>With active sessions, closing the window minimizes PCM to the system tray instead of terminating connections.</p>
+<ul>
+  <li><b>Double-click</b> on the icon — reopens the main window</li>
+  <li><b>Right-click</b> on the icon — menu with quick access to the last 8 used sessions and Quit option</li>
+</ul>
 
 <!-- ══════════════════════════════════════════════════ SESSIONS -->
 <h2 id="sessions">📋 Session Management</h2>
 
 <h3>Create a new session</h3>
-<p>Click <b>New Session</b> in the toolbar or right-click on a group → <b>Add session</b>. The dialog contains several tabs:</p>
+<p>Click <b>➕</b> in the sidebar, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>. The dialog contains:</p>
 
-<table>
-  <tr><th>Tab</th><th>Main fields</th></tr>
-  <tr><td><b>Connection</b></td><td>Protocol, host, port, user, password/key, group, notes</td></tr>
-  <tr><td><b>Terminal</b></td><td>Terminal type, color profile, font, encoding</td></tr>
-  <tr><td><b>Advanced</b></td><td>Pre-command, WoL, port forwarding, proxy jump</td></tr>
-  <tr><td><b>Variables</b></td><td>Local variables for command substitution</td></tr>
-</table>
-
-<h3>Edit / Duplicate / Delete</h3>
-<ul>
-  <li>Right-click on session in the left panel → <b>Edit</b>, <b>Duplicate</b>, <b>Delete</b></li>
-  <li>Duplicate creates a copy with "(copy)" appended to the name</li>
-</ul>
+<div class="step"><div class="step-num">1</div><div class="step-text">Assign a <b>Name</b> (e.g. <i>Production server</i>) and an optional <b>Group</b> (e.g. <i>Work</i>).</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Choose the <b>Protocol</b> — the dialog adapts showing only relevant fields.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text"><b>Connection</b> tab: Host, Port, User, and protocol-specific options.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text"><b>Authentication</b> tab: password or SSH private key. You can leave blank — PCM will ask at connection time.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text"><b>Terminal</b> tab: color theme, font, size, <b>startup command</b>, <b>local pre-connection command</b>, output log.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-text"><b>⚙ Advanced</b> tab: keepalive, X11 forwarding, compression, jump host, open mode, external terminal selector.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-text"><b>⚡ Macros</b> tab: define quick commands sendable with one click from the session panel.</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-text"><b>📊 Panels</b> tab (SSH, VNC Linux, RDP Windows): enables the right info panel and SFTP side browser. For SSH and VNC Linux: CPU/RAM, processes, disk, network, log streaming. For RDP Windows: PowerShell-based panel via OpenSSH. Each section is individually activatable.</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-text"><b>📝 Notes</b> tab: free text field for annotations, procedures, useful links.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-text">Click <b>OK</b> — the session is saved and the connection opens immediately.</div></div>
 
 <h3>Groups</h3>
 <p>Sessions are organized in groups (folders). You can:</p>
 <ul>
-  <li>Create nested subgroups (max recommended depth: 3 levels)</li>
+  <li>Create nested subgroups</li>
   <li>Expand/collapse groups with a click</li>
   <li>Move sessions via drag &amp; drop between groups</li>
   <li>Sort sessions alphabetically within a group (right-click menu)</li>
 </ul>
 
-<h3>connections.json</h3>
-<p>All sessions are saved in <code>connections.json</code> in the project root. The file is plain JSON — you can edit it manually with any text editor. <b>Back it up</b> before manual changes.</p>
+<h3>Session context menu (right-click)</h3>
+<ul>
+  <li><b>▶ Connect</b> — opens the connection in a new tab</li>
+  <li><b>✏ Edit</b> — reopens the dialog with pre-filled data</li>
+  <li><b>📋 Duplicate</b> — creates a copy with "(copy)" suffix</li>
+  <li><b>📋 Copy command</b> — copies the equivalent shell command to clipboard</li>
+  <li><b>📄 Export open-connection.sh…</b> — generates a standalone bash script to open the connection</li>
+  <li><b>📂 Open SFTP/FTP here</b> — opens a file transfer browser for the selected SSH/Telnet/Mosh session</li>
+  <li><b>View log…</b> — opens a streaming log tab (journalctl/tail -f) for the selected SSH session</li>
+  <li><b>System monitor…</b> — opens a resource monitoring tab (CPU, RAM, disk, network) for the selected SSH session</li>
+  <li><b>Ping</b> — checks TCP reachability of the host on the configured port</li>
+  <li><b>⚡ Macros</b> — submenu with macros defined for this session</li>
+  <li><b>🗑 Delete</b> — requires confirmation</li>
+</ul>
+
+<h3>Import and export sessions</h3>
+<p>From <b>File → Export sessions</b> save all sessions to a portable JSON file.
+From <b>File → Import sessions</b> load a previously exported JSON file.
+Sessions are saved in <code>connections.json</code> in the PCM folder — editable with any text editor.</p>
 
 <!-- ══════════════════════════════════════════════════ PROTOCOLS -->
 <h2 id="protocols">🔌 Supported Protocols</h2>
@@ -565,30 +598,40 @@
 <h2 id="authentication">🔑 Authentication</h2>
 
 <h3>Password</h3>
-<p>Enter the password in the <b>Connection</b> tab of the session dialog. PCM passes it automatically to the terminal when the SSH prompt appears.</p>
-<div class="warn">⚠️ Passwords are stored in <code>connections.json</code> in plaintext. Use Protected Mode (see Settings) to encrypt the file.</div>
+<p>You can save the password in the profile or leave it blank — PCM will ask with a dedicated dialog at each connection.</p>
+<div class="warn">⚠️ Passwords saved in <code>connections.json</code> are stored in plaintext. For production or shared machines, prefer SSH keys.</div>
 
-<h3>SSH Key</h3>
-<ol>
-  <li>In the session dialog, <b>Connection</b> tab → <b>Private key</b></li>
-  <li>Enter the path to the private key (e.g. <code>~/.ssh/id_ed25519</code>)</li>
-  <li>If the key has a passphrase, enter it in the <b>Passphrase</b> field or leave blank to be prompted</li>
-</ol>
-<div class="tip">💡 Ed25519 keys are recommended for new installations: <code>ssh-keygen -t ed25519 -C "your_email"</code></div>
+<h3>SSH Private Key (recommended)</h3>
 
-<h3>SSH Agent</h3>
-<p>If an SSH agent is active (<code>ssh-agent</code>, <code>gpg-agent</code>, GNOME Keyring), PCM automatically uses it — no password configuration needed.</p>
+<div class="step"><div class="step-num">1</div><div class="step-text">Go to the <b>Authentication</b> tab in the session dialog. In the "SSH Key Management" section you can see keys already present in <code>~/.ssh/</code>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text"><b>Generate new key</b>: choose the type (ed25519 recommended), enter a comment, click <b>⚙ Generate</b>. The key pair is saved in <code>~/.ssh/</code>.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text"><b>Copy to server</b>: click <b>📤 Copy public key to server</b> — PCM runs <code>ssh-copy-id</code> in a visible terminal where you can type the server password (once only).</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Select the key from the "Keys in ~/.ssh:" combo — the "Private key" field fills automatically.</div></div>
 
-<h3>Proxy Jump</h3>
-<p>To connect via an intermediate host (bastion):</p>
-<ol>
-  <li>Session dialog → <b>Advanced</b> tab → <b>Proxy Jump</b></li>
-  <li>Enter <code>user@bastion:port</code></li>
-  <li>PCM builds the <code>-J user@bastion</code> flag automatically</li>
-</ol>
+<div class="tip">
+  💡 To avoid typing the passphrase on every connection, use <code>ssh-agent</code>:<br>
+  <code>eval $(ssh-agent) &amp;&amp; ssh-add ~/.ssh/id_ed25519</code>
+</div>
 
-<h3>Global Variables</h3>
-<p>You can define global variables (e.g. <code>%USER%</code>, <code>%KEY%</code>) in <span class="menu-path">Tools <span>›</span> Global Variables</span> and use them in connection fields. Useful for changing a common parameter (e.g. default user) across all sessions at once.</p>
+<h3>Jump Host (Bastion Host)</h3>
+<p>To reach servers not directly accessible (DMZ, private networks):</p>
+<ul>
+  <li><b>Authentication</b> tab → <b>Jump Host (Bastion)</b> section</li>
+  <li><b>Jump host</b> — address of the intermediate server</li>
+  <li><b>Jump user</b> — user on the bastion (may differ from the final user)</li>
+  <li><b>Jump port</b> — SSH port of the bastion (default 22)</li>
+</ul>
+<p>Equivalent to <code>ssh -J user@bastion:port user@final-host</code>, handled transparently.</p>
+<div class="info">ℹ️ Jump Host is available for SSH, SFTP and Mosh.</div>
+
+<h3>SSH Agent Forwarding</h3>
+<p>Propagates your local <code>ssh-agent</code> keys through the SSH connection, allowing authentication on subsequent servers without copying private keys.</p>
+<p>In the SSH session dialog, <b>⚙ Advanced</b> tab: tick <b>"Agent Forwarding (-A)"</b> — adds the <code>-A</code> flag to the SSH command.</p>
+<ul>
+  <li>Access destination servers through a bastion, without copying keys to the bastion</li>
+  <li>Clone Git repositories on a remote server using your local keys</li>
+</ul>
+<div class="warn">⚠️ Enable Agent Forwarding only on servers you trust. A server administrator could use your local agent to authenticate on other servers on your behalf.</div>
 
 <!-- ══════════════════════════════════════════════════ IMPORT -->
 <h2 id="import">📥 Import from External Applications</h2>
@@ -652,11 +695,28 @@
   <li>Right-click → context menu with copy/paste</li>
 </ul>
 
+<h3>Available color themes</h3>
+<table>
+  <tr><th>Theme</th><th>Background</th><th>Notes</th></tr>
+  <tr><td>Dark (Default)</td><td><code>#1e1e1e</code></td><td>General use, reduces eye strain</td></tr>
+  <tr><td>Light (B/W)</td><td><code>#ffffff</code></td><td>Bright environments, presentations</td></tr>
+  <tr><td>Dracula</td><td><code>#282a36</code></td><td>Popular theme with vivid colors</td></tr>
+  <tr><td>Nord</td><td><code>#2e3440</code></td><td>Cool tones, sensitive eyes</td></tr>
+  <tr><td>Monokai</td><td><code>#272822</code></td><td>Classic from Sublime Text</td></tr>
+  <tr><td>Solarized Dark / Light</td><td><code>#002b36</code></td><td>High readability, scientifically calibrated</td></tr>
+  <tr><td>Gruvbox Dark / Light</td><td><code>#282828</code></td><td>Warm tones, popular among developers</td></tr>
+  <tr><td>One Dark</td><td><code>#282c34</code></td><td>Atom / VS Code theme</td></tr>
+  <tr><td>Matrix (Green)</td><td><code>#000000</code></td><td>Retro style, maximum contrast</td></tr>
+  <tr><td>Cobalt</td><td><code>#002240</code></td><td>Deep blue tones</td></tr>
+  <tr><td>Zenburn</td><td><code>#3f3f3f</code></td><td>Muted colors, great for long sessions</td></tr>
+</table>
+
 <h3>Search in terminal output</h3>
 <ul>
-  <li><kbd>Ctrl+Shift+F</kbd> — open search bar</li>
-  <li>Supports regular expressions</li>
-  <li><kbd>Enter</kbd> / <kbd>Shift+Enter</kbd> — next / previous match</li>
+  <li><kbd>Ctrl</kbd>+<kbd>F</kbd> in the active terminal — opens the search bar</li>
+  <li>Search forward and backward with <kbd>↑</kbd> / <kbd>↓</kbd> or the ← → buttons</li>
+  <li>Matches are highlighted in the text</li>
+  <li>Close the bar with <kbd>Esc</kbd></li>
 </ul>
 
 <h3>Session logging</h3>
@@ -702,6 +762,13 @@
 <div class="step"><div class="step-num">3</div><div class="step-text">The diff table opens: <i>Local only</i>, <i>Remote only</i>, <i>Modified</i>, <i>Equal</i>. The suggested direction (→ remote / ← local) is computed from the more recent modification date.</div></div>
 <div class="step"><div class="step-num">4</div><div class="step-text">Filter by status, select/deselect files, adjust direction as needed, then click <b>Sync selected</b>.</div></div>
 <div class="step"><div class="step-num">5</div><div class="step-text">Transfers are queued and executed with the existing transfer queue (progress, speed, ETA visible).</div></div>
+
+<h3>FTP/FTPS integrated browser</h3>
+<p>Same behavior as the dual-pane SFTP browser, but uses FTP or FTPS:</p>
+<ul>
+  <li>Plain FTP (port 21) or FTPS with explicit TLS</li>
+  <li>Passive mode (PASV) for NAT/firewall</li>
+</ul>
 
 <!-- ══════════════════════════════════════════════════ TUNNEL -->
 <h2 id="tunnel">🔀 SSH Tunnels</h2>
@@ -766,191 +833,218 @@
 
 <div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system. The check also runs automatically at startup.</div>
 
-<hr>
+<h3>Credential encryption</h3>
+<p>PCM can protect users and passwords saved in <code>connections.json</code> with <b>AES-256</b> encryption (Fernet). The key is derived from the master password using PBKDF2-HMAC-SHA256 (480,000 iterations) and is never written to disk.</p>
+<p>At the very first launch, if <code>connections.json</code> does not yet exist, PCM asks whether to enable credential protection. On subsequent launches with encryption active, PCM shows an unlock dialog before opening the main window (3 attempts maximum).</p>
+<p>From <b>Tools → Set global password…</b> you can:</p>
+<ul>
+  <li><b>Enable encryption</b> — if not already active; all profiles are immediately encrypted</li>
+  <li><b>Change the password</b> — enter the old one and the new one; all profiles are re-encrypted</li>
+  <li><b>Disable encryption</b> — enter the current password; credentials return to plaintext in JSON</li>
+</ul>
+<p>The <code>user</code> and <code>password</code> fields of each profile in <code>connections.json</code> are encrypted with the <code>ENC:</code> prefix followed by a Fernet base64 token. All other fields remain in plaintext.</p>
+<div class="warn">⚠️ If you forget the master password, credentials cannot be recovered. Keep a secure copy. To reset: delete <code>connections.json</code> and the <code>crypto</code> section from <code>pcm_settings.json</code>.</div>
 
-<!-- ── WAKE-ON-LAN ── -->
-<div class="new-feature">
-  <div class="nf-title">Wake-on-LAN</div>
-  <p>PCM can wake up a powered-off machine before connecting by sending a <b>UDP magic packet</b> to the configured MAC address. Available for SSH, Mosh, RDP, VNC and Telnet.</p>
-</div>
-
-<h3>Wake-on-LAN configuration</h3>
+<h3>Wake-on-LAN</h3>
+<p>PCM can wake a powered-off machine before connecting by sending a <b>UDP magic packet</b> to the configured MAC address. Available for SSH, Mosh, RDP, VNC and Telnet.</p>
 <p>In the session edit dialog, <b>Connection</b> tab, <b>Wake-on-LAN</b> section:</p>
 <ul>
-  <li>Enable <b>Wake-on-LAN</b></li>
-  <li>Enter the <b>MAC address</b> (format: <code>AA:BB:CC:DD:EE:FF</code> or <code>AA-BB-CC-DD-EE-FF</code>)</li>
-  <li>Set <b>Wait (seconds)</b> — time to wait after sending the packet before connecting (default: 20 s)</li>
-  <li>Optionally specify the <b>broadcast address</b> (default: <code>255.255.255.255</code>)</li>
+  <li><b>Enable WoL</b> — tick to enable automatic magic packet sending before each connection</li>
+  <li><b>MAC address</b> — physical MAC address of the remote machine's network card (format <code>AA:BB:CC:DD:EE:FF</code>)</li>
+  <li><b>Wait time</b> — maximum seconds to wait before PCM attempts the connection (default 20 s)</li>
 </ul>
-<div class="info">ℹ️ Wake-on-LAN requires the network adapter and BIOS/UEFI to be configured to accept magic packets. Requires <code>wakeonlan</code> or <code>wol</code> installed.</div>
+<p>On session open, PCM builds the magic packet and sends it as UDP broadcast on port 9. A progress window with repeated pings appears; as soon as the host responds the connection starts automatically.</p>
+<div class="warn">⚠️ Wake-on-LAN only works on the <b>local network</b> or via directed broadcast. Make sure the remote machine's network card and BIOS/UEFI have WoL enabled.</div>
 
-<hr>
-
-<!-- ── AUDIT LOG ── -->
-<div class="new-feature">
-  <div class="nf-title">Audit Log</div>
-  <p>PCM records all connections to a local log file for auditing and usage tracking.</p>
+<h3>Session macros</h3>
+<p>Quick commands linked to a specific session, sendable to the terminal with a single click from the session panel.</p>
+<p>In the session create/edit dialog, <b>⚡ Macros</b> tab: add Name/Command pairs. Use the <b>➕</b>, <b>✏</b>, <b>🗑</b>, <b>▲/▼</b> buttons to manage order.</p>
+<p>To use a macro: right-click on the session in the panel → <b>⚡ Macros</b> → select the command. The command is sent instantly to the active session terminal via clipboard (no typing delay).</p>
+<div class="grid2">
+  <div class="card">
+    <h4>Useful macro examples</h4>
+    <ul>
+      <li><code>df -h</code> — disk space</li>
+      <li><code>tail -f /var/log/syslog</code> — live system log</li>
+      <li><code>sudo systemctl restart nginx</code> — restart service</li>
+      <li><code>uptime &amp;&amp; free -h</code> — system status</li>
+      <li><code>docker ps</code> — active containers</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Difference with startup command</h4>
+    <p>The <b>startup command</b> (Terminal tab) runs <i>automatically</i> on connection. <b>Macros</b> run <i>manually</i> on demand, at any time during the session.</p>
+  </div>
 </div>
 
-<h3>Audit Log</h3>
-<p>Each connection generates an entry containing:</p>
+<h3>Local pre-connection command</h3>
+<p>Run a shell command on <b>your PC</b> before PCM opens the remote connection. Ideal for activating VPN, mounting volumes, or any preparatory local operation.</p>
+<p>In the session edit dialog, <b>Terminal</b> tab:</p>
 <ul>
-  <li>Timestamp (YYYY-MM-DD HH:MM:SS)</li>
-  <li>Session name, host, protocol</li>
-  <li>Duration (seconds)</li>
-  <li>Status (ok / error)</li>
+  <li><b>Local pre-connection cmd</b> — bash command to run before connecting</li>
+  <li><b>Pre-cmd timeout</b> — maximum wait seconds (0 = no timeout, default 15 s)</li>
 </ul>
-<p>Log location: <span class="menu-path">Tools <span>›</span> Audit Log…</span> — shows the last entries with filter by date, session or status.</p>
-
-<hr>
-
-<!-- ── GLOBAL VARIABLES ── -->
-<div class="new-feature">
-  <div class="nf-title">Global Variables</div>
-  <p>Define reusable variables across all sessions, substituted automatically in connection fields.</p>
+<p>The command is wrapped with the connection command in a single bash process. If the pre-command exits with a non-zero code (error), the connection does not start.</p>
+<pre>
+bash -c '<span class="kw">pre-cmd</span> &amp;&amp; <span class="str">echo "Pre-connection OK. Connecting..."</span> &amp;&amp; <span class="kw">ssh user@host</span>'
+</pre>
+<div class="grid2">
+  <div class="card">
+    <h4>Practical examples</h4>
+    <ul>
+      <li><code>wg-quick up vpn0</code> — activate WireGuard VPN</li>
+      <li><code>openfortivpn --config=/etc/vpn.conf</code> — activate FortiVPN</li>
+      <li><code>sudo openvpn --config ~/vpn.ovpn &amp;</code> — start OpenVPN</li>
+      <li><code>sshuttle -r gateway 10.0.0.0/8 &amp;</code> — network tunnel</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Timeout note</h4>
+    <p>Set the timeout to a reasonable value for your pre-command. A VPN that takes 10 s to activate needs a timeout of at least 15–20 s. With 0 the pre-command can run indefinitely (useful for background commands).</p>
+  </div>
 </div>
 
-<h3>Using global variables</h3>
-<p>Open <span class="menu-path">Tools <span>›</span> Global Variables…</span> (<kbd>Ctrl+Shift+G</kbd>):</p>
+<h3>Export open-connection.sh</h3>
+<p>Generates a standalone bash script that opens the connection without PCM being open. Useful for sharing or terminal use.</p>
+<p>Right-click on the session in the panel → <b>📄 Export open-connection.sh…</b>. A dialog opens with a script preview (editable), a <b>💾 Save</b> button (with automatic <code>chmod 755</code>) and <b>📋 Copy to clipboard</b>.</p>
+<p>The script includes, if configured: local pre-cmd block, Wake-on-LAN block, and the connection command.</p>
+
+<h3>Export commands.sh</h3>
+<p>Generates a <b>replay script</b> with all commands executed during the session. The replay connects via SSH and re-executes the commands in sequence.</p>
+<p>Right-click on the <b>active session tab</b> (not the session panel) → <b>📄 Export commands.sh…</b>.</p>
+<div class="warn">⚠️ This function is accessible from the <b>terminal tab</b>, not from the session panel. The session panel has "Export open-connection.sh" (connection script), the tab has "Export commands.sh" (command replay).</div>
+<p>PCM distinguishes two scenarios:</p>
+<div class="grid2">
+  <div class="card">
+    <h4>🔴 Log not enabled</h4>
+    <p>A warning appears with instructions to enable the log. You can still export commands sent via <b>macros and multi-exec</b> using the "Export PCM commands only" button.</p>
+  </div>
+  <div class="card">
+    <h4>🟢 Log enabled</h4>
+    <p>PCM parses the log file, extracts typed commands recognizing lines following a bash/zsh prompt, and combines them with internally tracked commands.</p>
+  </div>
+</div>
+<p>The export dialog shows a table with all commands (editable with double-click, reorderable with ▲/▼, deletable). The script preview updates in real time. For SSH sessions the script uses a <b>heredoc</b> to run all commands in a single connection.</p>
+
+<h3>Global variables</h3>
+<p>From <b>Tools → Global variables</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>). Define <code>NAME = value</code> pairs and use them with the syntax <code>{NAME}</code> in session commands:</p>
+<pre>
+<span class="cm"># Global variable:</span>
+DEPLOY_PATH = /var/www/html/app
+
+<span class="cm"># Session "Startup command" field:</span>
+cd {DEPLOY_PATH} &amp;&amp; git pull &amp;&amp; npm run build
+</pre>
+
+<h3>Protected mode</h3>
+<p>From <b>Tools → Protected mode</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>).
+When active, passwords visible in the interface are replaced with <code>****</code>.
+Useful during screen sharing or presentations. Does not modify saved data.</p>
+
+<h3>Audit log</h3>
+<p>PCM automatically records every opened connection in a centralized log (<code>audit_log.json</code>) with timestamp, duration, protocol and status.</p>
+<p>From <b>Tools → Audit log</b>: a viewer opens with a connection table (Timestamp, Session, Host, Protocol, Duration, Status). Available actions:</p>
 <ul>
-  <li>Add name/value pairs, e.g. <code>DEFAULT_USER</code> = <code>admin</code></li>
-  <li>In a session field use <code>%DEFAULT_USER%</code> — PCM replaces it at connection time</li>
-  <li>Useful for changing a common parameter across all sessions at once</li>
+  <li><b>🗑 Clear log</b> — empties the <code>audit_log.json</code> file</li>
+  <li><b>📥 Export CSV</b> — saves a copy of the log in CSV format (compatible with Excel, LibreOffice Calc)</li>
 </ul>
+<div class="info">ℹ️ The audit log does not contain passwords or credentials — only connection metadata. It is complementary to the terminal output log: the latter records the session content, this one records metadata.</div>
 
-<hr>
+<h3>KeePassXC integration</h3>
+<p>PCM can look up credentials directly in the open KeePassXC database, via the <b>KeePassXC Browser</b> v2 protocol (local Unix socket — no browser extension needed).</p>
+<p>Prerequisites: KeePassXC running with unlocked database + Browser Integration enabled (KeePassXC → Tools → Settings → Browser Integration).</p>
+<div class="step"><div class="step-num">1</div><div class="step-text">In the session dialog, <b>Connection</b> tab, click the <b>🔑 KeePassXC</b> button</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">The search dialog opens: type the server hostname or any keyword</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Click <b>Search</b> — PCM queries KeePassXC and shows found entries (title, user, URL)</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Select the desired entry and click <b>Use</b> — user and password are filled in automatically</div></div>
+<p>From <b>Tools → KeePassXC</b> you can check the connection status and the detected socket path.</p>
 
-<!-- ── PROTECTED MODE ── -->
-<div class="new-feature">
-  <div class="nf-title">Protected Mode</div>
-  <p>Encrypts <code>connections.json</code> with a master password, protecting saved credentials.</p>
+<h3>Broadcast terminals</h3>
+<p>Send the same text (or command) to <b>multiple terminals simultaneously</b> — ideal for running operations on a cluster of servers in parallel.</p>
+<p>From <b>Tools → Broadcast terminals</b>: the dialog lists all open terminals with a checkbox for each. Write the text in the text area, choose whether to automatically add <kbd>Enter</kbd> (default: yes), then click <b>⚡ Send</b>.</p>
+<div class="tip">💡 Broadcast only works on VTE embedded terminals (SSH/Telnet/Mosh/Exec tabs open in PCM). RDP and VNC sessions in external windows are not reachable because they don't use the internal terminal.</div>
+<div class="grid2">
+  <div class="card">
+    <h4>Difference with Multi-exec</h4>
+    <p><b>Multi-exec</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>) uses the clipboard and sends with automatic Enter. <b>Broadcast</b> is more flexible: you can send partial text (without Enter), multiple lines, and see the terminal selection explicitly.</p>
+  </div>
+  <div class="card">
+    <h4>Typical use cases</h4>
+    <ul>
+      <li><code>apt update &amp;&amp; apt upgrade -y</code> — update all servers</li>
+      <li><code>sudo systemctl restart nginx</code> — restart on entire cluster</li>
+      <li><code>df -h</code> — check space on all servers</li>
+    </ul>
+  </div>
 </div>
 
-<h3>Protected Mode configuration</h3>
-<p>In <span class="menu-path">Settings <span>›</span> Security</span>:</p>
-<ul>
-  <li>Enable <b>Protected Mode</b> and set a master password</li>
-  <li>PCM encrypts the sessions file with AES-256 (Fernet)</li>
-  <li>At each startup PCM asks for the master password before loading sessions</li>
-  <li>Without the password the file is unreadable</li>
-</ul>
-<div class="warn">⚠️ If you forget the master password, the sessions file cannot be recovered. Keep a backup copy in a safe place.</div>
+<h3>Reachability check</h3>
+<p>Right-click on any session in the panel → <b>🌐 Check reachability…</b></p>
+<p>A dialog opens that automatically runs three tests in sequence:</p>
+<table>
+  <tr><th>Test</th><th>What it checks</th><th>Result</th></tr>
+  <tr><td><b>1. DNS</b></td><td>Resolves the hostname to an IP address</td><td>✅ IP resolved or ❌ name not found</td></tr>
+  <tr><td><b>2. Ping</b></td><td>Sends 3 ICMP packets, shows RTT and loss</td><td>✅ Ping OK or ⚠ ICMP blocked</td></tr>
+  <tr><td><b>3. TCP port</b></td><td>Opens a TCP connection on the protocol port</td><td>✅ Port open or ❌ timeout</td></tr>
+</table>
+<div class="info">ℹ️ A blocked ping (ICMP filtered by firewall) does not mean the service is unreachable — the TCP port test is the definitive one.</div>
 
-<!-- ══════════════════════════════════════════════════ NEW FEATURES -->
-<h2 id="new">✦ Recent New Features</h2>
+<h3>RDP clients and detected terminals</h3>
+<p>The <b>RDP Client</b>, <b>VNC Client</b> and <b>External terminal</b> combos in the session dialog show <b>only programs present in PATH</b> at the time the dialog opens.</p>
+<table>
+  <tr><th>Client</th><th>Internal panel</th><th>Authentication</th><th>Notes</th></tr>
+  <tr><td><code>rdesktop</code></td><td>✅ Native (<code>-X</code>)</td><td>Native NTLM, no Kerberos</td><td><b>Recommended</b> for internal panel — fast connection</td></tr>
+  <tr><td><code>xfreerdp3</code></td><td>✅ xdotool reparent</td><td>NTLM or Kerberos (selectable)</td><td>FreeRDP 3.x — internal panel slower (polling)</td></tr>
+  <tr><td><code>xfreerdp</code></td><td>❌ v2 not supported</td><td>—</td><td>Internal panel option automatically disabled</td></tr>
+</table>
+<p>PCM automatically detects terminals: <code>xterm</code>, <code>xfce4-terminal</code>, <code>gnome-terminal</code>, <code>konsole</code>, <code>alacritty</code>, <code>kitty</code>, <code>terminator</code>, <code>wezterm</code>, <code>foot</code>, <code>tilix</code>, <code>lxterminal</code>, <code>mate-terminal</code>, <code>st</code>.</p>
+<p>If a saved profile uses a client that is no longer installed, the combo shows the entry with the <code>⚠ not found</code> suffix. Update the profile choosing an available client before connecting.</p>
 
-<div class="new-feature">
-  <div class="nf-title">📌 Snippet Library</div>
-  <p>A global library of reusable commands stored in <code>pcm_settings.json</code>. Access it from <span class="menu-path">Tools › Snippet Library…</span> or from the terminal right-click context menu "Insert snippet…". Supports categories and full CRUD management.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">📄 SFTP File Editor</div>
-  <p>Double-click or right-click "Edit file…" in the SFTP browser to open the file in the configured GUI editor (downloaded to a temp file, auto-re-uploaded on save). Falls back to the built-in GtkSource editor when no GUI editor is set or the editor is terminal-only.</p>
-  <p>Configure in <b>Settings → General → Text editor</b>. Supported: <code>gedit</code>, <code>code</code>, <code>mousepad</code>, <code>NotePadPQ</code>, and any GUI editor in the PATH.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">⏰ Cron Manager</div>
-  <p>Right-click on an SSH tab → <b>Cron Manager…</b>. Connects via paramiko, reads and writes the remote user crontab, and presents it as an editable TreeView with add/edit/delete dialogs. Supports <code>@reboot</code>, <code>@daily</code>, <code>@weekly</code> shortcuts.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">📊 Context-aware SSH / VNC / RDP info panel</div>
-  <p>The right-sidebar info panel is now available for SSH, VNC (Linux) and RDP (Windows) sessions. The panel shows only the sections relevant to the selected protocol:</p>
-  <ul>
-    <li><b>SSH / Mosh</b>: full panel (SFTP browser + CPU/RAM/Processes/Disk/Network/Logs monitor)</li>
-    <li><b>VNC (Linux)</b>: SFTP browser + SSH monitor with configurable SSH port</li>
-    <li><b>RDP (Windows)</b>: SFTP browser + PowerShell-based monitor over OpenSSH; Log tab hidden</li>
-    <li><b>FTP, Telnet, Serial, Exec</b>: informational label — no panels available</li>
-  </ul>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">🔍 Ctrl+Wheel font zoom in terminal</div>
-  <p>Hold <kbd>Ctrl</kbd> and scroll the mouse wheel in a VTE terminal tab to increase or decrease the font size on the fly.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">Duplicate connection (tab right-click)</div>
-  <p>Right-clicking on any active session tab now shows the <b>⧉ Duplicate connection</b> option, which immediately opens a second identical session to the same host in a new tab.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">SFTP browser alongside terminal</div>
-  <p>In SSH session settings, enable <b>SFTP browser</b> to show a file browser panel alongside the terminal — navigate and transfer files without leaving the session.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">Split panels</div>
-  <p>The terminal area can be split vertically or horizontally into two independent panels, each with its own tabs. Drag tabs between panels freely.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">VNC integrated viewer</div>
-  <p>VNC sessions can be opened in an integrated PCM tab using the noVNC viewer (WebKit), without needing an external client.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">RDP embedded mode</div>
-  <p>RDP sessions can be embedded directly in a PCM tab (internal mode), keeping the entire workflow in one window.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">Multi-monitor RDP</div>
-  <p>RDP sessions now support advanced monitor management: single monitor, span all monitors, or custom selection.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">Tunnel indicator in toolbar</div>
-  <p>The toolbar now shows a <b>Tunnel Indicator</b> that displays the number of active SSH tunnels. Clicking it opens a popup with the list of active tunnels and individual <b>Stop</b> buttons — no need to open the full Tunnel Manager. The indicator refreshes every 3 seconds and tunnel state survives dialog close/reopen.</p>
-</div>
-
-<div class="new-feature">
-  <div class="nf-title">Active session indicator in panel</div>
-  <p>Sessions with an open connection show a <b><span style="color:#22cc55">●</span> green dot</b> next to their name in the left panel. The indicator updates in real time as sessions are opened or closed.</p>
-</div>
-
-<h3>Configuration</h3>
-<p>In the RDP session dialog, <b>Connection</b> tab → <b>RDP Options</b> section:</p>
-
+<h3>Multi-monitor RDP</h3>
+<p>RDP sessions support advanced monitor management. In the RDP session dialog, <b>Connection</b> tab → <b>RDP Options</b> section:</p>
 <table>
   <tr><th>Mode</th><th>xfreerdp flag</th><th>When to use it</th></tr>
-  <tr>
-    <td><b>Single monitor</b> (default)</td>
-    <td>—</td>
-    <td>One RDP window on one monitor</td>
-  </tr>
-  <tr>
-    <td><b>All monitors</b></td>
-    <td><code>/multimon</code></td>
-    <td>Expand the RDP session across all connected monitors</td>
-  </tr>
-  <tr>
-    <td><b>Custom selection</b></td>
-    <td><code>/monitor:0,1</code></td>
-    <td>Choose specific monitors by index</td>
-  </tr>
+  <tr><td><b>Single monitor</b> (default)</td><td>—</td><td>One RDP window on one monitor</td></tr>
+  <tr><td><b>All monitors</b></td><td><code>/multimon</code></td><td>Expand the RDP session across all connected monitors</td></tr>
+  <tr><td><b>Custom selection</b></td><td><code>/monitors:0,1</code></td><td>Choose specific monitors by ID (0, 1, 2…)</td></tr>
 </table>
+<div class="info">ℹ️ Monitor IDs found with: <code>xfreerdp3 /list:monitors</code>. Multi-monitor mode requires xfreerdp3 or xfreerdp — not supported by rdesktop. Available in external window mode only.</div>
+
+<h3>Session restore on startup</h3>
+<p>PCM can save the list of open sessions on exit and reopen them automatically on the next startup.</p>
+<p>From <b>Settings → General</b> → tick <b>"Restore open sessions on next startup"</b>.</p>
+<ul>
+  <li>On exit PCM saves host, protocol, port and user for each open tab in <code>pcm_settings.json</code></li>
+  <li>On next startup it looks up each saved session in <code>connections.json</code> matching those four fields</li>
+  <li>Sessions no longer in <code>connections.json</code> are silently ignored</li>
+  <li>If credentials are encrypted with a master password, restore happens after unlocking</li>
+</ul>
+
 
 <!-- ══════════════════════════════════════════════════ KEYBOARD SHORTCUTS -->
 <h2 id="keys">⌨ Keyboard Shortcuts</h2>
 
 <table>
-  <tr><th>Shortcut</th><th>Action</th></tr>
-  <tr><td><kbd>Ctrl+Shift+C</kbd></td><td>Copy selection in terminal</td></tr>
-  <tr><td><kbd>Ctrl+Shift+V</kbd></td><td>Paste in terminal</td></tr>
-  <tr><td><kbd>Ctrl+Shift+F</kbd></td><td>Search in terminal output</td></tr>
-  <tr><td><kbd>Ctrl+W</kbd></td><td>Close current tab</td></tr>
-  <tr><td><kbd>Ctrl+T</kbd></td><td>New session</td></tr>
-  <tr><td><kbd>Ctrl+L</kbd></td><td>Local terminal</td></tr>
-  <tr><td><kbd>Ctrl+Shift+G</kbd></td><td>Global variables</td></tr>
-  <tr><td><kbd>Ctrl+PageUp</kbd></td><td>Previous tab</td></tr>
-  <tr><td><kbd>Ctrl+PageDown</kbd></td><td>Next tab</td></tr>
-  <tr><td><kbd>F11</kbd></td><td>Toggle fullscreen</td></tr>
+  <tr><th width="240">Shortcut</th><th>Action</th><th>Notes</th></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New remote session</td><td>Opens the creation dialog</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Local terminal</td><td>Opens local bash in a new tab</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Show/Hide sidebar</td><td>Toggle session panel</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Protected mode</td><td>Toggle hide/show passwords</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td>Multi-exec</td><td>Requires at least one active SSH session</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Global variables</td><td>Manage <code>{NAME}</code> variables</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Local FTP server</td><td>Start/stop local FTP server</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd></td><td>Single view</td><td>One terminal panel</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>2</kbd></td><td>Vertical split</td><td>Two side-by-side panels</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>3</kbd></td><td>Horizontal split</td><td>Two stacked panels</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd></td><td>Close current tab</td><td>Asks confirmation if session active</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>←</kbd></td><td>Previous tab</td><td>Cyclic scrolling</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd></td><td>Next tab</td><td>Cyclic scrolling</td></tr>
+  <tr><td><kbd>F11</kbd></td><td>Fullscreen</td><td>Toggle PCM window fullscreen</td></tr>
+  <tr><td><kbd>F1</kbd></td><td>Open this guide</td><td>Opens in a dedicated tab</td></tr>
+  <tr><td><kbd>Alt</kbd>+<kbd>F4</kbd></td><td>Quit PCM</td><td>Asks confirmation if sessions active</td></tr>
 </table>
 
-<div class="info">ℹ️ Shortcuts can be customized in <span class="menu-path">Settings <span>›</span> Shortcuts</span>.</div>
+<div class="info">ℹ️ All shortcuts are customizable from <b>Settings → Shortcuts</b>. Changes take effect on application restart.</div>
 
 <!-- ══════════════════════════════════════════════════ SETTINGS -->
 <h2 id="settings">🛠 Settings</h2>
@@ -974,7 +1068,7 @@
 <div class="info">ℹ️ Terminal settings (theme, font, scrollback, bell) and SSH options are now configured <b>per session</b> in the session dialog — <b>Connection</b> and <b>Terminal</b> tabs. There are no longer global terminal or SSH settings.</div>
 
 <!-- ══════════════════════════════════════════════════ SSH MONITOR PANEL -->
-<h2 id="monitor">📊 SSH Session Info Panel <span class="new-badge">NEW</span></h2>
+<h2 id="monitor">📊 SSH Session Info Panel</h2>
 
 <p>For any SSH session you can enable a <b>persistent right sidebar</b> that shows server resources in real time, organized in two tabs: <b>Monitor</b> and <b>Logs</b>.</p>
 
@@ -1026,42 +1120,6 @@
 <h3>Resize the panel</h3>
 <p>The separator between the terminal area and the info panel is draggable. The panel has a minimum width of 240 px and can be widened freely.</p>
 
-<hr>
-
-<!-- ── CONTEXT MENU ── -->
-<div class="new-feature">
-  <div class="nf-title">📊 View logs and System monitor from the context menu</div>
-  <p>Right-clicking on an SSH session — both in the <b>session list</b> and on an <b>open tab</b> — shows two additional entries for opening monitoring tools in dedicated tabs.</p>
-</div>
-
-<h3>View logs… (standalone tab)</h3>
-<p>Opens a dedicated <b>Log viewer</b> tab for the selected SSH session. Unlike the Logs tab in the right panel, this opens in the main area (useful without the monitor panel, or to have multiple log views at once).</p>
-
-<h3>System monitor… (standalone tab)</h3>
-<p>Opens a dedicated tab with CPU, RAM, disk, network and uptime — a standalone version of the monitor without the sidebar. Updates every 2 seconds.</p>
-
-<hr>
-
-<!-- ── SESSION RESTORE ── -->
-<div class="new-feature">
-  <div class="nf-title">🔄 Session restore on startup</div>
-  <p>PCM can save the list of open sessions on exit and reopen them automatically on the next startup, without having to click each connection manually.</p>
-</div>
-
-<h3>Enable session restore</h3>
-<p>Settings → General → tick <b>"Restore open sessions on next startup"</b>.</p>
-
-<h3>How it works</h3>
-<ul>
-  <li>On exit PCM saves host, protocol, port and user for each open tab in <code>pcm_settings.json</code></li>
-  <li>On next startup (after 2 seconds) it looks up each saved session in <code>connections.json</code> matching those four fields</li>
-  <li>Matching sessions are reopened with their full configuration (saved passwords, macros, terminal settings)</li>
-  <li>Sessions no longer in <code>connections.json</code> (renamed or deleted) are silently skipped</li>
-</ul>
-
-<div class="tip">💡 Session restore uses <code>connections.json</code> as the source — credentials are not duplicated. If credentials are encrypted with a master password, restore happens after unlocking.</div>
-
-<hr>
 
 <!-- ══════════════════════════════════════════════════ FAQ -->
 <h2 id="faq">❓ FAQ</h2>
@@ -1142,6 +1200,43 @@ sudo pacman -S freerdp</pre>
 <h3>Session restore on startup doesn't work</h3>
 <p>Check: (1) the option is enabled in Settings → General; (2) the session is still present in <code>connections.json</code> with the same host, protocol, port and user as when the session was open at the time of closing. Sessions opened via Quick Connect (no saved profile) are not restored.</p>
 
+<h4>Icons don't appear — only colored dots visible</h4>
+<p>PNG icons must be present in the <code>icons/</code> folder next to <code>PCM.py</code>. Check the <code>.png</code> files. If you only have <code>.svg</code>, run <code>bash convert_icons.sh</code> from the PCM folder.</p>
+
+<h4>Snippet doesn't appear in the terminal context menu</h4>
+<p>The context menu with "Insert snippet…" appears only if at least one snippet is configured in the Library. Go to <b>Tools → Snippet Library</b>, add a snippet and try again.</p>
+
+<h4>SFTP browser does not connect</h4>
+<p>The SFTP browser uses <code>paramiko</code>. Check installation:<br>
+<code>.venv/bin/python3 -c "import paramiko"</code><br>
+If missing: <code>.venv/bin/pip install paramiko</code> from the gtk3 folder.</p>
+
+<h4>Macros are slow / arrive with delay</h4>
+<p>PCM sends macros via the GDK clipboard (native GTK3) instantly, regardless of command length. If you experience clipboard issues on X11 sessions, check that <code>xclip</code> is installed: <code>which xclip</code>. On Wayland the clipboard is managed natively without external dependencies.</p>
+
+<h4>"Export commands.sh" doesn't find commands</h4>
+<p>Commands typed directly in the terminal are captured only through the <b>terminal log</b>. Make sure the session profile has "Record output to file" enabled and that the session was reconnected after enabling the log. Commands sent via macros and multi-exec are always tracked regardless of the log.</p>
+
+<h4>KeePassXC not found / "not running"</h4>
+<p>Check: (1) KeePassXC is open and the database is unlocked; (2) Browser Integration is enabled in KeePassXC → Tools → Settings → Browser Integration; (3) the Unix socket exists: <code>ls /run/user/$(id -u)/org.keepassxc.KeePassXC.BrowserServer</code>. Use <b>Tools → KeePassXC</b> for the connection test.</p>
+
+<h4>Broadcast doesn't reach all terminals</h4>
+<p>Broadcast only works on VTE embedded terminals (SSH/Telnet/Mosh/Exec tabs open in PCM). RDP and VNC sessions in external windows are not reachable because they don't use the internal terminal.</p>
+
+<h4>Where are settings and sessions saved?</h4>
+<ul>
+  <li><code>connections.json</code> — all sessions (plaintext, editable JSON)</li>
+  <li><code>pcm_settings.json</code> — global settings, shortcuts, recent sessions</li>
+  <li><code>audit_log.json</code> — connection audit log (metadata, no passwords)</li>
+  <li><code>/tmp/pcm_logs/</code> — terminal logs (if enabled, path configurable)</li>
+</ul>
+
+<h4>How do I connect to a server with a non-standard SSH port?</h4>
+<p>Specify the port in the "Port" field of the session dialog or use the format <code>user@host:2222</code> directly in the Quick Connect bar.</p>
+
+<h4>Can I use PCM on multiple machines with the same sessions?</h4>
+<p>Yes — the <code>connections.json</code> file is portable. Sync it with Dropbox, Nextcloud, Git or copy it manually. Use <b>File → Export sessions</b> for backups and transfers.</p>
+
 </div>
 
 <!-- ══════════════════════════════════════════════════ COMMAND LINE LAUNCH -->
@@ -1149,10 +1244,7 @@ sudo pacman -S freerdp</pre>
 
 <p>PCM supports opening connections directly from the command line via URI. If PCM is already running, the connection is added as a new tab in the existing window — without asking for the master password again if credentials are already unlocked.</p>
 
-<div class="new-feature">
-  <div class="nf-title">🖥 Smart single-instance</div>
-  <p>PCM uses D-Bus to detect if it is already open. A second invocation sends the URI to the existing instance via D-Bus and exits immediately — no duplicate PCM windows.</p>
-</div>
+<div class="info">ℹ️ PCM uses D-Bus to detect if it is already open. A second invocation sends the URI to the existing instance via D-Bus and exits immediately — no duplicate PCM windows.</div>
 
 <h3>URI format</h3>
 <pre><code>python3 PCM.py  proto://[user@]host[:port][?options]</code></pre>
