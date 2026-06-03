@@ -129,7 +129,7 @@ Each section can be individually enabled or disabled per session.
 - **TCP Ping** from the sidebar — checks reachability on the configured port (ms)
 - **Session restore** — optionally save open sessions on close and reopen them automatically at the next startup (Settings → General)
 - Duplicate, edit, delete, export `.sh` script to reopen from terminal
-- **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`
+- **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
 
 ### 🛠 Integrated tools
 
@@ -251,7 +251,7 @@ Instant language change from settings without restart.
 | | |
 |---|---|
 | ![Import Sessions GTK3](immagini/pcm79.png) | |
-| *Import sessions — from Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config* | |
+| *Import sessions — from Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config, MobaXterm (.mobaXterm)* | |
 
 ---
 
@@ -562,7 +562,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
 - **Ripristino sessioni** — salva opzionalmente le sessioni aperte alla chiusura e le riapre automaticamente al prossimo avvio (Impostazioni → Generale)
 - Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
-- **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`
+- **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
 
 ### 🛠 Strumenti integrati
 
@@ -684,7 +684,7 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 | | |
 |---|---|
 | ![Import Sessions GTK3](immagini/pcm79.png) | |
-| *Import sessioni — da Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config* | |
+| *Import sessioni — da Remmina (.remmina), Remote Desktop Manager (.rdm/.json), PuTTY, ~/.ssh/config, MobaXterm (.mobaXterm)* | |
 
 ---
 
