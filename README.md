@@ -1,7 +1,5 @@
 # PCM — Python Connection Manager
 
-[![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=buzzqw)](https://github.com/anuraghazra/github-readme-stats)
-
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-blue.svg)](EUPL-1.2%20EN.txt)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![GTK3](https://img.shields.io/badge/UI-GTK3-green.svg)](https://docs.gtk.org/gtk3/)
