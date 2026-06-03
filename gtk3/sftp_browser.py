@@ -461,34 +461,78 @@ class SftpBrowserWidget(Gtk.Box):
     def _on_download(self, nome: str | None = None):
         if not self._sftp:
             return
+        is_dir = False
         if nome is None:
             sel = self._view.get_selection()
             model, it = sel.get_selected()
             if it is None:
                 return
-            nome = model.get_value(it, 1)
+            nome   = model.get_value(it, 1)
+            is_dir = model.get_value(it, 4)
+        else:
+            for row in self._store:
+                if row[1] == nome:
+                    is_dir = row[4]
+                    break
 
-        dlg = Gtk.FileChooserDialog(
-            title=t("sftp.download_title"),
-            parent=self.get_toplevel(),
-            action=Gtk.FileChooserAction.SAVE
-        )
-        dlg.set_current_name(nome)
-        dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_save"), Gtk.ResponseType.OK)
-        if dlg.run() == Gtk.ResponseType.OK:
-            local  = dlg.get_filename()
-            remote = self._cwd + "/" + nome
-            self._mostra_progress(nome)
-            threading.Thread(
-                target=self._download_file, args=(remote, local), daemon=True
-            ).start()
-        dlg.destroy()
+        remote = self._cwd + "/" + nome
+
+        if is_dir:
+            dlg = Gtk.FileChooserDialog(
+                title=t("sftp.download_title"),
+                parent=self.get_toplevel(),
+                action=Gtk.FileChooserAction.SELECT_FOLDER
+            )
+            dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_save"), Gtk.ResponseType.OK)
+            if dlg.run() == Gtk.ResponseType.OK:
+                local = dlg.get_filename()
+                self._mostra_progress(nome)
+                threading.Thread(
+                    target=self._download_dir, args=(remote, local), daemon=True
+                ).start()
+            dlg.destroy()
+        else:
+            dlg = Gtk.FileChooserDialog(
+                title=t("sftp.download_title"),
+                parent=self.get_toplevel(),
+                action=Gtk.FileChooserAction.SAVE
+            )
+            dlg.set_current_name(nome)
+            dlg.add_buttons(t("sftp.btn_cancel"), Gtk.ResponseType.CANCEL, t("sftp.btn_save"), Gtk.ResponseType.OK)
+            if dlg.run() == Gtk.ResponseType.OK:
+                local  = dlg.get_filename()
+                self._mostra_progress(nome)
+                threading.Thread(
+                    target=self._download_file, args=(remote, local), daemon=True
+                ).start()
+            dlg.destroy()
 
     def _download_file(self, remote: str, local: str):
         def _cb(tx: int, tot: int):
             GLib.idle_add(self._aggiorna_progress, tx, tot)
         try:
             self._sftp.get(remote, local, callback=_cb)
+            GLib.idle_add(self._nascondi_progress, t("sftp.download_done"))
+        except Exception as e:
+            GLib.idle_add(self._nascondi_progress, t("sftp.download_err_detail").format(e=e))
+
+    def _download_dir(self, remote: str, local_parent: str):
+        import posixpath
+        dir_name  = posixpath.basename(remote.rstrip("/"))
+        local_dir = os.path.join(local_parent, dir_name)
+
+        def _recursive(rem, loc):
+            os.makedirs(loc, exist_ok=True)
+            for attr in self._sftp.listdir_attr(rem):
+                r = rem + "/" + attr.filename
+                l = os.path.join(loc, attr.filename)
+                if stat.S_ISDIR(attr.st_mode):
+                    _recursive(r, l)
+                else:
+                    self._sftp.get(r, l)
+
+        try:
+            _recursive(remote, local_dir)
             GLib.idle_add(self._nascondi_progress, t("sftp.download_done"))
         except Exception as e:
             GLib.idle_add(self._nascondi_progress, t("sftp.download_err_detail").format(e=e))

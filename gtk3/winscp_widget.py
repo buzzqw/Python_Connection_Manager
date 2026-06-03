@@ -851,7 +851,9 @@ class WinScpWidget(Gtk.Box):
         jobs = []
         for v in sel:
             lpath = os.path.join(self._local_panel.path, v["nome"])
-            if not v["is_dir"]:
+            if v["is_dir"]:
+                jobs += self._jobs_download_dir(v["path"], lpath)
+            else:
                 jobs.append(TransferJob("download", v["path"], lpath,
                                         size=v["size"], nome=v["nome"]))
         self._esegui_jobs(jobs)
@@ -876,14 +878,15 @@ class WinScpWidget(Gtk.Box):
         """Aggiunge i file selezionati dal pannello remoto alla coda senza avviarli."""
         if not self._sftp or not self._remote_panel:
             return
-        n = 0
         for v in sel:
-            if not v["is_dir"]:
-                lpath = os.path.join(self._local_panel.path, v["nome"])
+            lpath = os.path.join(self._local_panel.path, v["nome"])
+            if v["is_dir"]:
+                for job in self._jobs_download_dir(v["path"], lpath):
+                    self._coda.aggiungi_in_attesa(job)
+            else:
                 self._coda.aggiungi_in_attesa(
                     TransferJob("download", v["path"], lpath,
                                 size=v["size"], nome=v["nome"]))
-                n += 1
 
     def _accoda_upload(self, sel: list):
         """Aggiunge i file selezionati dal pannello locale alla coda senza avviarli."""
@@ -983,6 +986,23 @@ class WinScpWidget(Gtk.Box):
                 sz = entry.stat().st_size
                 jobs.append(TransferJob("upload", entry.path, rp,
                                         size=sz, nome=entry.name))
+        return jobs
+
+    def _jobs_download_dir(self, remote_dir: str, local_dir: str) -> list:
+        """Espande una cartella remota in lista di TransferJob ricorsivi."""
+        jobs = []
+        try:
+            os.makedirs(local_dir, exist_ok=True)
+        except Exception:
+            pass
+        for attr in self._sftp.listdir_attr(remote_dir):
+            rp = remote_dir.rstrip("/") + "/" + attr.filename
+            lp = os.path.join(local_dir, attr.filename)
+            if stat.S_ISDIR(attr.st_mode):
+                jobs += self._jobs_download_dir(rp, lp)
+            else:
+                jobs.append(TransferJob("download", rp, lp,
+                                        size=attr.st_size, nome=attr.filename))
         return jobs
 
     def _esegui_jobs(self, jobs: list):
