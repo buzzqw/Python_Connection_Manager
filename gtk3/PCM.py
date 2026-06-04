@@ -1049,9 +1049,9 @@ class MainWindow(Gtk.ApplicationWindow):
         open_mode = dati.get("rdp_open_mode", "external")
         if open_mode == "internal":
             widget = RdpEmbedWidget(dati, open_mode="internal")
-            widget.show_all()
             container = self._sftp_browser_paned(widget, dati)
             container._pcm_dati = dati
+            container.show_all()
             self._append_tab(container, nome, lambda: self._chiudi_tab(container))
             widget.avvia()
         else:
@@ -1067,9 +1067,9 @@ class MainWindow(Gtk.ApplicationWindow):
             full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = cmd_display
-            widget.show_all()
             container = self._sftp_browser_paned(widget, dati)
             container._pcm_dati = dati
+            container.show_all()
             self._append_tab(container, nome)
             GLib.idle_add(widget.grab_focus)
             widget.avvia(full_cmd)
