@@ -66,7 +66,7 @@ class _VncGtkVnc(Gtk.Box):
         self._on_vnc_ready = on_vnc_ready
         self._closed = False
         self._scaling = True
-        self._pointer_local = False
+        self._pointer_local = True
         self._keyboard_grab = False
         self._read_only = False
         # 0=32bpp, 1=16bpp, 2=8bpp  |  0=best, 1=good, 2=fast
