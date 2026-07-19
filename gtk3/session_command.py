@@ -70,48 +70,15 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
     elif proto == "telnet":
         return _wrap_pre(_build_telnet(profilo), profilo), "embedded"
     elif proto == "sftp":
-        mode = profilo.get("sftp_open_mode", "Browser interno")
-        if mode.startswith("Browser esterno"):
-            return _build_sftp_uri(profilo, "browser_ext"), "sftp_external"
-        elif mode.startswith("Terminale interno"):
-            return _wrap_pre(_build_sftp_cli(profilo), profilo), "embedded"
-        elif mode.startswith("Terminale esterno"):
-            return _wrap_pre(_build_sftp_cli(profilo), profilo), "sftp_term_ext"
-        else:
-            return _build_sftp(profilo), "sftp_panel"
+        return _resolve_sftp_ftp(profilo, ft_sub="SFTP")
     elif proto == "file_transfer":
         ft_sub = profilo.get("ft_protocol", "SFTP").upper()
         if ft_sub == "SFTP":
-            mode = profilo.get("sftp_open_mode", "Browser interno")
-            if mode.startswith("Browser esterno"):
-                return _build_sftp_uri(profilo, "browser_ext"), "sftp_external"
-            elif mode.startswith("Terminale interno"):
-                return _wrap_pre(_build_sftp_cli(profilo), profilo), "embedded"
-            elif mode.startswith("Terminale esterno"):
-                return _wrap_pre(_build_sftp_cli(profilo), profilo), "sftp_term_ext"
-            else:
-                return _build_sftp(profilo), "sftp_panel"
+            return _resolve_sftp_ftp(profilo, ft_sub="SFTP")
         else:
-            # FTP / FTPS
-            mode = profilo.get("ftp_open_mode", "Browser interno")
-            if mode.startswith("Browser esterno"):
-                return _build_ftp(profilo, modalita="browser_ext"), "ftp_external"
-            elif mode.startswith("Terminale interno"):
-                return _wrap_pre(_build_ftp(profilo, modalita="term_int"), profilo), "embedded"
-            elif mode.startswith("Terminale esterno"):
-                return _wrap_pre(_build_ftp(profilo, modalita="term_ext"), profilo), "ftp_term_ext"
-            else:
-                return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
+            return _resolve_sftp_ftp(profilo, ft_sub=ft_sub)
     elif proto == "ftp":
-        mode = profilo.get("ftp_open_mode", "Browser interno")
-        if mode.startswith("Browser esterno"):
-            return _build_ftp(profilo, modalita="browser_ext"), "ftp_external"
-        elif mode.startswith("Terminale interno"):
-            return _wrap_pre(_build_ftp(profilo, modalita="term_int"), profilo), "embedded"
-        elif mode.startswith("Terminale esterno"):
-            return _wrap_pre(_build_ftp(profilo, modalita="term_ext"), profilo), "ftp_term_ext"
-        else:  
-            return _build_ftp(profilo, modalita="browser_int"), "ftp_panel"
+        return _resolve_sftp_ftp(profilo, ft_sub="FTP")
     elif proto == "rdp":
         mode = profilo.get("rdp_open_mode", "external")
         if mode == "internal" or "intern" in mode.lower() or "panel" in mode.lower():
@@ -146,6 +113,30 @@ def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
         + cmd_esc +
         " || (echo \">>> Pre-connessione fallita. Connessione annullata.\"; sleep 5)'"
     )
+
+
+def _resolve_sftp_ftp(p: dict, ft_sub: str) -> tuple:
+    """Risolve comando e modalità per SFTP/FTP/FTPS in modo unificato."""
+    if ft_sub == "SFTP":
+        mode = p.get("sftp_open_mode", "Browser interno")
+        if mode.startswith("Browser esterno"):
+            return _build_sftp_uri(p, "browser_ext"), "sftp_external"
+        elif mode.startswith("Terminale interno"):
+            return _wrap_pre(_build_sftp_cli(p), p), "embedded"
+        elif mode.startswith("Terminale esterno"):
+            return _wrap_pre(_build_sftp_cli(p), p), "sftp_term_ext"
+        else:
+            return _build_sftp(p), "sftp_panel"
+    else:
+        mode = p.get("ftp_open_mode", "Browser interno")
+        if mode.startswith("Browser esterno"):
+            return _build_ftp(p, modalita="browser_ext"), "ftp_external"
+        elif mode.startswith("Terminale interno"):
+            return _wrap_pre(_build_ftp(p, modalita="term_int"), p), "embedded"
+        elif mode.startswith("Terminale esterno"):
+            return _wrap_pre(_build_ftp(p, modalita="term_ext"), p), "ftp_term_ext"
+        else:
+            return _build_ftp(p, modalita="browser_int"), "ftp_panel"
 
 
 # ---------------------------------------------------------------------------

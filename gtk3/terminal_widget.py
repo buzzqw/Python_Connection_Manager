@@ -36,26 +36,11 @@ class TerminalWidget(Gtk.Box):
     """
     Widget terminale basato su VTE.
     Segnale: 'processo-terminato' emesso quando il processo figlio esce.
+    I temi sono definiti in themes.TERMINAL_THEMES — unica fonte di verità.
     """
 
     __gsignals__ = {
         "processo-terminato": (GObject.SignalFlags.RUN_FIRST, None, ()),
-    }
-
-    # Temi built-in: (background, foreground)
-    TEMI = {
-        "Scuro (Default)":  ("#1e1e1e", "#cccccc"),
-        "Chiaro (B/W)":     ("#ffffff", "#1a1a1a"),
-        "Matrix (Verde)":   ("#000000", "#00ff00"),
-        "Dracula":          ("#282a36", "#f8f8f2"),
-        "Nord":             ("#2e3440", "#d8dee9"),
-        "Monokai":          ("#272822", "#f8f8f2"),
-        "Solarized Dark":   ("#002b36", "#839496"),
-        "Solarized Light":  ("#fdf6e3", "#657b83"),
-        "One Dark":         ("#282c34", "#abb2bf"),
-        "Gruvbox Dark":     ("#282828", "#ebdbb2"),
-        "Tomorrow Night":   ("#1d1f21", "#c5c8c6"),
-        "Cobalt":           ("#002240", "#ffffff"),
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
@@ -505,17 +490,17 @@ class TerminalWidget(Gtk.Box):
     def _mostra_menu_contestuale(self, event):
         menu = Gtk.Menu()
 
-        mi_copy = Gtk.MenuItem(label="Copia")
+        mi_copy = Gtk.MenuItem(label=t("term.context.copy"))
         mi_copy.set_sensitive(self._vte.get_has_selection())
         mi_copy.connect("activate", lambda _: self._vte.copy_clipboard())
 
-        mi_paste = Gtk.MenuItem(label="Incolla")
+        mi_paste = Gtk.MenuItem(label=t("term.context.paste"))
         mi_paste.connect("activate", lambda _: self._incolla_clipboard())
 
-        mi_snippet = Gtk.MenuItem(label="Inserisci snippet…")
+        mi_snippet = Gtk.MenuItem(label=t("term.context.snippet"))
         mi_snippet.connect("activate", lambda _: self._apri_snippet_picker())
 
-        mi_cerca = Gtk.MenuItem(label="Cerca…  (Ctrl+F)")
+        mi_cerca = Gtk.MenuItem(label=t("term.context.search"))
         mi_cerca.connect("activate", lambda _: self.mostra_cerca())
 
         menu.append(mi_copy)
@@ -717,8 +702,8 @@ class TerminalWidget(Gtk.Box):
     @classmethod
     def da_profilo(cls, profilo: dict, log_dir="") -> "TerminalWidget":
         """Factory: crea un TerminalWidget dai parametri di un profilo sessione."""
-        from themes import TERMINAL_THEMES
-        tema = profilo.get("term_theme", "Scuro (Default)")
+        from themes import TERMINAL_THEMES, migrate_theme_name
+        tema = migrate_theme_name(profilo.get("term_theme", "Dark (Default)"))
         bg, fg = TERMINAL_THEMES.get(tema, ("#1e1e1e", "#cccccc"))
         font = profilo.get("term_font", "Monospace")
         size = profilo.get("term_size", 11)

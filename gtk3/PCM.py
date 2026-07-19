@@ -121,6 +121,8 @@ from panel_monitor import InfoPanelWidget
 from cron_widget import CronWidget
 from sftp_editor import SftpEditorWidget
 from snippets_dialog import SnippetsDialog
+from welcome_widget import WelcomeWidget
+from quick_connect_dialog import QuickConnectDialog
 
 # ---------------------------------------------------------------------------
 # Percorso icone
@@ -142,45 +144,6 @@ def _load_icon(name: str, size: int = 24):
         except Exception:
             pass
     return None
-
-
-# ===========================================================================
-# Schermata di benvenuto
-# ===========================================================================
-
-class WelcomeWidget(Gtk.Box):
-
-    nuova_sessione   = GObject.Signal("nuova-sessione")
-    terminale_locale = GObject.Signal("terminale-locale")
-
-    def __init__(self):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=20)
-        self.set_halign(Gtk.Align.CENTER)
-        self.set_valign(Gtk.Align.CENTER)
-        self._build()
-
-    def _build(self):
-        # Titolo
-        title = Gtk.Label(label=t("app.title"))
-        title.get_style_context().add_class("section-header")
-        self.pack_start(title, False, False, 0)
-
-        # Pulsanti azione rapida
-        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        btn_box.set_halign(Gtk.Align.CENTER)
-
-        btn_new = Gtk.Button(label=t("welcome.btn_new_session"))
-        btn_new.get_style_context().add_class("connect-button")
-        btn_new.set_size_request(160, 48)
-        btn_new.connect("clicked", lambda b: self.emit("nuova-sessione"))
-
-        btn_term = Gtk.Button(label=t("welcome.btn_local_terminal"))
-        btn_term.set_size_request(160, 48)
-        btn_term.connect("clicked", lambda b: self.emit("terminale-locale"))
-
-        btn_box.pack_start(btn_new,  False, False, 0)
-        btn_box.pack_start(btn_term, False, False, 0)
-        self.pack_start(btn_box, False, False, 0)
 
 
 # ===========================================================================
@@ -210,14 +173,29 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._pending_cli_uri: str | None = None   # URI da aprire dopo unlock crypto
 
-        # Sblocco credenziali cifrate — 300ms dopo avvio per dare tempo al rendering
-        GLib.timeout_add(300, self._check_crypto_unlock)
-        # Timer live stat: aggiorna statusbar ogni 3s con stato del terminale attivo
-        GLib.timeout_add(3000, self._aggiorna_stato_live)
-        # Notifica tunnel attivi all'avvio — 1s dopo per dare tempo al rendering
-        GLib.timeout_add(1000, self._notifica_tunnel_avvio)
-        # Ripristino sessioni precedenti — 2s dopo per dare tempo alla UI
-        GLib.timeout_add(2000, self._ripristina_sessioni)
+        # Avvio a cascata: ogni step richiama il successivo dopo il rendering
+        # Sblocco credenziali -> notifica tunnel -> ripristino sessioni
+        GLib.idle_add(self._startup_chain, 0)
+
+    # ------------------------------------------------------------------
+    # Catena di avvio
+    # ------------------------------------------------------------------
+
+    def _startup_chain(self, step: int) -> bool:
+        """Esegue la catena di inizializzazione a step:
+        0: unlock crypto, 1: notifica tunnel, 2: restore sessioni, 3: stato live."""
+        if step == 0:
+            self._check_crypto_unlock()
+            GLib.timeout_add(300, self._startup_chain, 1)
+        elif step == 1:
+            self._notifica_tunnel_avvio()
+            GLib.timeout_add(500, self._startup_chain, 2)
+        elif step == 2:
+            self._ripristina_sessioni()
+            GLib.timeout_add(500, self._startup_chain, 3)
+        elif step == 3:
+            GLib.timeout_add(3000, self._aggiorna_stato_live)
+        return False  # one-shot per ogni step
 
     # ------------------------------------------------------------------
     # Sblocco credenziali cifrate
@@ -371,6 +349,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # page_widget → Gtk.Label dentro la box del tab (per leggere/scrivere il nome)
         self._tab_labels: dict = {}
+
+        # page_widget → Gtk.Notebook (lookup O(1) per _trova_in_notebook)
+        self._widget_nb_map: dict = {}
 
         # Barra inferiore: solo statusbar (la chiusura avviene con la X sul tab)
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -1296,6 +1277,7 @@ class MainWindow(Gtk.ApplicationWindow):
         cb = on_close or (lambda: self._chiudi_tab(widget))
         lbl_box, lbl = self._make_tab_label(nome, cb)
         self._tab_labels[widget] = lbl
+        self._widget_nb_map[widget] = self._notebook
         self._notebook.append_page(widget, lbl_box)
         self._notebook.set_tab_reorderable(widget, True)
         self._notebook.set_current_page(self._notebook.get_n_pages() - 1)
@@ -1337,6 +1319,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Ricrea la label custom per il notebook di destinazione
         lbl_box, lbl = self._make_tab_label(nome, lambda: self._chiudi_tab(widget))
         self._tab_labels[widget] = lbl
+        self._widget_nb_map[widget] = destinazione
         destinazione.append_page(widget, lbl_box)
         destinazione.set_tab_reorderable(widget, True)
         destinazione.set_current_page(destinazione.get_n_pages() - 1)
@@ -1366,11 +1349,11 @@ class MainWindow(Gtk.ApplicationWindow):
 
         if dati_tab and dati_tab.get("protocol") == "ssh":
             nome_tab = self._get_tab_nome(page)
-            mi_log = Gtk.MenuItem(label="Visualizza log…")
+            mi_log = Gtk.MenuItem(label=t("panel.apri_log"))
             mi_log.connect("activate",
                            lambda _b, n=nome_tab, d=dati_tab: self._apri_log_viewer(n, d))
             menu.append(mi_log)
-            mi_mon = Gtk.MenuItem(label="Monitor sistema…")
+            mi_mon = Gtk.MenuItem(label=t("panel.apri_monitor"))
             mi_mon.connect("activate",
                            lambda _b, n=nome_tab, d=dati_tab: self._apri_sysmon(n, d))
             menu.append(mi_mon)
@@ -1430,10 +1413,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _trova_in_notebook(self, nb: "Gtk.Notebook", widget) -> "tuple[int, object]":
         """Cerca widget (o il Paned che lo contiene) in nb.
+        Usa _widget_nb_map per lookup O(1); fallback su iterazione per compatibilità.
         Ritorna (idx, page_widget) se trovato, (-1, widget) altrimenti."""
-        idx = nb.page_num(widget)
-        if idx >= 0:
-            return idx, widget
+        mapped_nb = self._widget_nb_map.get(widget)
+        if mapped_nb is not None and mapped_nb is nb:
+            idx = nb.page_num(widget)
+            if idx >= 0:
+                return idx, widget
         for i in range(nb.get_n_pages()):
             page = nb.get_nth_page(i)
             if page is widget:
@@ -1510,6 +1496,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     child.chiudi_processo()
         nb.remove_page(idx)
         self._tab_labels.pop(widget, None)
+        self._widget_nb_map.pop(widget, None)
         if nb is self._notebook2 and nb.get_n_pages() == 0:
             self._notebook2.hide()
         self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
@@ -1610,16 +1597,14 @@ class MainWindow(Gtk.ApplicationWindow):
         n = len(attivi)
         self._lbl_tun_count.set_text(str(n) if n > 0 else "")
         if n > 0:
-            col = Gdk.RGBA()
-            col.parse("#22cc55")
             tip_key = "tunnel.indicator_tooltip_active1" if n == 1 else "tunnel.indicator_tooltip_activeN"
             self._btn_tun_ind.set_tooltip_text(t(tip_key).format(n=n))
-            self._img_tun.override_color(Gtk.StateFlags.NORMAL, col)
-            self._lbl_tun_count.override_color(Gtk.StateFlags.NORMAL, col)
+            self._img_tun.get_style_context().add_class("tunnel-active")
+            self._lbl_tun_count.get_style_context().add_class("tunnel-active")
         else:
             self._btn_tun_ind.set_tooltip_text(t("tunnel.indicator_tooltip"))
-            self._img_tun.override_color(Gtk.StateFlags.NORMAL, None)
-            self._lbl_tun_count.override_color(Gtk.StateFlags.NORMAL, None)
+            self._img_tun.get_style_context().remove_class("tunnel-active")
+            self._lbl_tun_count.get_style_context().remove_class("tunnel-active")
         return True  # mantieni il timer
 
     def _on_tun_pop_show(self, popover):
@@ -1827,85 +1812,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_quick_connect(self):
         """Dialog connessione rapida senza salvare la sessione."""
-        dlg = Gtk.Dialog(
-            title=t("quickconn.title"), transient_for=self,
-            modal=True, destroy_with_parent=True
-        )
-        dlg.set_default_size(420, 0)
-        area = dlg.get_content_area()
-        area.set_spacing(8)
-        area.set_margin_start(16); area.set_margin_end(16)
-        area.set_margin_top(12);  area.set_margin_bottom(8)
-
-        lbl = Gtk.Label()
-        lbl.set_markup(f"<b>{t('quickconn.title')}</b>\n<small>{t('quickconn.subtitle')}</small>")
-        lbl.set_xalign(0.0)
-        area.pack_start(lbl, False, False, 0)
-
-        grid = Gtk.Grid()
-        grid.set_row_spacing(6); grid.set_column_spacing(8)
-
-        def _lbl(txt):
-            l = Gtk.Label(label=txt); l.set_xalign(1.0)
-            return l
-
-        from session_dialog import PROTOCOLLI, PROTO_LABEL
-        combo_proto = Gtk.ComboBoxText()
-        for k in PROTOCOLLI:
-            if k != "exec":
-                combo_proto.append_text(PROTO_LABEL[k])
-        combo_proto.set_active(0)
-        combo_proto.set_hexpand(True)
-
-        entry_host = Gtk.Entry(); entry_host.set_hexpand(True)
-        entry_host.set_placeholder_text("hostname / IP")
-        entry_port = Gtk.Entry(); entry_port.set_text("22"); entry_port.set_width_chars(6)
-        entry_user = Gtk.Entry(); entry_user.set_hexpand(True)
-        entry_pass = Gtk.Entry(); entry_pass.set_visibility(False); entry_pass.set_hexpand(True)
-
-        grid.attach(_lbl(t("quickconn.proto_lbl")), 0, 0, 1, 1); grid.attach(combo_proto, 1, 0, 1, 1)
-        grid.attach(_lbl(t("quickconn.host_lbl")),  0, 1, 1, 1); grid.attach(entry_host,  1, 1, 1, 1)
-        grid.attach(_lbl(t("quickconn.port_lbl")),  0, 2, 1, 1); grid.attach(entry_port,  1, 2, 1, 1)
-        grid.attach(_lbl(t("quickconn.user_lbl")),  0, 3, 1, 1); grid.attach(entry_user,  1, 3, 1, 1)
-        grid.attach(_lbl(t("quickconn.pass_lbl")),  0, 4, 1, 1); grid.attach(entry_pass,  1, 4, 1, 1)
-        area.pack_start(grid, False, False, 0)
-
-        lbl_err = Gtk.Label(label=""); lbl_err.set_xalign(0.0)
-        area.pack_start(lbl_err, False, False, 0)
-
-        btn_conn = dlg.add_button(t("quickconn.connect"), Gtk.ResponseType.OK)
-        btn_conn.get_style_context().add_class("suggested-action")
-        dlg.add_button(t("dialog.cancel"), Gtk.ResponseType.CANCEL)
-
-        # Porta default per protocollo
-        _default_port = {"SSH": "22", "Telnet": "23", "FTP/SFTP": "22",
-                         "RDP": "3389", "VNC": "5900", "Mosh": "22", "Seriale": ""}
-        def _on_proto(_c):
-            lbl_p = PROTO_LABEL.get(PROTOCOLLI[_c.get_active()], "")
-            entry_port.set_text(_default_port.get(lbl_p, ""))
-        combo_proto.connect("changed", _on_proto)
-
-        dlg.show_all()
-        if dlg.run() == Gtk.ResponseType.OK:
-            host = entry_host.get_text().strip()
-            if not host:
-                lbl_err.set_markup(f"<span foreground='red'>{t('quickconn.no_host')}</span>")
-                dlg.destroy()
-                return
-            proto_idx  = combo_proto.get_active()
-            proto_lbls = [PROTO_LABEL[k] for k in PROTOCOLLI if k != "exec"]
-            proto_lbl  = proto_lbls[proto_idx] if proto_idx >= 0 else "SSH"
-            proto      = next((k for k, v in PROTO_LABEL.items() if v == proto_lbl), "ssh")
-            dati = {
-                "protocol": proto, "host": host,
-                "port":     entry_port.get_text().strip(),
-                "user":     entry_user.get_text().strip(),
-                "password": entry_pass.get_text(),
-                "sftp_browser": False,
-            }
-            nome_tab = f"{proto_lbl}: {host}"
+        result = QuickConnectDialog(parent=self).run_and_get()
+        if result:
+            proto, nome_tab, dati = result
             self._apri_protocollo(proto, nome_tab, dati)
-        dlg.destroy()
 
     # ------------------------------------------------------------------
     # Connectivity test / ping
@@ -2384,32 +2294,23 @@ class MainWindow(Gtk.ApplicationWindow):
 
         profili = config_manager.load_profiles()
 
+        lookup = {}
+        for gruppo in profili.values():
+            if not isinstance(gruppo, dict):
+                continue
+            for nome, dati in gruppo.items():
+                key = (dati.get("host"), dati.get("protocol", "ssh"),
+                       str(dati.get("port", "22")), dati.get("user", ""),
+                       dati.get("ft_protocol", ""))
+                lookup[key] = (nome, dati)
+
         for ref in refs:
-            host     = ref.get("host", "")
-            proto    = ref.get("protocol", "ssh")
-            port     = str(ref.get("port", "22"))
-            user     = ref.get("user", "")
-            ft_proto = ref.get("ft_protocol", "")
-            found    = None
-            found_nome = None
-
-            for gruppo in profili.values():
-                if not isinstance(gruppo, dict):
-                    continue
-                for nome, dati in gruppo.items():
-                    if (dati.get("host") == host
-                            and dati.get("protocol") == proto
-                            and str(dati.get("port", "22")) == port
-                            and dati.get("user") == user
-                            and dati.get("ft_protocol", "") == ft_proto):
-                        found = dati
-                        found_nome = nome
-                        break
-                if found:
-                    break
-
+            key = (ref.get("host", ""), ref.get("protocol", "ssh"),
+                   str(ref.get("port", "22")), ref.get("user", ""),
+                   ref.get("ft_protocol", ""))
+            found = lookup.get(key)
             if found:
-                self._apri_protocollo(proto, found_nome, dict(found))
+                self._apri_protocollo(found[1].get("protocol", "ssh"), found[0], dict(found[1]))
 
         return False  # one-shot GLib.timeout_add
 

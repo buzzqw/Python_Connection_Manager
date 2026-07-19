@@ -60,10 +60,10 @@ def hex_to_gdk_rgba(hex_color: str):
 
 
 # ---------------------------------------------------------------------------
-# CSS GTK3 — tema UI chiaro
+# CSS GTK3 — tema UI chiaro (base) e scuro (override)
 # ---------------------------------------------------------------------------
 
-APP_CSS = """
+APP_CSS_BASE = """
 window, dialog {
     background-color: #f0f0f0;
     color: #111111;
@@ -237,7 +237,109 @@ notebook > header > tabs > tab:checked {
     color: #0078d4;
 }
 
+/* Indicatore tunnel attivi nella toolbar */
+.tunnel-active {
+    color: #22cc55;
+}
 
+"""
+
+
+APP_CSS_DARK = """
+window, dialog {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+}
+
+headerbar {
+    background-color: #333333;
+    color: #e0e0e0;
+    border-bottom: 1px solid #555;
+}
+
+headerbar button,
+headerbar menubutton button {
+    color: #e0e0e0;
+    background-color: #3a3a3a;
+    border: 1px solid #555;
+}
+headerbar button:hover,
+headerbar menubutton button:hover {
+    background-color: #4a4a4a;
+    color: #ffffff;
+}
+headerbar button image,
+headerbar menubutton button image,
+headerbar button label,
+headerbar menubutton button label {
+    color: #e0e0e0;
+}
+
+treeview {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+}
+treeview:selected {
+    background-color: #4e7abc;
+    color: #ffffff;
+}
+
+notebook > header > tabs > tab {
+    background-color: #2e2e2e;
+    color: #aaaaaa;
+}
+notebook > header > tabs > tab:checked {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    font-weight: bold;
+}
+
+entry, spinbutton, combobox {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555;
+}
+
+label {
+    color: #e0e0e0;
+}
+
+statusbar {
+    background-color: #333333;
+    color: #cccccc;
+}
+
+button {
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+    border: 1px solid #555;
+}
+button:hover {
+    background-color: #4a4a4a;
+}
+
+.session-sidebar {
+    background-color: #252525;
+    border-right: 1px solid #444;
+}
+
+.section-header {
+    color: #4e7abc;
+}
+
+.bottom-bar {
+    background-color: #333333;
+    border-top: 1px solid #444;
+}
+statusbar {
+    font-family: monospace;
+    font-size: 12px;
+    color: #cccccc;
+}
+
+notebook > header > tabs > tab:checked {
+    color: #5aa2e0;
+}
 
 """
 
@@ -249,10 +351,29 @@ def apply_css(app=None):
     """
     from gi.repository import Gtk, Gdk
     provider = Gtk.CssProvider()
-    provider.load_from_data(APP_CSS.encode("utf-8"))
-    screen = Gdk.Screen.get_default()
+    css = _get_current_css()
+    provider.load_from_data(css.encode("utf-8"))
+    display = Gdk.Display.get_default()
+    screen = display.get_default_screen()
     Gtk.StyleContext.add_provider_for_screen(
         screen,
         provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
+
+
+def _get_current_css() -> str:
+    """Restituisce APP_CSS o APP_CSS_DARK in base alle impostazioni."""
+    try:
+        import config_manager
+        s = config_manager.load_settings()
+        if s.get("display", {}).get("dark_mode", False):
+            return _merge_css(APP_CSS_BASE, APP_CSS_DARK)
+    except Exception:
+        pass
+    return APP_CSS_BASE
+
+
+def _merge_css(base: str, dark: str) -> str:
+    """Combina il CSS base con le override dark."""
+    return base + "\n/* === Dark mode overrides === */\n" + dark

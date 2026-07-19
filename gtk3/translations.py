@@ -1609,4 +1609,10 @@ _T: dict[str, dict[str, str]] = {
         "fr": "À la fermeture, sauvegarde la liste des sessions ouvertes et les rouvre au prochain démarrage",
         "es": "Al cerrar, guarda la lista de sesiones abiertas y las vuelve a abrir en el próximo inicio",
     },
+
+    # ── Terminal context menu ──────────────────────────────────────────────────
+    "term.context.copy":        {"it": "Copia",                  "en": "Copy",                  "de": "Kopieren",              "fr": "Copier",                 "es": "Copiar"},
+    "term.context.paste":       {"it": "Incolla",                "en": "Paste",                 "de": "Einfügen",              "fr": "Coller",                 "es": "Pegar"},
+    "term.context.snippet":     {"it": "Inserisci snippet…",     "en": "Insert snippet…",       "de": "Snippet einfügen…",     "fr": "Insérer snippet…",       "es": "Insertar fragmento…"},
+    "term.context.search":      {"it": "Cerca…  (Ctrl+F)",       "en": "Search…  (Ctrl+F)",     "de": "Suchen…  (Strg+F)",     "fr": "Rechercher…  (Ctrl+F)",  "es": "Buscar…  (Ctrl+F)"},
 }
