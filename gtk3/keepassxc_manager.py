@@ -459,10 +459,10 @@ class KeePassXCSettingsDialog(Gtk.Dialog):
 
         if _HAS_NACL:
             def _test_conn():
+                client = None
                 try:
                     client = KeePassXCClient()
                     if client.exchange_keys():
-                        client.close()
                         GLib.idle_add(lambda: lbl_status.set_markup(
                             f"<span foreground='green'>✔ {t('keepass.connected')}</span>"
                         ))
@@ -475,5 +475,11 @@ class KeePassXCSettingsDialog(Gtk.Dialog):
                     GLib.idle_add(lambda: lbl_status.set_markup(
                         f"<span foreground='orange'>⚠ {t('keepass.error', e=msg)}</span>"
                     ))
+                finally:
+                    if client is not None:
+                        try:
+                            client.close()
+                        except Exception:
+                            pass
 
             threading.Thread(target=_test_conn, daemon=True).start()

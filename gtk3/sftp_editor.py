@@ -154,6 +154,7 @@ class SftpEditorWidget(Gtk.Box):
         self._ext_editor  = _get_configured_editor()
 
         self._build_ui()
+        self.connect("destroy", lambda w: self._cleanup_tmp())
         threading.Thread(target=self._load, daemon=True).start()
 
     # ------------------------------------------------------------------

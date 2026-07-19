@@ -1053,8 +1053,8 @@ class WinScpWidget(Gtk.Box):
             try:
                 with open(job.dst, "wb") as local_f:
                     tx = 0
+                    last_dl_update = 0.0
                     while True:
-                        # Pausa: aspetta senza consumare CPU
                         while self._coda.is_in_pausa():
                             time.sleep(0.3)
                         if job.annulla:
@@ -1067,7 +1067,10 @@ class WinScpWidget(Gtk.Box):
                         job.trasferito = tx
                         dt = time.time() - job.t_inizio
                         job.velocita = int(tx / dt) if dt > 0 else 0
-                        GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                        now = time.monotonic()
+                        if now - last_dl_update >= 0.1:
+                            GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            last_dl_update = now
             finally:
                 remote_f.close()
         else:  # upload
@@ -1078,6 +1081,7 @@ class WinScpWidget(Gtk.Box):
                 remote_f = self._sftp_transfer.open(job.dst, "wb")
                 try:
                     tx = 0
+                    last_update = 0.0
                     while True:
                         while self._coda.is_in_pausa():
                             time.sleep(0.3)
@@ -1091,7 +1095,10 @@ class WinScpWidget(Gtk.Box):
                         job.trasferito = tx
                         dt = time.time() - job.t_inizio
                         job.velocita = int(tx / dt) if dt > 0 else 0
-                        GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                        now = time.monotonic()
+                        if now - last_update >= 0.1:
+                            GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            last_update = now
                 finally:
                     remote_f.close()
 
@@ -1103,9 +1110,19 @@ class WinScpWidget(Gtk.Box):
         if self._sftp:
             try: self._sftp.close()
             except Exception: pass
+            self._sftp = None
         if self._ssh:
             try: self._ssh.close()
             except Exception: pass
+            self._ssh = None
+        if self._sftp_transfer:
+            try: self._sftp_transfer.close()
+            except Exception: pass
+            self._sftp_transfer = None
+        if self._ssh_transfer:
+            try: self._ssh_transfer.close()
+            except Exception: pass
+            self._ssh_transfer = None
 
 
 # ---------------------------------------------------------------------------

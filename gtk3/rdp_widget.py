@@ -432,10 +432,10 @@ class RdpEmbedWidget(Gtk.Box):
             return False
 
         def _step3():
-            subprocess.Popen(["xdotool", "windowmove", wid_rdp, "0", "0"],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.Popen(["xdotool", "windowsize", wid_rdp, str(w), str(h)],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowmove", wid_rdp, "0", "0"],
+                           timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowsize", wid_rdp, str(w), str(h)],
+                           timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             GLib.timeout_add(100, _step4)
             return False
 
@@ -449,8 +449,8 @@ class RdpEmbedWidget(Gtk.Box):
             return False
 
         def _step5():
-            subprocess.Popen(["xdotool", "windowfocus", wid_rdp],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowfocus", wid_rdp],
+                           timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             self._reparented = True
             host = self._rdp_host
             self._info.set_text(f"  ●  RDP → {host}")
@@ -467,15 +467,26 @@ class RdpEmbedWidget(Gtk.Box):
         Gtk.Box.do_size_allocate(self, allocation)
         if not self._reparented or not self._wid_rdp:
             return
-        # Ottieni dimensioni del socket
         if hasattr(self, "_socket"):
             a = self._socket.get_allocation()
             w = max(a.width,  320)
             h = max(a.height, 240)
-            subprocess.Popen(
-                ["xdotool", "windowsize", self._wid_rdp, str(w), str(h)],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            if hasattr(self, "_resize_pending") and self._resize_pending:
+                return
+            self._resize_pending = True
+
+            def _do_resize():
+                self._resize_pending = False
+                if self._reparented and self._wid_rdp and hasattr(self, "_socket"):
+                    a = self._socket.get_allocation()
+                    w2 = max(a.width, 320)
+                    h2 = max(a.height, 240)
+                    subprocess.run(
+                        ["xdotool", "windowsize", self._wid_rdp, str(w2), str(h2)],
+                        timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                return False
+            GLib.timeout_add(150, _do_resize)
 
     # ------------------------------------------------------------------
     # Monitor processo

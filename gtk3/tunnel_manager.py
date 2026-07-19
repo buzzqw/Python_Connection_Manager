@@ -354,9 +354,20 @@ class TunnelManagerDialog(Gtk.Dialog):
         self.log_view = Gtk.TextView(buffer=self.log_buffer)
         self.log_view.set_editable(False)
         self.log_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self.log_view.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.1, 0.1, 0.1, 1.0))
-        self.log_view.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.2, 1.0, 0.2, 1.0))
-        self.log_view.override_font(Pango.FontDescription('Monospace 10'))
+        self.log_view.set_monospace(True)
+
+        css = Gtk.CssProvider()
+        css.load_from_data(b"""
+            textview.log-console {
+                background-color: #1a1a1a;
+                color: #33cc33;
+                font-family: monospace;
+                font-size: 10pt;
+            }
+        """)
+        ctx = self.log_view.get_style_context()
+        ctx.add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        ctx.add_class("log-console")
 
         scroll_log = Gtk.ScrolledWindow()
         scroll_log.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)

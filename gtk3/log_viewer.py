@@ -11,6 +11,7 @@ evita canali orfani che causano "no more sessions".
 
 import os
 import re
+import shlex
 import threading
 
 import gi
@@ -166,9 +167,11 @@ class LogViewerWidget(Gtk.Box):
         tmpl = _SORGENTI[idx][0]
         extra = self._extra.get_text().strip()
         if "{svc}" in tmpl:
-            return tmpl.format(svc=extra or "ssh")
+            safe = shlex.quote(extra) if extra else "ssh"
+            return tmpl.format(svc=safe)
         if "{file}" in tmpl:
-            return tmpl.format(file=extra or "/var/log/syslog")
+            safe = shlex.quote(extra) if extra else "/var/log/syslog"
+            return tmpl.format(file=safe)
         return tmpl
 
     # ------------------------------------------------------------------

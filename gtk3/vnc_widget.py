@@ -35,7 +35,7 @@ except Exception:
 
 def _find_vnc_client() -> str | None:
     for c in ["vncviewer", "xtightvncviewer", "xvnc4viewer",
-              "tigervnc", "xtigervncviewer", "krdc", "remmina"]:
+              "tigervncviewer", "xtigervncviewer", "krdc", "remmina"]:
         if shutil.which(c):
             return c
     return None
@@ -235,7 +235,7 @@ class _VncGtkVnc(Gtk.Box):
     def _build_vt_menu(self) -> Gtk.Menu:
         menu = Gtk.Menu()
         for n in range(1, 8):
-            key = getattr(GtkVnc, f'_KEY_F{n}', _KEY_F1 + n - 1) if False else (_KEY_F1 + n - 1)
+            key = _KEY_F1 + n - 1
             mi = Gtk.MenuItem(label=f"Ctrl+Alt+F{n}  (VT{n})")
             mi.connect("activate", lambda _, k=key: self._send_keys([_KEY_CTRL, _KEY_ALT, k]))
             menu.append(mi)

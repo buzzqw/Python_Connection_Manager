@@ -256,6 +256,8 @@ class CronWidget(Gtk.Box):
         self._profilo = profilo
         self._ssh: "paramiko.SSHClient | None" = None
         self._rows: list = []
+        self._write_lock = threading.Lock()
+        self._write_pending = False
 
         self._build_ui()
         self.connect("destroy", lambda _: self._chiudi())
@@ -400,8 +402,10 @@ class CronWidget(Gtk.Box):
             GLib.idle_add(self._set_status, f"✖ Lettura crontab: {e}")
 
     def _scrivi_crontab(self):
-        if not self._ssh:
-            return
+        with self._write_lock:
+            if not self._ssh or self._write_pending:
+                return
+            self._write_pending = True
         try:
             text = _rows_to_crontab(self._rows)
             stdin, stdout, stderr = self._ssh.exec_command("crontab -", timeout=10)
@@ -415,6 +419,9 @@ class CronWidget(Gtk.Box):
                 GLib.idle_add(self._set_status, "✔ Crontab salvato")
         except Exception as e:
             GLib.idle_add(self._set_status, f"✖ Salvataggio: {e}")
+        finally:
+            with self._write_lock:
+                self._write_pending = False
 
     def _chiudi(self):
         if self._ssh:
