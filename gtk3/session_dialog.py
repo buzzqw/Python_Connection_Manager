@@ -13,6 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 import config_manager
+import protocols
 from themes import TERMINAL_THEMES
 from translations import t
 from session_command import installed_tools as _installed_tools
@@ -20,12 +21,8 @@ from session_command import installed_tools as _installed_tools
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _ICONS_DIR = os.path.join(_HERE, "icons")
 
-PROTOCOLLI = ["ssh", "telnet", "file_transfer", "rdp", "vnc", "mosh", "serial", "exec"]
-PROTO_LABEL = {
-    "ssh": "SSH", "telnet": "Telnet", "file_transfer": "FTP/SFTP",
-    "rdp": "RDP", "vnc": "VNC", "mosh": "Mosh", "serial": "Seriale",
-    "exec": "Exec",
-}
+PROTOCOLLI = protocols.PROTOCOLS
+PROTO_LABEL = protocols.PROTO_LABEL
 
 
 def _available_tools(candidates: list, always_include: list | None = None) -> list:
@@ -54,6 +51,34 @@ def _form_row(label_text: str, widget: Gtk.Widget, grid: Gtk.Grid, row: int):
     lbl.set_margin_end(6)
     grid.attach(lbl, 0, row, 1, 1)
     grid.attach(widget, 1, row, 1, 1)
+
+
+def _combo_idx_to_sftp_mode(combo: Gtk.ComboBoxText) -> str:
+    idx = combo.get_active()
+    return [protocols.MODE_BROWSER_INT, protocols.MODE_BROWSER_EXT,
+            protocols.MODE_TERM_INT, protocols.MODE_TERM_EXT][max(0, idx)]
+
+
+def _combo_idx_to_ftp_mode(combo: Gtk.ComboBoxText) -> str:
+    idx = combo.get_active()
+    return [protocols.MODE_BROWSER_INT, protocols.MODE_BROWSER_EXT,
+            protocols.MODE_TERM_INT, protocols.MODE_TERM_EXT][max(0, idx)]
+
+
+def _combo_idx_to_tunnel(combo: Gtk.ComboBoxText) -> str:
+    return [protocols.TUNNEL_SOCKS, protocols.TUNNEL_LOCAL,
+            protocols.TUNNEL_REMOTE][max(0, combo.get_active())]
+
+
+_TUNNEL_LABELS = {
+    protocols.TUNNEL_SOCKS: "Proxy SOCKS (-D)",
+    protocols.TUNNEL_LOCAL: "Locale (-L)",
+    protocols.TUNNEL_REMOTE: "Remoto (-R)",
+}
+
+
+def _tunnel_label(constant: str) -> str:
+    return _TUNNEL_LABELS.get(constant, "Proxy SOCKS (-D)")
 
 
 def _entry(placeholder: str = "", password: bool = False) -> Gtk.Entry:
@@ -95,13 +120,12 @@ class SessionDialog(Gtk.Dialog):
         self._macros: list[dict] = []
         self._is_new = not bool(nome and dati)  # True = nuova sessione
 
-        self.set_default_size(780, 680)
+        self.set_default_size(780, 800)
         self._init_ui()
         if nome and dati:
             self._popola(nome, dati)
         self.show_all()
-        # idle_add: GTK ha già disegnato tutto, ora nascondiamo i frame non pertinenti
-        GLib.idle_add(self._aggiorna_proto_fields)
+        self._aggiorna_proto_fields()
 
     # ------------------------------------------------------------------
     # UI principale
@@ -146,13 +170,18 @@ class SessionDialog(Gtk.Dialog):
         self._nb.append_page(self._build_tab_tunnel(),      Gtk.Label(label=t("sd.tab.tunnel")))
         self._nb.append_page(self._build_tab_pannelli(),    Gtk.Label(label=t("sd.tab.panels")))
         self._nb.append_page(self._build_tab_macros(),      Gtk.Label(label=t("sd.tab.macros")))
+        self._nb.append_page(self._build_tab_expect(),      Gtk.Label(label=t("sd.tab.expect")))
         self._nb.append_page(self._build_tab_notes(),       Gtk.Label(label=t("sd.tab.notes")))
 
         # Pulsanti
         self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
-        save_btn = self.add_button(t("sd.save"), Gtk.ResponseType.OK)
-        save_btn.get_style_context().add_class("suggested-action")
+        self.add_button(t("sd.save"), Gtk.ResponseType.APPLY)
+        self.add_button(t("sd.save_connect"), 101)
+        self.add_button(t("sd.connect"), 100)
+        self.add_button(t("sd.save_exit"), Gtk.ResponseType.OK)
         self.connect("response", self._on_response)
+
+        self._connect_preview_signals()
 
     # ------------------------------------------------------------------
     # Tab Connessione
@@ -308,9 +337,15 @@ class SessionDialog(Gtk.Dialog):
         self._carica_chiavi_esistenti()
 
         # Seriale
+        serial_dev_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_serial_dev = _entry("/dev/ttyUSB0")
         self.entry_serial_dev.set_tooltip_text(t("tt.serial_dev"))
-        self._row_serial_dev = self._conn_row(t("sd.serial.device"), self.entry_serial_dev)
+        btn_serial = Gtk.Button(label="…")
+        btn_serial.set_tooltip_text(t("tt.serial_browse"))
+        btn_serial.connect("clicked", lambda b: self._browse_serial_dev())
+        serial_dev_box.pack_start(self.entry_serial_dev, True, True, 0)
+        serial_dev_box.pack_start(btn_serial, False, False, 0)
+        self._row_serial_dev = self._conn_row(t("sd.serial.device"), serial_dev_box)
         vbox.pack_start(self._row_serial_dev, False, False, 0)
 
         self.combo_baud = _combo("9600","19200","38400","57600","115200","230400","460800","921600")
@@ -345,6 +380,33 @@ class SessionDialog(Gtk.Dialog):
         self._btn_keepass.connect("clicked", lambda b: self._on_keepass_fetch())
         self._row_keepass = self._conn_row("", self._btn_keepass)
         vbox.pack_start(self._row_keepass, False, False, 0)
+
+        # ── Anteprima comando ───────────────────────────────────────────
+        self._cmd_preview_frame = Gtk.Frame(label=t("sd.cmd_preview_title"))
+        self._cmd_preview_frame.set_label_align(0.02, 0.5)
+        self._cmd_preview_frame.set_margin_top(6)
+        pv_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        pv_box.set_margin_start(8); pv_box.set_margin_end(8)
+        pv_box.set_margin_top(6);   pv_box.set_margin_bottom(8)
+
+        self._cmd_preview_label = Gtk.Label()
+        self._cmd_preview_label.set_xalign(0.0)
+        self._cmd_preview_label.set_selectable(True)
+        self._cmd_preview_label.set_line_wrap(True)
+        self._cmd_preview_label.set_line_wrap_mode(2)  # WORD_CHAR
+        self._cmd_preview_label.set_max_width_chars(80)
+        self._cmd_preview_label.set_halign(Gtk.Align.FILL)
+
+        pv_scroll = Gtk.ScrolledWindow()
+        pv_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        pv_scroll.set_min_content_height(50)
+        pv_scroll.set_max_content_height(120)
+        pv_scroll.add(self._cmd_preview_label)
+        pv_box.pack_start(pv_scroll, True, True, 0)
+
+        self._cmd_preview_frame.add(pv_box)
+        vbox.pack_start(self._cmd_preview_frame, False, False, 0)
+        vbox.set_child_packing(self._cmd_preview_frame, False, True, 0, Gtk.PackType.END)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -511,32 +573,6 @@ class SessionDialog(Gtk.Dialog):
         grid.attach(_lbl(t("sd.term.log_dir")), 0, row, 1, 1)
         grid.attach(log_box,                    1, row, 3, 1); row += 1
 
-        # ── Terminal type | SSH open mode ────────────────────────────────
-        ext_tools = _available_tools(
-            ["xterm","gnome-terminal","konsole","xfce4-terminal","alacritty","kitty","foot"]
-        )
-        self.combo_term_ext = _combo(*ext_tools)
-        self.combo_term_ext.set_tooltip_text(t("tt.term_ext"))
-
-        self.combo_ssh_open = _combo(t("sd.rdp.open_int"), t("sd.rdp.open_ext"))
-        self.combo_ssh_open.set_tooltip_text(t("tt.ssh_open"))
-
-        self._lbl_term_ext = _lbl(t("sd.terminal_lbl"))
-        self._lbl_ssh_open = _lbl_r(t("sd.grp.ssh_open"))
-
-        grid.attach(self._lbl_term_ext,  0, row, 1, 1)
-        grid.attach(self.combo_term_ext, 1, row, 1, 1)
-        grid.attach(self._lbl_ssh_open,  2, row, 1, 1)
-        grid.attach(self.combo_ssh_open, 3, row, 1, 1); row += 1
-
-        def _on_ssh_open_changed(combo):
-            is_ext = combo.get_active() == 1
-            self.combo_term_ext.set_sensitive(is_ext)
-            self._lbl_term_ext.set_sensitive(is_ext)
-        self.combo_ssh_open.connect("changed", _on_ssh_open_changed)
-        self.combo_term_ext.set_sensitive(False)
-        self._lbl_term_ext.set_sensitive(False)
-
         # ── SFTP open mode (visibile solo per SFTP) ──────────────────────
         self._lbl_sftp_open = _lbl(t("sd.grp.sftp_open"))
         self.combo_sftp_open = _combo(
@@ -660,6 +696,34 @@ class SessionDialog(Gtk.Dialog):
         _jump_row.pack_start(_lbl_jp, False, False, 0)
         _jump_row.pack_start(self.entry_jump_port, False, False, 0)
         vbox.pack_start(_jump_row, False, False, 0)
+
+        # ── SSH open mode + external terminal ──────────────────────────
+        self._row_ssh_open = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.combo_ssh_open = _combo(t("sd.rdp.open_int"), t("sd.rdp.open_ext"))
+        self.combo_ssh_open.set_tooltip_text(t("tt.ssh_open"))
+        ext_tools = _available_tools(
+            ["xterm","gnome-terminal","konsole","xfce4-terminal","alacritty","kitty","foot"]
+        )
+        self.combo_term_ext = _combo(*ext_tools)
+        self.combo_term_ext.set_tooltip_text(t("tt.term_ext"))
+        self.combo_term_ext.set_sensitive(False)
+
+        self._lbl_ssh_open = Gtk.Label(label=t("sd.grp.ssh_open"))
+        self._lbl_ssh_open.set_xalign(1.0); self._lbl_ssh_open.set_width_chars(16)
+        self._lbl_term_ext = Gtk.Label(label=t("sd.terminal_lbl"))
+        self._lbl_term_ext.set_sensitive(False)
+
+        def _on_ssh_open_changed(combo):
+            is_ext = combo.get_active() == 1
+            self.combo_term_ext.set_sensitive(is_ext)
+            self._lbl_term_ext.set_sensitive(is_ext)
+        self.combo_ssh_open.connect("changed", _on_ssh_open_changed)
+
+        self._row_ssh_open.pack_start(self._lbl_ssh_open, False, False, 0)
+        self._row_ssh_open.pack_start(self.combo_ssh_open, True, True, 0)
+        self._row_ssh_open.pack_start(self._lbl_term_ext, False, False, 0)
+        self._row_ssh_open.pack_start(self.combo_term_ext, True, True, 0)
+        vbox.pack_start(self._row_ssh_open, False, False, 0)
 
         # ── RDP ──────────────────────────────────────────────────────
         self._frame_rdp, vbox = self._section_frame("RDP")
@@ -858,11 +922,11 @@ class SessionDialog(Gtk.Dialog):
         self._row_panels_ssh_port.pack_start(ssh_port_row, False, False, 0)
         vb_mon.pack_start(self._row_panels_ssh_port, False, False, 0)
 
-        self.chk_panel_cpu_mem   = _chk(t("sd.panels.cpu_mem"))
-        self.chk_panel_processes = _chk(t("sd.panels.processes"))
-        self.chk_panel_disk      = _chk(t("sd.panels.disk"))
-        self.chk_panel_network   = _chk(t("sd.panels.network"))
-        self.chk_panel_log       = _chk(t("sd.panels.log"))
+        self.chk_panel_cpu_mem   = _chk(t("sd.panels.cpu_mem"),   t("tt.panel_cpu_mem"))
+        self.chk_panel_processes = _chk(t("sd.panels.processes"), t("tt.panel_processes"))
+        self.chk_panel_disk      = _chk(t("sd.panels.disk"),      t("tt.panel_disk"))
+        self.chk_panel_network   = _chk(t("sd.panels.network"),   t("tt.panel_network"))
+        self.chk_panel_log       = _chk(t("sd.panels.log"),       t("tt.panel_log"))
         for c in (self.chk_panel_cpu_mem, self.chk_panel_processes,
                   self.chk_panel_disk, self.chk_panel_network, self.chk_panel_log):
             vb_mon.pack_start(c, False, False, 0)
@@ -883,8 +947,7 @@ class SessionDialog(Gtk.Dialog):
         box.set_margin_end(12)
         box.set_margin_top(12)
 
-        # Lista macro
-        self._macro_store = Gtk.ListStore(str, str)  # nome, cmd
+        self._macro_store = Gtk.ListStore(str, str)
         self._macro_view = Gtk.TreeView(model=self._macro_store)
         self._macro_view.set_headers_visible(True)
 
@@ -902,7 +965,6 @@ class SessionDialog(Gtk.Dialog):
         scroll.add(self._macro_view)
         box.pack_start(scroll, True, True, 0)
 
-        # Toolbar macro
         tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         btn_add = Gtk.Button(label=t("sd.macro.add"))
         btn_add.connect("clicked", self._macro_aggiungi)
@@ -913,6 +975,84 @@ class SessionDialog(Gtk.Dialog):
         box.pack_start(tb, False, False, 0)
 
         return box
+
+    def _build_tab_expect(self) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
+        box.set_margin_top(12)
+
+        note = Gtk.Label()
+        note.set_markup(f"<small><i>{t('sd.expect.note')}</i></small>")
+        note.set_xalign(0.0)
+        note.set_line_wrap(True)
+        note.set_margin_bottom(4)
+        box.pack_start(note, False, False, 0)
+
+        self._expect_store = Gtk.ListStore(str, str, int, float)
+        self._expect_view = Gtk.TreeView(model=self._expect_store)
+        self._expect_view.set_headers_visible(True)
+
+        cols = [
+            (t("sd.expect.pattern"), str, True),
+            (t("sd.expect.command"), str, True),
+            (t("sd.expect.max"), int, True),
+            (t("sd.expect.delay"), float, True),
+        ]
+        for i, (title, _type, editable) in enumerate(cols):
+            cell = Gtk.CellRendererText()
+            if editable:
+                cell.set_property("editable", True)
+                cell.connect("edited", self._on_expect_cell_edited, i)
+            col = Gtk.TreeViewColumn(title, cell, text=i)
+            col.set_expand(i < 2)
+            col.set_min_width(60 if i >= 2 else 100)
+            self._expect_view.append_column(col)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(120)
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(self._expect_view)
+        box.pack_start(scroll, True, True, 0)
+
+        tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        btn_add = Gtk.Button(label=t("sd.macro.add"))
+        btn_add.connect("clicked", self._expect_aggiungi)
+        btn_del = Gtk.Button(label=t("sd.macro.delete"))
+        btn_del.connect("clicked", self._expect_rimuovi)
+        tb.pack_start(btn_add, False, False, 0)
+        tb.pack_start(btn_del, False, False, 0)
+        box.pack_start(tb, False, False, 0)
+
+        return box
+
+    def _on_expect_cell_edited(self, cell, path, new_text, col):
+        it = self._expect_store.get_iter_from_string(path)
+        if it is None:
+            return
+        if col == 2:
+            try:
+                self._expect_store.set_value(it, col, int(new_text))
+            except ValueError:
+                pass
+        elif col == 3:
+            try:
+                self._expect_store.set_value(it, col, float(new_text))
+            except ValueError:
+                pass
+        else:
+            self._expect_store.set_value(it, col, new_text)
+
+    def _expect_aggiungi(self, btn):
+        it = self._expect_store.append(["", "", 1, 0.5])
+        path = self._expect_store.get_path(it)
+        self._expect_view.set_cursor(path, self._expect_view.get_column(0), True)
+
+    def _expect_rimuovi(self, btn):
+        sel = self._expect_view.get_selection()
+        model, it = sel.get_selected()
+        if it:
+            model.remove(it)
 
     def _on_macro_cell_edited(self, cell, path, new_text, col):
         it = self._macro_store.get_iter_from_string(path)
@@ -1272,6 +1412,14 @@ class SessionDialog(Gtk.Dialog):
             buttons=Gtk.ButtonsType.OK, text=msg)
         dlg.run(); dlg.destroy()
 
+    def _warn_validazione(self, widget: Gtk.Widget, msg: str):
+        widget.grab_focus()
+        ctx = widget.get_style_context()
+        ctx.add_class("error")
+        GLib.timeout_add(2500, lambda: ctx.remove_class("error"))
+        widget.set_tooltip_text(msg)
+        GLib.timeout_add(5000, lambda: widget.set_tooltip_text("") and False)
+
     def _conferma(self, msg: str) -> bool:
         dlg = Gtk.MessageDialog(
             transient_for=self.get_toplevel() if isinstance(self.get_toplevel(), Gtk.Window) else None,
@@ -1299,6 +1447,20 @@ class SessionDialog(Gtk.Dialog):
         dlg.add_buttons(t("sd.filechooser.cancel"), Gtk.ResponseType.CANCEL, t("sd.filechooser.select"), Gtk.ResponseType.OK)
         if dlg.run() == Gtk.ResponseType.OK:
             entry.set_text(dlg.get_filename())
+        dlg.destroy()
+
+    def _browse_serial_dev(self):
+        dlg = Gtk.FileChooserDialog(
+            title=t("sd.serial.browse_title"),
+            parent=self,
+            action=Gtk.FileChooserAction.OPEN
+        )
+        if os.path.isdir("/dev"):
+            dlg.set_current_folder("/dev")
+        dlg.add_buttons(t("sd.filechooser.cancel"), Gtk.ResponseType.CANCEL,
+                        t("sd.filechooser.open"), Gtk.ResponseType.OK)
+        if dlg.run() == Gtk.ResponseType.OK:
+            self.entry_serial_dev.set_text(dlg.get_filename())
         dlg.destroy()
 
     def _carica_gruppi(self):
@@ -1389,10 +1551,9 @@ class SessionDialog(Gtk.Dialog):
         if hasattr(self, "_lbl_sftp_open"):
             self._lbl_sftp_open.set_visible(is_ft_sftp)
             self.combo_sftp_open.set_visible(is_ft_sftp)
-        if hasattr(self, "_lbl_ssh_open"):
+        if hasattr(self, "_row_ssh_open"):
             ssh_visible = proto in ("ssh", "mosh")
-            self._lbl_ssh_open.set_visible(ssh_visible)
-            self.combo_ssh_open.set_visible(ssh_visible)
+            self._row_ssh_open.set_visible(ssh_visible)
 
         # Panels tab: mostra sezioni in base al protocollo
         if hasattr(self, "_frame_panels_sftp"):
@@ -1419,6 +1580,13 @@ class SessionDialog(Gtk.Dialog):
                 }
                 port = default_port.get(proto, "")
             self.entry_port.set_text(port)
+
+        # Reset tunnel e altri campi non comuni per nuove sessioni
+        if getattr(self, "_is_new", False):
+            self.entry_tunnel_lport.set_text("1080")
+            self.entry_tunnel_rhost.set_text("")
+            self.entry_tunnel_rport.set_text("")
+            self.combo_tunnel_type.set_active(0)
 
     def _set_combo_active_text(self, combo: Gtk.ComboBoxText, text: str):
         model = combo.get_model()
@@ -1512,8 +1680,8 @@ class SessionDialog(Gtk.Dialog):
         self.chk_rdp_clip.set_active(dati.get("redirect_clipboard", True))
         self.chk_rdp_drives.set_active(dati.get("redirect_drives", False))
         self.entry_rdp_domain.set_text(dati.get("rdp_domain", ""))
-        rdp_open = dati.get("rdp_open_mode", "external")
-        self.combo_rdp_open.set_active(1 if rdp_open == "internal" else 0)
+        rdp_open = dati.get("rdp_open_mode", protocols.MODE_EXTERNAL)
+        self.combo_rdp_open.set_active(1 if rdp_open == protocols.MODE_INTERNAL else 0)
         rdp_mon = dati.get("rdp_monitor_mode", "single")
         mon_idx = {"single": 0, "all": 1, "custom": 2}.get(rdp_mon, 0)
         self.combo_rdp_monitor.set_active(mon_idx)
@@ -1534,7 +1702,7 @@ class SessionDialog(Gtk.Dialog):
         # FTP
         self.chk_ftp_tls.set_active(dati.get("ftp_tls", False))
         self.chk_ftp_passive.set_active(dati.get("ftp_passive", True))
-        self._set_combo_active_text(self.combo_ftp_open, dati.get("ftp_open_mode", t("sd.open_int")))
+        self._set_combo_active_text(self.combo_ftp_open, dati.get("ftp_open_mode", protocols.MODE_BROWSER_INT))
 
         # WoL
         self.chk_wol.set_active(dati.get("wol_enabled", False))
@@ -1546,14 +1714,16 @@ class SessionDialog(Gtk.Dialog):
         self._set_combo_active_text(self.combo_baud, str(dati.get("baud", "115200")))
 
         # Tunnel
-        self._set_combo_active_text(self.combo_tunnel_type, dati.get("tunnel_type", "Proxy SOCKS (-D)"))
+        self._set_combo_active_text(self.combo_tunnel_type,
+                                     _tunnel_label(dati.get("tunnel_type", protocols.TUNNEL_SOCKS)))
         self.entry_tunnel_lport.set_text(str(dati.get("tunnel_local_port", "1080")))
         self.entry_tunnel_rhost.set_text(dati.get("tunnel_remote_host", ""))
         self.entry_tunnel_rport.set_text(str(dati.get("tunnel_remote_port", "")))
 
         # Modalità apertura (tab Terminale)
-        self.combo_ssh_open.set_active(0 if dati.get("ssh_open_mode", "internal") == "internal" else 1)
-        self._set_combo_active_text(self.combo_sftp_open, dati.get("sftp_open_mode", t("sd.open_int")))
+        ssh_open = dati.get("ssh_open_mode", protocols.MODE_INTERNAL)
+        self.combo_ssh_open.set_active(0 if ssh_open == protocols.MODE_INTERNAL else 1)
+        self._set_combo_active_text(self.combo_sftp_open, dati.get("sftp_open_mode", protocols.MODE_BROWSER_INT))
         self._set_combo_active_text(
             self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
@@ -1572,6 +1742,16 @@ class SessionDialog(Gtk.Dialog):
         for m in dati.get("macros", []):
             self._macro_store.append([m.get("nome", ""), m.get("cmd", "")])
 
+        # Expect
+        self._expect_store.clear()
+        for e in dati.get("expect_rules", []):
+            self._expect_store.append([
+                e.get("pattern", ""),
+                e.get("command", ""),
+                int(e.get("max_trigger", 1)),
+                float(e.get("delay", 0.5)),
+            ])
+
         # Note
         buf = self._textview_notes.get_buffer()
         buf.set_text(dati.get("notes", ""))
@@ -1580,29 +1760,163 @@ class SessionDialog(Gtk.Dialog):
         cred_prof = dati.get("credential_profile", "")
         self.combo_credential_profile.set_active_id(cred_prof if cred_prof else "")
 
+        # Aggiorna anteprima comando dopo popolamento
+        self._schedule_cmd_preview()
+
+    # ------------------------------------------------------------------
+    # Anteprima comando in tempo reale
+    # ------------------------------------------------------------------
+
+    def _schedule_cmd_preview(self):
+        if getattr(self, "_cmd_preview_timer", None) is not None:
+            GLib.source_remove(self._cmd_preview_timer)
+        self._cmd_preview_timer = GLib.timeout_add(250, self._update_cmd_preview)
+
+    def _build_preview_dict(self) -> dict:
+        proto = PROTOCOLLI[self.combo_proto.get_active()]
+        ft_proto = self.combo_ft_proto.get_active_text() or "SFTP"
+        return {
+            "protocol": proto,
+            "host": self.entry_host.get_text().strip(),
+            "port": self.entry_port.get_text().strip(),
+            "user": self.entry_user.get_text().strip(),
+            "password": "••••••••" if self.entry_password.get_text() else "",
+            "private_key": self.entry_pkey.get_text().strip(),
+            "startup_cmd": self.entry_startup_cmd.get_text().strip(),
+            "jump_host": self.entry_jump_host.get_text().strip(),
+            "jump_user": self.entry_jump_user.get_text().strip(),
+            "jump_port": self.entry_jump_port.get_text().strip(),
+            "x11": self.chk_x11.get_active(),
+            "compression": self.chk_compression.get_active(),
+            "keepalive": self.chk_keepalive.get_active(),
+            "strict_host": self.chk_strict_host.get_active(),
+            "agent_forward": self.chk_agent_forward.get_active(),
+            "rdp_client": self.combo_rdp_client.get_active_text() or "xfreerdp",
+            "rdp_auth": "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
+            "rdp_domain": self.entry_rdp_domain.get_text().strip(),
+            "fullscreen": self.chk_rdp_fs.get_active(),
+            "redirect_clipboard": self.chk_rdp_clip.get_active(),
+            "redirect_drives": self.chk_rdp_drives.get_active(),
+            "rdp_open_mode": (protocols.MODE_INTERNAL if self.combo_rdp_open.get_active() == 1
+                               else protocols.MODE_EXTERNAL),
+            "rdp_monitor_mode": {0: "single", 1: "all", 2: "custom"}.get(
+                self.combo_rdp_monitor.get_active(), "single"),
+            "rdp_monitor_ids": self.entry_rdp_monitor_ids.get_text().strip(),
+            "vnc_client": self.combo_vnc_client.get_active_text() or "vncviewer",
+            "vnc_color": self.combo_vnc_color.get_active(),
+            "vnc_quality": self.combo_vnc_quality.get_active(),
+            "ssh_open_mode": (protocols.MODE_INTERNAL if self.combo_ssh_open.get_active() == 0
+                               else protocols.MODE_EXTERNAL),
+            "sftp_open_mode": _combo_idx_to_sftp_mode(self.combo_sftp_open),
+            "ftp_open_mode": _combo_idx_to_ftp_mode(self.combo_ftp_open),
+            "ft_protocol": ft_proto,
+            "ftp_tls": self.chk_ftp_tls.get_active(),
+            "ftp_passive": self.chk_ftp_passive.get_active(),
+            "device": self.entry_serial_dev.get_text().strip(),
+            "baud": self.combo_baud.get_active_text() or "115200",
+            "exec_cmd": self.entry_exec_cmd.get_text().strip(),
+            "pre_cmd": self.entry_pre_cmd.get_text().strip(),
+        }
+
+    def _update_cmd_preview(self) -> bool:
+        from session_command import build_command
+        try:
+            d = self._build_preview_dict()
+            proto = d["protocol"]
+            if proto in ("serial", "exec"):
+                cmd, mode = build_command(d)
+                if proto == "serial" and "Nessun client" in (cmd or ""):
+                    self._cmd_preview_label.set_markup(
+                        "<span foreground='#c08030'><i>⚠ nessun client seriale trovato (picocom/minicom/screen)</i></span>")
+                elif proto == "exec" and not d.get("exec_cmd"):
+                    self._cmd_preview_label.set_text("(comando exec vuoto)")
+                else:
+                    self._cmd_preview_label.set_text(cmd or "")
+            elif not d.get("host"):
+                self._cmd_preview_label.set_text("(inserire host)")
+            else:
+                cmd, mode = build_command(d)
+                text = cmd or ""
+                if mode == "rdp_embedded":
+                    text = "[RDP embedded — xfreerdp in finestra interna]"
+                self._cmd_preview_label.set_text(text)
+        except Exception:
+            self._cmd_preview_label.set_text("")
+        self._cmd_preview_timer = None
+        return False
+
+    def _connect_preview_signals(self):
+        for w in (self.entry_host, self.entry_port, self.entry_user,
+                  self.entry_password, self.entry_pkey, self.entry_startup_cmd,
+                  self.entry_jump_host, self.entry_jump_user, self.entry_jump_port,
+                  self.entry_rdp_domain, self.entry_rdp_monitor_ids,
+                  self.entry_serial_dev, self.entry_exec_cmd, self.entry_pre_cmd):
+            w.connect("changed", lambda _, *a: self._schedule_cmd_preview())
+        for w in (self.combo_proto, self.combo_ft_proto, self.combo_rdp_client,
+                  self.combo_rdp_auth, self.combo_rdp_open, self.combo_rdp_monitor,
+                  self.combo_vnc_client, self.combo_vnc_color, self.combo_vnc_quality,
+                  self.combo_ssh_open, self.combo_sftp_open, self.combo_ftp_open,
+                  self.combo_baud):
+            w.connect("changed", lambda _, *a: self._schedule_cmd_preview())
+        for w in (self.chk_x11, self.chk_compression, self.chk_keepalive,
+                  self.chk_strict_host, self.chk_agent_forward,
+                  self.chk_rdp_fs, self.chk_rdp_clip, self.chk_rdp_drives,
+                  self.chk_ftp_tls, self.chk_ftp_passive):
+            w.connect("toggled", lambda _, *a: self._schedule_cmd_preview())
+
     # ------------------------------------------------------------------
     # Validazione e raccolta dati
     # ------------------------------------------------------------------
 
+    def _validate(self) -> bool:
+        nome = self.entry_nome.get_text().strip()
+        proto = PROTOCOLLI[self.combo_proto.get_active()]
+        if not nome:
+            self.entry_nome.grab_focus()
+            ctx = self.entry_nome.get_style_context()
+            ctx.add_class("error")
+            GLib.timeout_add(2000, lambda: ctx.remove_class("error"))
+            return False
+        if proto != "serial" and proto != "exec" and not self.entry_host.get_text().strip():
+            self.entry_host.grab_focus()
+            ctx = self.entry_host.get_style_context()
+            ctx.add_class("error")
+            GLib.timeout_add(2000, lambda: ctx.remove_class("error"))
+            return False
+        if proto not in ("serial", "exec"):
+            port_str = self.entry_port.get_text().strip()
+            if port_str:
+                try:
+                    port_num = int(port_str)
+                    if port_num < 1 or port_num > 65535:
+                        self._warn_validazione(
+                            self.entry_port, t("sd.val.port_range"))
+                        return False
+                except ValueError:
+                    self._warn_validazione(
+                        self.entry_port, t("sd.val.port_invalid"))
+                    return False
+        if proto == "file_transfer":
+            ft_proto = self.combo_ft_proto.get_active_text() or "SFTP"
+            if ft_proto == "SFTP":
+                pkey = self.entry_pkey.get_text().strip()
+                pwd  = self.entry_password.get_text()
+                if not pkey and not pwd:
+                    self._warn_validazione(
+                        self.entry_password, t("sd.val.sftp_no_cred"))
+        return True
+
     def _on_response(self, dialog, response_id):
-        if response_id == Gtk.ResponseType.OK:
-            nome = self.entry_nome.get_text().strip()
-            proto = PROTOCOLLI[self.combo_proto.get_active()]
-            if not nome:
-                self.entry_nome.grab_focus()
-                # evidenzia il campo
-                ctx = self.entry_nome.get_style_context()
-                ctx.add_class("error")
-                GLib.timeout_add(2000, lambda: ctx.remove_class("error"))
-                self.stop_emission_by_name("response")
-                return
-            if proto != "serial" and not self.entry_host.get_text().strip():
-                self.entry_host.grab_focus()
-                self.stop_emission_by_name("response")
-                return
+        if response_id == Gtk.ResponseType.CANCEL:
+            return
+        if not self._validate():
+            self.stop_emission_by_name("response")
+            return
+        # "Salva" (APPLY): non chiudere il dialog
+        if response_id == Gtk.ResponseType.APPLY:
+            self.stop_emission_by_name("response")
 
     def get_data(self) -> tuple[str, dict]:
-        """Restituisce (nome, dizionario_dati)."""
         proto = PROTOCOLLI[self.combo_proto.get_active()]
         gruppo_child = self.combo_gruppo.get_child()
         gruppo = gruppo_child.get_text().strip() if gruppo_child else ""
@@ -1612,6 +1926,17 @@ class SessionDialog(Gtk.Dialog):
         macros = []
         for row in self._macro_store:
             macros.append({"nome": row[0], "cmd": row[1]})
+
+        expect_rules = []
+        for row in self._expect_store:
+            expect_rules.append({
+                "pattern": row[0],
+                "command": row[1],
+                "max_trigger": row[2],
+                "delay": row[3],
+            })
+
+        ft_proto = self.combo_ft_proto.get_active_text() or "SFTP"
 
         d = {
             "protocol":       proto,
@@ -1659,21 +1984,24 @@ class SessionDialog(Gtk.Dialog):
             "redirect_clipboard": self.chk_rdp_clip.get_active(),
             "redirect_drives":    self.chk_rdp_drives.get_active(),
             "rdp_domain":     self.entry_rdp_domain.get_text().strip(),
-            "rdp_open_mode":  "internal" if self.combo_rdp_open.get_active() == 1 else "external",
-            "rdp_monitor_mode": {0: "single", 1: "all", 2: "custom"}.get(self.combo_rdp_monitor.get_active(), "single"),
+            "rdp_open_mode":  (protocols.MODE_INTERNAL if self.combo_rdp_open.get_active() == 1
+                               else protocols.MODE_EXTERNAL),
+            "rdp_monitor_mode": {0: "single", 1: "all", 2: "custom"}.get(
+                self.combo_rdp_monitor.get_active(), "single"),
             "rdp_monitor_ids":  self.entry_rdp_monitor_ids.get_text().strip(),
             "exec_cmd":       self.entry_exec_cmd.get_text().strip(),
             "vnc_internal":   self.combo_vnc_mode.get_active() == 1,
             "vnc_client":     self.combo_vnc_client.get_active_text() or "vncviewer",
             "vnc_color":      self.combo_vnc_color.get_active(),
             "vnc_quality":    self.combo_vnc_quality.get_active(),
-            "ssh_open_mode":  "internal" if self.combo_ssh_open.get_active() == 0 else "external",
-            "sftp_open_mode": self.combo_sftp_open.get_active_text() or t("sd.open_int"),
-            "ftp_open_mode":  self.combo_ftp_open.get_active_text() or t("sd.open_int"),
-            "ft_protocol":    self.combo_ft_proto.get_active_text() or "SFTP",
+            "ssh_open_mode":  (protocols.MODE_INTERNAL if self.combo_ssh_open.get_active() == 0
+                               else protocols.MODE_EXTERNAL),
+            "sftp_open_mode": _combo_idx_to_sftp_mode(self.combo_sftp_open),
+            "ftp_open_mode":  _combo_idx_to_ftp_mode(self.combo_ftp_open),
+            "ft_protocol":    ft_proto,
             "ftp_tls":        self.chk_ftp_tls.get_active(),
             "ftp_passive":    self.chk_ftp_passive.get_active(),
-            "tunnel_type":    self.combo_tunnel_type.get_active_text() or "Proxy SOCKS (-D)",
+            "tunnel_type":    _combo_idx_to_tunnel(self.combo_tunnel_type),
             "tunnel_local_port": self.entry_tunnel_lport.get_text().strip(),
             "tunnel_remote_host": self.entry_tunnel_rhost.get_text().strip(),
             "tunnel_remote_port": self.entry_tunnel_rport.get_text().strip(),
@@ -1690,6 +2018,20 @@ class SessionDialog(Gtk.Dialog):
             "pre_cmd_timeout": int(self.spin_pre_cmd_timeout.get_value()),
             "notes":          notes,
             "macros":         macros,
+            "expect_rules":   expect_rules,
             "credential_profile": self.combo_credential_profile.get_active_id() or "",
         }
+
+        # Conserva campi legacy compatibilità che esistevano già
+        if proto == "file_transfer" and ft_proto == "SFTP":
+            d["private_key"] = self.entry_pkey.get_text().strip()
+            for f in ("jump_host", "jump_user", "jump_port", "strict_host",
+                      "keepalive", "agent_forward"):
+                if f in d:
+                    pass
+
+        # Filtra solo i campi rilevanti per il protocollo
+        allowed = protocols.PROTO_FIELDS.get(proto, set(d.keys()))
+        d = {k: v for k, v in d.items() if k in allowed}
+
         return self.entry_nome.get_text().strip(), d

@@ -76,11 +76,13 @@ class TerminalWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _init_ui(self):
-        # ── Terminale VTE (occupa tutta l'area) ──────────────────────
         self._vte = Vte.Terminal()
-        self._vte.set_scrollback_lines(10000)  # Default, verrà sovrascritto da imposta_scrollback
+        self._vte.set_scrollback_lines(10000)
         self._applica_tema()
         self._applica_font()
+
+        self._highlighter = None
+        self._init_highlighter()
 
         # Encoding (deprecato in VTE 0.54 ma ancora funzionante)
         if self._encoding and self._encoding.upper() != "UTF-8":
@@ -278,62 +280,83 @@ class TerminalWidget(Gtk.Box):
         })
 
     def imposta_auto_password(self, password: str):
-        """
-        Digita automaticamente la password quando il terminale mostra un prompt.
-        Primario: sostituisce sshpass — PCM 'scrive' nel terminale come farebbe un umano.
-        Copre: SSH password, Cisco enable/secret, PAM, RADIUS, 2FA, prompt personalizzati.
-        Fallback: SSH_ASKPASS gestisce i casi dove SSH non mostra il prompt nel VTE
-                  (keyboard-interactive su OpenSSH ≥ 8.4 con SSH_ASKPASS_REQUIRE=force).
-        """
         if not password:
             return
+        self._setup_expect_watcher([{
+            "pattern": (
+                r'[Pp]assword[^:\n]{0,40}:\s*$'
+                r'|[Pp]asswd:\s*$'
+                r'|[Ss]ecret[^:\n]{0,15}:\s*$'
+                r'|[Pp]asscode:\s*$'
+                r'|[Vv]erification [Cc]ode:\s*$'
+                r'|[Ee]nter .*[Pp]assword[^:\n]{0,20}:\s*$'
+                r'|[Aa]uthentication [Pp]assword:\s*$'
+            ),
+            "command": password,
+            "max_trigger": 3,
+            "delay": 0.08,
+        }])
 
+    def imposta_expect(self, rules: list[dict]):
+        if not rules:
+            return
+        self._setup_expect_watcher(rules)
+
+    def _setup_expect_watcher(self, rules: list[dict]):
         import re as _re
-        _PWD_RE = _re.compile(
-            r'(?:'
-            r'[Pp]assword[^:\n]{0,40}:\s*$'            # password: / Password for user@host:
-            r'|[Pp]asswd:\s*$'                          # passwd:
-            r'|[Ss]ecret[^:\n]{0,15}:\s*$'              # Secret: (Cisco enable secret)
-            r'|[Pp]asscode:\s*$'                         # Passcode: (RADIUS/MFA)
-            r'|[Vv]erification [Cc]ode:\s*$'            # Verification code: (Google Auth)
-            r'|[Ee]nter .*[Pp]assword[^:\n]{0,20}:\s*$' # Enter (current/new) password:
-            r'|[Aa]uthentication [Pp]assword:\s*$'       # Authentication password:
-            r')',
-            _re.MULTILINE,
-        )
+        compiled = []
+        for r in rules:
+            pat = r.get("pattern", "")
+            cmd = r.get("command", "")
+            max_t = int(r.get("max_trigger", 1))
+            delay = max(0.05, float(r.get("delay", 0.5)))
+            if pat and cmd:
+                compiled.append({
+                    "re": _re.compile(pat, _re.MULTILINE),
+                    "command": cmd,
+                    "max_trigger": max_t,
+                    "delay": delay,
+                    "sent": 0,
+                })
+
+        if not compiled:
+            return
 
         _timer_id = [None]
         _conn_id  = [None]
-        _sent     = [0]
-        _MAX      = 3   # tentativi max (gestisce wrong-password senza loop infinito)
+        _debounce = 80  # ms
 
         def _do_check():
             _timer_id[0] = None
-            if _sent[0] >= _MAX:
+            active = any(c["sent"] < c["max_trigger"] for c in compiled)
+            if not active:
+                if _conn_id[0] is not None:
+                    self._vte.disconnect(_conn_id[0])
+                    _conn_id[0] = None
                 return False
             try:
-                # Legge le ultime righe visibili — sufficiente per rilevare il prompt
                 text = self._vte.get_text(lambda *_: True)[0]
             except Exception:
                 return False
-            tail = (text or "").rstrip()[-400:]
-            if _PWD_RE.search(tail):
-                _sent[0] += 1
-                self._vte.feed_child((password + "\n").encode("utf-8"))
-            return False  # timer one-shot
+            tail = (text or "").rstrip()[-600:]
+            for c in compiled:
+                if c["sent"] >= c["max_trigger"]:
+                    continue
+                if c["re"].search(tail):
+                    c["sent"] += 1
+                    cmd = c["command"]
+                    if not cmd.endswith("\n"):
+                        cmd += "\n"
+                    self._vte.feed_child(cmd.encode("utf-8"))
+            return False
 
         def _on_changed(_vte):
-            if _sent[0] >= _MAX:
-                if _conn_id[0] is not None:
-                    _vte.disconnect(_conn_id[0])
-                    _conn_id[0] = None
-                return
-            # Debounce 80 ms: evita check multipli durante burst di output
             if _timer_id[0] is not None:
                 GLib.source_remove(_timer_id[0])
-            _timer_id[0] = GLib.timeout_add(80, _do_check)
+            _timer_id[0] = GLib.timeout_add(_debounce, _do_check)
 
         _conn_id[0] = self._vte.connect("contents-changed", _on_changed)
+        _do_check()
 
     # ------------------------------------------------------------------
     # Tema e font
@@ -343,6 +366,27 @@ class TerminalWidget(Gtk.Box):
         fg = _hex_to_rgba(self._fg)
         bg = _hex_to_rgba(self._bg)
         self._vte.set_colors(fg, bg, [])
+
+    # ------------------------------------------------------------------
+    # Syntax highlighting
+    # ------------------------------------------------------------------
+
+    def _init_highlighter(self):
+        try:
+            from terminal_highlight import Highlighter
+            self._highlighter = Highlighter(self._vte)
+        except Exception:
+            self._highlighter = None
+
+    def toggle_highlight(self, enabled: bool = None):
+        if self._highlighter is None:
+            return
+        if enabled is None:
+            enabled = not self._highlighter.is_enabled()
+        self._highlighter.set_enabled(enabled)
+
+    def has_highlight(self) -> bool:
+        return self._highlighter is not None and self._highlighter.is_enabled()
 
     def _applica_font(self):
         import gi
@@ -509,6 +553,14 @@ class TerminalWidget(Gtk.Box):
         menu.append(mi_snippet)
         menu.append(Gtk.SeparatorMenuItem())
         menu.append(mi_cerca)
+
+        if self._highlighter is not None:
+            menu.append(Gtk.SeparatorMenuItem())
+            mi_hl = Gtk.CheckMenuItem(label=t("term.context.highlight"))
+            mi_hl.set_active(self._highlighter.is_enabled())
+            mi_hl.connect("toggled", lambda w: self.toggle_highlight(w.get_active()))
+            menu.append(mi_hl)
+
         menu.show_all()
         menu.popup_at_pointer(event)
 

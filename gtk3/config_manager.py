@@ -37,16 +37,8 @@ SETTINGS_FILE  = os.path.join(_HERE, "pcm_settings.json")
 # ---------------------------------------------------------------------------
 
 def load_profiles() -> dict:
-    """
-    Carica i profili da connections.json.
-    Se la cifratura è attiva decifra automaticamente user/password.
-    Se il file non esiste lo crea con le sessioni di esempio
-    e imposta il flag primo_avvio in settings.
-    """
-    first_run = not os.path.exists(SESSIONS_FILE)
-    if first_run:
+    if first_run := not os.path.exists(SESSIONS_FILE):
         _create_default_sessions()
-        # Segnala il primo avvio a PCM.py tramite settings
         s = load_settings()
         s.setdefault("crypto", {})["primo_avvio"] = True
         save_settings(s)
@@ -58,10 +50,12 @@ def load_profiles() -> dict:
         print(f"[config] Errore lettura sessioni: {e}")
         return {}
 
-    # Decifratura trasparente
     cm = _crypto()
     if cm and cm.is_enabled():
         profili = {nome: cm.decrypt_profile(p) for nome, p in profili.items()}
+
+    from protocols import validate_profiles
+    profili = validate_profiles(profili)
 
     return profili
 
@@ -282,12 +276,21 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 def load_tunnels() -> list:
     s = load_settings()
-    return s.get("tunnels", [])
+    tunnels = s.get("tunnels", [])
+    cm = _crypto()
+    if cm and cm.is_enabled():
+        tunnels = [cm.decrypt_profile(t) for t in tunnels]
+    return tunnels
 
 
 def save_tunnels(tunnels: list):
     s = load_settings()
-    s["tunnels"] = tunnels
+    cm = _crypto()
+    if cm and cm.is_enabled() and cm.is_unlocked():
+        to_save = [cm.encrypt_profile(t) for t in tunnels]
+    else:
+        to_save = tunnels
+    s["tunnels"] = to_save
     save_settings(s)
 
 

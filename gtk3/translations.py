@@ -1303,6 +1303,13 @@ _T: dict[str, dict[str, str]] = {
         "fr": "Connexion rapide sans enregistrer la session",
         "es": "Conexión rápida sin guardar la sesión",
     },
+    "toolbar.cluster.tooltip": {
+        "it": "Connetti a cluster (stessa sessione su più host)",
+        "en": "Connect to cluster (same session on multiple hosts)",
+        "de": "Mit Cluster verbinden (gleiche Sitzung auf mehreren Hosts)",
+        "fr": "Connecter au cluster (même session sur plusieurs hôtes)",
+        "es": "Conectar al clúster (misma sesión en múltiples hosts)",
+    },
 
     # ── Import PuTTY / SSH config ─────────────────────────────────────────────
     "importer.putty_title":   {"it": "Sessioni PuTTY", "en": "PuTTY sessions", "de": "PuTTY-Sitzungen", "fr": "Sessions PuTTY", "es": "Sesiones PuTTY"},
@@ -1615,4 +1622,92 @@ _T: dict[str, dict[str, str]] = {
     "term.context.paste":       {"it": "Incolla",                "en": "Paste",                 "de": "Einfügen",              "fr": "Coller",                 "es": "Pegar"},
     "term.context.snippet":     {"it": "Inserisci snippet…",     "en": "Insert snippet…",       "de": "Snippet einfügen…",     "fr": "Insérer snippet…",       "es": "Insertar fragmento…"},
     "term.context.search":      {"it": "Cerca…  (Ctrl+F)",       "en": "Search…  (Ctrl+F)",     "de": "Suchen…  (Strg+F)",     "fr": "Rechercher…  (Ctrl+F)",  "es": "Buscar…  (Ctrl+F)"},
+    "term.context.highlight":   {"it": "Syntax Highlighting",    "en": "Syntax Highlighting",    "de": "Syntaxhervorhebung",    "fr": "Coloration syntaxique",   "es": "Resaltado de sintaxis"},
+
+    # ── Session dialog: anteprima comando ──────────────────────────────────────
+    "sd.cmd_preview_title":     {"it": "Anteprima comando",       "en": "Command preview",       "de": "Befehlsvorschau",         "fr": "Aperçu de la commande",   "es": "Vista previa del comando"},
+    "sd.connect":               {"it": "Connetti",                "en": "Connect",               "de": "Verbinden",               "fr": "Connecter",                "es": "Conectar"},
+    "sd.save_connect":          {"it": "Salva e Connetti",      "en": "Save and Connect",       "de": "Speichern und Verbinden", "fr": "Enregistrer et connecter", "es": "Guardar y conectar"},
+    "sd.save_exit":             {"it": "Salva ed Esci",         "en": "Save and Exit",          "de": "Speichern und Beenden",   "fr": "Enregistrer et quitter",  "es": "Guardar y salir"},
+
+    # ── Session dialog: validazione ────────────────────────────────────────────
+    "sd.val.port_range":        {"it": "La porta deve essere tra 1 e 65535", "en": "Port must be between 1 and 65535", "de": "Port muss zwischen 1 und 65535 liegen", "fr": "Le port doit être entre 1 et 65535", "es": "El puerto debe estar entre 1 y 65535"},
+    "sd.val.port_invalid":      {"it": "La porta deve essere un numero", "en": "Port must be a number", "de": "Port muss eine Zahl sein", "fr": "Le port doit être un nombre", "es": "El puerto debe ser un número"},
+    "sd.val.sftp_no_cred":      {"it": "SFTP: nessuna chiave né password. La connessione potrebbe fallire.", "en": "SFTP: no key or password. Connection may fail.", "de": "SFTP: Kein Schlüssel oder Passwort. Verbindung könnte fehlschlagen.", "fr": "SFTP : aucune clé ni mot de passe. La connexion peut échouer.", "es": "SFTP: sin clave ni contraseña. La conexión podría fallar."},
+
+    # ── Session dialog: browser device seriale ─────────────────────────────────
+    "sd.serial.browse_title":   {"it": "Seleziona device seriale", "en": "Select serial device",  "de": "Serielles Gerät wählen",  "fr": "Sélectionner le périphérique série", "es": "Seleccionar dispositivo serie"},
+
+    # ── Quick Connect ──────────────────────────────────────────────────────────
+    "quickconn.title":          {"it": "Connessione rapida",         "en": "Quick Connect",           "de": "Schnellverbindung",       "fr": "Connexion rapide",            "es": "Conexión rápida"},
+    "quickconn.subtitle":       {"it": "Connessione diretta senza salvare una sessione", "en": "Direct connection without saving a session", "de": "Direktverbindung ohne Speichern einer Sitzung", "fr": "Connexion directe sans enregistrer de session", "es": "Conexión directa sin guardar una sesión"},
+    "quickconn.proto_lbl":      {"it": "Protocollo:",               "en": "Protocol:",               "de": "Protokoll:",              "fr": "Protocole :",                "es": "Protocolo:"},
+    "quickconn.host_lbl":       {"it": "Host:",                     "en": "Host:",                   "de": "Host:",                   "fr": "Hôte :",                     "es": "Host:"},
+    "quickconn.port_lbl":       {"it": "Porta:",                    "en": "Port:",                   "de": "Port:",                   "fr": "Port :",                     "es": "Puerto:"},
+    "quickconn.user_lbl":       {"it": "Utente:",                   "en": "User:",                   "de": "Benutzer:",               "fr": "Utilisateur :",              "es": "Usuario:"},
+    "quickconn.pass_lbl":       {"it": "Password:",                 "en": "Password:",               "de": "Passwort:",               "fr": "Mot de passe :",             "es": "Contraseña:"},
+    "quickconn.no_host":        {"it": "Inserire un host",          "en": "Enter a host",            "de": "Host eingeben",           "fr": "Saisir un hôte",             "es": "Ingrese un host"},
+    "quickconn.connect":        {"it": "Connetti",                  "en": "Connect",                 "de": "Verbinden",               "fr": "Connecter",                  "es": "Conectar"},
+    "quickconn.advanced":       {"it": "Opzioni avanzate",          "en": "Advanced options",        "de": "Erweiterte Optionen",     "fr": "Options avancées",           "es": "Opciones avanzadas"},
+
+    # ── Tooltip pannelli monitoraggio ──────────────────────────────────────────
+    "tt.panel_cpu_mem":         {"it": "Mostra utilizzo CPU e RAM in tempo reale via SSH", "en": "Show real-time CPU and RAM usage via SSH", "de": "CPU- und RAM-Auslastung in Echtzeit via SSH anzeigen", "fr": "Afficher l'utilisation CPU et RAM en temps réel via SSH", "es": "Mostrar uso de CPU y RAM en tiempo real vía SSH"},
+    "tt.panel_processes":       {"it": "Tabella processi con possibilità di kill via SSH", "en": "Process table with kill capability via SSH", "de": "Prozesstabelle mit Kill-Funktion via SSH", "fr": "Tableau des processus avec possibilité de kill via SSH", "es": "Tabla de procesos con capacidad de kill vía SSH"},
+    "tt.panel_disk":            {"it": "Mostra utilizzo disco e partizioni via SSH", "en": "Show disk and partition usage via SSH", "de": "Festplatten- und Partitionsnutzung via SSH anzeigen", "fr": "Afficher l'utilisation disque et partitions via SSH", "es": "Mostrar uso de disco y particiones vía SSH"},
+    "tt.panel_network":         {"it": "Monitora velocità di rete download/upload via SSH", "en": "Monitor network download/upload speed via SSH", "de": "Netzwerk-Down/Upload-Geschwindigkeit via SSH überwachen", "fr": "Surveiller la vitesse réseau téléch./envoi via SSH", "es": "Monitorear velocidad de red descarga/subida vía SSH"},
+    "tt.panel_log":             {"it": "Mostra log di sistema in tempo reale (journalctl/tail) via SSH", "en": "Show real-time system log (journalctl/tail) via SSH", "de": "System-Log in Echtzeit via SSH anzeigen (journalctl/tail)", "fr": "Afficher le journal système en temps réel (journalctl/tail) via SSH", "es": "Mostrar registro del sistema en tiempo real (journalctl/tail) vía SSH"},
+
+    # ── Tooltip browser device seriale ─────────────────────────────────────────
+    "tt.serial_browse":         {"it": "Sfoglia per selezionare il device seriale", "en": "Browse to select the serial device", "de": "Durchsuchen, um das serielle Gerät auszuwählen", "fr": "Parcourir pour sélectionner le périphérique série", "es": "Explorar para seleccionar el dispositivo serie"},
+
+    # ── Cluster connections ────────────────────────────────────────────────────
+    "panel.apri_cluster":       {"it": "Connetti a cluster…",    "en": "Connect to cluster…",   "de": "Mit Cluster verbinden…", "fr": "Connecter au cluster…",   "es": "Conectar al clúster…"},
+    "cluster.title":            {"it": "Cluster — {name}",       "en": "Cluster — {name}",      "de": "Cluster — {name}",       "fr": "Cluster — {name}",        "es": "Clúster — {name}"},
+    "cluster.desc":             {"it": "Inserisci gli host (uno per riga). Stesse credenziali e impostazioni della sessione.", "en": "Enter hosts (one per line). Same credentials and session settings.", "de": "Hosts eingeben (einer pro Zeile). Gleiche Anmeldedaten und Einstellungen.", "fr": "Saisir les hôtes (un par ligne). Mêmes identifiants et paramètres.", "es": "Ingrese hosts (uno por línea). Mismas credenciales y configuración."},
+    "cluster.example":          {"it": "# Inserisci un host per riga\n# Esempio:\n{host}\n# oppure:\n# server1.example.com\n# server2.example.com:2222", "en": "# Enter one host per line\n# Example:\n{host}\n# or:\n# server1.example.com\n# server2.example.com:2222", "de": "# Einen Host pro Zeile eingeben\n# Beispiel:\n{host}\n# oder:\n# server1.example.com\n# server2.example.com:2222", "fr": "# Un hôte par ligne\n# Exemple :\n{host}\n# ou :\n# server1.example.com\n# server2.example.com:2222", "es": "# Un host por línea\n# Ejemplo:\n{host}\n# o:\n# server1.example.com\n# server2.example.com:2222"},
+    "cluster.keep_user":        {"it": "Mantieni lo stesso utente", "en": "Keep same user",       "de": "Gleichen Benutzer beibehalten", "fr": "Garder le même utilisateur", "es": "Mantener mismo usuario"},
+    "cluster.keep_port":        {"it": "Mantieni la stessa porta", "en": "Keep same port",       "de": "Gleichen Port beibehalten","fr": "Garder le même port",       "es": "Mantener mismo puerto"},
+    "cluster.enable_broadcast": {"it": "Attiva broadcast dopo la connessione", "en": "Enable broadcast after connection", "de": "Broadcast nach Verbindung aktivieren", "fr": "Activer broadcast après connexion", "es": "Activar broadcast tras conexión"},
+    "cluster.delay":            {"it": "Ritardo tra connessioni (s):", "en": "Delay between connections (s):", "de": "Verzögerung zwischen Verbindungen (s):", "fr": "Délai entre connexions (s) :", "es": "Retraso entre conexiones (s):"},
+    "cluster.connect_all":      {"it": "Connetti tutti",         "en": "Connect all",           "de": "Alle verbinden",         "fr": "Tout connecter",           "es": "Conectar todos"},
+    "cluster.no_sessions":      {"it": "Nessuna sessione salvata. Creane una prima.", "en": "No saved sessions. Create one first.", "de": "Keine gespeicherten Sitzungen. Erstellen Sie zuerst eine.", "fr": "Aucune session enregistrée. Créez-en une d'abord.", "es": "No hay sesiones guardadas. Cree una primero."},
+    "cluster.pick_session":     {"it": "Scegli sessioni per cluster", "en": "Pick sessions for cluster", "de": "Sitzungen für Cluster wählen", "fr": "Choisir les sessions pour le cluster", "es": "Elegir sesiones para clúster"},
+    "cluster.pick_multi_desc":  {"it": "Seleziona una o più sessioni con i checkbox. Ogni sessione manterrà le proprie credenziali e impostazioni.", "en": "Select one or more sessions with the checkboxes. Each session keeps its own credentials and settings.", "de": "Wählen Sie eine oder mehrere Sitzungen mit den Checkboxen. Jede Sitzung behält ihre eigenen Anmeldedaten.", "fr": "Sélectionnez une ou plusieurs sessions avec les cases à cocher. Chaque session conserve ses propres identifiants.", "es": "Seleccione una o más sesiones con las casillas. Cada sesión mantiene sus propias credenciales."},
+    "cluster.pick_desc":        {"it": "La sessione scelta verrà replicata su tutti gli host del cluster.\nCredenziali, chiavi, tunnel e opzioni avanzate vengono ereditate dalla sessione.", "en": "The chosen session will be replicated across all cluster hosts.\nCredentials, keys, tunnels and advanced options are inherited from the session.", "de": "Die gewählte Sitzung wird auf alle Cluster-Hosts repliziert.", "fr": "La session choisie sera répliquée sur tous les hôtes du cluster.", "es": "La sesión elegida se replicará en todos los hosts del clúster."},
+    "cluster.pick_hint":        {"it": "Doppio clic su una sessione per selezionarla e procedere.", "en": "Double-click a session to select and proceed.", "de": "Doppelklicken zum Auswählen.", "fr": "Double-cliquez pour sélectionner.", "es": "Doble clic para seleccionar."},
+    "cluster.sel_none":         {"it": "Nessuna sessione selezionata", "en": "No sessions selected", "de": "Keine Sitzungen ausgewählt", "fr": "Aucune session sélectionnée", "es": "Ninguna sesión seleccionada"},
+    "cluster.sel_count":        {"it": "{n} sessioni selezionate", "en": "{n} sessions selected", "de": "{n} Sitzungen ausgewählt", "fr": "{n} sessions sélectionnées", "es": "{n} sesiones seleccionadas"},
+    "cluster.sel_hint":         {"it": "(doppio clic per procedere)", "en": "(double-click to proceed)", "de": "(Doppelklick zum Fortfahren)", "fr": "(double-clic pour continuer)", "es": "(doble clic para continuar)"},
+    "cluster.saved_title":      {"it": "Cluster salvati",         "en": "Saved clusters",        "de": "Gespeicherte Cluster",   "fr": "Clusters enregistrés",     "es": "Clústeres guardados"},
+    "cluster.load":             {"it": "Carica",                   "en": "Load",                  "de": "Laden",                   "fr": "Charger",                  "es": "Cargar"},
+    "cluster.delete_confirm":   {"it": "Eliminare il cluster '{name}'?", "en": "Delete cluster '{name}'?", "de": "Cluster '{name}' löschen?", "fr": "Supprimer le cluster '{name}' ?", "es": "¿Eliminar clúster '{name}'?"},
+    "cluster.deleted":          {"it": "Cluster '{name}' eliminato.", "en": "Cluster '{name}' deleted.", "de": "Cluster '{name}' gelöscht.", "fr": "Cluster '{name}' supprimé.", "es": "Clúster '{name}' eliminado."},
+    "cluster.save_btn":         {"it": "💾 Salva",                 "en": "💾 Save",               "de": "💾 Speichern",            "fr": "💾 Enregistrer",           "es": "💾 Guardar"},
+    "cluster.save_btn_tt":      {"it": "Salva la selezione corrente come cluster", "en": "Save current selection as cluster", "de": "Aktuelle Auswahl als Cluster speichern", "fr": "Enregistrer la sélection comme cluster", "es": "Guardar selección como clúster"},
+    "cluster.save_no_sel":      {"it": "Seleziona almeno una sessione prima di salvare.", "en": "Select at least one session before saving.", "de": "Mindestens eine Sitzung vor dem Speichern auswählen.", "fr": "Sélectionnez au moins une session avant d'enregistrer.", "es": "Seleccione al menos una sesión antes de guardar."},
+    "cluster.save_title":       {"it": "Salva cluster",            "en": "Save cluster",          "de": "Cluster speichern",       "fr": "Enregistrer le cluster",   "es": "Guardar clúster"},
+    "cluster.save_name_lbl":    {"it": "Nome del cluster:",        "en": "Cluster name:",         "de": "Cluster-Name:",           "fr": "Nom du cluster :",         "es": "Nombre del clúster:"},
+    "cluster.saved_ok":         {"it": "Cluster '{name}' salvato.", "en": "Cluster '{name}' saved.", "de": "Cluster '{name}' gespeichert.", "fr": "Cluster '{name}' enregistré.", "es": "Clúster '{name}' guardado."},
+    "cluster.pick_count":       {"it": "Sessioni disponibili: {n}", "en": "Available sessions: {n}", "de": "Verfügbare Sitzungen: {n}", "fr": "Sessions disponibles : {n}", "es": "Sesiones disponibles: {n}"},
+    "cluster.title_multi":      {"it": "Cluster — connessione multipla", "en": "Cluster — multiple connection", "de": "Cluster — Mehrfachverbindung", "fr": "Cluster — connexion multiple", "es": "Clúster — conexión múltiple"},
+    "cluster.instr_multi":      {"it": "Per ogni sessione, inserisci gli host (uno per riga). Puoi usare host:porta. Righe con # ignorate.", "en": "For each session, enter hosts (one per line). You can use host:port. Lines with # are ignored.", "de": "Für jede Sitzung Hosts eingeben (einer pro Zeile). host:port möglich. Zeilen mit # ignoriert.", "fr": "Pour chaque session, saisissez les hôtes (un par ligne). Utilisez hôte:port. Lignes avec # ignorées.", "es": "Para cada sesión, ingrese hosts (uno por línea). Use host:puerto. Líneas con # ignoradas."},
+    "cluster.save_as":          {"it": "Salva cluster come:",      "en": "Save cluster as:",      "de": "Cluster speichern als:", "fr": "Enregistrer le cluster :",  "es": "Guardar clúster como:"},
+    "cluster.save_ph":          {"it": "es. produzione",            "en": "e.g. production",       "de": "z.B. Produktion",       "fr": "ex. production",           "es": "ej. producción"},
+    "cluster.instr":            {"it": "Inserisci gli host, UNO PER RIGA.", "en": "Enter hosts, ONE PER LINE.", "de": "Hosts eingeben, EINER PRO ZEILE.", "fr": "Saisissez les hôtes, UN PAR LIGNE.", "es": "Ingrese hosts, UNO POR LÍNEA."},
+    "cluster.instr_detail":     {"it": "Puoi specificare una porta con host:porta. Le righe che iniziano con # vengono ignorate.", "en": "You can specify a port with host:port. Lines starting with # are ignored.", "de": "Port kann mit host:port angegeben werden. Zeilen mit # werden ignoriert.", "fr": "Vous pouvez spécifier un port avec hôte:port. Les lignes commençant par # sont ignorées.", "es": "Puede especificar un puerto con host:puerto. Líneas con # se ignoran."},
+    "cluster.keep_user_tt":     {"it": "Usa lo stesso utente della sessione per tutti gli host", "en": "Use the session username for all hosts", "de": "Benutzernamen der Sitzung für alle Hosts verwenden", "fr": "Utiliser le nom d'utilisateur de la session pour tous les hôtes", "es": "Usar el usuario de la sesión para todos los hosts"},
+    "cluster.keep_port_tt":     {"it": "Usa la stessa porta della sessione (ignora host:porta)", "en": "Use the session port (ignore host:port)", "de": "Sitzungsport verwenden (host:port ignorieren)", "fr": "Utiliser le port de la session (ignorer hôte:port)", "es": "Usar el puerto de la sesión (ignorar host:puerto)"},
+    "cluster.enable_broadcast_tt":{"it": "Apre la finestra broadcast per inviare comandi a tutti i terminali", "en": "Opens the broadcast window to send commands to all terminals", "de": "Öffnet Broadcast-Fenster für Befehle an alle Terminals", "fr": "Ouvre la fenêtre broadcast pour envoyer des commandes à tous les terminaux", "es": "Abre la ventana broadcast para enviar comandos a todos los terminales"},
+    "cluster.delay_tt":         {"it": "Secondi di attesa tra una connessione e l'altra", "en": "Seconds to wait between connections", "de": "Sekunden Wartezeit zwischen Verbindungen", "fr": "Secondes d'attente entre les connexions", "es": "Segundos de espera entre conexiones"},
+    "cluster.count_none":       {"it": "Nessun host inserito",    "en": "No hosts entered",      "de": "Keine Hosts eingegeben", "fr": "Aucun hôte saisi",         "es": "Ningún host ingresado"},
+    "cluster.count_one":        {"it": "1 host da connettere",    "en": "1 host to connect",     "de": "1 Host zu verbinden",    "fr": "1 hôte à connecter",       "es": "1 host a conectar"},
+    "cluster.count_many":       {"it": "{n} host da connettere",  "en": "{n} hosts to connect",  "de": "{n} Hosts zu verbinden", "fr": "{n} hôtes à connecter",    "es": "{n} hosts a conectar"},
+
+    # ── Expect scripting ───────────────────────────────────────────────────────
+    "sd.tab.expect":            {"it": "Expect",                  "en": "Expect",                "de": "Expect",                  "fr": "Expect",                   "es": "Expect"},
+    "sd.expect.note":           {"it": "Invia automaticamente comandi quando compaiono pattern nel terminale. Regex supportate.", "en": "Automatically send commands when patterns appear in the terminal. Regex supported.", "de": "Automatisch Befehle senden, wenn Muster im Terminal erscheinen. Regex unterstützt.", "fr": "Envoyer automatiquement des commandes quand des motifs apparaissent dans le terminal. Regex supportées.", "es": "Enviar comandos automáticamente cuando aparecen patrones en el terminal. Regex soportadas."},
+    "sd.expect.pattern":        {"it": "Pattern (regex)",         "en": "Pattern (regex)",       "de": "Muster (Regex)",          "fr": "Motif (regex)",            "es": "Patrón (regex)"},
+    "sd.expect.command":        {"it": "Comando da inviare",      "en": "Command to send",       "de": "Zu sendender Befehl",     "fr": "Commande à envoyer",       "es": "Comando a enviar"},
+    "sd.expect.max":            {"it": "Max #",                   "en": "Max #",                 "de": "Max #",                   "fr": "Max #",                    "es": "Máx #"},
+    "sd.expect.delay":          {"it": "Ritardo (s)",             "en": "Delay (s)",             "de": "Verzögerung (s)",         "fr": "Délai (s)",                "es": "Retraso (s)"},
 }

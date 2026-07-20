@@ -9,6 +9,9 @@ import shutil
 import subprocess
 from typing import Optional, Tuple
 import config_manager
+from protocols import (MODE_INTERNAL, MODE_EXTERNAL, MODE_BROWSER_INT,
+                       MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT,
+                       MODE_PANEL, MODE_RDP_EMBED, MODE_EMBED)
 
 
 # ---------------------------------------------------------------------------
@@ -58,13 +61,13 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
     proto = profilo.get("protocol", "ssh").lower()
 
     if proto == "ssh":
-        mode = profilo.get("ssh_open_mode", "internal")
-        if mode in ("external", "Terminale esterno") or mode.startswith("Terminale esterno"):
+        mode = _normalize_mode(profilo.get("ssh_open_mode", MODE_INTERNAL), "ssh_open_mode")
+        if mode == MODE_EXTERNAL:
             return _wrap_pre(_build_ssh(profilo), profilo), "ssh_term_ext"
         return _wrap_pre(_build_ssh(profilo), profilo), "embedded"
     elif proto == "mosh":
-        mode = profilo.get("ssh_open_mode", "internal")
-        if mode in ("external", "Terminale esterno") or mode.startswith("Terminale esterno"):
+        mode = _normalize_mode(profilo.get("ssh_open_mode", MODE_INTERNAL), "ssh_open_mode")
+        if mode == MODE_EXTERNAL:
             return _wrap_pre(_build_mosh(profilo), profilo), "ssh_term_ext"
         return _wrap_pre(_build_mosh(profilo), profilo), "embedded"
     elif proto == "telnet":
@@ -80,8 +83,8 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
     elif proto == "ftp":
         return _resolve_sftp_ftp(profilo, ft_sub="FTP")
     elif proto == "rdp":
-        mode = profilo.get("rdp_open_mode", "external")
-        if mode == "internal" or "intern" in mode.lower() or "panel" in mode.lower():
+        mode = _normalize_mode(profilo.get("rdp_open_mode", MODE_EXTERNAL), "rdp_open_mode")
+        if mode == MODE_INTERNAL:
             return None, "rdp_embedded"
         return _build_rdp(profilo), "external"
     elif proto == "vnc":
@@ -95,6 +98,30 @@ def build_command(profilo: dict) -> Tuple[Optional[str], str]:
         return cmd, "embedded"
     else:
         return None, "embedded"
+
+
+def _normalize_mode(mode: str, field: str = "") -> str:
+    """Converte vecchi valori tradotti o abbreviazioni nelle costanti MODE_*."""
+    if not isinstance(mode, str):
+        return mode
+    m = mode.lower()
+    if "estern" in m or "extern" in m:
+        if "browser" in m:
+            return MODE_BROWSER_EXT
+        if "terminal" in m:
+            if "sftp_open_mode" in field or "ftp_open_mode" in field:
+                return MODE_TERM_EXT
+            return MODE_EXTERNAL
+        return MODE_EXTERNAL
+    if "intern" in m or "panel" in m:
+        if "browser" in m:
+            return MODE_BROWSER_INT
+        if "terminal" in m:
+            if "sftp_open_mode" in field or "ftp_open_mode" in field:
+                return MODE_TERM_INT
+            return MODE_INTERNAL
+        return MODE_INTERNAL
+    return mode
 
 
 def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
@@ -118,22 +145,22 @@ def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
 def _resolve_sftp_ftp(p: dict, ft_sub: str) -> tuple:
     """Risolve comando e modalità per SFTP/FTP/FTPS in modo unificato."""
     if ft_sub == "SFTP":
-        mode = p.get("sftp_open_mode", "Browser interno")
-        if mode.startswith("Browser esterno"):
+        mode = _normalize_mode(p.get("sftp_open_mode", MODE_BROWSER_INT), "sftp_open_mode")
+        if mode == MODE_BROWSER_EXT:
             return _build_sftp_uri(p, "browser_ext"), "sftp_external"
-        elif mode.startswith("Terminale interno"):
+        elif mode == MODE_TERM_INT:
             return _wrap_pre(_build_sftp_cli(p), p), "embedded"
-        elif mode.startswith("Terminale esterno"):
+        elif mode == MODE_TERM_EXT:
             return _wrap_pre(_build_sftp_cli(p), p), "sftp_term_ext"
         else:
             return _build_sftp(p), "sftp_panel"
     else:
-        mode = p.get("ftp_open_mode", "Browser interno")
-        if mode.startswith("Browser esterno"):
+        mode = _normalize_mode(p.get("ftp_open_mode", MODE_BROWSER_INT), "ftp_open_mode")
+        if mode == MODE_BROWSER_EXT:
             return _build_ftp(p, modalita="browser_ext"), "ftp_external"
-        elif mode.startswith("Terminale interno"):
+        elif mode == MODE_TERM_INT:
             return _wrap_pre(_build_ftp(p, modalita="term_int"), p), "embedded"
-        elif mode.startswith("Terminale esterno"):
+        elif mode == MODE_TERM_EXT:
             return _wrap_pre(_build_ftp(p, modalita="term_ext"), p), "ftp_term_ext"
         else:
             return _build_ftp(p, modalita="browser_int"), "ftp_panel"

@@ -108,6 +108,7 @@ from themes import apply_css, TERMINAL_THEMES
 from terminal_widget import TerminalWidget
 from session_panel import SessionPanel
 from session_dialog import SessionDialog
+import protocols
 from session_command import build_command, check_dipendenze
 from settings_dialog import SettingsDialog
 from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel, reattach_tunnels
@@ -394,6 +395,13 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_qc.connect("clicked", lambda b: self._on_quick_connect())
         hb.pack_start(btn_qc)
 
+        # Pulsante cluster
+        btn_cl = Gtk.Button()
+        btn_cl.set_tooltip_text(t("toolbar.cluster.tooltip"))
+        btn_cl.add(Gtk.Image.new_from_icon_name("network-workgroup-symbolic", Gtk.IconSize.BUTTON))
+        btn_cl.connect("clicked", lambda b: self._on_cluster_from_toolbar())
+        hb.pack_start(btn_cl)
+
         # Bottone tunnel unificato: indicatore stato + accesso al gestore
         self._btn_tun_ind = Gtk.MenuButton()
         _tun_box = Gtk.Box(spacing=2)
@@ -493,6 +501,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("apri-log",     lambda _p, n, d: self._apri_log_viewer(n, d))
         self._pannello.connect("apri-monitor", lambda _p, n, d: self._apri_sysmon(n, d))
         self._pannello.connect("apri-cron",    lambda _p, n, d: self._apri_cron(n, d))
+        self._pannello.connect("apri-cluster", lambda _p, n, d: self._apri_cluster(n, d))
         self.connect("delete-event", self._on_close)
 
     def _setup_accels(self):
@@ -795,6 +804,10 @@ class MainWindow(Gtk.ApplicationWindow):
         if pwd and not pkey:
             widget.imposta_auto_password(pwd)
 
+        expect_rules = dati.get("expect_rules", [])
+        if expect_rules:
+            widget.imposta_expect(expect_rules)
+
         widget.avvia(cmd, env_extra=env_extra)
         widget.connect("processo-terminato",
                        lambda w: self._on_processo_terminato(w))
@@ -814,10 +827,13 @@ class MainWindow(Gtk.ApplicationWindow):
                 w.avvia(_cmd, env_extra=_env)
                 if _pwd and not _pkey:
                     w.imposta_auto_password(_pwd)
+                if _erules:
+                    w.imposta_expect(_erules)
                 return False
 
             widget._pcm_reconnect = _do_reconnect
             widget._pcm_reconnect_delay = delay
+            _erules = expect_rules
 
     def _apri_sftp(self, nome: str, dati: dict):
         widget = WinScpWidget(dati)
@@ -878,7 +894,6 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _apri_ft_da_sessione(self, dati_ssh: dict):
-        """Mostra dialog per aprire SFTP/FTP riciclando le credenziali di una sessione."""
         dlg = _DialogApriFileTransfer(parent=self, dati_ssh=dati_ssh)
         resp = dlg.run()
         if resp == Gtk.ResponseType.OK:
@@ -891,6 +906,102 @@ class MainWindow(Gtk.ApplicationWindow):
             else:
                 self._apri_ftp(nome_tab, dati_ft)
         dlg.destroy()
+
+    def _apri_cluster(self, nome: str, dati: dict):
+        from cluster_dialog import ClusterDialog
+        dlg = ClusterDialog(parent=self, nome_sessione=nome, dati_sessione=dati)
+        resp = dlg.run()
+        if resp != Gtk.ResponseType.OK:
+            dlg.destroy()
+            return
+        hosts = dlg.get_hosts()
+        keep_user = dlg.keep_user()
+        keep_port = dlg.keep_port()
+        enable_bc = dlg.enable_broadcast()
+        delay = dlg.get_delay()
+        dlg.destroy()
+
+        if not hosts:
+            return
+        self._connect_to_cluster(nome, dati, hosts, keep_user, keep_port, delay, enable_bc)
+
+    def _on_cluster_from_toolbar(self):
+        profili = config_manager.load_profiles()
+        if not profili:
+            self._warn(t("cluster.no_sessions"))
+            return
+        dlg = _SessionPickerDialog(parent=self, profili=profili)
+        resp = dlg.run()
+        if resp != Gtk.ResponseType.OK:
+            dlg.destroy()
+            return
+        selected = dlg.get_selected()
+        dlg.destroy()
+        if not selected:
+            return
+        self._apri_cluster_multi(selected, profili)
+
+    def _apri_cluster(self, nome: str, dati: dict):
+        profili = config_manager.load_profiles()
+        self._apri_cluster_multi([nome], profili)
+
+    def _apri_cluster_multi(self, nomi: list[str], profili: dict):
+        from cluster_dialog import ClusterDialog
+        sessions = {}
+        for n in nomi:
+            if n in profili:
+                sessions[n] = profili[n]
+        if not sessions:
+            return
+        dlg = ClusterDialog(parent=self, sessions=sessions)
+        resp = dlg.run()
+        if resp != Gtk.ResponseType.OK:
+            dlg.destroy()
+            return
+        cluster_plan = dlg.get_cluster_plan()
+        enable_bc = dlg.enable_broadcast()
+        delay = dlg.get_delay()
+        dlg.destroy()
+        self._connect_to_cluster_plan(cluster_plan, delay, enable_bc)
+
+    def _connect_to_cluster_plan(self, plan: dict, delay: float, enable_bc: bool):
+        import time
+        connected = 0
+        for nome_sessione, hosts_info in plan.items():
+            dati = hosts_info.get("dati", {})
+            keep_user = hosts_info.get("keep_user", True)
+            keep_port = hosts_info.get("keep_port", True)
+            for host in hosts_info.get("hosts", []):
+                d = dict(dati)
+                d["host"] = host
+                if not keep_user:
+                    d["user"] = ""
+                if not keep_port:
+                    d["port"] = ""
+                label = f"{nome_sessione} [{host}]"
+                if connected > 0 and delay > 0:
+                    time.sleep(delay)
+                GLib.idle_add(lambda dd=d, l=label: self._on_connetti(None, l, dd))
+                connected += 1
+        if enable_bc and connected > 0:
+            GLib.idle_add(self._on_broadcast)
+
+    def _save_cluster(self, name: str, session_names: list[str]):
+        s = config_manager.load_settings()
+        clusters = s.get("saved_clusters", {})
+        clusters[name] = {"sessions": session_names}
+        s["saved_clusters"] = clusters
+        config_manager.save_settings(s)
+
+    def _load_clusters(self) -> dict:
+        return config_manager.load_settings().get("saved_clusters", {})
+
+    def _connect_to_cluster(self, nome: str, dati: dict, hosts: list,
+                            keep_user: bool, keep_port: bool, delay: float,
+                            enable_bc: bool):
+        plan = {nome: {"dati": dati, "hosts": hosts,
+                       "keep_user": keep_user, "keep_port": keep_port}}
+        self._connect_to_cluster_plan(plan, delay, enable_bc)
 
     def _resolve_credentials(self, dati: dict):
         """Inject user/password/domain from a named credential profile into dati."""
@@ -1526,13 +1637,18 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_nuova_sessione(self):
         dlg = SessionDialog(parent=self)
         resp = dlg.run()
-        if resp == Gtk.ResponseType.OK:
-            nome, dati = dlg.get_data()
-            profili = config_manager.load_profiles()
-            profili[nome] = dati
-            config_manager.save_profiles(profili)
-            self._pannello.aggiorna(profili)
+        if resp == Gtk.ResponseType.CANCEL:
+            dlg.destroy()
+            return
+        nome, dati = dlg.get_data()
+        profili = config_manager.load_profiles()
+        profili[nome] = dati
+        config_manager.save_profiles(profili)
+        self._pannello.aggiorna(profili)
         dlg.destroy()
+        if resp in (100, 101):
+            from session_panel import SessionPanel
+            self._on_connetti(None, nome, dati)
 
     def _on_terminale_locale(self):
         s = config_manager.load_settings().get("terminal", {})
@@ -1545,15 +1661,19 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_modifica_sessione(self, panel, nome: str, dati: dict):
         dlg = SessionDialog(parent=self, nome=nome, dati=dati)
         resp = dlg.run()
-        if resp == Gtk.ResponseType.OK:
-            nuovo_nome, nuovi_dati = dlg.get_data()
-            profili = config_manager.load_profiles()
-            if nome != nuovo_nome and nome in profili:
-                del profili[nome]
-            profili[nuovo_nome] = nuovi_dati
-            config_manager.save_profiles(profili)
-            self._pannello.aggiorna(profili)
+        if resp == Gtk.ResponseType.CANCEL:
+            dlg.destroy()
+            return
+        nuovo_nome, nuovi_dati = dlg.get_data()
+        profili = config_manager.load_profiles()
+        if nome != nuovo_nome and nome in profili:
+            del profili[nome]
+        profili[nuovo_nome] = nuovi_dati
+        config_manager.save_profiles(profili)
+        self._pannello.aggiorna(profili)
         dlg.destroy()
+        if resp in (100, 101):
+            self._on_connetti(None, nuovo_nome, nuovi_dati)
 
     def _on_elimina_sessione(self, panel, nome: str):
         profili = config_manager.load_profiles()
@@ -2401,6 +2521,238 @@ class MainWindow(Gtk.ApplicationWindow):
 # ---------------------------------------------------------------------------
 # Dialog "Apri SFTP/FTP da sessione esistente"
 # ---------------------------------------------------------------------------
+
+class _SessionPickerDialog(Gtk.Dialog):
+    """Dialog multi-selezione sessioni per cluster, con salvataggio/caricamento."""
+
+    def __init__(self, parent, profili: dict):
+        super().__init__(
+            title=t("cluster.pick_session"),
+            transient_for=parent, modal=True, destroy_with_parent=True,
+        )
+        self.set_default_size(500, 500)
+        self._selected: list[str] = []
+        self._profili = profili
+        self._saved_clusters = config_manager.load_settings().get("saved_clusters", {})
+
+        area = self.get_content_area()
+        area.set_spacing(6)
+        area.set_margin_start(12); area.set_margin_end(12)
+        area.set_margin_top(10); area.set_margin_bottom(6)
+
+        title_lbl = Gtk.Label()
+        title_lbl.set_markup(f"<b>{t('cluster.pick_session')}</b>")
+        title_lbl.set_xalign(0.0); title_lbl.set_margin_bottom(2)
+        area.pack_start(title_lbl, False, False, 0)
+
+        # ── Sezione cluster salvati ──────────────────────────────
+        if self._saved_clusters:
+            saved_frame = Gtk.Frame(label=f"  {t('cluster.saved_title')}  ")
+            saved_frame.set_label_align(0.02, 0.5)
+            saved_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            saved_box.set_margin_start(8); saved_box.set_margin_end(8)
+            saved_box.set_margin_top(6); saved_box.set_margin_bottom(8)
+
+            for cname, cdata in sorted(self._saved_clusters.items()):
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                sessions_list = ", ".join(cdata.get("sessions", [])[:5])
+                if len(cdata.get("sessions", [])) > 5:
+                    sessions_list += f" +{len(cdata['sessions']) - 5}"
+                lbl = Gtk.Label(label=f"{cname}")
+                lbl.set_xalign(0.0); lbl.set_hexpand(True)
+                row.pack_start(lbl, True, True, 0)
+                detail = Gtk.Label(label=f"({sessions_list})")
+                detail.set_xalign(0.0)
+                detail.get_style_context().add_class("dim-label")
+                row.pack_start(detail, False, False, 0)
+                btn_load = Gtk.Button(label=t("cluster.load"))
+                btn_load.set_relief(Gtk.ReliefStyle.NONE)
+                btn_load.connect("clicked", lambda b, cn=cname: self._load_cluster(cn))
+                row.pack_start(btn_load, False, False, 0)
+                btn_del = Gtk.Button()
+                btn_del.set_relief(Gtk.ReliefStyle.NONE)
+                btn_del.add(Gtk.Image.new_from_icon_name("edit-delete-symbolic", Gtk.IconSize.BUTTON))
+                btn_del.connect("clicked", lambda b, cn=cname: self._delete_cluster(cn))
+                row.pack_start(btn_del, False, False, 0)
+                saved_box.pack_start(row, False, False, 0)
+
+            saved_frame.add(saved_box)
+            area.pack_start(saved_frame, False, False, 0)
+
+        # ── Descrizione ──────────────────────────────────────────
+        desc = Gtk.Label()
+        desc.set_markup(f"<small>{t('cluster.pick_multi_desc')}</small>")
+        desc.set_xalign(0.0); desc.set_line_wrap(True)
+        desc.set_margin_top(4)
+        area.pack_start(desc, False, False, 0)
+
+        # ── Ricerca ──────────────────────────────────────────────
+        search = Gtk.SearchEntry()
+        search.set_placeholder_text(t("sidebar.search_placeholder"))
+        search.set_margin_top(4)
+        area.pack_start(search, False, False, 0)
+
+        # ── Lista sessioni ───────────────────────────────────────
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        store = Gtk.ListStore(bool, str, str, str, int)
+        self._store = store
+        self._tree = Gtk.TreeView(model=store)
+        self._tree.set_headers_visible(True)
+
+        col_sel = Gtk.TreeViewColumn("")
+        cell_toggle = Gtk.CellRendererToggle()
+        cell_toggle.connect("toggled", self._on_toggle, store)
+        col_sel.pack_start(cell_toggle, False)
+        col_sel.add_attribute(cell_toggle, "active", 0)
+        self._tree.append_column(col_sel)
+
+        for title, idx, expand in [(t("sd.session_name"), 1, True),
+                                    (t("sd.protocol"), 2, False),
+                                    (t("sd.host"), 3, True)]:
+            cell = Gtk.CellRendererText()
+            col = Gtk.TreeViewColumn(title, cell, text=idx)
+            col.set_expand(expand)
+            self._tree.append_column(col)
+
+        self._all_items: list[dict] = []
+        for nome, dati in sorted(profili.items()):
+            proto = protocols.PROTO_LABEL.get(dati.get("protocol", ""), dati.get("protocol", ""))
+            host = dati.get("host", "")
+            self._all_items.append({"nome": nome, "proto": proto, "host": host, "idx": len(self._all_items)})
+
+        self._lbl_count = Gtk.Label()
+
+        self._rebuild = lambda f="": self._do_rebuild(f)
+        self._rebuild()
+        search.connect("search-changed", lambda e: self._rebuild(e.get_text()))
+
+        self._tree.connect("row-activated", self._on_row_activated)
+        sw.add(self._tree)
+        area.pack_start(sw, True, True, 0)
+
+        # ── Barra inferiore: contatore + Salva ──────────────────
+        bottom = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        bottom.set_margin_top(4)
+
+        bottom.pack_start(self._lbl_count, True, True, 0)
+        self._update_count()
+
+        btn_save = Gtk.Button(label=t("cluster.save_btn"))
+        btn_save.set_tooltip_text(t("cluster.save_btn_tt"))
+        btn_save.connect("clicked", lambda b: self._save_current_cluster())
+        bottom.pack_start(btn_save, False, False, 0)
+
+        area.pack_start(bottom, False, False, 0)
+
+        self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        self.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+
+    def _on_toggle(self, cell, path, store):
+        store[path][0] = not store[path][0]
+        self._update_count()
+
+    def _on_row_activated(self, tree, path, column):
+        if column is not None:
+            self.response(Gtk.ResponseType.OK)
+
+    def _do_rebuild(self, filtro: str):
+        self._store.clear()
+        f = filtro.strip().lower()
+        for item in self._all_items:
+            if f and f not in item["nome"].lower() and f not in item["host"].lower():
+                continue
+            self._store.append([False, item["nome"], item["proto"], item["host"], item["idx"]])
+        self._update_count()
+
+    def _update_count(self):
+        n = sum(1 for row in self._store if row[0])
+        if n == 0:
+            self._lbl_count.set_markup(
+                f"<small><span foreground='#888'>{t('cluster.sel_none')}</span></small>")
+        else:
+            self._lbl_count.set_markup(
+                f"<small><b>{t('cluster.sel_count', n=n)}</b></small>  "
+                f"<small><span foreground='#888'>{t('cluster.sel_hint')}</span></small>")
+
+    def get_selected(self) -> list[str]:
+        return [row[1] for row in self._store if row[0]]
+
+    def _load_cluster(self, cname: str):
+        cdata = self._saved_clusters.get(cname, {})
+        sessions = cdata.get("sessions", [])
+        for row in self._store:
+            if row[1] in sessions:
+                row[0] = True
+        self._update_count()
+
+    def _delete_cluster(self, cname: str):
+        dlg = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=t("cluster.delete_confirm", name=cname))
+        resp = dlg.run()
+        dlg.destroy()
+        if resp == Gtk.ResponseType.YES:
+            s = config_manager.load_settings()
+            s.get("saved_clusters", {}).pop(cname, None)
+            config_manager.save_settings(s)
+            self._saved_clusters.pop(cname, None)
+            self._warn_info(t("cluster.deleted", name=cname))
+
+    def _save_current_cluster(self):
+        selected = self.get_selected()
+        if not selected:
+            self._warn_info(t("cluster.save_no_sel"))
+            return
+        dlg = Gtk.Dialog(
+            title=t("cluster.save_title"),
+            transient_for=self, modal=True, destroy_with_parent=True,
+        )
+        dlg.set_default_size(350, -1)
+        area = dlg.get_content_area()
+        area.set_spacing(6); area.set_margin_start(12); area.set_margin_end(12)
+        area.set_margin_top(10); area.set_margin_bottom(6)
+        lbl = Gtk.Label(label=t("cluster.save_name_lbl"))
+        lbl.set_xalign(0.0)
+        area.pack_start(lbl, False, False, 0)
+        entry = Gtk.Entry()
+        entry.set_placeholder_text(t("cluster.save_ph"))
+        entry.set_activates_default(True)
+        area.pack_start(entry, False, False, 0)
+        area.show_all()
+        dlg.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        resp = dlg.run()
+        nome = entry.get_text().strip()
+        dlg.destroy()
+        if resp == Gtk.ResponseType.OK and nome:
+            s = config_manager.load_settings()
+            clusters = s.get("saved_clusters", {})
+            clusters[nome] = {"sessions": selected}
+            s["saved_clusters"] = clusters
+            config_manager.save_settings(s)
+            self._saved_clusters = clusters
+            self._warn_info(t("cluster.saved_ok", name=nome))
+
+    def _warn_info(self, msg: str):
+        dlg = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK, text=msg)
+        dlg.run(); dlg.destroy()
+
+    def run(self):
+        self.show_all()
+        return super().run()
+
+    def run(self):
+        self.show_all()
+        return super().run()
+
 
 class _DialogApriFileTransfer(Gtk.Dialog):
     """Dialog che pre-compila host/credenziali da una sessione SSH e chiede il protocollo FT."""

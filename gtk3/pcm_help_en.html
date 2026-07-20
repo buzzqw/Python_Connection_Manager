@@ -349,6 +349,8 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#advanced">⚙ Advanced</a>
+  <a href="#highlight">🎨 Syntax Highlight</a>
+  <a href="#cluster">🖧 Cluster</a>
   <a href="#monitor">📊 SSH Monitor</a>
   <a href="#keys">⌨ Shortcuts</a>
   <a href="#settings">🛠 Settings</a>
@@ -417,7 +419,8 @@
 <ul>
   <li>Select protocol from the drop-down menu (SSH, Telnet, Mosh, Serial…)</li>
   <li>Enter <code>user@host:port</code> (port is optional, uses default)</li>
-  <li>Press <kbd>Enter</kbd> or click ▶ to connect</li>
+  <li>Expand <b>Advanced options</b> for protocol-specific fields: SSH key, RDP fullscreen, VNC internal viewer, serial device/baud, exec command</li>
+  <li>Click <b>Connect</b></li>
 </ul>
 
 <h3>Tabs (Notebook)</h3>
@@ -463,9 +466,18 @@
 <div class="step"><div class="step-num">5</div><div class="step-text"><b>Terminal</b> tab: color theme, font, size, <b>startup command</b>, <b>local pre-connection command</b>, output log.</div></div>
 <div class="step"><div class="step-num">6</div><div class="step-text"><b>⚙ Advanced</b> tab: keepalive, X11 forwarding, compression, jump host, open mode, external terminal selector.</div></div>
 <div class="step"><div class="step-num">7</div><div class="step-text"><b>⚡ Macros</b> tab: define quick commands sendable with one click from the session panel.</div></div>
-<div class="step"><div class="step-num">8</div><div class="step-text"><b>📊 Panels</b> tab (SSH, VNC Linux, RDP Windows): enables the right info panel and SFTP side browser. For SSH and VNC Linux: CPU/RAM, processes, disk, network, log streaming. For RDP Windows: PowerShell-based panel via OpenSSH. Each section is individually activatable.</div></div>
-<div class="step"><div class="step-num">9</div><div class="step-text"><b>📝 Notes</b> tab: free text field for annotations, procedures, useful links.</div></div>
-<div class="step"><div class="step-num">10</div><div class="step-text">Click <b>OK</b> — the session is saved and the connection opens immediately.</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-text"><b>🤖 Expect</b> tab: prompt automation rules — PCM automatically sends commands when patterns appear in the terminal (e.g. sudo password, multi-step login, SSH chaining).</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-text"><b>📊 Panels</b> tab (SSH, VNC Linux, RDP Windows): enables the right info panel and SFTP side browser.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-text"><b>📝 Notes</b> tab: free text field for annotations.</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-text">Choose the button:
+  <ul>
+    <li><b>Connect</b> — opens the connection <b>without saving</b> (ad-hoc)</li>
+    <li><b>Save and Connect</b> — saves the session and opens it immediately</li>
+    <li><b>Save</b> — saves and stays in the form for further editing</li>
+    <li><b>Save and Exit</b> — saves and closes the dialog</li>
+  </ul>
+</div></div>
+<div class="tip">💡 At the bottom of the Connection tab there's a <b>Command preview</b>: it shows the shell command that will be executed in real time as you fill in the fields. Useful to verify that advanced options (X11, compression, jump host…) were interpreted correctly.</div>
 
 <h3>Groups</h3>
 <p>Sessions are organized in groups (folders). You can:</p>
@@ -711,6 +723,23 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   <tr><td>Zenburn</td><td><code>#3f3f3f</code></td><td>Muted colors, great for long sessions</td></tr>
 </table>
 
+<div class="new-feature">
+  <div class="nf-title">🎨 Syntax Highlighting</div>
+  <p>PCM can automatically highlight patterns in terminal text with different colors. Toggle on/off with <b>right-click in terminal → Syntax Highlighting</b>.</p>
+  <ul>
+    <li><b>Errors</b> — red: <code>ERROR</code>, <code>FAILED</code>, <code>permission denied</code>, segfaults</li>
+    <li><b>Warnings</b> — orange: <code>WARNING</code>, <code>deprecated</code>, <code>timeout</code></li>
+    <li><b>Success</b> — green: <code>SUCCESS</code>, <code>OK</code>, <code>connected</code></li>
+    <li><b>IP addresses</b> — blue: IPv4 and IPv6</li>
+    <li><b>URLs</b> — purple: <code>https://</code>, <code>ftp://</code></li>
+    <li><b>Paths</b> — cyan: Unix file paths</li>
+    <li><b>Timestamps</b> — gray: date/time in various formats</li>
+    <li><b>Numbers</b> — magenta: large numbers and hex</li>
+    <li><b>Keywords</b> — gold: <code>killed</code>, <code>listening</code>, <code>spawn</code></li>
+  </ul>
+  <p>Uses VTE's native regex engine — zero overhead on typing. Perfect for log analysis, build output, and monitoring.</p>
+</div>
+
 <h3>Search in terminal output</h3>
 <ul>
   <li><kbd>Ctrl</kbd>+<kbd>F</kbd> in the active terminal — opens the search bar</li>
@@ -877,6 +906,33 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   </div>
 </div>
 
+<div class="new-feature">
+  <div class="nf-title">🤖 Expect scripting</div>
+  <p>Automatically <b>send commands</b> when specific patterns appear in the terminal. Perfect for automating multi-step logins, sudo, SSH chaining, and any interactive procedure.</p>
+  <p>In the session dialog, <b>Expect</b> tab (between Macros and Notes):</p>
+  <table>
+    <tr><th>Column</th><th>Description</th><th>Example</th></tr>
+    <tr><td><b>Pattern (regex)</b></td><td>Regular expression to match</td><td><code>\[sudo\] password for</code></td></tr>
+    <tr><td><b>Command</b></td><td>Text to send when matched</td><td><code>mypassword</code></td></tr>
+    <tr><td><b>Max #</b></td><td>Maximum trigger count</td><td><code>1</code></td></tr>
+    <tr><td><b>Delay</b></td><td>Wait seconds before sending</td><td><code>0.5</code></td></tr>
+  </table>
+  <p><b>Practical example — SSH multihop with sudo:</b></p>
+  <pre>
+<span class="cm"># Rule 1: after SSH login, run sudo</span>
+Pattern:  <span class="kw">user@server</span>.*\$ 
+Command:  <span class="str">sudo su -</span>
+
+<span class="cm"># Rule 2: respond to sudo prompt</span>
+Pattern:  <span class="kw">\[sudo\] password</span>
+Command:  <span class="str">mypassword</span>
+
+<span class="cm"># Rule 3: once root, go to work directory</span>
+Pattern:  <span class="kw">root@server</span>.*\#
+Command:  <span class="str">cd /var/log &amp;&amp; tail -f syslog</span>
+</pre>
+</div>
+
 <h3>Local pre-connection command</h3>
 <p>Run a shell command on <b>your PC</b> before PCM opens the remote connection. Ideal for activating VPN, mounting volumes, or any preparatory local operation.</p>
 <p>In the session edit dialog, <b>Terminal</b> tab:</p>
@@ -976,6 +1032,27 @@ Useful during screen sharing or presentations. Does not modify saved data.</p>
       <li><code>df -h</code> — check space on all servers</li>
     </ul>
   </div>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">🖧 Cluster Connections</div>
+  <p>Open the <b>same session on multiple hosts simultaneously</b>. Ideal for managing groups of identical servers (clusters, farms, nodes).</p>
+  <p><b>Two ways to activate:</b></p>
+  <ul>
+    <li><b>Toolbar</b> — 🖧 button (network-workgroup) → pick session → enter hosts</li>
+    <li><b>Sidebar</b> — right-click a session → <b>Connect to cluster…</b></li>
+  </ul>
+  <p><b>Cluster dialog:</b></p>
+  <ul>
+    <li>Enter hosts <b>ONE PER LINE</b>. Specify ports with <code>host:port</code> (e.g. <code>db-node:2222</code>)</li>
+    <li>Lines starting with <code>#</code> are ignored</li>
+    <li>Live counter: shows how many hosts will be connected</li>
+    <li><b>Keep same user</b> — use session username for all hosts</li>
+    <li><b>Keep same port</b> — ignore <code>:port</code> in hosts, use session port</li>
+    <li><b>Delay between connections</b> — useful to avoid SSH server rate limiting</li>
+    <li><b>Enable broadcast</b> — opens broadcast window after connections to send commands to all</li>
+  </ul>
+  <div class="tip">💡 Combine Cluster + Broadcast + Expect for automatic provisioning: connect all nodes, broadcast sends commands to all, Expect handles interactive prompts.</div>
 </div>
 
 <h3>Reachability check</h3>

@@ -378,6 +378,8 @@
   <a href="#sftp">📁 SFTP/FTP</a>
   <a href="#tunnel">🔀 Tunnel</a>
   <a href="#avanzate">⚙ Avanzate</a>
+  <a href="#highlight">🎨 Syntax Highlight</a>
+  <a href="#cluster">🖧 Cluster</a>
   <a href="#monitor">📊 Monitor SSH</a>
   <a href="#tasti">⌨ Tasti</a>
   <a href="#impostazioni">🛠 Impostazioni</a>
@@ -434,15 +436,21 @@
 </ul>
 
 <h3>Quick Connect</h3>
-<p>Connessioni istantanee senza salvare un profilo:</p>
+<p>Connessioni istantanee senza salvare un profilo. Apri da toolbar (⚡) o <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd>.</p>
 <ol>
-  <li>Scegli il protocollo (SSH, Telnet, SFTP, FTP, RDP, VNC)</li>
-  <li>Digita la destinazione: <code>utente@host:porta</code> oppure solo <code>host</code></li>
-  <li>Premi <kbd>Invio</kbd> o clicca <b>▶ Connetti</b></li>
+  <li>Scegli il protocollo — la porta si aggiorna automaticamente</li>
+  <li>Digita host, utente e password</li>
+  <li>Espandi <b>Opzioni avanzate</b> per campi specifici del protocollo:
+    <ul>
+      <li><b>SSH/SFTP</b> — chiave privata</li>
+      <li><b>RDP</b> — schermo intero</li>
+      <li><b>VNC</b> — viewer interno (gtk-vnc)</li>
+      <li><b>Seriale</b> — device e baud rate</li>
+      <li><b>Exec</b> — comando da eseguire</li>
+    </ul>
+  </li>
+  <li>Clicca <b>Connetti</b></li>
 </ol>
-<div class="tip">
-  💡 La Quick Connect chiede le credenziali al volo se non specificate. Il formato <code>utente@host:2222</code> imposta utente e porta in un colpo solo.
-</div>
 
 <h3>Sidebar sessioni</h3>
 <ul>
@@ -500,14 +508,24 @@
   Tab <b>⚡ Macro</b>: definisci comandi rapidi inviabili con un clic dal pannello sessioni.
 </div></div>
 <div class="step"><div class="step-num">9</div><div class="step-text">
-  Tab <b>📊 Pannelli</b> (SSH, VNC Linux, RDP Windows): abilita il pannello informazioni laterale destro e il browser SFTP laterale. Per SSH e VNC Linux sono disponibili CPU/RAM, processi, disco, rete, log streaming. Per RDP Windows il pannello usa PowerShell via OpenSSH (tab Log nascosto). Ogni sezione è attivabile individualmente.
+  Tab <b>🤖 Expect</b>: regole di automazione prompt — PCM invia automaticamente comandi quando compaiono pattern nel terminale (es. password sudo, login multi-step, SSH a catena).
 </div></div>
 <div class="step"><div class="step-num">10</div><div class="step-text">
-  Tab <b>📝 Note</b>: campo testo libero per annotazioni, procedure, link utili.
+  Tab <b>📊 Pannelli</b> (SSH, VNC Linux, RDP Windows): abilita il pannello informazioni laterale destro e il browser SFTP laterale.
 </div></div>
 <div class="step"><div class="step-num">11</div><div class="step-text">
-  Clicca <b>OK</b> — la sessione viene salvata e la connessione si apre immediatamente.
+  Tab <b>📝 Note</b>: campo testo libero per annotazioni.
 </div></div>
+<div class="step"><div class="step-num">12</div><div class="step-text">
+  Scegli il pulsante:
+  <ul>
+    <li><b>Connetti</b> — apre la connessione <b>senza salvare</b> (ad-hoc)</li>
+    <li><b>Salva e Connetti</b> — salva la sessione e la apre subito</li>
+    <li><b>Salva</b> — salva e resta nel form per continuare a modificare</li>
+    <li><b>Salva ed Esci</b> — salva e chiude il dialog</li>
+  </ul>
+</div></div>
+<div class="tip">💡 In fondo al tab Connessione c'è l'<b>Anteprima comando</b>: mostra in tempo reale il comando shell che verrà eseguito, mentre compili i campi. Utile per verificare che le opzioni avanzate (X11, compressione, jump host…) siano state interpretate correttamente.</div>
 
 <h3>Menu contestuale sessione (tasto destro)</h3>
 <ul>
@@ -778,6 +796,23 @@ ssh altro-server                           <span class="cm"># autenticazione tra
   <tr><td>Zenburn</td><td><code>#3f3f3f</code></td><td>Colori smorzati, ottimo per sessioni lunghe</td></tr>
 </table>
 
+<div class="new-feature">
+  <div class="nf-title">🎨 Syntax Highlighting nel terminale</div>
+  <p>PCM può evidenziare automaticamente pattern nel testo del terminale con colori diversi. Abilitabile/disabilitabile con <b>tasto destro nel terminale → Syntax Highlighting</b>.</p>
+  <ul>
+    <li><b>Errori</b> — rossi: <code>ERROR</code>, <code>FAILED</code>, <code>permission denied</code>, <code>connection refused</code>, segfault</li>
+    <li><b>Warning</b> — arancioni: <code>WARNING</code>, <code>deprecated</code>, <code>timeout</code></li>
+    <li><b>Successi</b> — verdi: <code>SUCCESS</code>, <code>OK</code>, <code>connected</code>, <code>authenticated</code></li>
+    <li><b>Indirizzi IP</b> — blu: IPv4 e IPv6</li>
+    <li><b>URL</b> — viola: <code>https://</code>, <code>ftp://</code></li>
+    <li><b>Path</b> — ciano: percorsi file Unix (<code>/var/log/...</code>)</li>
+    <li><b>Timestamp</b> — grigi: date/ora in vari formati</li>
+    <li><b>Numeri</b> — porpora: numeri grandi e esadecimali</li>
+    <li><b>Keyword</b> — oro: <code>killed</code>, <code>starting</code>, <code>listening</code>, <code>spawn</code></li>
+  </ul>
+  <p>Usa il motore regex nativo di VTE — nessun overhead sulla digitazione. Perfetto per analizzare log, output di compilazione e monitoraggio.</p>
+</div>
+
 <h3>Ricerca nell'output del terminale</h3>
 <p>Usa <kbd>Ctrl</kbd>+<kbd>F</kbd> nel terminale attivo per aprire la barra di ricerca. La ricerca scorre il contenuto visibile e il buffer scrollback di VTE.</p>
 <ul>
@@ -1036,6 +1071,34 @@ Permette di salvare comandi riutilizzabili globali con nome e categoria.</p>
   </div>
 </div>
 
+<div class="new-feature">
+  <div class="nf-title">🤖 Expect scripting — automazione prompt</div>
+  <p>Invia <b>automaticamente</b> comandi quando compaiono pattern specifici nel terminale. Utile per automatizzare login multi-step, sudo, SSH a catena e qualsiasi procedura interattiva.</p>
+  <p>Nel dialog di modifica sessione, tab <b>Expect</b> (tra Macro e Note):</p>
+  <table>
+    <tr><th>Colonna</th><th>Descrizione</th><th>Esempio</th></tr>
+    <tr><td><b>Pattern (regex)</b></td><td>Espressione regolare da cercare nel terminale</td><td><code>\[sudo\] password for</code></td></tr>
+    <tr><td><b>Comando</b></td><td>Testo da inviare quando il pattern matcha</td><td><code>miapassword</code></td></tr>
+    <tr><td><b>Max #</b></td><td>Numero massimo di volte che il comando viene inviato</td><td><code>1</code></td></tr>
+    <tr><td><b>Ritardo</b></td><td>Secondi di attesa prima di inviare (evita race condition)</td><td><code>0.5</code></td></tr>
+  </table>
+  <p><b>Esempio pratico — SSH multihop con sudo:</b></p>
+  <pre>
+<span class="cm"># Regola 1: dopo il login SSH, fai sudo</span>
+Pattern:  <span class="kw">user@server</span>.*\$ 
+Comando:  <span class="str">sudo su -</span>
+
+<span class="cm"># Regola 2: rispondi al prompt sudo</span>
+Pattern:  <span class="kw">\[sudo\] password</span>
+Comando:  <span class="str">miapassword</span>
+
+<span class="cm"># Regola 3: una volta root, vai nella cartella di lavoro</span>
+Pattern:  <span class="kw">root@server</span>.*\#
+Comando:  <span class="str">cd /var/log &amp;&amp; tail -f syslog</span>
+</pre>
+  <div class="tip">💡 Le regole Expect sono integrate con l'auto-reconnect: se la connessione cade e si riconnette, le regole vengono riapplicate automaticamente.</div>
+</div>
+
 <h3>Comando pre-connessione locale</h3>
 <p>Esegui un comando shell sul <b>tuo PC</b> prima che PCM apra la connessione remota. Ideale per attivare VPN, montare volumi o qualsiasi operazione locale preparatoria.</p>
 <p>Nel dialog di modifica sessione, tab <b>Terminale</b>:</p>
@@ -1123,6 +1186,27 @@ bash -c '<span class="kw">pre-cmd</span> &amp;&amp; <span class="str">echo "Pre-
       <li><code>df -h</code> — controlla spazio su tutti i server</li>
     </ul>
   </div>
+</div>
+
+<div class="new-feature">
+  <div class="nf-title">🖧 Connessioni Cluster</div>
+  <p>Apri la <b>stessa sessione su più host contemporaneamente</b>. Ideale per amministrare gruppi di server identici (cluster, farm, nodi).</p>
+  <p><b>Due modi per attivarlo:</b></p>
+  <ul>
+    <li><b>Toolbar</b> — pulsante 🖧 (network-workgroup) → scegli la sessione dal selettore → inserisci gli host</li>
+    <li><b>Sidebar</b> — tasto destro su una sessione → <b>Connetti a cluster…</b></li>
+  </ul>
+  <p><b>Dialog cluster:</b></p>
+  <ul>
+    <li>Inserisci gli host <b>UNO PER RIGA</b>. Puoi specificare porte con <code>host:porta</code> (es. <code>db-node:2222</code>)</li>
+    <li>Righe che iniziano con <code>#</code> vengono ignorate</li>
+    <li>Contatore live: mostra quanti host verranno connessi</li>
+    <li><b>Mantieni stesso utente</b> — usa l'utente della sessione per tutti gli host</li>
+    <li><b>Mantieni stessa porta</b> — ignora <code>:porta</code> negli host e usa la porta della sessione</li>
+    <li><b>Ritardo tra connessioni</b> — utile per non sovraccaricare il server SSH (es. 30 connessioni in 1 secondo potrebbero triggerare rate limiting)</li>
+    <li><b>Attiva broadcast</b> — apre automaticamente la finestra broadcast dopo le connessioni per inviare comandi a tutti</li>
+  </ul>
+  <div class="tip">💡 Combina Cluster + Broadcast + Expect per provisioning automatico: connetti tutti i nodi, il broadcast invia i comandi a tutti, Expect gestisce i prompt interattivi.</div>
 </div>
 
 <h3>Verifica raggiungibilità</h3>

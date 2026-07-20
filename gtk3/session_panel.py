@@ -17,6 +17,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, Pango, GLib
 
 import config_manager
+import protocols
 from translations import t
 
 _HERE  = os.path.dirname(os.path.abspath(__file__))
@@ -33,24 +34,11 @@ def _load_pixbuf(filename: str, size: int = 16) -> GdkPixbuf.Pixbuf | None:
         return None
 
 
-PROTO_COLOR = {
-    "ssh":    "#4ec9b0", "telnet": "#c9b458", "sftp":   "#6ab187",
-    "ftp":    "#b87a00", "rdp":    "#0078d4", "vnc":    "#e8a020",
-    "mosh":   "#5aadad", "serial": "#888888", "exec":   "#c586c0",
-    "file_transfer": "#6ab187",
-}
-PROTO_ICON_FILE = {
-    "ssh":    "ssh.png",    "telnet": "network.png", "sftp":  "folder.png",
-    "ftp":    "folder.png", "rdp":    "monitor.png", "vnc":   "vnc.png",
-    "mosh":   "flash.png",  "serial": "cable.png",   "exec":  "flash.png",
-    "file_transfer": "folder.png",
-}
-PROTO_LABEL = {
-    "ssh": "SSH", "telnet": "Telnet", "sftp": "SFTP",
-    "ftp": "FTP", "rdp": "RDP",       "vnc":  "VNC",
-    "mosh": "Mosh", "serial": "Seriale", "exec": "Exec",
-    "file_transfer": "FTP/SFTP",
-}
+PROTO_COLOR = protocols.PROTO_COLOR
+PROTO_ICON_FILE = protocols.PROTO_ICON_FILE
+PROTO_LABEL = {k: v for k, v in protocols.PROTO_LABEL.items()}
+# Aggiungi chiavi legacy per backward compat nella sidebar
+PROTO_LABEL.update({"sftp": "SFTP", "ftp": "FTP"})
 
 
 class SessionPanel(Gtk.Box):
@@ -66,6 +54,7 @@ class SessionPanel(Gtk.Box):
         "apri-log":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-monitor": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-cron":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "apri-cluster": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -319,6 +308,9 @@ class SessionPanel(Gtk.Box):
             _item(t("panel.apri_log"),     lambda: self.emit("apri-log",     nome, dati))
             _item(t("panel.apri_monitor"), lambda: self.emit("apri-monitor", nome, dati))
             _item(t("panel.apri_cron"),    lambda: self.emit("apri-cron",    nome, dati))
+
+        if proto in ("ssh", "telnet", "mosh", "rdp", "vnc", "file_transfer"):
+            _item(t("panel.apri_cluster"), lambda: self.emit("apri-cluster", nome, dati))
 
         host = dati.get("host", "")
         if host and proto not in ("serial", "exec"):
