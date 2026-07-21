@@ -31,7 +31,7 @@
 | | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
 |---|---|---|---|---|---|
 | SSH with integrated terminal | ✅ Native VTE | ✅ | ❌ RDP/VNC only | ✅ xterm | ✅ |
-| RDP + VNC + SSH + FTP in one tool | ✅ | ✅ | partial | ✅ | ✅ |
+| RDP + VNC + SSH + FTP + Cloud in one tool | ✅ | ✅ | partial | ✅ | ✅ |
 | Integrated SFTP/FTP browser | ✅ dual-pane | ✅ dual-pane | ❌ | partial | ❌ |
 | Directory sync local↔remote | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Graphical SSH tunnels | ✅ | ✅ | ❌ | ✅ | ❌ |
@@ -41,6 +41,14 @@
 | Native Wayland (no XWayland) | ✅ | ❌ Windows only | partial | ❌ | ❌ Linux |
 | Password NEVER on command line | ✅ autotyped into terminal | ✅ | ❌ | ⚠️ expect | — |
 | Session restore on startup | ✅ | ✅ | ❌ | partial | ❌ |
+| TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Template inheritance | ✅ | ❌ | ❌ | ❌ | ❌ |
+| SSH gateway (jump for ALL protocols) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Plugin architecture | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
+| Cloud protocols (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
+| SPICE / KVM | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
+| Tags + filter | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Password generator | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Command line launch (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Human-readable config | ✅ JSON | ❌ proprietary | complex XML | YAML | XML |
 | Platform | Linux / FreeBSD | Windows only | Linux | Linux | Windows |
@@ -50,7 +58,9 @@
 
 ## Supported protocols
 
-**SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Serial · Exec · SSH Tunnel**
+**SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Serial · Exec · SSH Tunnel · SPICE · AWS SSM · Kubectl · Docker**
+
+> **Plugin system**: new protocols can be added without modifying PCM. Built-in plugins for AWS SSM, kubectl exec, Docker containers, and SPICE (KVM/QEMU) are included. Community plugins go in `~/.local/share/pcm/plugins/`.
 
 ---
 
@@ -70,6 +80,12 @@
 | **Serial** | Internal VTE tab | Baud, parity, stop bits configurable |
 | **Exec** | Internal VTE tab | Any shell command in a tab |
 | **SSH Tunnel** | Background, managed graphically | SOCKS -D, local -L, remote -R |
+| **SPICE** | External client (spicy/remote-viewer) | KVM/QEMU virtual machines, TLS support |
+| **AWS SSM** | Internal VTE tab | Connect to EC2 without SSH open ports, region/profile configurable |
+| **Kubectl Exec** | Internal VTE tab | Direct shell into Kubernetes pods, namespace/container selectable |
+| **Docker Container** | Internal VTE tab | Exec or attach to running containers |
+
+> **Plugin system**: these cloud/VM protocols are implemented as built-in plugins. Install additional community plugins in `~/.local/share/pcm/plugins/` to add more protocols without touching PCM's code.
 
 ### 🔐 Security — above average
 
@@ -83,6 +99,8 @@
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.
+- **TOTP / 2FA** — built-in TOTP generator (RFC 6238). Stores the secret in the session profile, generates the current OTP code automatically, and types it into the terminal after the password — no phone needed. Supports Google Authenticator / Authy compatible secrets and `otpauth://` URIs.
+- **Password generator** — 🎲 button next to the password field in the session dialog: generates random passwords at 4 security levels (16/20/32/48 characters) or memorable passphrases (4 words + number). Includes a strength checker that estimates entropy in bits.
 
 ### 📊 SSH / VNC / RDP info panel (right sidebar)
 
@@ -122,11 +140,14 @@ Each section can be individually enabled or disabled per session.
 ### 📁 Session management
 
 - Organized by **group** with live search bar
+- **Tag system** — assign multiple tags (e.g. `prod, database, critical`) and filter by tag with the combobox below the search bar
+- **Template inheritance** — mark a session as template, then create child sessions that inherit all settings (overridable per session)
 - **Active session indicator** — green dot ● next to session names with an open connection
 - **Recent sessions** section at the top of the sidebar: last 20 sessions with timestamps
 - **Quick Connect**: `user@host:port` from the toolbar — connects without saving a profile
 - Double-click to connect, right-click for rich context menu on both the **session list** and the **open tab** — including "View logs…" and "System monitor…" for SSH sessions
 - **TCP Ping** from the sidebar — checks reachability on the configured port (ms)
+- **SSH gateway** — configure a jump host on RDP, VNC, FTP, or any non-SSH session; PCM establishes an SSH tunnel automatically and forwards the connection through it
 - **Session restore** — optionally save open sessions on close and reopen them automatically at the next startup (Settings → General)
 - Duplicate, edit, delete, export `.sh` script to reopen from terminal
 - **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
@@ -394,6 +415,10 @@ sudo pkg install \
 | `wakeonlan` / `wol` | Wake-on-LAN |
 | `keepassxc` | KeePassXC integration |
 | `pynacl` | KeePassXC Browser Protocol v2 encryption |
+| `awscli` + `session-manager-plugin` | AWS SSM plugin |
+| `kubectl` | Kubectl Exec plugin |
+| `docker` | Docker Container plugin |
+| `spicy` / `remote-viewer` / `virt-viewer` | SPICE plugin (KVM/QEMU) |
 
 ---
 
@@ -412,8 +437,10 @@ The `gtk-vnc` VNC viewer works natively on Wayland.
 | File | Contents |
 |---|---|
 | `gtk3/connections.json` | Session profiles — human-readable JSON, editable by hand. Permissions `0600`. |
-| `gtk3/pcm_settings.json` | Global settings, shortcuts, recent sessions. Permissions `0600`. |
+| `gtk3/pcm_settings.json` | Global settings, shortcuts, recent sessions, snippets, variables, credentials, custom tools. Permissions `0600`. |
 | `gtk3/audit_log.json` | Connection audit log with SHA-256 hash chaining. Permissions `0600`. |
+| `gtk3/plugins/builtins/` | Built-in protocol plugins (AWS SSM, kubectl, Docker, SPICE) |
+| `~/.local/share/pcm/plugins/` | User-installed community plugins |
 | `~/.local/share/pcm/logs/` | Terminal output logs (default), path configurable |
 | `~/.cache/pcm/` | SSH_ASKPASS temp files (dir `0700`, deleted after 5s) |
 
@@ -464,7 +491,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
 |---|---|---|---|---|---|
 | SSH con terminale integrato | ✅ VTE nativo | ✅ | ❌ solo RDP/VNC | ✅ xterm | ✅ |
-| RDP + VNC + SSH + FTP in un tool | ✅ | ✅ | parziale | ✅ | ✅ |
+| RDP + VNC + SSH + FTP + Cloud in un tool | ✅ | ✅ | parziale | ✅ | ✅ |
 | Browser SFTP/FTP integrato | ✅ dual-pane | ✅ dual-pane | ❌ | parziale | ❌ |
 | Sincronizzazione directory locale↔remota | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Tunnel SSH grafici | ✅ | ✅ | ❌ | ✅ | ❌ |
@@ -474,6 +501,14 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | Wayland nativo (no XWayland) | ✅ | ❌ solo Windows | parziale | ❌ | ❌ Linux |
 | Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ✅ | ❌ | ⚠️ expect | — |
 | Ripristino sessioni all'avvio | ✅ | ✅ | ❌ | parziale | ❌ |
+| TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ereditarietà template | ✅ | ❌ | ❌ | ❌ | ❌ |
+| SSH gateway (jump per TUTTI i protocolli) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Architettura plugin | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
+| Protocolli cloud (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
+| SPICE / KVM | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
+| Tag + filtro | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Generatore password | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Avvio da riga di comando (URI) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Configurazione leggibile | ✅ JSON | ❌ proprietario | XML complesso | YAML | XML |
 | Piattaforma | Linux / FreeBSD | solo Windows | Linux | Linux | Windows |
@@ -483,7 +518,9 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 
 ## Protocolli supportati
 
-**SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec · SSH Tunnel**
+**SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec · SSH Tunnel · SPICE · AWS SSM · Kubectl · Docker**
+
+> **Sistema plugin**: nuovi protocolli possono essere aggiunti senza modificare PCM. I plugin built-in per AWS SSM, kubectl exec, container Docker e SPICE (KVM/QEMU) sono inclusi. I plugin della community vanno in `~/.local/share/pcm/plugins/`.
 
 ---
 
@@ -503,6 +540,12 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | **Seriale** | Tab VTE interno | Baud, parità, stop bit configurabili |
 | **Exec** | Tab VTE interno | Qualsiasi comando shell in una scheda |
 | **SSH Tunnel** | Background gestito graficamente | SOCKS -D, locale -L, remoto -R |
+| **SPICE** | Client esterno (spicy/remote-viewer) | Macchine virtuali KVM/QEMU, supporto TLS |
+| **AWS SSM** | Tab VTE interno | Connessione a EC2 senza porte SSH aperte, regione/profilo configurabili |
+| **Kubectl Exec** | Tab VTE interno | Shell diretta in pod Kubernetes, namespace/container selezionabili |
+| **Docker Container** | Tab VTE interno | Exec o attach su container in esecuzione |
+
+> **Sistema plugin**: questi protocolli cloud/VM sono implementati come plugin built-in. Installa plugin aggiuntivi della community in `~/.local/share/pcm/plugins/` per estendere PCM senza modificare il codice.
 
 ### 🔐 Sicurezza — sopra la media
 
@@ -516,6 +559,8 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
 - **Agent Forwarding** (`-A`): propaga le chiavi ssh-agent per hop multipli senza copiare le chiavi private.
+- **TOTP / 2FA** — generatore TOTP integrato (RFC 6238). Salva il segreto nel profilo sessione, genera il codice OTP automaticamente e lo digita nel terminale dopo la password — nessun telefono necessario. Compatibile con segreti Google Authenticator / Authy e URI `otpauth://`.
+- **Generatore password** — pulsante 🎲 accanto al campo password nel dialogo sessione: genera password casuali a 4 livelli di sicurezza (16/20/32/48 caratteri) o passphrase memorabili (4 parole + numero). Include un verificatore di robustezza che stima l'entropia in bit.
 
 ### 📊 Pannello informazioni SSH / VNC / RDP (sidebar destra)
 
@@ -555,11 +600,14 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 ### 📁 Gestione sessioni
 
 - Organizzate per **gruppo** con barra di ricerca live
+- **Sistema tag** — assegna tag multipli (es. `prod, database, critico`) e filtra per tag con il combobox sotto la barra di ricerca
+- **Ereditarietà template** — marca una sessione come template, poi crea sessioni figlie che ereditano tutte le impostazioni (con override possibile per sessione)
 - **Indicatore sessioni attive** — pallino verde ● accanto al nome delle sessioni con connessione aperta
 - **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
 - **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
 - Doppio clic per connettere, tasto destro per menu contestuale ricco sia **sull'elenco sessioni** che sui **tab aperti** — include "Visualizza log…" e "Monitor sistema…" per sessioni SSH
 - **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
+- **SSH gateway** — configura un jump host su RDP, VNC, FTP o qualsiasi sessione non-SSH; PCM stabilisce automaticamente un tunnel SSH e inoltra la connessione
 - **Ripristino sessioni** — salva opzionalmente le sessioni aperte alla chiusura e le riapre automaticamente al prossimo avvio (Impostazioni → Generale)
 - Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
 - **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
@@ -825,6 +873,10 @@ sudo pkg install \
 | `wakeonlan` / `wol` | Wake-on-LAN |
 | `keepassxc` | Integrazione KeePassXC |
 | `pynacl` | Cifratura protocollo KeePassXC Browser v2 |
+| `awscli` + `session-manager-plugin` | Plugin AWS SSM |
+| `kubectl` | Plugin Kubectl Exec |
+| `docker` | Plugin Docker Container |
+| `spicy` / `remote-viewer` / `virt-viewer` | Plugin SPICE (KVM/QEMU) |
 
 ---
 
@@ -843,8 +895,10 @@ Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 | File | Contenuto |
 |---|---|
 | `gtk3/connections.json` | Profili sessione — JSON leggibile, modificabile a mano. Permessi `0600`. |
-| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti. Permessi `0600`. |
+| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti, snippet, variabili, credenziali, tool custom. Permessi `0600`. |
 | `gtk3/audit_log.json` | Log audit connessioni con hash chaining SHA-256. Permessi `0600`. |
+| `gtk3/plugins/builtins/` | Plugin di protocollo built-in (AWS SSM, kubectl, Docker, SPICE) |
+| `~/.local/share/pcm/plugins/` | Plugin community installati dall'utente |
 | `~/.local/share/pcm/logs/` | Log output terminali (default), percorso configurabile |
 | `~/.cache/pcm/` | File temporanei SSH_ASKPASS (dir `0700`, file eliminati dopo 5s) |
 

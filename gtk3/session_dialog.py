@@ -10,13 +10,14 @@ import shutil
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, Gdk, GLib
 
 import config_manager
 import protocols
 from themes import TERMINAL_THEMES
 from translations import t
 from session_command import installed_tools as _installed_tools
+from plugins.plugin_base import pcm_dialog_pages as _plugin_dialog_pages, pcm_has_protocol as _has_plugin
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 _ICONS_DIR = os.path.join(_HERE, "icons")
@@ -158,6 +159,13 @@ class SessionDialog(Gtk.Dialog):
         self.combo_proto.connect("changed", self._on_proto_changed)
         _form_row(t("sd.protocol"), self.combo_proto, top_grid, 2)
 
+        self.combo_template = Gtk.ComboBoxText()
+        self.combo_template.append("", t("sd.template.none"))
+        self._carica_templates()
+        self.combo_template.set_tooltip_text(t("tt.template"))
+        self.combo_template.connect("changed", self._on_template_changed)
+        _form_row(t("sd.template.label"), self.combo_template, top_grid, 3)
+
         area.pack_start(top_grid, False, False, 0)
 
         # --- Notebook tab ---
@@ -172,6 +180,14 @@ class SessionDialog(Gtk.Dialog):
         self._nb.append_page(self._build_tab_macros(),      Gtk.Label(label=t("sd.tab.macros")))
         self._nb.append_page(self._build_tab_expect(),      Gtk.Label(label=t("sd.tab.expect")))
         self._nb.append_page(self._build_tab_notes(),       Gtk.Label(label=t("sd.tab.notes")))
+
+        self._plugin_nb_pages: dict[str, int] = {}
+        for proto_id in protocols.PROTOCOLS:
+            if _has_plugin(proto_id):
+                for page_name, page_widget in _plugin_dialog_pages(proto_id, self, self._dati_originali):
+                    idx = self._nb.get_n_pages()
+                    self._nb.append_page(page_widget, Gtk.Label(label=page_name))
+                    self._plugin_nb_pages.setdefault(proto_id, []).append(idx)
 
         # Pulsanti
         self.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
@@ -229,6 +245,14 @@ class SessionDialog(Gtk.Dialog):
         self.entry_password = _entry(password=True)
         self.entry_password.set_tooltip_text(t("tt.password"))
 
+        btn_gen_pwd = Gtk.Button(label="🎲")
+        btn_gen_pwd.set_tooltip_text("Genera password casuale")
+        btn_gen_pwd.set_relief(Gtk.ReliefStyle.NONE)
+        btn_gen_pwd.connect("clicked", self._on_generate_password)
+        pwd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        pwd_box.pack_start(self.entry_password, True, True, 0)
+        pwd_box.pack_start(btn_gen_pwd, False, False, 0)
+
         self._row_user_pwd = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self._row_user_pwd.set_margin_start(4); self._row_user_pwd.set_margin_end(4)
         _lbl_u = Gtk.Label(label=t("sd.user"))
@@ -238,8 +262,18 @@ class SessionDialog(Gtk.Dialog):
         self._row_user_pwd.pack_start(_lbl_u, False, False, 0)
         self._row_user_pwd.pack_start(self.entry_user, True, True, 0)
         self._row_user_pwd.pack_start(_lbl_pw, False, False, 0)
-        self._row_user_pwd.pack_start(self.entry_password, True, True, 0)
+        self._row_user_pwd.pack_start(pwd_box, True, True, 0)
         vbox.pack_start(self._row_user_pwd, False, False, 0)
+
+        self.entry_totp_secret = _entry(placeholder="JBSWY3DPEHPK3PXP (opzionale)")
+        self.entry_totp_secret.set_tooltip_text(t("tt.totp_secret"))
+        self._row_totp = self._conn_row(t("sd.totp_secret") + ":", self.entry_totp_secret)
+        vbox.pack_start(self._row_totp, False, False, 0)
+
+        self.entry_tags = _entry(placeholder="es. prod,database,critico")
+        self.entry_tags.set_tooltip_text(t("tt.tags"))
+        self._row_tags = self._conn_row(t("sd.tags") + ":", self.entry_tags)
+        vbox.pack_start(self._row_tags, False, False, 0)
 
         self.combo_credential_profile = Gtk.ComboBoxText()
         self.combo_credential_profile.append("", t("sd.cred.from_session"))
@@ -380,6 +414,10 @@ class SessionDialog(Gtk.Dialog):
         self._btn_keepass.connect("clicked", lambda b: self._on_keepass_fetch())
         self._row_keepass = self._conn_row("", self._btn_keepass)
         vbox.pack_start(self._row_keepass, False, False, 0)
+
+        self.chk_is_template = _check(t("sd.template.checkbox"))
+        self.chk_is_template.set_tooltip_text(t("tt.template_checkbox"))
+        vbox.pack_start(self.chk_is_template, False, False, 8)
 
         # ── Anteprima comando ───────────────────────────────────────────
         self._cmd_preview_frame = Gtk.Frame(label=t("sd.cmd_preview_title"))
@@ -1469,6 +1507,57 @@ class SessionDialog(Gtk.Dialog):
         for g in gruppi:
             self.combo_gruppo.append_text(g)
 
+    def _carica_templates(self):
+        try:
+            from config_manager import get_templates
+            templates = get_templates()
+            for nome in sorted(templates.keys()):
+                self.combo_template.append(nome, nome)
+        except Exception:
+            pass
+
+    def _on_template_changed(self, combo):
+        """Apply template fields when a template is selected."""
+        active = combo.get_active_text()
+        if not active or active == t("sd.template.none"):
+            return
+        try:
+            from config_manager import get_templates
+            templates = get_templates()
+            if active not in templates:
+                return
+            template = templates[active]
+
+            # Apply template fields (except name, group)
+            for field, value in template.items():
+                if field in ("group", "notes", "macros", "expect_rules", "_inherits_from"):
+                    continue
+                if field == "protocol" and hasattr(self, "combo_proto"):
+                    if value in PROTOCOLLI:
+                        self.combo_proto.set_active(PROTOCOLLI.index(value))
+                elif field == "host" and hasattr(self, "entry_host"):
+                    if not self.entry_host.get_text():
+                        self.entry_host.set_text(str(value) if value else "")
+                elif field == "port" and hasattr(self, "entry_port"):
+                    if not self.entry_port.get_text():
+                        self.entry_port.set_text(str(value) if value else "")
+                elif field == "user" and hasattr(self, "entry_user"):
+                    if not self.entry_user.get_text():
+                        self.entry_user.set_text(str(value) if value else "")
+                elif field == "password" and hasattr(self, "entry_password"):
+                    if not self.entry_password.get_text():
+                        self.entry_password.set_text(str(value) if value else "")
+                elif field == "private_key" and hasattr(self, "entry_pkey"):
+                    if not self.entry_pkey.get_text():
+                        self.entry_pkey.set_text(str(value) if value else "")
+                elif field == "totp_secret" and hasattr(self, "entry_totp_secret"):
+                    if not self.entry_totp_secret.get_text():
+                        self.entry_totp_secret.set_text(str(value) if value else "")
+
+            self._aggiorna_proto_fields()
+        except Exception:
+            pass
+
     def _on_proto_changed(self, combo):
         """Chiamato quando l'utente cambia manualmente il protocollo."""
         self._proto_changed_by_user = True
@@ -1506,6 +1595,40 @@ class SessionDialog(Gtk.Dialog):
                 self.entry_password.set_text(password)
         dlg.destroy()
 
+    def _on_generate_password(self, button):
+        """Genera una password casuale e la inserisce nel campo password."""
+        try:
+            from password_tools import generate_password, check_password_strength
+        except ImportError:
+            return
+
+        menu = Gtk.Menu()
+
+        def _gen(length, label_hint=""):
+            pwd = generate_password(length=length)
+            label = f"{label_hint} ({length} caratteri)" if label_hint else f"{length} caratteri"
+            mi = Gtk.MenuItem(label=label)
+            mi.connect("activate", lambda _: self.entry_password.set_text(pwd))
+            menu.append(mi)
+
+        _gen(16, "Standard")
+        _gen(20, "Consigliata")
+        _gen(32, "Massima")
+        _gen(48, "Paranoica")
+        menu.append(Gtk.SeparatorMenuItem())
+
+        try:
+            from password_tools import generate_passphrase
+            phrase = generate_passphrase(num_words=4)
+        except Exception:
+            phrase = "word-word-word-word99"
+        mi_pass = Gtk.MenuItem(label=f"Passphrase (4 parole)")
+        mi_pass.connect("activate", lambda _: self.entry_password.set_text(phrase))
+        menu.append(mi_pass)
+
+        menu.show_all()
+        menu.popup_at_widget(button, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
+
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
         proto = PROTOCOLLI[self.combo_proto.get_active()]
@@ -1533,9 +1656,13 @@ class SessionDialog(Gtk.Dialog):
         self._row_stop_bits.set_visible(is_serial)
         self._row_exec_cmd.set_visible(is_exec)
         self._row_keepass.set_visible(is_net and proto in ("ssh", "mosh", "telnet", "rdp", "vnc", "file_transfer"))
+        # TOTP: solo per protocolli basati su SSH (dove 2FA è comune)
+        self._row_totp.set_visible(proto in ("ssh", "mosh") or (proto == "file_transfer" and ft_proto == "SFTP"))
+        # Tags: visibile per tutti i protocolli di rete
+        self._row_tags.set_visible(is_net or proto == "exec")
 
         # Advanced frames
-        self._frame_ssh.set_visible(proto in ("ssh", "mosh", "telnet", "serial"))
+        self._frame_ssh.set_visible(proto in ("ssh", "mosh", "telnet", "serial", "rdp", "vnc"))
         self._frame_rdp.set_visible(proto == "rdp")
         self._frame_vnc.set_visible(proto == "vnc")
         self._frame_ftp.set_visible(proto == "file_transfer")
@@ -1588,6 +1715,15 @@ class SessionDialog(Gtk.Dialog):
             self.entry_tunnel_rport.set_text("")
             self.combo_tunnel_type.set_active(0)
 
+        # Plugin notebook pages: show/hide based on selected protocol
+        for plugin_proto_id, page_indices in self._plugin_nb_pages.items():
+            visible = (proto == plugin_proto_id)
+            for idx in page_indices:
+                if idx < self._nb.get_n_pages():
+                    child = self._nb.get_nth_page(idx)
+                    child.set_visible(visible)
+                    child.set_no_show_all(not visible)
+
     def _set_combo_active_text(self, combo: Gtk.ComboBoxText, text: str):
         model = combo.get_model()
         for i, row in enumerate(model):
@@ -1628,6 +1764,11 @@ class SessionDialog(Gtk.Dialog):
         self.entry_user.set_text(dati.get("user", ""))
         self.entry_password.set_text(dati.get("password", ""))
         self.entry_pkey.set_text(dati.get("private_key", ""))
+        self.entry_totp_secret.set_text(dati.get("totp_secret", ""))
+        tags_raw = dati.get("tags", "")
+        if isinstance(tags_raw, list):
+            tags_raw = ", ".join(str(t).strip() for t in tags_raw if str(t).strip())
+        self.entry_tags.set_text(tags_raw if isinstance(tags_raw, str) else "")
         self._carica_chiavi_esistenti()
 
         # Terminale
@@ -1760,6 +1901,12 @@ class SessionDialog(Gtk.Dialog):
         cred_prof = dati.get("credential_profile", "")
         self.combo_credential_profile.set_active_id(cred_prof if cred_prof else "")
 
+        # Template
+        template_name = dati.get("template_name", "")
+        if template_name:
+            self.combo_template.set_active_id(template_name)
+        self.chk_is_template.set_active(dati.get("is_template", False))
+
         # Aggiorna anteprima comando dopo popolamento
         self._schedule_cmd_preview()
 
@@ -1782,6 +1929,7 @@ class SessionDialog(Gtk.Dialog):
             "user": self.entry_user.get_text().strip(),
             "password": "••••••••" if self.entry_password.get_text() else "",
             "private_key": self.entry_pkey.get_text().strip(),
+            "totp_secret": "••••••••" if self.entry_totp_secret.get_text() else "",
             "startup_cmd": self.entry_startup_cmd.get_text().strip(),
             "jump_host": self.entry_jump_host.get_text().strip(),
             "jump_user": self.entry_jump_user.get_text().strip(),
@@ -1946,6 +2094,10 @@ class SessionDialog(Gtk.Dialog):
             "user":           self.entry_user.get_text().strip(),
             "password":       self.entry_password.get_text(),
             "private_key":    self.entry_pkey.get_text().strip(),
+            "totp_secret":    self.entry_totp_secret.get_text().strip(),
+            "tags":           self.entry_tags.get_text().strip(),
+            "is_template":    self.chk_is_template.get_active(),
+            "template_name":  self.combo_template.get_active_text() or "",
             "jump_host":      self.entry_jump_host.get_text().strip(),
             "jump_user":      self.entry_jump_user.get_text().strip(),
             "jump_port":      self.entry_jump_port.get_text().strip(),

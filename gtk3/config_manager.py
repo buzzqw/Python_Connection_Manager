@@ -57,7 +57,38 @@ def load_profiles() -> dict:
     from protocols import validate_profiles
     profili = validate_profiles(profili)
 
+    profili = _resolve_template_inheritance(profili)
+
     return profili
+
+
+def _resolve_template_inheritance(profiles: dict) -> dict:
+    """Resolve template inheritance: merge template fields into child sessions.
+
+    For each session with a valid template_name, fields from the template
+    are used as defaults. Session-specific values take priority.
+    """
+    templates = {n: d for n, d in profiles.items() if d.get("is_template")}
+    if not templates:
+        return profiles
+
+    resolved = {}
+    for name, data in profiles.items():
+        template_name = data.get("template_name", "").strip()
+        if template_name and template_name in templates:
+            merged = dict(templates[template_name])
+            merged.update(data)
+            merged["_inherits_from"] = template_name
+            resolved[name] = merged
+        else:
+            resolved[name] = data
+    return resolved
+
+
+def get_templates() -> dict:
+    """Return all sessions marked as templates."""
+    profili = load_profiles()
+    return {n: d for n, d in profili.items() if d.get("is_template")}
 
 
 def save_profiles(profiles: dict) -> bool:

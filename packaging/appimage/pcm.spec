@@ -73,6 +73,10 @@ datas.append((os.path.join(GTK3_SRC, 'icons'), 'icons'))
 for pattern in ('*.html',):
     for f in glob.glob(os.path.join(GTK3_SRC, pattern)):
         datas.append((f, '.'))
+# Plugin builtins: caricati dinamicamente, vanno inclusi come data
+_plugins_dir = os.path.join(GTK3_SRC, 'plugins', 'builtins')
+if os.path.isdir(_plugins_dir):
+    datas.append((_plugins_dir, 'plugins/builtins'))
 
 # ── Hidden imports gi ─────────────────────────────────────────────────────────
 hiddenimports += [
@@ -100,6 +104,10 @@ hiddenimports += [
     'importer', 'ftp_server_dialog', 'panel_monitor', 'sysmon_widget',
     'log_viewer', 'variables_dialog', 'deps_dialog',
     'keepassxc_manager', 'crypto_manager_dialog',
+    'cluster_dialog', 'cron_widget', 'sftp_editor',
+    'terminal_highlight', 'snippets_dialog', 'welcome_widget', 'quick_connect_dialog',
+    'protocols', 'totp_manager', 'password_tools',
+    'plugins', 'plugins.plugin_base', 'plugins.plugin_manager',
 ]
 
 a = Analysis(

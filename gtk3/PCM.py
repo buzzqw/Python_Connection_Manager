@@ -109,6 +109,7 @@ from terminal_widget import TerminalWidget
 from session_panel import SessionPanel
 from session_dialog import SessionDialog
 import protocols
+from protocols import refresh_from_plugins as _refresh_protocols
 from session_command import build_command, check_dipendenze
 from settings_dialog import SettingsDialog
 from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel, reattach_tunnels
@@ -124,6 +125,12 @@ from sftp_editor import SftpEditorWidget
 from snippets_dialog import SnippetsDialog
 from welcome_widget import WelcomeWidget
 from quick_connect_dialog import QuickConnectDialog
+from plugins.plugin_base import (
+    pcm_has_protocol, pcm_build_command, pcm_create_widget,
+    pcm_menu_items as _plugin_menu_items,
+    pcm_context_actions as _plugin_context_actions,
+)
+from plugins.plugin_manager import load_plugins as _load_plugins
 
 # ---------------------------------------------------------------------------
 # Percorso icone
@@ -184,23 +191,37 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _startup_chain(self, step: int) -> bool:
         """Esegue la catena di inizializzazione a step:
-        0: unlock crypto, 1: notifica tunnel, 2: restore sessioni, 3: stato live."""
+        0: load plugins, 1: unlock crypto, 2: notifica tunnel, 3: restore sessioni, 4: stato live."""
         if step == 0:
-            self._check_crypto_unlock()
-            GLib.timeout_add(300, self._startup_chain, 1)
+            self._load_pcm_plugins()
+            GLib.timeout_add(200, self._startup_chain, 1)
         elif step == 1:
-            self._notifica_tunnel_avvio()
-            GLib.timeout_add(500, self._startup_chain, 2)
+            self._check_crypto_unlock()
+            GLib.timeout_add(300, self._startup_chain, 2)
         elif step == 2:
-            self._ripristina_sessioni()
+            self._notifica_tunnel_avvio()
             GLib.timeout_add(500, self._startup_chain, 3)
         elif step == 3:
+            self._ripristina_sessioni()
+            GLib.timeout_add(500, self._startup_chain, 4)
+        elif step == 4:
             GLib.timeout_add(3000, self._aggiorna_stato_live)
         return False  # one-shot per ogni step
 
     # ------------------------------------------------------------------
     # Sblocco credenziali cifrate
     # ------------------------------------------------------------------
+
+    def _load_pcm_plugins(self):
+        """Carica i plugin all'avvio e aggiorna il registro protocolli."""
+        try:
+            loaded = _load_plugins()
+            if loaded:
+                _refresh_protocols()
+                self._pannello.aggiorna()
+                print(f"[PCM] {len(loaded)} plugin caricati")
+        except Exception as e:
+            print(f"[PCM] Errore caricamento plugin: {e}")
 
     def _check_crypto_unlock(self):
         """Chiamato 300ms dopo l'avvio per sbloccare le credenziali cifrate.
@@ -475,6 +496,10 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.audit"),       self._on_audit_log)
         _item(t("menu.tools.keepass"),     self._on_keepass_settings)
         menu.append(Gtk.SeparatorMenuItem())
+        for p_label, p_icon, p_callback in _plugin_menu_items():
+            _item(p_label, p_callback)
+        if _plugin_menu_items():
+            menu.append(Gtk.SeparatorMenuItem())
         _item(t("menu.tools.crypto"),      self._on_gestione_crypto)
         _item(t("menu.tools.check_deps"),  self._on_check_deps)
         menu.append(Gtk.SeparatorMenuItem())
@@ -534,11 +559,12 @@ class MainWindow(Gtk.ApplicationWindow):
         pre_cmd = dati.get("pre_cmd", "").strip()
         wol_mac = dati.get("wol_mac", "") if dati.get("wol_enabled") else ""
 
-        # Registra sessione recente
         config_manager.add_recent(nome, dati)
         self._pannello.aggiorna()
 
-        if pre_cmd or wol_mac:
+        use_gateway = self._needs_ssh_gateway(dati)
+
+        if pre_cmd or wol_mac or use_gateway:
             def _bg():
                 if pre_cmd:
                     timeout = dati.get("pre_cmd_timeout", 15)
@@ -547,15 +573,92 @@ class MainWindow(Gtk.ApplicationWindow):
                         subprocess.run(_shlex_pre.split(pre_cmd), shell=False, timeout=timeout)
                     except Exception as e:
                         GLib.idle_add(self._warn, f"Pre-cmd fallito: {e}")
+                        return
                 if wol_mac:
                     err = self._invia_wol(wol_mac, dati.get("wol_wait", 20))
                     if err:
                         GLib.idle_add(self._warn, f"WoL fallito: {err}")
+                        return
+                if use_gateway:
+                    local_port, gw_proc = self._start_ssh_gateway(dati)
+                    if local_port is None:
+                        GLib.idle_add(self._warn, "SSH gateway fallito: tunnel non stabilito")
+                        return
+                    dati = dict(dati)
+                    dati["_gateway_tunnel"] = gw_proc
+                    dati["_gateway_local_port"] = str(local_port)
                 GLib.idle_add(self._apri_protocollo, proto, nome, dati)
             threading.Thread(target=_bg, daemon=True).start()
             return
 
         self._apri_protocollo(proto, nome, dati)
+
+    def _needs_ssh_gateway(self, dati: dict) -> bool:
+        """Check if this connection needs an SSH gateway tunnel."""
+        proto = dati.get("protocol", "")
+        jump_host = dati.get("jump_host", "").strip()
+        if not jump_host:
+            return False
+        if proto in ("ssh", "mosh", "serial", "telnet", "exec"):
+            return False
+        return True
+
+    def _start_ssh_gateway(self, dati: dict) -> tuple:
+        """Start an SSH tunnel to the jump host for gateway access.
+        Returns (local_port, process) or (None, None) on failure.
+        """
+        import socket as _sock
+        import time
+
+        jump_host = dati.get("jump_host", "").strip()
+        jump_user = dati.get("jump_user", "").strip()
+        jump_port = dati.get("jump_port", "22").strip()
+        target_host = dati.get("host", "").strip()
+        target_port = dati.get("port", "").strip()
+        pkey = dati.get("private_key", "").strip()
+        pwd = dati.get("password", "")
+
+        local_port = self._find_free_port()
+        if local_port is None:
+            return None, None
+
+        ssh_exe = shutil.which("ssh") or "ssh"
+        cmd = [
+            ssh_exe, "-N", "-T",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "ServerAliveInterval=15",
+            "-o", "ExitOnForwardFailure=yes",
+            "-p", jump_port,
+        ]
+        if pkey and os.path.exists(pkey):
+            cmd.extend(["-i", pkey])
+
+        target = f"{jump_user}@{jump_host}" if jump_user else jump_host
+        cmd.extend(["-L", f"{local_port}:{target_host}:{target_port}", target])
+
+        env = os.environ.copy()
+        if pwd and not pkey:
+            env["SSH_ASKPASS"] = "true"
+            env["SSH_ASKPASS_REQUIRE"] = "force"
+
+        try:
+            proc = subprocess.Popen(
+                cmd, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env=env if pwd else None,
+            )
+            for _ in range(30):
+                time.sleep(0.1)
+                try:
+                    s = _sock.create_connection(("127.0.0.1", local_port), timeout=0.5)
+                    s.close()
+                    return local_port, proc
+                except OSError:
+                    if proc.poll() is not None:
+                        return None, None
+            return None, None
+        except Exception:
+            return None, None
 
     def apri_da_cli(self, uri: str):
         """Apre una connessione da URI passato via riga di comando.
@@ -681,7 +784,10 @@ class MainWindow(Gtk.ApplicationWindow):
         _ts_start = datetime.now()
         _status = "ok"
         try:
-            if proto in ("ssh", "telnet", "mosh", "serial", "exec"):
+            # Plugin-based protocols
+            if pcm_has_protocol(proto):
+                self._apri_protocollo_plugin(proto, nome, dati)
+            elif proto in ("ssh", "telnet", "mosh", "serial", "exec"):
                 self._apri_terminale(nome, dati)
             elif proto == "sftp" or (proto == "file_transfer" and dati.get("ft_protocol", "SFTP") == "SFTP"):
                 self._apri_sftp(nome, dati)
@@ -804,6 +910,18 @@ class MainWindow(Gtk.ApplicationWindow):
         if pwd and not pkey:
             widget.imposta_auto_password(pwd)
 
+        # TOTP / 2FA: feed_child digita il codice OTP dopo la password
+        totp_secret = dati.get("totp_secret", "").strip()
+        if totp_secret:
+            try:
+                from totp_manager import generate_totp, render_uri_to_secret
+                secret = render_uri_to_secret(totp_secret)
+                otp_code = generate_totp(secret)
+                if otp_code:
+                    widget.imposta_auto_password(otp_code)
+            except Exception:
+                pass
+
         expect_rules = dati.get("expect_rules", [])
         if expect_rules:
             widget.imposta_expect(expect_rules)
@@ -834,6 +952,45 @@ class MainWindow(Gtk.ApplicationWindow):
             widget._pcm_reconnect = _do_reconnect
             widget._pcm_reconnect_delay = delay
             _erules = expect_rules
+
+    def _apri_protocollo_plugin(self, proto: str, nome: str, dati: dict):
+        """Open a connection for a plugin-provided protocol."""
+        self._resolve_credentials(dati)
+
+        widget = pcm_create_widget(proto, dati, self)
+        if widget is not None:
+            widget._pcm_dati = dati
+            container = self._sftp_browser_paned(widget, dati)
+            container.show_all()
+            self._append_tab(container, nome, lambda: self._chiudi_tab(container))
+            return
+
+        cmd, modalita = pcm_build_command(proto, dati)
+        log_dir = dati.get("log_dir", "") if dati.get("log_output") else ""
+
+        if modalita == "embedded":
+            widget = TerminalWidget.da_profilo(dati, log_dir=log_dir)
+            widget.comando_display = nome
+            widget.comando_originale = cmd
+            widget._tipo_sessione = proto
+            widget.show_all()
+            container = self._sftp_browser_paned(widget, dati)
+            container._pcm_dati = dati
+            container.show_all()
+            self._append_tab(container, nome)
+            GLib.idle_add(widget.grab_focus)
+
+            pwd = dati.get("password", "")
+            pkey = dati.get("private_key", "").strip()
+            if pwd and not pkey:
+                widget.imposta_auto_password(pwd)
+            widget.avvia(cmd)
+            widget.connect("processo-terminato",
+                           lambda w: self._on_processo_terminato(w))
+        elif modalita == "none":
+            self._warn(f"Protocollo '{proto}' non ha comando associato.")
+        else:
+            self._warn(f"Modalità '{modalita}' non supportata per il protocollo '{proto}'.")
 
     def _apri_sftp(self, nome: str, dati: dict):
         widget = WinScpWidget(dati)
@@ -1134,8 +1291,24 @@ class MainWindow(Gtk.ApplicationWindow):
         paned.set_position(700)
         return paned
 
+    def _find_free_port(self) -> int | None:
+        """Find a free TCP port for SSH port forwarding."""
+        import socket as _sock
+        try:
+            s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+            s.close()
+            return port
+        except Exception:
+            return None
+
     def _apri_rdp(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
+        if dati.get("_gateway_local_port"):
+            dati = dict(dati)
+            dati["host"] = "127.0.0.1"
+            dati["port"] = dati["_gateway_local_port"]
         if not self._chiedi_credenziali_rdp(nome, dati):
             return
         open_mode = dati.get("rdp_open_mode", "external")
@@ -1170,6 +1343,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_vnc(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
+        if dati.get("_gateway_local_port"):
+            dati = dict(dati)
+            dati["host"] = "127.0.0.1"
+            dati["port"] = dati["_gateway_local_port"]
         sftp_enabled = dati.get("sftp_browser", False)
 
         if dati.get("vnc_internal", False):
@@ -1597,6 +1774,14 @@ class MainWindow(Gtk.ApplicationWindow):
                 dlg.destroy()
                 if resp != Gtk.ResponseType.YES:
                     return  # l'utente ha annullato
+
+        # Cleanup processo gateway SSH (tunnel per RDP/VNC tramite jump host)
+        _dati = getattr(widget, "_pcm_dati", None)
+        if _dati and _dati.get("_gateway_tunnel"):
+            try:
+                _dati["_gateway_tunnel"].terminate()
+            except Exception:
+                pass
 
         # Cleanup processi
         if hasattr(widget, "chiudi_processo"):

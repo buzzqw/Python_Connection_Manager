@@ -97,9 +97,19 @@ class SessionPanel(Gtk.Box):
         self._search.set_placeholder_text(t("sidebar.search_placeholder"))
         self._search.set_margin_start(6)
         self._search.set_margin_end(6)
-        self._search.set_margin_bottom(4)
-        self._search.connect("search-changed", self._on_search)
+        self._search.set_margin_bottom(2)
+        self._search.connect("search-changed", self._on_filter_changed)
         self.pack_start(self._search, False, False, 0)
+
+        # Filtro tag
+        self._tag_combo = Gtk.ComboBoxText()
+        self._tag_combo.append("", t("sidebar.tag_filter_all"))
+        self._tag_combo.set_margin_start(6)
+        self._tag_combo.set_margin_end(6)
+        self._tag_combo.set_margin_bottom(4)
+        self._tag_combo.set_active(0)
+        self._tag_combo.connect("changed", self._on_filter_changed)
+        self.pack_start(self._tag_combo, False, False, 0)
 
         # Separatore
         sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
@@ -145,6 +155,43 @@ class SessionPanel(Gtk.Box):
 
     def aggiorna(self, profili=None):
         self._profili = profili if profili is not None else config_manager.load_profiles()
+        self._aggiorna_tag_combo()
+        self._ricostruisci(self._search.get_text())
+
+    def _aggiorna_tag_combo(self):
+        """Popola il combobox dei tag con tutti i tag disponibili."""
+        current = self._tag_combo.get_active_text() if self._tag_combo.get_active() >= 0 else ""
+        self._tag_combo.handler_block_by_func(self._on_filter_changed)
+        self._tag_combo.remove_all()
+        self._tag_combo.append("", t("sidebar.tag_filter_all"))
+        all_tags = set()
+        for dati in self._profili.values():
+            tags_raw = dati.get("tags", "")
+            if isinstance(tags_raw, str) and tags_raw.strip():
+                for tag in tags_raw.split(","):
+                    tag = tag.strip()
+                    if tag:
+                        all_tags.add(tag)
+            elif isinstance(tags_raw, list):
+                for tag in tags_raw:
+                    tag = str(tag).strip()
+                    if tag:
+                        all_tags.add(tag)
+        for tag in sorted(all_tags):
+            self._tag_combo.append(tag, tag)
+        # Ripristina selezione precedente se ancora presente
+        if current:
+            for i in range(self._tag_combo.get_model().iter_n_children(None)):
+                if self._tag_combo.get_model()[i][0] == current:
+                    self._tag_combo.set_active(i)
+                    break
+            else:
+                self._tag_combo.set_active(0)
+        else:
+            self._tag_combo.set_active(0)
+        self._tag_combo.handler_unblock_by_func(self._on_filter_changed)
+
+    def _on_filter_changed(self, *args):
         self._ricostruisci(self._search.get_text())
 
     def aggiorna_sessioni_aperte(self, open_sessions: set):
@@ -158,11 +205,25 @@ class SessionPanel(Gtk.Box):
 
         self._store.clear()
         filtro = filtro.strip().lower()
+        tag_filter = self._tag_combo.get_active_text() or ""
+        tag_filter = tag_filter.strip() if tag_filter != t("sidebar.tag_filter_all") else ""
+
+        def _match_tag(dati: dict) -> bool:
+            if not tag_filter:
+                return True
+            tags_raw = dati.get("tags", "")
+            if isinstance(tags_raw, str):
+                tags = {t.strip() for t in tags_raw.split(",") if t.strip()}
+            elif isinstance(tags_raw, list):
+                tags = {str(t).strip() for t in tags_raw if str(t).strip()}
+            else:
+                return False
+            return tag_filter in tags
 
         folder_pb = _load_pixbuf("folder.png", 16)
 
         # ── Sezione Recenti (solo senza filtro) ───────────────────────────
-        if not filtro:
+        if not filtro and not tag_filter:
             recenti = config_manager.load_recent()
             if recenti:
                 recent_markup = f"<b><span foreground='#e8a020'>⏱ {GLib.markup_escape_text(t('sidebar.recent_title'))}</span></b>"
@@ -192,6 +253,8 @@ class SessionPanel(Gtk.Box):
         # ── Sessioni per gruppo ───────────────────────────────────────────
         gruppi: dict[str, list[str]] = {}
         for nome, dati in self._profili.items():
+            if not _match_tag(dati):
+                continue
             if filtro and filtro not in nome.lower():
                 host = dati.get("host", "")
                 user = str(dati.get("user") or "")

@@ -73,7 +73,8 @@ TUNNEL_REMOTE        = "remote"
 # Campi comuni a tutte le sessioni
 _COMMON_FIELDS = {
     "protocol", "group", "host", "port", "user", "password", "private_key",
-    "notes", "credential_profile",
+    "notes", "credential_profile", "totp_secret",
+    "is_template", "template_name", "tags",
 }
 
 _TERM_FIELDS = {
@@ -83,6 +84,8 @@ _TERM_FIELDS = {
     "auto_reconnect", "reconnect_delay", "terminal_type",
     "log_output", "log_dir",
 }
+
+_GATEWAY_FIELDS = {"jump_host", "jump_user", "jump_port"}
 
 _SSH_FIELDS = {
     "jump_host", "jump_user", "jump_port",
@@ -149,9 +152,9 @@ PROTO_FIELDS = {
                        _TUNNEL_FIELDS | _MON_FIELDS | _WOL_FIELDS | _PRECMD_FIELDS | _MACRO_FIELDS),
     "file_transfer": (_COMMON_FIELDS | _TERM_FIELDS | _SSH_FIELDS | _SFTP_FIELDS | _FTP_FIELDS |
                        _TUNNEL_FIELDS | _WOL_FIELDS | _PRECMD_FIELDS | _MACRO_FIELDS),
-    "rdp":           (_COMMON_FIELDS | _RDP_FIELDS | _TUNNEL_FIELDS |
-                       _MON_FIELDS | _WOL_FIELDS | _PRECMD_FIELDS | _MACRO_FIELDS),
-    "vnc":           (_COMMON_FIELDS | _VNC_FIELDS | _TUNNEL_FIELDS |
+    "rdp":           (_COMMON_FIELDS | _RDP_FIELDS | _TUNNEL_FIELDS | _GATEWAY_FIELDS |
+                        _MON_FIELDS | _WOL_FIELDS | _PRECMD_FIELDS | _MACRO_FIELDS),
+    "vnc":           (_COMMON_FIELDS | _VNC_FIELDS | _TUNNEL_FIELDS | _GATEWAY_FIELDS |
                        _MON_FIELDS | _WOL_FIELDS | _PRECMD_FIELDS | _MACRO_FIELDS),
     "serial":        (_COMMON_FIELDS | _TERM_FIELDS | _SERIAL_FIELDS |
                        _PRECMD_FIELDS | _MACRO_FIELDS),
@@ -243,6 +246,51 @@ def _normalize_modes(dati: dict) -> dict:
             dati["rdp_open_mode"] = MODE_EXTERNAL
 
     return dati
+
+
+# ---------------------------------------------------------------------------
+# Dynamic protocol registration (for plugins)
+# ---------------------------------------------------------------------------
+
+def register_protocol(proto_id: str, label: str, color: str = "#888888",
+                      icon_file: str = "network.png", default_port: str = "",
+                      fields: set = None) -> None:
+    """Register a new protocol from a plugin at runtime."""
+    if proto_id not in PROTOCOLS:
+        PROTOCOLS.append(proto_id)
+    PROTO_LABEL[proto_id] = label
+    PROTO_COLOR[proto_id] = color
+    PROTO_ICON_FILE[proto_id] = icon_file
+    if default_port:
+        DEFAULT_PORT[proto_id] = default_port
+    if fields:
+        PROTO_FIELDS[proto_id] = fields
+    VALID_PROTOCOLS.add(proto_id)
+
+
+def unregister_protocol(proto_id: str) -> None:
+    """Remove a dynamically registered protocol."""
+    if proto_id in PROTOCOLS:
+        PROTOCOLS.remove(proto_id)
+    PROTO_LABEL.pop(proto_id, None)
+    PROTO_COLOR.pop(proto_id, None)
+    PROTO_ICON_FILE.pop(proto_id, None)
+    DEFAULT_PORT.pop(proto_id, None)
+    PROTO_FIELDS.pop(proto_id, None)
+    VALID_PROTOCOLS.discard(proto_id)
+
+
+def refresh_from_plugins() -> None:
+    """Synchronize protocol definitions with loaded plugins."""
+    from plugins.plugin_base import pcm_get_protocol_plugins
+    for proto_id, plugin in pcm_get_protocol_plugins().items():
+        info = plugin.plugin_info
+        register_protocol(
+            proto_id=proto_id,
+            label=info.name,
+            default_port=plugin.default_port or "",
+            fields=plugin.profile_fields | _COMMON_FIELDS | _GATEWAY_FIELDS,
+        )
 
 
 # ---------------------------------------------------------------------------

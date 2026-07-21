@@ -364,7 +364,7 @@
 <div class="header">
   <h1>🚀 PCM — Python Connection Manager</h1>
   <p class="sub">Guida completa &nbsp;·&nbsp; Gestore sessioni remote multi-protocollo per Linux</p>
-  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec &nbsp;·&nbsp; Versione GTK3 (sviluppo attivo)</p>
+  <p class="meta">Protocolli: SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec · SPICE · AWS SSM · Kubectl · Docker &nbsp;·&nbsp; Versione GTK3 (sviluppo attivo)</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════ INDICE -->
@@ -654,6 +654,58 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
   </ul>
   <div class="tip">💡 Esempi: <code>htop</code>, <code>tail -f /var/log/syslog</code>, <code>watch -n1 df -h</code>, <code>python3 ~/scripts/monitor.py</code></div>
 </div>
+
+<div class="proto-block spice">
+  <p class="proto-title"><span class="badge" style="background:#c94a1a">SPICE</span> Macchine virtuali KVM/QEMU</p>
+  <p class="proto-desc">Simple Protocol for Independent Computing Environments — desktop remoto per VM KVM/QEMU.</p>
+  <ul>
+    <li>Richiede <code>spicy</code> (spice-gtk) o <code>remote-viewer</code> (virt-viewer) installati</li>
+    <li>Supporta connessioni cifrate TLS (spice+tls://)</li>
+    <li>Si apre in finestra esterna — non embedded in PCM</li>
+  </ul>
+</div>
+
+<div class="proto-block" style="border-left-color:#ec7211">
+  <p class="proto-title"><span class="badge" style="background:#ec7211">AWS SSM</span> Amazon EC2 Session Manager</p>
+  <p class="proto-desc">Connettiti a istanze EC2 senza porte SSH aperte tramite AWS Systems Manager.</p>
+  <ul>
+    <li>Richiede <code>awscli</code> e <code>session-manager-plugin</code> installati</li>
+    <li>Regione AWS e profilo configurabili</li>
+    <li>Comando di avvio opzionale via documento SSM</li>
+    <li>Terminale VTE integrato</li>
+  </ul>
+</div>
+
+<div class="proto-block" style="border-left-color:#326ce5">
+  <p class="proto-title"><span class="badge" style="background:#326ce5">Kubectl Exec</span> Pod Kubernetes</p>
+  <p class="proto-desc">Apri una shell interattiva dentro un pod Kubernetes via kubectl exec.</p>
+  <ul>
+    <li>Richiede <code>kubectl</code> installato e configurato</li>
+    <li>Namespace, container e context selezionabili</li>
+    <li>Comando shell personalizzabile (default /bin/sh)</li>
+    <li>Terminale VTE integrato</li>
+  </ul>
+</div>
+
+<div class="proto-block" style="border-left-color:#0db7ed">
+  <p class="proto-title"><span class="badge" style="background:#0db7ed">Docker Container</span></p>
+  <p class="proto-desc">Attacca alla console o esegui un comando in un container Docker in esecuzione.</p>
+  <ul>
+    <li>Richiede <code>docker</code> CLI installato</li>
+    <li>Due modalità: <b>exec</b> (esegui comando) o <b>attach</b> (attacca alla console)</li>
+    <li>Override utente opzionale (<code>-u</code>)</li>
+    <li>Terminale VTE integrato</li>
+  </ul>
+</div>
+
+<h3>Plugin System</h3>
+<p>SPICE, AWS SSM, Kubectl Exec e Docker Container sono <b>plugin built-in</b> distribuiti con PCM. Il sistema plugin permette di aggiungere nuovi protocolli senza modificare il codice core di PCM.</p>
+<ul>
+  <li><b>Plugin built-in</b> — in <code>gtk3/plugins/builtins/</code>, caricati automaticamente all'avvio</li>
+  <li><b>Plugin utente</b> — installati in <code>~/.local/share/pcm/plugins/</code>; PCM li scopre a ogni avvio</li>
+  <li>Ogni plugin è una directory con <code>plugin.json</code> (metadati) e <code>__init__.py</code> (implementazione)</li>
+  <li>I protocolli plugin appaiono nel dialogo sessione, sidebar, URI CLI e import — come i protocolli built-in</li>
+</ul>
 
 
 <!-- ══════════════════════════════════════════════════ AUTENTICAZIONE -->
