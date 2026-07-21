@@ -272,15 +272,22 @@ class SessionDialog(Gtk.Dialog):
         self._row_user_pwd.pack_start(pwd_box, True, True, 0)
         vbox.pack_start(self._row_user_pwd, False, False, 0)
 
+        # ── Opzioni extra (collassate di default) ──────────────────────
+        self._expander_extra = Gtk.Expander(label=t("sd.extra.expander"))
+        self._expander_extra.set_expanded(False)
+        extra_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        extra_vbox.set_margin_start(4); extra_vbox.set_margin_end(4)
+        extra_vbox.set_margin_top(4)
+
         self.entry_totp_secret = _entry(placeholder="JBSWY3DPEHPK3PXP (opzionale)")
         self.entry_totp_secret.set_tooltip_text(t("tt.totp_secret"))
         self._row_totp = self._conn_row(t("sd.totp_secret") + ":", self.entry_totp_secret)
-        vbox.pack_start(self._row_totp, False, False, 0)
+        extra_vbox.pack_start(self._row_totp, False, False, 0)
 
         self.entry_tags = _entry(placeholder="es. prod,database,critico")
         self.entry_tags.set_tooltip_text(t("tt.tags"))
         self._row_tags = self._conn_row(t("sd.tags") + ":", self.entry_tags)
-        vbox.pack_start(self._row_tags, False, False, 0)
+        extra_vbox.pack_start(self._row_tags, False, False, 0)
 
         self.combo_credential_profile = Gtk.ComboBoxText()
         self.combo_credential_profile.append("", t("sd.cred.from_session"))
@@ -288,7 +295,20 @@ class SessionDialog(Gtk.Dialog):
         self._refresh_credential_profiles()
         self.combo_credential_profile.set_tooltip_text(t("tt.credential_profile"))
         self._row_credential_profile = self._conn_row(t("settings.cred.edit_title") + ":", self.combo_credential_profile)
-        vbox.pack_start(self._row_credential_profile, False, False, 0)
+        extra_vbox.pack_start(self._row_credential_profile, False, False, 0)
+
+        self._btn_keepass = Gtk.Button(label=t("sd.keepass.btn"))
+        self._btn_keepass.set_tooltip_text(t("tt.keepass_btn"))
+        self._btn_keepass.connect("clicked", lambda b: self._on_keepass_fetch())
+        self._row_keepass = self._conn_row("", self._btn_keepass)
+        extra_vbox.pack_start(self._row_keepass, False, False, 2)
+
+        self.chk_is_template = _check(t("sd.template.checkbox"))
+        self.chk_is_template.set_tooltip_text(t("tt.template_checkbox"))
+        extra_vbox.pack_start(self.chk_is_template, False, False, 4)
+
+        self._expander_extra.add(extra_vbox)
+        vbox.pack_start(self._expander_extra, False, False, 0)
 
         pkey_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.entry_pkey = _entry()
@@ -414,17 +434,6 @@ class SessionDialog(Gtk.Dialog):
         self.entry_exec_cmd.set_tooltip_text(t("tt.exec_cmd"))
         self._row_exec_cmd = self._conn_row(t("sd.exec.cmd"), self.entry_exec_cmd)
         vbox.pack_start(self._row_exec_cmd, False, False, 0)
-
-        # Bottone KeePassXC (user + password)
-        self._btn_keepass = Gtk.Button(label=t("sd.keepass.btn"))
-        self._btn_keepass.set_tooltip_text(t("tt.keepass_btn"))
-        self._btn_keepass.connect("clicked", lambda b: self._on_keepass_fetch())
-        self._row_keepass = self._conn_row("", self._btn_keepass)
-        vbox.pack_start(self._row_keepass, False, False, 0)
-
-        self.chk_is_template = _check(t("sd.template.checkbox"))
-        self.chk_is_template.set_tooltip_text(t("tt.template_checkbox"))
-        vbox.pack_start(self.chk_is_template, False, False, 8)
 
         # ── Anteprima comando ───────────────────────────────────────────
         self._cmd_preview_frame = Gtk.Frame(label=t("sd.cmd_preview_title"))

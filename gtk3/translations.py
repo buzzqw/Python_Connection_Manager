@@ -758,6 +758,7 @@ _T: dict[str, dict[str, str]] = {
     "sd.template.label":    {"it": "Template:",           "en": "Template:",             "de": "Vorlage:",              "fr": "Modèle :",              "es": "Plantilla:"},
     "sd.template.none":     {"it": "(nessun template)",   "en": "(no template)",         "de": "(keine Vorlage)",       "fr": "(aucun modèle)",        "es": "(sin plantilla)"},
     "sd.template.checkbox": {"it": "💠 Usa come template", "en": "💠 Use as template",  "de": "💠 Als Vorlage verwenden", "fr": "💠 Utiliser comme modèle", "es": "💠 Usar como plantilla"},
+    "sd.extra.expander":    {"it": "⚙ Opzioni extra",  "en": "⚙ Extra options",  "de": "⚙ Zusätzliche Optionen", "fr": "⚙ Options supplémentaires", "es": "⚙ Opciones extra"},
     "sd.tab.tunnel":   {"it": "Tunnel",          "en": "Tunnel",         "de": "Tunnel",         "fr": "Tunnel",           "es": "Túnel"},
     "sd.grp.ssh_open": {"it": "Apertura SSH:",   "en": "SSH open mode:", "de": "SSH-Öffnung:",   "fr": "Ouverture SSH :",  "es": "Apertura SSH:"},
     "sd.grp.sftp_open":{"it": "Apertura SFTP:",  "en": "SFTP open mode:","de": "SFTP-Öffnung:",  "fr": "Ouverture SFTP :", "es": "Apertura SFTP:"},
