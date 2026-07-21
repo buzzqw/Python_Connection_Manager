@@ -249,8 +249,15 @@ class SessionDialog(Gtk.Dialog):
         btn_gen_pwd.set_tooltip_text("Genera password casuale")
         btn_gen_pwd.set_relief(Gtk.ReliefStyle.NONE)
         btn_gen_pwd.connect("clicked", self._on_generate_password)
-        pwd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+
+        btn_toggle_pwd = Gtk.Button(label="👁")
+        btn_toggle_pwd.set_tooltip_text("Mostra/Nascondi password")
+        btn_toggle_pwd.set_relief(Gtk.ReliefStyle.NONE)
+        btn_toggle_pwd.connect("clicked", self._on_toggle_password_visibility)
+
+        pwd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
         pwd_box.pack_start(self.entry_password, True, True, 0)
+        pwd_box.pack_start(btn_toggle_pwd, False, False, 0)
         pwd_box.pack_start(btn_gen_pwd, False, False, 0)
 
         self._row_user_pwd = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -1628,6 +1635,12 @@ class SessionDialog(Gtk.Dialog):
 
         menu.show_all()
         menu.popup_at_widget(button, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
+
+    def _on_toggle_password_visibility(self, button):
+        """Mostra o nasconde la password nel campo."""
+        visible = self.entry_password.get_visibility()
+        self.entry_password.set_visibility(not visible)
+        button.set_label("👁" if not visible else "🙈")
 
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
