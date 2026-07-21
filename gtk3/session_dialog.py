@@ -272,6 +272,11 @@ class SessionDialog(Gtk.Dialog):
         self._row_user_pwd.pack_start(pwd_box, True, True, 0)
         vbox.pack_start(self._row_user_pwd, False, False, 0)
 
+        self.entry_rdp_domain = _entry()
+        self.entry_rdp_domain.set_tooltip_text(t("tt.rdp_domain"))
+        self._row_rdp_domain = self._conn_row(t("sd.rdp.domain"), self.entry_rdp_domain)
+        vbox.pack_start(self._row_rdp_domain, False, False, 0)
+
         # ── Opzioni extra (collassate di default) ──────────────────────
         self._expander_extra = Gtk.Expander(label=t("sd.extra.expander"))
         self._expander_extra.set_expanded(False)
@@ -787,8 +792,6 @@ class SessionDialog(Gtk.Dialog):
         self.combo_rdp_client.set_tooltip_text(t("tt.rdp_client"))
         self.combo_rdp_auth = _combo(t("sd.rdp.auth_ntlm"), t("sd.rdp.auth_kerberos"))
         self.combo_rdp_auth.set_tooltip_text(t("tt.rdp_auth"))
-        self.entry_rdp_domain = _entry()
-        self.entry_rdp_domain.set_tooltip_text(t("tt.rdp_domain"))
         self.chk_rdp_fs       = _check(t("sd.rdp.fullscreen"))
         self.chk_rdp_fs.set_tooltip_text(t("tt.rdp_fs"))
         self.chk_rdp_clip     = _check(t("sd.rdp.clipboard"))
@@ -799,7 +802,6 @@ class SessionDialog(Gtk.Dialog):
         self.combo_rdp_open.set_tooltip_text(t("tt.rdp_open"))
         vbox.pack_start(self._adv_row(t("sd.rdp.client"),     self.combo_rdp_client), False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.rdp.auth"), self.combo_rdp_auth),   False, False, 0)
-        vbox.pack_start(self._adv_row(t("sd.rdp.domain"),        self.entry_rdp_domain), False, False, 0)
         self.combo_rdp_monitor = _combo(
             t("sd.rdp.monitor_single"), t("sd.rdp.monitor_all"), t("sd.rdp.monitor_custom")
         )
@@ -1682,6 +1684,8 @@ class SessionDialog(Gtk.Dialog):
         self._row_totp.set_visible(proto in ("ssh", "mosh") or (proto == "file_transfer" and ft_proto == "SFTP"))
         # Tags: visibile per tutti i protocolli di rete
         self._row_tags.set_visible(is_net or proto == "exec")
+        # Dominio RDP
+        self._row_rdp_domain.set_visible(proto == "rdp")
 
         # Advanced frames
         self._frame_ssh.set_visible(proto in ("ssh", "mosh", "telnet", "serial", "rdp", "vnc"))
@@ -2203,6 +2207,15 @@ class SessionDialog(Gtk.Dialog):
                       "keepalive", "agent_forward"):
                 if f in d:
                     pass
+
+        # Raccogli campi dai plugin
+        try:
+            from plugins.plugin_base import pcm_get_protocol_plugins
+            pplugin = pcm_get_protocol_plugins().get(proto)
+            if pplugin and hasattr(pplugin, 'on_dialog_save'):
+                d = pplugin.on_dialog_save(d)
+        except Exception:
+            pass
 
         # Filtra solo i campi rilevanti per il protocollo
         allowed = protocols.PROTO_FIELDS.get(proto, set(d.keys()))
