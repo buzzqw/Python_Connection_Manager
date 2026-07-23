@@ -713,6 +713,8 @@ class TerminalWidget(Gtk.Box):
             text=t("paste_warn.title"),
         )
         dlg.format_secondary_text(t("paste_warn.body", n=n))
+        dlg.set_default_size(700, 350)
+        dlg.set_resizable(True)
 
         preview_lines = []
         for line in righe[:5]:
@@ -733,7 +735,8 @@ class TerminalWidget(Gtk.Box):
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_min_content_height(90)
+        sw.set_min_content_height(200)
+        sw.set_min_content_width(500)
         sw.add(tv)
         sw.set_margin_start(12)
         sw.set_margin_end(12)
