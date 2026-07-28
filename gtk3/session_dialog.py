@@ -192,6 +192,7 @@ class SessionDialog(Gtk.Dialog):
         self.add_button(t("sd.save"), Gtk.ResponseType.APPLY)
         self.add_button(t("sd.save_connect"), 101)
         self.add_button(t("sd.connect"), 100)
+        self.add_button(t("sd.test_conn"), 102)
         self.add_button(t("sd.save_exit"), Gtk.ResponseType.OK)
         self.connect("response", self._on_response)
 
@@ -243,14 +244,17 @@ class SessionDialog(Gtk.Dialog):
         self.entry_password = _entry(password=True)
         self.entry_password.set_tooltip_text(t("tt.password"))
 
-        btn_gen_pwd = Gtk.Button(label="🎲")
+        btn_gen_pwd = Gtk.Button()
         btn_gen_pwd.set_tooltip_text("Genera password casuale")
         btn_gen_pwd.set_relief(Gtk.ReliefStyle.NONE)
+        btn_gen_pwd.add(Gtk.Image.new_from_icon_name("changes-prevent-symbolic", Gtk.IconSize.BUTTON))
         btn_gen_pwd.connect("clicked", self._on_generate_password)
 
-        btn_toggle_pwd = Gtk.Button(label="👁")
+        btn_toggle_pwd = Gtk.Button()
         btn_toggle_pwd.set_tooltip_text("Mostra/Nascondi password")
         btn_toggle_pwd.set_relief(Gtk.ReliefStyle.NONE)
+        self._pwd_toggle_img = Gtk.Image.new_from_icon_name("document-properties-symbolic", Gtk.IconSize.BUTTON)
+        btn_toggle_pwd.add(self._pwd_toggle_img)
         btn_toggle_pwd.connect("clicked", self._on_toggle_password_visibility)
 
         pwd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
@@ -1652,10 +1656,74 @@ class SessionDialog(Gtk.Dialog):
         menu.popup_at_widget(button, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
 
     def _on_toggle_password_visibility(self, button):
-        """Mostra o nasconde la password nel campo."""
         visible = self.entry_password.get_visibility()
         self.entry_password.set_visibility(not visible)
-        button.set_label("👁" if not visible else "🙈")
+        icon_name = "document-properties-symbolic" if not visible else "view-reveal-symbolic"
+        self._pwd_toggle_img.set_from_icon_name(icon_name, Gtk.IconSize.BUTTON)
+
+    def _test_connection(self):
+        """Test TCP connectivity to the configured host:port."""
+        import socket
+        import threading
+        host = self.entry_host.get_text().strip()
+        port_str = self.entry_port.get_text().strip() or "22"
+        if not host:
+            self._show_test_result(False, t("sd.test_no_host"))
+            return
+        try:
+            port = int(port_str)
+        except (ValueError, TypeError):
+            self._show_test_result(False, t("sd.test_bad_port"))
+            return
+
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.NONE,
+            text=t("sd.test_testing", host=host, port=port),
+        )
+        dlg.set_default_size(300, -1)
+        dlg.show_all()
+        result = [False, ""]
+
+        def _test():
+            import time
+            try:
+                t0 = time.monotonic()
+                with socket.create_connection((host, port), timeout=5):
+                    ms = int((time.monotonic() - t0) * 1000)
+                result[0] = True
+                result[1] = f"{ms} ms"
+            except socket.timeout:
+                result[1] = t("sd.test_timeout")
+            except Exception as e:
+                result[1] = str(e)
+            GLib.idle_add(_done)
+
+        def _done():
+            dlg.destroy()
+            self._show_test_result(result[0], result[1])
+            return False
+
+        threading.Thread(target=_test, daemon=True).start()
+        dlg.run()
+
+    def _show_test_result(self, success: bool, detail: str):
+        if success:
+            markup = f"<span foreground='green'><b>{t('sd.test_ok')}</b> ({detail})</span>"
+        else:
+            markup = f"<span foreground='red'><b>{t('sd.test_fail')}</b>: {detail}</span>"
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="",
+        )
+        dlg.set_markup(markup)
+        dlg.run()
+        dlg.destroy()
 
     def _aggiorna_proto_fields(self):
         """Mostra/nasconde campi e sezioni in base al protocollo selezionato."""
@@ -2092,10 +2160,13 @@ class SessionDialog(Gtk.Dialog):
     def _on_response(self, dialog, response_id):
         if response_id == Gtk.ResponseType.CANCEL:
             return
+        if response_id == 102:
+            self.stop_emission_by_name("response")
+            self._test_connection()
+            return
         if not self._validate():
             self.stop_emission_by_name("response")
             return
-        # "Salva" (APPLY): non chiudere il dialog
         if response_id == Gtk.ResponseType.APPLY:
             self.stop_emission_by_name("response")
 

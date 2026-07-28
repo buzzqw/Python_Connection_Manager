@@ -175,6 +175,7 @@ def _build_ssh(p: dict) -> str:
 
     args = [f"-p {_esc(port)}",
             f"-o StrictHostKeyChecking={strict}",
+            "-o ConnectTimeout=10",
             f"-o ServerAliveInterval={keepalive_interval}",
             "-o ServerAliveCountMax=3"]
 

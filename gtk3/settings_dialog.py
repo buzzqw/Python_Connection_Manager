@@ -53,6 +53,8 @@ class SettingsDialog(Gtk.Dialog):
         area.pack_start(self._notebook, True, True, 0)
 
         self._notebook.append_page(self._build_generale(),    Gtk.Label(label=t("settings.tab.general")))
+        self._notebook.append_page(self._build_terminale(),   Gtk.Label(label=t("settings.tab.terminal")))
+        self._notebook.append_page(self._build_ssh(),         Gtk.Label(label=t("settings.tab.ssh")))
         self._notebook.append_page(self._build_scorciatoie(), Gtk.Label(label=t("settings.tab.shortcuts")))
         self._notebook.append_page(self._build_credenziali(), Gtk.Label(label=t("settings.tab.credentials")))
         self._notebook.append_page(self._build_strumenti(),   Gtk.Label(label=t("settings.tab.tools")))
@@ -144,6 +146,10 @@ class SettingsDialog(Gtk.Dialog):
             t("settings.general.restore_sessions_tt")
         )
         grid.attach(self.chk_restore_sessions, 0, row, 2, 1); row += 1
+
+        self.chk_dark_mode = Gtk.CheckButton(label=t("settings.general.dark_mode"))
+        self.chk_dark_mode.set_tooltip_text(t("settings.general.dark_mode_tt"))
+        grid.attach(self.chk_dark_mode, 0, row, 2, 1); row += 1
 
         # Separatore
         sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
@@ -566,6 +572,10 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_restore_sessions.set_active(g.get("restore_sessions_on_start", False))
         self.chk_audit_log.set_active(g.get("audit_log_enabled", False))
 
+        # Dark mode
+        display = self._settings.get("display", {})
+        self.chk_dark_mode.set_active(display.get("dark_mode", False))
+
         lang_code = g.get("language", "it")
         if lang_code in self._lang_codes:
             self.combo_lingua.set_active(self._lang_codes.index(lang_code))
@@ -573,6 +583,28 @@ class SettingsDialog(Gtk.Dialog):
         sc = self._settings.get("shortcuts", {})
         for key, entry in self._shortcut_entries.items():
             entry.set_text(sc.get(key, ""))
+
+        # Terminal
+        ts = self._settings.get("terminal", {})
+        self._set_combo_text(self.combo_tema, ts.get("default_theme", "Dark (Default)"))
+        child_font = self.combo_font.get_child()
+        if child_font:
+            child_font.set_text(ts.get("default_font", "Monospace"))
+        self.spin_font_size.set_value(int(ts.get("default_font_size", 11)))
+        infinite_sb = ts.get("infinite_scrollback", False)
+        self.chk_infinite_scrollback.set_active(infinite_sb)
+        self.spin_scrollback.set_value(int(ts.get("scrollback_lines", 10000)))
+        self.spin_scrollback.set_sensitive(not infinite_sb)
+        self.chk_confirm_close.set_active(ts.get("confirm_on_close", True))
+        self.chk_warn_paste.set_active(ts.get("warn_multiline_paste", True))
+        self.chk_log.set_active(ts.get("log_output", False))
+        self.entry_log_dir.set_text(ts.get("log_dir", os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs")))
+
+        # SSH
+        ssh_s = self._settings.get("ssh", {})
+        self.spin_ka.set_value(int(ssh_s.get("keepalive_interval", 60)))
+        self.chk_strict.set_active(ssh_s.get("strict_host_check", False))
+        self.chk_sftp_auto.set_active(ssh_s.get("default_sftp_browser", True))
 
         ct = self._settings.get("custom_tools", {"vnc": [], "rdp": []})
         for store, key in [(self._store_vnc, "vnc"), (self._store_rdp, "rdp")]:
@@ -611,6 +643,25 @@ class SettingsDialog(Gtk.Dialog):
         s["general"]["confirm_on_exit"]          = self.chk_confirm_exit.get_active()
         s["general"]["audit_log_enabled"]        = self.chk_audit_log.get_active()
         s["general"]["restore_sessions_on_start"] = self.chk_restore_sessions.get_active()
+
+        s["display"]["dark_mode"] = self.chk_dark_mode.get_active()
+
+        # Terminal
+        s["terminal"]["default_theme"] = self.combo_tema.get_active_text() or "Dark (Default)"
+        child_f = self.combo_font.get_child()
+        s["terminal"]["default_font"] = child_f.get_text() if child_f else "Monospace"
+        s["terminal"]["default_font_size"] = int(self.spin_font_size.get_value())
+        s["terminal"]["infinite_scrollback"] = self.chk_infinite_scrollback.get_active()
+        s["terminal"]["scrollback_lines"] = int(self.spin_scrollback.get_value())
+        s["terminal"]["confirm_on_close"] = self.chk_confirm_close.get_active()
+        s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
+        s["terminal"]["log_output"] = self.chk_log.get_active()
+        s["terminal"]["log_dir"] = self.entry_log_dir.get_text().strip()
+
+        # SSH
+        s["ssh"]["keepalive_interval"] = int(self.spin_ka.get_value())
+        s["ssh"]["strict_host_check"] = self.chk_strict.get_active()
+        s["ssh"]["default_sftp_browser"] = self.chk_sftp_auto.get_active()
 
         idx_lang = self.combo_lingua.get_active()
         if 0 <= idx_lang < len(self._lang_codes):

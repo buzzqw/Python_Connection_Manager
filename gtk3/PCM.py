@@ -309,6 +309,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if resp == Gtk.ResponseType.OK and pwd:
             if crypto_manager.unlock(pwd):
                 self._pannello.aggiorna()
+                self._aggiorna_welcome_recenti()
                 if self._pending_cli_uri:
                     uri, self._pending_cli_uri = self._pending_cli_uri, None
                     GLib.idle_add(self.apri_da_cli, uri)
@@ -407,9 +408,28 @@ class MainWindow(Gtk.ApplicationWindow):
         # page_widget → Gtk.Notebook (lookup O(1) per _trova_in_notebook)
         self._widget_nb_map: dict = {}
 
-        # Barra inferiore: solo statusbar (la chiusura avviene con la X sul tab)
+        # Barra inferiore: toast notifications + statusbar
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         bottom_bar.get_style_context().add_class("bottom-bar")
+
+        self._toast_revealer = Gtk.Revealer()
+        self._toast_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
+        self._toast_revealer.set_transition_duration(250)
+        self._toast_label = Gtk.Label()
+        self._toast_label.set_xalign(0.0)
+        self._toast_label.set_margin_start(12)
+        self._toast_label.set_margin_end(12)
+        self._toast_label.set_margin_top(4)
+        self._toast_label.set_margin_bottom(4)
+        self._toast_close_btn = Gtk.Button()
+        self._toast_close_btn.set_relief(Gtk.ReliefStyle.NONE)
+        self._toast_close_btn.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
+        self._toast_close_btn.connect("clicked", lambda b: self._nascondi_toast())
+        self._toast_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self._toast_box.pack_start(self._toast_label, True, True, 0)
+        self._toast_box.pack_start(self._toast_close_btn, False, False, 0)
+        self._toast_revealer.add(self._toast_box)
+        self._toast_timer = 0
 
         self._statusbar = Gtk.Statusbar()
         self._statusbar_ctx = self._statusbar.get_context_id("main")
@@ -417,6 +437,7 @@ class MainWindow(Gtk.ApplicationWindow):
         bottom_bar.pack_start(self._statusbar, True, True, 0)
 
         right_box.pack_start(bottom_bar, False, False, 0)
+        bottom_bar.pack_start(self._toast_revealer, True, True, 0)
 
         # Schermata benvenuto (prima tab)
         self._mostra_benvenuto()
@@ -482,16 +503,19 @@ class MainWindow(Gtk.ApplicationWindow):
         # Pulsante split
         btn_split = Gtk.MenuButton()
         btn_split.set_tooltip_text(t("toolbar.split.tooltip"))
-        btn_split.add(Gtk.Image.new_from_icon_name("view-dual-symbolic", Gtk.IconSize.BUTTON))
+        self._split_img = Gtk.Image.new_from_icon_name("view-dual-symbolic", Gtk.IconSize.BUTTON)
+        btn_split.add(self._split_img)
         split_menu = Gtk.Menu()
-        for label, cb in [
-            (f"□  {t('toolbar.split.single')}",     self._split_singolo),
-            (f"◫  {t('toolbar.split.vertical')}",   self._split_verticale),
-            (f"⬒  {t('toolbar.split.horizontal')}", self._split_orizzontale),
+        self._split_menu_items = []
+        for label, cb, mode in [
+            (f"□  {t('toolbar.split.single')}",     self._split_singolo, "single"),
+            (f"◫  {t('toolbar.split.vertical')}",   self._split_verticale, "vertical"),
+            (f"⬒  {t('toolbar.split.horizontal')}", self._split_orizzontale, "horizontal"),
         ]:
-            mi = Gtk.MenuItem(label=label)
-            mi.connect("activate", lambda _, c=cb: c())
+            mi = Gtk.CheckMenuItem(label=label)
+            mi.connect("activate", lambda _, c=cb, m=mode: (c(), self._aggiorna_split_indicator(mode)))
             split_menu.append(mi)
+            self._split_menu_items.append((mi, mode))
         split_menu.show_all()
         btn_split.set_popup(split_menu)
         hb.pack_start(btn_split)
@@ -646,14 +670,18 @@ class MainWindow(Gtk.ApplicationWindow):
             page.mostra_cerca()
         return True
 
-    # ------------------------------------------------------------------
-    # Schermata benvenuto
-    # ------------------------------------------------------------------
+    def _aggiorna_welcome_recenti(self):
+        """Aggiorna la lista recenti nella schermata home dopo lo sblocco crypto."""
+        idx = self._notebook.page_num(self._notebook.get_nth_page(0))
+        welcome = self._notebook.get_nth_page(0)
+        if hasattr(welcome, "aggiorna"):
+            welcome.aggiorna()
 
     def _mostra_benvenuto(self):
         welcome = WelcomeWidget()
         welcome.connect("nuova-sessione",   lambda w: self._on_nuova_sessione())
         welcome.connect("terminale-locale", lambda w: self._on_terminale_locale())
+        welcome.connect("apri-sessione",    lambda w, n, d: self._on_connetti(None, n, d))
         welcome.show_all()
         lbl = Gtk.Label(label=t("app.home_tab"))
         self._notebook.append_page(welcome, lbl)
@@ -669,6 +697,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         config_manager.add_recent(nome, dati)
         self._pannello.aggiorna()
+        self._aggiorna_welcome_recenti()
 
         use_gateway = self._needs_ssh_gateway(dati)
 
@@ -739,6 +768,7 @@ class MainWindow(Gtk.ApplicationWindow):
         cmd = [
             ssh_exe, "-N", "-T",
             "-o", f"StrictHostKeyChecking={strict}",
+            "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=15",
             "-o", "ExitOnForwardFailure=yes",
             "-p", jump_port,
@@ -760,7 +790,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 env=env if pwd else None,
             )
-            for _ in range(30):
+            for _ in range(60):
                 time.sleep(0.1)
                 try:
                     s = _sock.create_connection(("127.0.0.1", local_port), timeout=0.5)
@@ -1047,8 +1077,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if dati.get("auto_reconnect"):
             delay = max(1, int(dati.get("reconnect_delay", 5)))
             _pcm = self
-            _cmd, _env, _pwd, _pkey = cmd, env_extra, pwd, pkey
+            _cmd, _pwd, _pkey = cmd, pwd, pkey
             _nome = nome
+            _has_env_askpass = bool(env_extra.get("SSH_ASKPASS"))
 
             def _do_reconnect(w=widget):
                 for nb in (_pcm._notebook, _pcm._notebook2):
@@ -1056,7 +1087,23 @@ class MainWindow(Gtk.ApplicationWindow):
                     if page is not None:
                         _pcm._set_tab_nome(page, _nome)
                         break
-                w.avvia(_cmd, env_extra=_env)
+                _reconnect_env = {}
+                if _pwd and not _pkey and _has_env_askpass:
+                    _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+                    os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
+                    _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
+                    with os.fdopen(_fd, "w") as _f:
+                        _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+                    os.chmod(_askpass, 0o700)
+                    _reconnect_env["PCM_ASKPASS_PASSWORD"] = _pwd
+                    _reconnect_env["SSH_ASKPASS"] = _askpass
+                    _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
+                    def _cleanup_askpass(path=_askpass):
+                        with contextlib.suppress(Exception):
+                            os.unlink(path)
+                        return False
+                    GLib.timeout_add(5000, _cleanup_askpass)
+                w.avvia(_cmd, env_extra=_reconnect_env)
                 if _pwd and not _pkey:
                     w.imposta_auto_password(_pwd)
                 if _erules:
@@ -1350,11 +1397,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _salva_credenziali_sessione(self, nome: str, credenziali: dict):
         try:
             profili = config_manager.load_profiles()
-            for gruppo in profili.values():
-                if isinstance(gruppo, dict) and nome in gruppo:
-                    gruppo[nome].update(credenziali)
-                    config_manager.save_profiles(profili)
-                    return
             if nome in profili:
                 profili[nome].update(credenziali)
                 config_manager.save_profiles(profili)
@@ -1669,25 +1711,38 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _split_singolo(self):
-        """Riporta tutto nel notebook primario e nasconde il secondario."""
         while self._notebook2.get_n_pages() > 0:
             self._sposta_tab(self._notebook2, self._notebook, 0)
         self._notebook2.hide()
-        self._paned_term.set_position(99999)  # handle fuori schermo
+        self._paned_term.set_position(99999)
 
     def _split_verticale(self):
-        """Due notebook affiancati."""
         self._paned_term.set_orientation(Gtk.Orientation.HORIZONTAL)
         self._notebook2.show()
         alloc = self._paned_term.get_allocation()
         self._paned_term.set_position(max(200, alloc.width // 2))
 
     def _split_orizzontale(self):
-        """Due notebook sovrapposti."""
         self._paned_term.set_orientation(Gtk.Orientation.VERTICAL)
         self._notebook2.show()
         alloc = self._paned_term.get_allocation()
         self._paned_term.set_position(max(100, alloc.height // 2))
+
+    def _aggiorna_split_indicator(self, mode: str = None):
+        if not hasattr(self, "_split_menu_items"):
+            return
+        if mode is None:
+            if not self._notebook2.get_visible():
+                mode = "single"
+            elif self._paned_term.get_orientation() == Gtk.Orientation.VERTICAL:
+                mode = "horizontal"
+            else:
+                mode = "vertical"
+        for mi, m in self._split_menu_items:
+            mi.set_active(m == mode)
+        icons = {"single": "view-dual-symbolic", "vertical": "view-dual-symbolic",
+                 "horizontal": "view-dual-symbolic"}
+        self._split_img.set_from_icon_name(icons.get(mode, "view-dual-symbolic"), Gtk.IconSize.BUTTON)
 
     def _sposta_tab(self, sorgente: Gtk.Notebook, destinazione: Gtk.Notebook, idx: int):
         """Sposta il tab idx da sorgente a destinazione."""
@@ -2800,15 +2855,25 @@ class MainWindow(Gtk.ApplicationWindow):
         self._statusbar.push(self._statusbar_ctx, msg)
 
     def _warn(self, msg: str):
-        dlg = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.OK,
-            text=msg
-        )
-        dlg.run()
-        dlg.destroy()
+        self._mostra_toast(msg, "warning")
+
+    def _mostra_toast(self, msg: str, css_class: str = ""):
+        self._toast_label.set_text(msg)
+        if css_class:
+            css_name = f"toast-{css_class}"
+            self._toast_box.get_style_context().add_class(css_name)
+        self._toast_revealer.set_reveal_child(True)
+        if self._toast_timer:
+            GLib.source_remove(self._toast_timer)
+        self._toast_timer = GLib.timeout_add(5000, self._nascondi_toast)
+
+    def _nascondi_toast(self):
+        self._toast_revealer.set_reveal_child(False)
+        self._toast_box.get_style_context().remove_class("toast-warning")
+        self._toast_box.get_style_context().remove_class("toast-error")
+        self._toast_box.get_style_context().remove_class("toast-info")
+        self._toast_timer = 0
+        return False
 
     def _invia_wol(self, mac: str, attesa: int) -> str:
         """Invia magic packet WoL e attende. Restituisce stringa errore o "" se OK.
@@ -3057,10 +3122,6 @@ class _SessionPickerDialog(Gtk.Dialog):
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK, text=msg)
         dlg.run(); dlg.destroy()
-
-    def run(self):
-        self.show_all()
-        return super().run()
 
     def run(self):
         self.show_all()

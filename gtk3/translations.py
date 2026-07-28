@@ -327,6 +327,9 @@ _T: dict[str, dict[str, str]] = {
     # ── Schermata Benvenuto ───────────────────────────────────────────────────
     "welcome.btn_new_session":    {"it": "➕\n\nNuova sessione\nremota", "en": "➕\n\nNew remote\nsession", "de": "➕\n\nNeue\nFernsitzung", "fr": "➕\n\nNouvelle session\ndistante", "es": "➕\n\nNueva sesión\nremota"},
     "welcome.btn_local_terminal": {"it": "⌨\n\nTerminale\nlocale", "en": "⌨\n\nLocal\nterminal", "de": "⌨\n\nLokales\nTerminal", "fr": "⌨\n\nTerminal\nlocal", "es": "⌨\n\nTerminal\nlocal"},
+    "welcome.subtitle":           {"it": "Gestisci connessioni SSH, RDP, VNC, FTP e molto altro", "en": "Manage SSH, RDP, VNC, FTP and more", "de": "SSH, RDP, VNC, FTP und mehr verwalten", "fr": "Gérez SSH, RDP, VNC, FTP et plus encore", "es": "Administra SSH, RDP, VNC, FTP y más"},
+    "welcome.recent_title":       {"it": "Sessioni recenti", "en": "Recent sessions", "de": "Letzte Sitzungen", "fr": "Sessions récentes", "es": "Sesiones recientes"},
+    "welcome.no_recent":          {"it": "Nessuna sessione recente. Connettiti a una sessione per iniziare.", "en": "No recent sessions. Connect to a session to get started.", "de": "Keine letzten Sitzungen. Stellen Sie eine Verbindung her, um zu beginnen.", "fr": "Aucune session récente. Connectez-vous pour commencer.", "es": "Sin sesiones recientes. Conéctese para comenzar."},
     "welcome.missing_tools":      {"it": "⚠  Strumenti non trovati: {tools}", "en": "⚠  Tools not found: {tools}", "de": "⚠  Werkzeuge nicht gefunden: {tools}", "fr": "⚠  Outils non trouvés : {tools}", "es": "⚠  Herramientas no encontradas: {tools}"},
     "welcome.footer":             {"it": "Doppio clic su una sessione nella sidebar per connettersi  •  Ctrl+Alt+T = terminale locale", "en": "Double-click a session in the sidebar to connect  •  Ctrl+Alt+T = local terminal", "de": "Doppelklick auf eine Sitzung in der Seitenleiste  •  Ctrl+Alt+T = lokales Terminal", "fr": "Double-cliquez sur une session dans la barre latérale  •  Ctrl+Alt+T = terminal local", "es": "Doble clic en una sesión en la barra lateral  •  Ctrl+Alt+T = terminal local"},
 
@@ -949,6 +952,8 @@ _T: dict[str, dict[str, str]] = {
     "tunnel.field_rhost":   {"it": "Host remoto:",                       "en": "Remote host:",                    "de": "Remote-Host:",                    "fr": "Hôte distant :",                   "es": "Host remoto:"},
     "tunnel.field_rport":   {"it": "Porta remota:",                      "en": "Remote port:",                    "de": "Remote-Port:",                    "fr": "Port distant :",                   "es": "Puerto remoto:"},
     "tunnel.chk_autostart": {"it": "Avvia automaticamente",              "en": "Start automatically",             "de": "Automatisch starten",             "fr": "Démarrage automatique",            "es": "Iniciar automáticamente"},
+    "tunnel.chk_batch":     {"it": "Batch mode (solo chiavi SSH)",     "en": "Batch mode (SSH keys only)",      "de": "Batch-Modus (nur SSH-Schlüssel)",  "fr": "Mode batch (clés SSH uniquement)",  "es": "Modo batch (solo claves SSH)"},
+    "tunnel.chk_batch_tt":  {"it": "Usa solo chiavi SSH per autenticazione, senza password interattiva", "en": "Use only SSH keys for authentication, no interactive password", "de": "Nur SSH-Schlüssel zur Authentifizierung verwenden, kein interaktives Passwort", "fr": "Utiliser uniquement les clés SSH pour l'authentification, pas de mot de passe interactif", "es": "Usar solo claves SSH para autenticación, sin contraseña interactiva"},
     "tunnel.col_name":      {"it": "Nome",                               "en": "Name",                            "de": "Name",                            "fr": "Nom",                              "es": "Nombre"},
     "tunnel.col_type":      {"it": "Tipo",                               "en": "Type",                            "de": "Typ",                             "fr": "Type",                             "es": "Tipo"},
     "tunnel.col_host":      {"it": "Host",                               "en": "Host",                            "de": "Host",                            "fr": "Hôte",                             "es": "Host"},
@@ -1628,6 +1633,20 @@ _T: dict[str, dict[str, str]] = {
         "fr": "À la fermeture, sauvegarde la liste des sessions ouvertes et les rouvre au prochain démarrage",
         "es": "Al cerrar, guarda la lista de sesiones abiertas y las vuelve a abrir en el próximo inicio",
     },
+    "settings.general.dark_mode": {
+        "it": "Modalità scura",
+        "en": "Dark mode",
+        "de": "Dunkelmodus",
+        "fr": "Mode sombre",
+        "es": "Modo oscuro",
+    },
+    "settings.general.dark_mode_tt": {
+        "it": "Attiva il tema scuro per l'interfaccia (richiede riavvio)",
+        "en": "Enable dark theme for the interface (requires restart)",
+        "de": "Dunkles Design für die Oberfläche aktivieren (Neustart erforderlich)",
+        "fr": "Activer le thème sombre pour l'interface (redémarrage requis)",
+        "es": "Activar tema oscuro para la interfaz (requiere reinicio)",
+    },
 
     # ── Terminal context menu ──────────────────────────────────────────────────
     "term.context.copy":        {"it": "Copia",                  "en": "Copy",                  "de": "Kopieren",              "fr": "Copier",                 "es": "Copiar"},
@@ -1646,6 +1665,13 @@ _T: dict[str, dict[str, str]] = {
     "sd.val.port_range":        {"it": "La porta deve essere tra 1 e 65535", "en": "Port must be between 1 and 65535", "de": "Port muss zwischen 1 und 65535 liegen", "fr": "Le port doit être entre 1 et 65535", "es": "El puerto debe estar entre 1 y 65535"},
     "sd.val.port_invalid":      {"it": "La porta deve essere un numero", "en": "Port must be a number", "de": "Port muss eine Zahl sein", "fr": "Le port doit être un nombre", "es": "El puerto debe ser un número"},
     "sd.val.sftp_no_cred":      {"it": "SFTP: nessuna chiave né password. La connessione potrebbe fallire.", "en": "SFTP: no key or password. Connection may fail.", "de": "SFTP: Kein Schlüssel oder Passwort. Verbindung könnte fehlschlagen.", "fr": "SFTP : aucune clé ni mot de passe. La connexion peut échouer.", "es": "SFTP: sin clave ni contraseña. La conexión podría fallar."},
+    "sd.test_conn":             {"it": "Test connessione", "en": "Test Connection", "de": "Verbindung testen", "fr": "Tester la connexion", "es": "Probar conexión"},
+    "sd.test_ok":               {"it": "Connessione riuscita", "en": "Connection successful", "de": "Verbindung erfolgreich", "fr": "Connexion réussie", "es": "Conexión exitosa"},
+    "sd.test_fail":             {"it": "Connessione fallita", "en": "Connection failed", "de": "Verbindung fehlgeschlagen", "fr": "Connexion échouée", "es": "Conexión fallida"},
+    "sd.test_no_host":          {"it": "Inserire un host", "en": "Enter a hostname", "de": "Hostname eingeben", "fr": "Entrer un nom d'hôte", "es": "Ingrese un host"},
+    "sd.test_bad_port":         {"it": "Porta non valida", "en": "Invalid port", "de": "Ungültiger Port", "fr": "Port invalide", "es": "Puerto inválido"},
+    "sd.test_testing":          {"it": "Test connessione a {host}:{port}...", "en": "Testing connection to {host}:{port}...", "de": "Teste Verbindung zu {host}:{port}...", "fr": "Test de connexion à {host}:{port}...", "es": "Probando conexión a {host}:{port}..."},
+    "sd.test_timeout":          {"it": "Timeout", "en": "Timeout", "de": "Zeitüberschreitung", "fr": "Délai dépassé", "es": "Tiempo agotado"},
 
     # ── Session dialog: browser device seriale ─────────────────────────────────
     "sd.serial.browse_title":   {"it": "Seleziona device seriale", "en": "Select serial device",  "de": "Serielles Gerät wählen",  "fr": "Sélectionner le périphérique série", "es": "Seleccionar dispositivo serie"},

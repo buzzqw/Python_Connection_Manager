@@ -258,6 +258,11 @@ class TunnelEditDialog(Gtk.Dialog):
         self.chk_autostart.set_active(d.get("autostart", False))
         grid.attach(self.chk_autostart, 0, 9, 2, 1)
 
+        self.chk_batch = Gtk.CheckButton(label=t("tunnel.chk_batch"))
+        self.chk_batch.set_tooltip_text(t("tunnel.chk_batch_tt"))
+        self.chk_batch.set_active(d.get("batch_mode", True))
+        grid.attach(self.chk_batch, 0, 10, 2, 1)
+
         self._on_tipo_changed(self.combo_tipo)
 
     def _on_tipo_changed(self, combo):
@@ -277,6 +282,7 @@ class TunnelEditDialog(Gtk.Dialog):
             "remote_host": self.entry_rhost.get_text().strip(),
             "remote_port": self.entry_rport.get_text().strip(),
             "autostart":   self.chk_autostart.get_active(),
+            "batch_mode":  self.chk_batch.get_active(),
             "pid":         None,
         }
 
@@ -566,7 +572,7 @@ class TunnelManagerDialog(Gtk.Dialog):
             "-o", "ServerAliveInterval=60"
         ]
 
-        if not pwd:
+        if not pwd and t.get("batch_mode", True):
             cmd += ["-o", "BatchMode=yes"]
 
         if "SOCKS" in tipo:

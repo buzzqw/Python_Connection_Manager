@@ -242,6 +242,32 @@ notebook > header > tabs > tab:checked {
     color: #22cc55;
 }
 
+/* Toast notifications */
+.toast-warning {
+    background-color: #e8a020;
+    color: #ffffff;
+    border-radius: 4px;
+}
+.toast-warning label {
+    color: #ffffff;
+}
+.toast-error {
+    background-color: #cc4444;
+    color: #ffffff;
+    border-radius: 4px;
+}
+.toast-error label {
+    color: #ffffff;
+}
+.toast-info {
+    background-color: #4e7abc;
+    color: #ffffff;
+    border-radius: 4px;
+}
+.toast-info label {
+    color: #ffffff;
+}
+
 """
 
 
