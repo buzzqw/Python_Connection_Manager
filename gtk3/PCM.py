@@ -529,14 +529,90 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("apri-cluster", lambda _p, n, d: self._apri_cluster(n, d))
         self.connect("delete-event", self._on_close)
 
+    def _accel_to_gtk(self, shortcut):
+        parti = shortcut.rsplit("+", 1)
+        if len(parti) != 2:
+            return None
+        mods_str, tasto = parti
+        parti_mods = mods_str.split("+")
+        gtk_mods = []
+        for m in parti_mods:
+            m = m.strip()
+            if m in ("Ctrl", "Control"):
+                gtk_mods.append("<Primary>")
+            elif m == "Shift":
+                gtk_mods.append("<Shift>")
+            elif m == "Alt":
+                gtk_mods.append("<Alt>")
+            elif m in ("Super", "Meta"):
+                gtk_mods.append("<Super>")
+            else:
+                return None
+        acceleratore = "".join(gtk_mods) + tasto.strip()
+        key, mod = Gtk.accelerator_parse(acceleratore)
+        if key == 0 and mod == 0:
+            return None
+        return acceleratore, key, mod
+
+    def _toggle_sidebar(self):
+        visibile = self._pannello.get_visible()
+        self._pannello.set_visible(not visibile)
+        s = config_manager.load_settings()
+        s.setdefault("display", {})["sidebar_visible"] = not visibile
+        config_manager.save_settings(s)
+        return True
+
+    def _toggle_fullscreen(self):
+        if hasattr(self, "_fullscreen_active") and self._fullscreen_active:
+            self.unfullscreen()
+            self._fullscreen_active = False
+        else:
+            self.fullscreen()
+            self._fullscreen_active = True
+        return True
+
     def _setup_accels(self):
+        if hasattr(self, "_accel_group") and self._accel_group:
+            self.remove_accel_group(self._accel_group)
         ag = Gtk.AccelGroup()
         self.add_accel_group(ag)
-        # Ctrl+Shift+G → variabili globali  (Ctrl+Shift+V rimane libero per incolla VTE)
-        key, mod = Gtk.accelerator_parse("<Primary><Shift>G")
-        if key:
-            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE,
+        self._accel_group = ag
+
+        mappa_azioni = {
+            "new_terminal":   self._on_terminale_locale,
+            "new_session":    self._on_nuova_sessione,
+            "close_tab":      self._chiudi_tab_corrente,
+            "next_tab":       lambda: self._notebook_attivo.next_page() or True,
+            "prev_tab":       lambda: self._notebook_attivo.prev_page() or True,
+            "find":           self._attiva_ricerca_terminale,
+            "toggle_sidebar": self._toggle_sidebar,
+            "fullscreen":     self._toggle_fullscreen,
+        }
+
+        shortcuts = config_manager.load_settings().get("shortcuts", {})
+        for nome, combinazione in shortcuts.items():
+            azione = mappa_azioni.get(nome)
+            if not azione:
+                continue
+            risultato = self._accel_to_gtk(combinazione)
+            if risultato is None:
+                continue
+            _, key, mod = risultato
+            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *a, cb=azione: cb())
+
+        key_fissa, mod_fissa = Gtk.accelerator_parse("<Primary><Shift>G")
+        if key_fissa:
+            ag.connect(key_fissa, mod_fissa, Gtk.AccelFlags.VISIBLE,
                        lambda *_: self._on_variabili_globali() or True)
+
+    def _attiva_ricerca_terminale(self):
+        idx = self._notebook_attivo.get_current_page()
+        if idx < 0:
+            return True
+        page = self._notebook_attivo.get_nth_page(idx)
+        if hasattr(page, "mostra_cerca"):
+            page.mostra_cerca()
+        return True
 
     # ------------------------------------------------------------------
     # Schermata benvenuto
@@ -1962,10 +2038,15 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
         if resp == Gtk.ResponseType.OK:
             self._settings = config_manager.load_settings()
-            # Ricarica la lingua e ricostruisce il menu kebab
+            self._riapplica_accels()
             _tr.init_from_settings()
             if hasattr(self, "_menu_btn") and self._menu_btn is not None:
                 self._menu_btn.set_popup(self._build_menu())
+
+    def _riapplica_accels(self):
+        """Riapplica gli acceleratori dopo un salvataggio impostazioni."""
+        if hasattr(self, "_accel_group") and self._accel_group:
+            self._setup_accels()
 
     def _on_importa_sessioni(self):
         """Dialog di importazione sessioni da sorgenti esterne."""
