@@ -1573,7 +1573,9 @@ class SessionDialog(Gtk.Dialog):
 
             self._aggiorna_proto_fields()
         except Exception:
-            pass
+            from pcm_logging import get_logger
+            _log = get_logger(__name__)
+            _log.warning("Errore applicazione template '%s'", active, exc_info=True)
 
     def _on_proto_changed(self, combo):
         """Chiamato quando l'utente cambia manualmente il protocollo."""

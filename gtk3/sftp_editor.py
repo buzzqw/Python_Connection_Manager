@@ -361,7 +361,8 @@ class SftpEditorWidget(Gtk.Box):
             try:
                 os.unlink(self._tmp_path)
             except Exception:
-                pass
+                from pcm_logging import get_logger
+                get_logger(__name__).warning("Impossibile cancellare file temporaneo '%s'", self._tmp_path, exc_info=True)
             self._tmp_path = None
 
     def _set_status(self, msg: str):

@@ -72,7 +72,8 @@ def init_from_settings() -> None:
         if code in AVAILABLE_LANGUAGES:
             _LANG = code
     except Exception:
-        pass
+        from pcm_logging import get_logger
+        get_logger(__name__).warning("Impossibile leggere la lingua dalle impostazioni", exc_info=True)
 
 
 # ===========================================================================

@@ -238,7 +238,8 @@ class RdpEmbedWidget(Gtk.Box):
                 env=env,
             )
             self._t_avvio = datetime.datetime.now()
-            print(f"[RDP] Avviato {client} PID={self._proc.pid}")
+            from pcm_logging import get_logger
+            get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
             if hasattr(self, "_log_view"):
                 GLib.io_add_watch(
                     self._proc.stdout.fileno(),
@@ -304,7 +305,8 @@ class RdpEmbedWidget(Gtk.Box):
             )
             self._t_avvio = datetime.datetime.now()
             self._reparented = True
-            print(f"[RDP] rdesktop avviato PID={self._proc.pid} XID={xid}")
+            from pcm_logging import get_logger
+            get_logger(__name__).info("rdesktop avviato PID=%s XID=%s", self._proc.pid, xid)
         except Exception as e:
             self._mostra_errore(str(e))
             return

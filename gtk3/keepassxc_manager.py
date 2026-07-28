@@ -67,7 +67,8 @@ def _save_assoc(assoc: dict):
         s[_ASSOC_KEY] = assoc
         config_manager.save_settings(s)
     except Exception:
-        pass
+        from pcm_logging import get_logger
+        get_logger(__name__).warning("Impossibile salvare associazioni KeePassXC", exc_info=True)
 
 
 # ---------------------------------------------------------------------------

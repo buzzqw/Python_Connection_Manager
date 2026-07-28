@@ -7,6 +7,8 @@ import json
 import os
 import secrets
 
+from pcm_logging import get_logger as _get_log
+
 # Import lazy: crypto_manager potrebbe non avere cryptography installato
 def _crypto():
     try:
@@ -46,9 +48,18 @@ def load_profiles() -> dict:
     try:
         with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
             profili = json.load(f)
-    except (json.JSONDecodeError, Exception) as e:
-        print(f"[config] Errore lettura sessioni: {e}")
+    except json.JSONDecodeError:
+        from pcm_logging import get_logger
+        _log = get_logger(__name__)
+        _log.warning("connections.json corrotto o illeggibile. Le sessioni non sono state caricate.")
+        return {"_corrupted": True}
+    except FileNotFoundError:
         return {}
+    except Exception as e:
+        from pcm_logging import get_logger
+        _log = get_logger(__name__)
+        _log.warning("Errore lettura sessioni: %s", e)
+        return {"_error": str(e)}
 
     cm = _crypto()
     if cm and cm.is_enabled():
@@ -108,7 +119,7 @@ def save_profiles(profiles: dict) -> bool:
         _write_json_secure(SESSIONS_FILE, to_save)
         return True
     except Exception as e:
-        print(f"[config] Errore salvataggio sessioni: {e}")
+        _get_log(__name__).error("Errore salvataggio sessioni: %s", e)
         return False
 
 
@@ -218,6 +229,7 @@ DEFAULT_SETTINGS = {
         "language": "it",
         "protected_mode": False,
         "audit_log_enabled": False,
+        "log_level": "INFO",
     },
     "terminal": {
         "default_theme": "Scuro (Default)",
@@ -271,7 +283,7 @@ def load_settings() -> dict:
         merged = _deep_merge(DEFAULT_SETTINGS, saved)
         return merged
     except Exception as e:
-        print(f"[config] Errore lettura settings: {e}")
+        _get_log(__name__).error("Errore lettura settings: %s", e)
         return dict(DEFAULT_SETTINGS)
 
 
@@ -287,7 +299,7 @@ def save_settings(settings: dict) -> bool:
         _write_json_secure(SETTINGS_FILE, settings)
         return True
     except Exception as e:
-        print(f"[config] Errore salvataggio settings: {e}")
+        _get_log(__name__).error("Errore salvataggio settings: %s", e)
         return False
 
 
@@ -471,7 +483,7 @@ def audit_append(entry: dict):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(log, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"[audit] Errore scrittura: {e}")
+        _get_log(__name__).error("Errore scrittura audit_log: %s", e)
 
 
 def audit_load() -> list:
@@ -490,7 +502,7 @@ def audit_clear():
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump([], f)
     except Exception as e:
-        print(f"[audit] Errore cancellazione: {e}")
+        _get_log(__name__).error("Errore cancellazione audit_log: %s", e)
 
 
 def load_credential_profiles() -> list:
@@ -516,6 +528,6 @@ def save_credential_profiles(profiles: list) -> bool:
 
 if __name__ == "__main__":
     p = load_profiles()
-    print(f"Sessioni caricate: {len(p)}")
+    _get_log(__name__).debug("Sessioni caricate: %d", len(p))
     s = load_settings()
-    print(f"Impostazioni caricate: {list(s.keys())}")
+    _get_log(__name__).debug("Impostazioni caricate: %s", list(s.keys()))

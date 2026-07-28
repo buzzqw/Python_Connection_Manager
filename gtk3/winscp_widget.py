@@ -527,13 +527,17 @@ class RemotePanel(FilePanel):
             self.aggiorna()
 
     def _rmdir_ricorsivo(self, path: str):
-        for attr in self._sftp.listdir_attr(path):
-            fp = path.rstrip("/") + "/" + attr.filename
-            if stat.S_ISDIR(attr.st_mode):
-                self._rmdir_ricorsivo(fp)
-            else:
-                self._sftp.remove(fp)
-        self._sftp.rmdir(path)
+        try:
+            for attr in self._sftp.listdir_attr(path):
+                fp = path.rstrip("/") + "/" + attr.filename
+                if stat.S_ISDIR(attr.st_mode):
+                    self._rmdir_ricorsivo(fp)
+                else:
+                    self._sftp.remove(fp)
+            self._sftp.rmdir(path)
+        except Exception:
+            from pcm_logging import get_logger
+            get_logger(__name__).warning("Errore rimozione remota SFTP '%s'", path, exc_info=True)
 
     def _errore_ui(self, msg: str):
         GLib.idle_add(self._mostra_errore, msg)
@@ -1338,6 +1342,9 @@ class FtpRemotePanel(FilePanel):
 
     def _lista_directory(self, path: str) -> list:
         """Prova MLSD → LIST raw → NLST. Ritorna lista voci."""
+        from pcm_logging import get_logger
+        _log = get_logger(__name__)
+        any_ok = False
         parent = str(Path(path).parent) if path != "/" else "/"
         voci = [{"nome": "..", "is_dir": True, "path": parent,
                   "size": 0, "mtime": "", "attr": ""}]
@@ -1369,11 +1376,12 @@ class FtpRemotePanel(FilePanel):
                 (dirs if is_dir else files).append(entry)
             dirs.sort(key=lambda v: v["nome"].lower())
             files.sort(key=lambda v: v["nome"].lower())
+            any_ok = True
             return voci + dirs + files
         except ftplib.error_perm:
-            pass  # server non supporta MLSD
+            _log.debug("MLSD non supportato da questo server FTP")
         except Exception:
-            pass
+            _log.debug("Errore MLSD", exc_info=True)
 
         # --- Tentativo 2: LIST raw ---
         try:
@@ -1386,9 +1394,10 @@ class FtpRemotePanel(FilePanel):
                     (dirs if v["is_dir"] else files).append(v)
             dirs.sort(key=lambda v: v["nome"].lower())
             files.sort(key=lambda v: v["nome"].lower())
+            any_ok = True
             return voci + dirs + files
         except Exception:
-            pass
+            _log.debug("LIST fallito", exc_info=True)
 
         # --- Tentativo 3: NLST (solo nomi) ---
         try:
@@ -1407,9 +1416,14 @@ class FtpRemotePanel(FilePanel):
                     "mtime":  "",
                     "attr":   "",
                 })
+            any_ok = True
             return voci + entries
         except Exception:
-            pass
+            _log.debug("NLST fallito", exc_info=True)
+
+        if not any_ok:
+            _log.warning("Tutti i tentativi di listing falliti per '%s'", path)
+            self._errore_ui("Impossibile elencare la directory remota: tutti i metodi sono falliti")
 
         return voci  # fallback vuoto
 
@@ -1524,6 +1538,8 @@ class FtpRemotePanel(FilePanel):
 
     def _rmdir_ricorsivo(self, path: str):
         """Elimina ricorsivamente directory via LIST."""
+        from pcm_logging import get_logger
+        _log = get_logger(__name__)
         righe = []
         try:
             self._ftp.retrlines(f"LIST {path}", righe.append)
@@ -1539,11 +1555,11 @@ class FtpRemotePanel(FilePanel):
                 try:
                     self._ftp.delete(v["path"])
                 except Exception:
-                    pass
+                    _log.warning("Errore cancellazione remota FTP '%s'", v["path"], exc_info=True)
         try:
             self._ftp.rmd(path)
         except Exception:
-            pass
+            _log.warning("Errore rimozione directory remota FTP '%s'", path, exc_info=True)
 
     def _errore_ui(self, msg: str):
         GLib.idle_add(self._mostra_errore, msg)

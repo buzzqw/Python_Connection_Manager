@@ -98,6 +98,9 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
 from gi.repository import Gtk, Gdk, GLib, GObject, Gio
 
+from pcm_logging import get_logger
+_log = get_logger("pcm")
+
 # ---------------------------------------------------------------------------
 # Moduli PCM (tutti GTK3)
 # ---------------------------------------------------------------------------
@@ -219,9 +222,9 @@ class MainWindow(Gtk.ApplicationWindow):
             if loaded:
                 _refresh_protocols()
                 self._pannello.aggiorna()
-                print(f"[PCM] {len(loaded)} plugin caricati")
+            _log.info("%d plugin caricati", len(loaded))
         except Exception as e:
-            print(f"[PCM] Errore caricamento plugin: {e}")
+            _log.warning("Errore caricamento plugin: %s", e)
 
     def _check_crypto_unlock(self):
         """Chiamato 300ms dopo l'avvio per sbloccare le credenziali cifrate.
@@ -768,7 +771,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._pending_cli_uri = uri
                 return
         except ImportError:
-            pass
+            _log.warning("cryptography non installato — apertura URI sospesa")
+            GLib.idle_add(self._warn, "cryptography non installato; impossibile aprire URI con credenziali cifrate.")
 
         parsed = urlparse(uri)
         scheme = (parsed.scheme or "ssh").lower()
@@ -1434,13 +1438,16 @@ class MainWindow(Gtk.ApplicationWindow):
                     for gruppo in profili.values():
                         if isinstance(gruppo, dict) and nome in gruppo:
                             gruppo[nome]["password"] = pwd
-                            config_manager.save_profiles(profili)
+                            if not config_manager.save_profiles(profili):
+                                self._warn(t("sd.save_vnc_password_failed"))
                             return
                     if nome in profili:
                         profili[nome]["password"] = pwd
-                        config_manager.save_profiles(profili)
-                except Exception:
-                    pass
+                        if not config_manager.save_profiles(profili):
+                            self._warn(t("sd.save_vnc_password_failed"))
+                except Exception as exc:
+                    _log.error("Impossibile salvare password VNC: %s", exc)
+                    GLib.idle_add(self._warn, t("sd.save_vnc_password_failed"))
 
             if sftp_enabled:
                 # Pannello SFTP differito: aperto solo dopo che VNC è connesso
