@@ -551,15 +551,15 @@ class RdpEmbedWidget(Gtk.Box):
     def _on_socket_click(self, widget, event):
         """Click sul socket → sposta il focus X11 alla finestra RDP embedded."""
         if self._wid_rdp:
-            subprocess.Popen(["xdotool", "windowfocus", self._wid_rdp],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowfocus", self._wid_rdp],
+                           timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return False
 
     def _on_socket_focus_in(self, widget, event):
         """Il socket GTK riceve il focus → re-forwardalo alla finestra RDP."""
         if self._wid_rdp:
-            subprocess.Popen(["xdotool", "windowfocus", self._wid_rdp],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowfocus", self._wid_rdp],
+                           timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return False
 
     # ------------------------------------------------------------------

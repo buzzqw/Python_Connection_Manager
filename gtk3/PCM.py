@@ -214,7 +214,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._ripristina_sessioni()
             GLib.timeout_add(500, self._startup_chain, 4)
         elif step == 4:
-            GLib.timeout_add(3000, self._aggiorna_stato_live)
+            self._timer_stato_live = GLib.timeout_add(3000, self._aggiorna_stato_live)
         return False  # one-shot per ogni step
 
     # ------------------------------------------------------------------
@@ -476,7 +476,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._btn_tun_ind.set_popover(self._tun_pop)
         hb.pack_start(self._btn_tun_ind)
 
-        GLib.timeout_add(3000, self._aggiorna_tun_indicator)
+        self._timer_tun_ind = GLib.timeout_add(3000, self._aggiorna_tun_indicator)
         self._aggiorna_tun_indicator()
 
         # Pulsante split
@@ -1882,6 +1882,12 @@ class MainWindow(Gtk.ApplicationWindow):
             for child in [widget.get_child1(), widget.get_child2()]:
                 if child and hasattr(child, "chiudi_processo"):
                     child.chiudi_processo()
+        # Cleanup timer di riconnessione
+        if hasattr(widget, "_pcm_reconnect_timer"):
+            try:
+                GLib.source_remove(widget._pcm_reconnect_timer)
+            except Exception:
+                pass  # logged
         nb.remove_page(idx)
         self._tab_labels.pop(widget, None)
         self._widget_nb_map.pop(widget, None)
@@ -1900,7 +1906,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     delay = getattr(widget, "_pcm_reconnect_delay", 5)
                     nome_clean = nome.lstrip("↻✖ ") if nome else ""
                     self._set_tab_nome(page, f"↻ {nome_clean} ({delay}s)")
-                    GLib.timeout_add(delay * 1000, reconnect)
+                    widget._pcm_reconnect_timer = GLib.timeout_add(delay * 1000, reconnect)
                 else:
                     if nome and not nome.startswith("✖"):
                         self._set_tab_nome(page, f"✖ {nome}")
@@ -2702,6 +2708,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 _chiudi_ricorsivo(page)
         if self._auto_lock_timer:
             GLib.source_remove(self._auto_lock_timer)
+        if hasattr(self, "_timer_stato_live") and self._timer_stato_live:
+            GLib.source_remove(self._timer_stato_live)
+        if hasattr(self, "_timer_tun_ind") and self._timer_tun_ind:
+            GLib.source_remove(self._timer_tun_ind)
         return False  # permetti chiusura
 
     # ------------------------------------------------------------------
