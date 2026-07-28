@@ -1,7 +1,7 @@
 """
 rdp_widget.py - Widget RDP embedded per PCM (GTK3)
 
-Stessa strategia dell'originale PyQt6 (xdotool reparent):
+Riposizionamento finestra via xdotool (xfreerdp non supporta XEmbed):
   1. Lancia xfreerdp come finestra normale
   2. Polling con xdotool search finché la finestra non appare
   3. Reparenta la finestra dentro un Gtk.Socket via xdotool windowreparent
@@ -318,7 +318,7 @@ class RdpEmbedWidget(Gtk.Box):
     def _cerca_e_reparenta(self) -> bool:
         self._poll_attempts += 1
 
-        # Timeout 180s (360 × 500ms) — come PyQt6
+        # Timeout 180s (360 × 500ms)
         if self._poll_attempts > 360:
             self._mostra_errore(t("rdp.embed.reparent_failed"))
             return False  # stop

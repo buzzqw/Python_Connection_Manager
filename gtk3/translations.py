@@ -1045,7 +1045,7 @@ _T: dict[str, dict[str, str]] = {
     "sftp.parent_folder":   {"it": "Cartella superiore",                 "en": "Parent folder",                   "de": "Übergeordneter Ordner",           "fr": "Dossier parent",                   "es": "Carpeta padre"},
     "sftp.n_items":         {"it": "{n} elementi",                       "en": "{n} items",                       "de": "{n} Elemente",                    "fr": "{n} éléments",                     "es": "{n} elementos"},
 
-    # ── variables_dialog (PyQt6) ──────────────────────────────────────────────
+    # ── variables_dialog ──────────────────────────────────────────────────────
     "variables.btn_add":    {"it": "➕ Aggiungi",                        "en": "➕ Add",                          "de": "➕ Hinzufügen",                    "fr": "➕ Ajouter",                        "es": "➕ Agregar"},
     "variables.btn_remove": {"it": "➖ Rimuovi",                         "en": "➖ Remove",                       "de": "➖ Entfernen",                     "fr": "➖ Supprimer",                      "es": "➖ Eliminar"},
     "variables.btn_cancel": {"it": "Annulla",                            "en": "Cancel",                          "de": "Abbrechen",                       "fr": "Annuler",                          "es": "Cancelar"},

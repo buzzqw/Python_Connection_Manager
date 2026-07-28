@@ -2,7 +2,6 @@
 session_dialog.py - Dialog creazione/modifica sessione PCM (GTK3)
 
 Gtk.Dialog con Gtk.Notebook. Adatta i widget visibili al protocollo scelto.
-Corrisponde 1:1 all'originale PyQt6.
 """
 
 import os
