@@ -99,11 +99,11 @@ USE_VENV=false
 
 if [[ "$DISTRO" == "debian" ]]; then
     SYS_PKGS="python3 python3-venv curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
     USE_VENV=true
 elif [[ "$DISTRO" == "fedora" ]]; then
     SYS_PKGS="python3 python3-devel curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
     USE_VENV=true
 elif [[ "$DISTRO" == "arch" ]]; then
     SYS_PKGS="python curl gtk3 vte3 gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
@@ -116,7 +116,7 @@ elif [[ "$DISTRO" == "freebsd" ]]; then
     USE_VENV=false
 else
     SYS_PKGS=""
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5")
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
     USE_VENV=false
 fi
 VARIANT_DIR="${PROJECT_DIR}/gtk3"

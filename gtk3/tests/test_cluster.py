@@ -4,10 +4,7 @@ test_cluster.py - Test per dialog cluster e selettore sessioni.
 
 import pytest
 import os
-import sys
 import json
-
-sys.path.insert(0, os.path.dirname(__file__))
 
 import gi
 gi.require_version("Gtk", "3.0")

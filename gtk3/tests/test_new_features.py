@@ -3,10 +3,7 @@ Test suite for new PCM features: plugins, TOTP, password tools,
 template inheritance, gateway detection, tag filtering, protocol validation.
 """
 import pytest
-import sys
 import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from plugins.plugin_manager import discover_plugins, load_plugins, get_builtin_plugin_dir
 from plugins.plugin_base import (

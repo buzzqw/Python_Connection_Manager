@@ -11,5 +11,11 @@ paramiko>=3.0
 # Server FTP locale
 pyftpdlib>=1.5
 
+# KeePassXC Browser Protocol
+pynacl>=1.5
+
+# Test
+pytest>=7.0
+
 # Tutte le dipendenze GObject/GTK vengono dai pacchetti di sistema,
 # non da pip: PyGObject viene installato via apt/pacman/dnf/zypper.
