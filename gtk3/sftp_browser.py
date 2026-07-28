@@ -213,7 +213,7 @@ class SftpBrowserWidget(Gtk.Box):
             if self._profilo.get("strict_host", False):
                 self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
             else:
-                self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
 
             kwargs = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):

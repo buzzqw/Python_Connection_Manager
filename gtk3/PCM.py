@@ -735,9 +735,10 @@ class MainWindow(Gtk.ApplicationWindow):
             return None, None
 
         ssh_exe = shutil.which("ssh") or "ssh"
+        strict = "yes" if dati.get("strict_host", False) else "accept-new"
         cmd = [
             ssh_exe, "-N", "-T",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", f"StrictHostKeyChecking={strict}",
             "-o", "ServerAliveInterval=15",
             "-o", "ExitOnForwardFailure=yes",
             "-p", jump_port,

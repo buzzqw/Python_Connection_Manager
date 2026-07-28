@@ -322,8 +322,11 @@ def _build_rdp(p: dict) -> str:
         args = [f"/v:{_q(host)}:{_q(port)}"]
         if user: args.append(f"/u:{_q(user)}")
         if domain: args.append(f"/d:{_q(domain)}")
-        if pwd: args.append(f"/p:'{_esc(pwd)}'")
-        args.append("/cert:ignore")
+        if pwd: args.append("/from-stdin")
+        if not p.get("rdp_ignore_cert", True):
+            pass
+        else:
+            args.append("/cert:ignore")
         if p.get("fullscreen"): args.append("/f")
         if p.get("redirect_clipboard"): args.append("/clipboard")
         if p.get("redirect_drives"): args.append("/drive:home,/home")
