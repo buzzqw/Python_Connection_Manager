@@ -2677,10 +2677,29 @@ class MainWindow(Gtk.ApplicationWindow):
         config_manager.save_settings(s_r)
 
         # Chiudi tutti i processi aperti
-        for i in range(self._notebook.get_n_pages()):
-            page = self._notebook.get_nth_page(i)
-            if page and hasattr(page, "chiudi_processo"):
-                page.chiudi_processo()
+        def _chiudi_ricorsivo(widget):
+            if hasattr(widget, "chiudi_processo"):
+                try:
+                    widget.chiudi_processo()
+                except Exception:
+                    pass
+            elif hasattr(widget, "get_child1"):
+                for child in (widget.get_child1(), widget.get_child2()):
+                    if child:
+                        _chiudi_ricorsivo(child)
+            _dati = getattr(widget, "_pcm_dati", None)
+            if _dati and _dati.get("_gateway_tunnel"):
+                try:
+                    _dati["_gateway_tunnel"].terminate()
+                except Exception:
+                    pass
+
+        for nb in (self._notebook, self._notebook2):
+            for i in range(nb.get_n_pages()):
+                page = nb.get_nth_page(i)
+                if page is None:
+                    continue
+                _chiudi_ricorsivo(page)
         if self._auto_lock_timer:
             GLib.source_remove(self._auto_lock_timer)
         return False  # permetti chiusura

@@ -463,7 +463,7 @@ class _VncSocket(Gtk.Box):
         self._client = _find_vnc_client()
         self._proc = None
         self._closed = False
-        self._passwd_file = None
+        self._passwd_files = []
         self._build()
 
     def _build(self):
@@ -521,12 +521,12 @@ class _VncSocket(Gtk.Box):
             if passwd_fmt:
                 pf = self._write_passwd_file(self._password)
                 if pf:
-                    self._passwd_file = pf
+                    self._passwd_files.append(pf)
                     cmd.append(passwd_fmt.format(pf))
             elif self._client in ("vncviewer", "xtigervncviewer"):
                 pf = self._write_passwd_file(self._password)
                 if pf:
-                    self._passwd_file = pf
+                    self._passwd_files.append(pf)
                     cmd += ["--PasswordFile", pf]
 
         cmd.append(embed_fmt.format(xid))
@@ -598,11 +598,13 @@ class _VncSocket(Gtk.Box):
                     self._proc.kill()
             except Exception:
                 pass
-        if self._passwd_file and os.path.exists(self._passwd_file):
-            try:
-                os.unlink(self._passwd_file)
-            except Exception:
-                pass
+        for pf in self._passwd_files:
+            if os.path.exists(pf):
+                try:
+                    os.unlink(pf)
+                except Exception:
+                    pass
+        self._passwd_files.clear()
 
 
 # ---------------------------------------------------------------------------
