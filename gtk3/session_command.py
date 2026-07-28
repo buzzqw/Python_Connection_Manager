@@ -174,21 +174,27 @@ def _build_ssh(p: dict) -> str:
     host  = p.get("host", "")
     user  = p.get("user", "")
     port  = p.get("port", "22")
-    pwd   = p.get("password", "")
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
     
     strict = "yes" if p.get("strict_host", False) else "accept-new"
-    args = [f"-p {_esc(port)}", f"-o StrictHostKeyChecking={strict}", "-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
+
+    keepalive_interval = 15
+    if p.get("keepalive"):
+        import config_manager
+        keepalive_interval = config_manager.load_settings().get("ssh", {}).get("keepalive_interval", 60)
+
+    args = [f"-p {_esc(port)}",
+            f"-o StrictHostKeyChecking={strict}",
+            f"-o ServerAliveInterval={keepalive_interval}",
+            "-o ServerAliveCountMax=3"]
 
     if pkey and os.path.exists(pkey):
         args.append(f"-i {_q(pkey)}")
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
     if p.get("agent_forward"): args.append("-A")
-    if p.get("keepalive"):
-        args.append("-o ServerAliveInterval=60")
-    
+
     if p.get("jump_host"):
         jhost = p.get('jump_host', '')
         juser = p.get('jump_user', '')
@@ -365,12 +371,13 @@ def _build_vnc(p: dict) -> str:
     qual  = {0: 9,  1: 6,  2: 3}.get(_vnc_idx(p.get("vnc_quality",  2), 2),  6)
 
     def _passwd_wrap(exe, extra=""):
-        return (
-            f"bash -c 'TMP=$(mktemp); "
-            f"printf '%s' '{_esc(pwd)}' | vncpasswd -f > \"$TMP\"; "
-            f'"{exe}" {extra}-passwd "$TMP" {host}::{port}; '
-            f"rm -f '$TMP''"
-        )
+        import tempfile
+        fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
+        os.close(fd)
+        os.chmod(tmp_path, 0o600)
+        with open(tmp_path, "w") as f:
+            f.write(pwd)
+        return f'"{exe}" {extra}-passwd "{tmp_path}" {host}::{port}'
 
     # Tool personalizzato
     custom = _get_custom_tool("vnc", client)
@@ -407,19 +414,15 @@ def _build_vnc(p: dict) -> str:
         return f'"{_get_tool("krdc")}" vnc://{host}:{port}'
 
     else:
-        # vncviewer generico: può essere TigerVNC rinominato o altro.
-        # NON passare -depth/-quality: TigerVNC non li accetta (usa -FullColour
-        # e -CompressLevel internamente). Lasciamo solo host::port.
         exe = _get_tool(client)
         if pwd:
-            return (
-                f"bash -c 'TMP=$(mktemp); "
-                f"printf '%s' '{_esc(pwd)}' | vncpasswd -f > \"$TMP\" 2>/dev/null "
-                f"|| printf '%s' '{_esc(pwd)}' > \"$TMP\"; "
-                f'"{exe}" --PasswordFile="$TMP" {host}::{port} 2>/dev/null '
-                f'|| "{exe}" -passwd "$TMP" {host}::{port}; '
-                f"rm -f '$TMP''"
-            )
+            import tempfile
+            fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
+            os.close(fd)
+            os.chmod(tmp_path, 0o600)
+            with open(tmp_path, "w") as f:
+                f.write(pwd)
+            return f'"{exe}" --PasswordFile="{tmp_path}" {host}::{port}'
         return f'"{exe}" {host}::{port}'
 
 
