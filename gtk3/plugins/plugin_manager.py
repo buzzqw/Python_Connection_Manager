@@ -12,8 +12,9 @@ import os
 import importlib
 import importlib.util
 import sys
-import traceback
 from typing import Optional
+
+from pcm_logging import get_logger as _get_log
 
 from plugins.plugin_base import (
     PluginInfo, ProtocolPlugin, ToolPlugin,
@@ -82,7 +83,7 @@ def discover_plugins() -> dict[str, PluginInfo]:
                 if info.plugin_id not in discovered:
                     discovered[info.plugin_id] = info
             except (json.JSONDecodeError, KeyError) as e:
-                print(f"[plugins] Invalid manifest in {plugin_path}: {e}")
+                _get_log(__name__).warning("Invalid manifest in %s: %s", plugin_path, e)
 
     return discovered
 
@@ -91,14 +92,14 @@ def _load_plugin_from_path(plugin_path: str, info: PluginInfo) -> Optional[Proto
     """Load a plugin module from a directory path."""
     init_file = os.path.join(plugin_path, "__init__.py")
     if not os.path.isfile(init_file):
-        print(f"[plugins] No __init__.py in {plugin_path}")
+        _get_log(__name__).debug("No __init__.py in %s", plugin_path)
         return None
 
     module_name = f"pcm_plugin_{info.plugin_id}"
     try:
         spec = importlib.util.spec_from_file_location(module_name, init_file)
         if spec is None or spec.loader is None:
-            print(f"[plugins] Failed to create spec for {plugin_path}")
+            _get_log(__name__).warning("Failed to create spec for %s", plugin_path)
             return None
 
         module = importlib.util.module_from_spec(spec)
@@ -127,15 +128,14 @@ def _load_plugin_from_path(plugin_path: str, info: PluginInfo) -> Optional[Proto
                         break
 
         if plugin is None:
-            print(f"[plugins] No plugin instance found in {plugin_path}")
+            _get_log(__name__).warning("No plugin instance found in %s", plugin_path)
             return None
 
         plugin.plugin_info.plugin_path = plugin_path
         return plugin
 
     except Exception as e:
-        print(f"[plugins] Error loading {plugin_path}: {e}")
-        traceback.print_exc()
+        _get_log(__name__).error("Error loading %s: %s", plugin_path, e, exc_info=True)
         return None
 
 
@@ -154,7 +154,7 @@ def load_plugins(disabled: list[str] | None = None) -> list[PluginInfo]:
 
     for plugin_id, info in discovered.items():
         if plugin_id in disabled:
-            print(f"[plugins] Skipping disabled plugin: {plugin_id}")
+            _get_log(__name__).info("Skipping disabled plugin: %s", plugin_id)
             continue
 
         plugin = _load_plugin_from_path(info.plugin_path, info)
@@ -167,10 +167,9 @@ def load_plugins(disabled: list[str] | None = None) -> list[PluginInfo]:
             elif isinstance(plugin, ToolPlugin):
                 pcm_register_tool(plugin)
             loaded.append(info)
-            print(f"[plugins] Loaded: {plugin_id} v{info.version}")
+            _get_log(__name__).info("Loaded: %s v%s", plugin_id, info.version)
         except Exception as e:
-            print(f"[plugins] Failed to register {plugin_id}: {e}")
-            traceback.print_exc()
+            _get_log(__name__).error("Failed to register %s: %s", plugin_id, e, exc_info=True)
 
     return loaded
 

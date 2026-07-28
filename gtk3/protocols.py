@@ -217,9 +217,11 @@ def validate_profiles(profiles: dict) -> dict:
         dati = _normalize_modes(dati)
         valid[nome] = dati
     if issues:
-        print("[protocols] Problemi di validazione:")
+        from pcm_logging import get_logger
+        _log = get_logger(__name__)
+        _log.warning("Problemi di validazione profili")
         for nome, msg in issues:
-            print(f"  - {nome}: {msg}")
+            _log.warning("  - %s: %s", nome, msg)
     return valid
 
 

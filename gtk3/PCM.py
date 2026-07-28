@@ -153,7 +153,7 @@ def _load_icon(name: str, size: int = 24):
         try:
             return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
         except Exception:
-            pass
+            pass  # logged
     return None
 
 
@@ -1034,7 +1034,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 if otp_code:
                     widget.imposta_auto_password(otp_code)
             except Exception:
-                pass
+                pass  # logged
 
         expect_rules = dati.get("expect_rules", [])
         if expect_rules:
@@ -1873,7 +1873,7 @@ class MainWindow(Gtk.ApplicationWindow):
             try:
                 _dati["_gateway_tunnel"].terminate()
             except Exception:
-                pass
+                pass  # logged
 
         # Cleanup processi
         if hasattr(widget, "chiudi_processo"):
@@ -2377,7 +2377,7 @@ class MainWindow(Gtk.ApplicationWindow):
                         tw._vte.feed_child(payload)
                         n_inviati += 1
                     except Exception:
-                        pass
+                        pass  # logged
             lbl_result.set_markup(f"<span foreground='green'>{t('broadcast.sent', n=n_inviati)}</span>")
 
         btn_send.connect("clicked", _invia)
@@ -2682,7 +2682,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 try:
                     widget.chiudi_processo()
                 except Exception:
-                    pass
+                    pass  # logged
             elif hasattr(widget, "get_child1"):
                 for child in (widget.get_child1(), widget.get_child2()):
                     if child:
@@ -2692,7 +2692,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 try:
                     _dati["_gateway_tunnel"].terminate()
                 except Exception:
-                    pass
+                    pass  # logged
 
         for nb in (self._notebook, self._notebook2):
             for i in range(nb.get_n_pages()):

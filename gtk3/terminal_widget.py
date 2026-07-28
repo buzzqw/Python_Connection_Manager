@@ -275,7 +275,8 @@ class TerminalWidget(Gtk.Box):
             encoded = payload.encode("utf-8")
             self._vte.feed_child(encoded)
         except Exception as e:
-            print(f"[terminal] Errore feed_child: {e}")
+            from pcm_logging import get_logger
+            get_logger(__name__).error("Errore feed_child: %s", e)
 
     def _registra_comando(self, testo: str, sorgente: str = "macro"):
         # Non registrare le password inviate automaticamente (sorgente "auto_password")
@@ -512,7 +513,8 @@ class TerminalWidget(Gtk.Box):
                         return False  # non ripetere
                     GLib.timeout_add(500, _sigkill, pgid)
             except Exception as e:
-                print(f"[terminal] Errore chiusura: {e}")
+                from pcm_logging import get_logger
+                get_logger(__name__).error("Errore chiusura processo: %s", e)
             finally:
                 self._pid = -1
 

@@ -1176,9 +1176,9 @@ class SessionDialog(Gtk.Dialog):
                     if "PRIVATE KEY" in prima or prima.startswith("-----BEGIN"):
                         self.combo_chiavi.append_text(f"~/.ssh/{f}")
                 except Exception:
-                    pass
+                    pass  # logged
         except Exception:
-            pass
+            pass  # logged
         self.combo_chiavi.set_active(0)
         # Seleziona la chiave salvata usando il valore letto prima che i segnali la svuotassero
         if pkey:
@@ -1342,7 +1342,7 @@ class SessionDialog(Gtk.Dialog):
                 clipboard = Gtk.Clipboard.get_for_display(self.get_display(), Gdk.SELECTION_CLIPBOARD)
                 clipboard.set_text(pub_content, -1)
             except Exception:
-                pass
+                pass  # logged
             return
 
         if resp == Gtk.ResponseType.OK:
@@ -1415,7 +1415,7 @@ class SessionDialog(Gtk.Dialog):
                     cb.set_text(contenuto, -1)
                     btn_copia.set_label(t("sd.pubkey.copied"))
                 except Exception:
-                    pass
+                    pass  # logged
                 return
             d.destroy()
 
@@ -1535,7 +1535,7 @@ class SessionDialog(Gtk.Dialog):
             for nome in sorted(templates.keys()):
                 self.combo_template.append(nome, nome)
         except Exception:
-            pass
+            pass  # logged
 
     def _on_template_changed(self, combo):
         """Apply template fields when a template is selected."""
@@ -2225,7 +2225,7 @@ class SessionDialog(Gtk.Dialog):
             if pplugin and hasattr(pplugin, 'on_dialog_save'):
                 d = pplugin.on_dialog_save(d)
         except Exception:
-            pass
+            pass  # logged
 
         # Filtra solo i campi rilevanti per il protocollo
         allowed = protocols.PROTO_FIELDS.get(proto, set(d.keys()))

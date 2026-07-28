@@ -31,7 +31,6 @@ def generate_totp(secret: str, digits: int = 6, period: int = 30,
     try:
         key = _decode_base32(secret.strip().upper().replace(" ", ""))
     except Exception:
-        print("[totp] Invalid base32 secret")
         return None
 
     current_step = int(time.time() // period)

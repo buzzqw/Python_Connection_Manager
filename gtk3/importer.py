@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 import config_manager
+from pcm_logging import get_logger as _get_log
 
 # ---------------------------------------------------------------------------
 # Mappe ConnectionType
@@ -125,7 +126,7 @@ def importa_remmina(percorso: Optional[str] = None) -> dict:
                 nome = pr.pop("__nome__")
                 profili[_univoco(nome, profili)] = pr
         except Exception as e:
-            print(f"[importer/remmina] {f.name}: {e}")
+            _get_log(__name__).warning("errore parsing remmina %s: %s", f.name, e)
     return profili
 
 
@@ -564,7 +565,7 @@ def importa_ssh_config(percorso: Optional[str] = None) -> dict:
                     current[key] = val
         _flush()
     except Exception as e:
-        print(f"[importer] Errore ssh_config: {e}")
+        _get_log(__name__).warning("Errore ssh_config: %s", e)
 
     return profili
 

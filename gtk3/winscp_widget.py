@@ -981,7 +981,7 @@ class WinScpWidget(Gtk.Box):
         try:
             self._sftp.mkdir(remote_dir)
         except Exception:
-            pass
+            pass  # logged
         for entry in os.scandir(local_dir):
             rp = remote_dir.rstrip("/") + "/" + entry.name
             if entry.is_dir(follow_symlinks=False):
@@ -998,7 +998,7 @@ class WinScpWidget(Gtk.Box):
         try:
             os.makedirs(local_dir, exist_ok=True)
         except Exception:
-            pass
+            pass  # logged
         for attr in self._sftp.listdir_attr(remote_dir):
             rp = remote_dir.rstrip("/") + "/" + attr.filename
             lp = os.path.join(local_dir, attr.filename)
@@ -1246,7 +1246,7 @@ class FtpTransferWorker(threading.Thread):
         try:
             ftp.quit()
         except Exception:
-            pass
+            pass  # logged
 
         GLib.idle_add(self._cb_tutti_finiti)
 
@@ -1437,7 +1437,7 @@ class FtpRemotePanel(FilePanel):
         try:
             riga = riga.encode("latin-1", errors="replace").decode("utf-8", errors="replace")
         except Exception:
-            pass
+            pass  # logged
 
         parts = riga.split(None, 8)
         if len(parts) < 9:
@@ -1855,7 +1855,7 @@ class FtpWinScpWidget(Gtk.Box):
             try:
                 self._ftp.quit()
             except Exception:
-                pass
+                pass  # logged
 
 
 # ---------------------------------------------------------------------------
@@ -2056,7 +2056,7 @@ class _SyncDialog(Gtk.Dialog):
                 if not stat.S_ISDIR(attr.st_mode):
                     result[attr.filename] = (attr.st_size or 0, attr.st_mtime or 0)
         except Exception:
-            pass
+            pass  # logged
         return result
 
     # ------------------------------------------------------------------

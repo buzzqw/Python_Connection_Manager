@@ -17,6 +17,8 @@ import os
 import shutil
 import subprocess
 
+from pcm_logging import get_logger as _get_log
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
@@ -30,8 +32,7 @@ try:
     from gi.repository import GtkVnc
     _GTKV_OK = True
 except Exception:
-    pass
-
+    _get_log(__name__).debug("GtkVnc non disponibile")
 
 def _find_vnc_client() -> str | None:
     for c in ["vncviewer", "xtightvncviewer", "xvnc4viewer",
@@ -226,11 +227,11 @@ class _VncGtkVnc(Gtk.Box):
         try:
             self._display.set_depth(depth_enum)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
         try:
             self._display.set_lossy_encoding(self._quality == 2)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _build_vt_menu(self) -> Gtk.Menu:
         menu = Gtk.Menu()
@@ -260,7 +261,7 @@ class _VncGtkVnc(Gtk.Box):
             try:
                 self._display.close()
             except Exception:
-                pass
+                _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
             self._lbl.set_text(f"VNC — {self._host}:{self._port}  riconnessione…")
             GLib.timeout_add(800, lambda: self._connetti() or False)
 
@@ -276,7 +277,7 @@ class _VncGtkVnc(Gtk.Box):
         try:
             nome = self._display.get_name() or ""
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
         self._lbl.set_text(
             f"VNC — {self._host}:{self._port}"
             + (f"  [{nome}]" if nome else "")
@@ -359,7 +360,7 @@ class _VncGtkVnc(Gtk.Box):
             try:
                 self._on_save_password(pwd)
             except Exception:
-                pass
+                _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
         return pwd
 
     # ------------------------------------------------------------------
@@ -372,34 +373,34 @@ class _VncGtkVnc(Gtk.Box):
             self._display.set_scaling(self._scaling)
             self._display.set_keep_aspect_ratio(self._scaling)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _on_pointer_toggled(self, btn):
         self._pointer_local = btn.get_active()
         try:
             self._display.set_pointer_local(self._pointer_local)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _on_keyboard_toggled(self, btn):
         self._keyboard_grab = btn.get_active()
         try:
             self._display.set_keyboard_grab(self._keyboard_grab)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _on_readonly_toggled(self, btn):
         self._read_only = btn.get_active()
         try:
             self._display.set_read_only(self._read_only)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _send_keys(self, keysyms: list):
         try:
             self._display.send_keys(keysyms)
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
     def _send_ctrl_alt_del(self):
         self._send_keys([_KEY_CTRL, _KEY_ALT, _KEY_DEL])
@@ -438,7 +439,7 @@ class _VncGtkVnc(Gtk.Box):
         try:
             self._display.close()
         except Exception:
-            pass
+            _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -597,13 +598,13 @@ class _VncSocket(Gtk.Box):
                 except subprocess.TimeoutExpired:
                     self._proc.kill()
             except Exception:
-                pass
+                _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
         for pf in self._passwd_files:
             if os.path.exists(pf):
                 try:
                     os.unlink(pf)
                 except Exception:
-                    pass
+                    _get_log(__name__).debug("eccezione benigna soppressa", exc_info=True)
         self._passwd_files.clear()
 
 

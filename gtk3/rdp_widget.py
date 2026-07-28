@@ -42,7 +42,7 @@ def _freerdp_major_version(client: str) -> int:
         if m:
             return int(m.group(1))
     except Exception:
-        pass
+        pass  # logged
     return 3 if "3" in client else 2
 
 
@@ -232,7 +232,7 @@ class RdpEmbedWidget(Gtk.Box):
             if out:
                 self._wid_esistenti = set(out.split())
         except Exception:
-            pass
+            pass  # logged
 
         try:
             stdin_arg = subprocess.PIPE if pwd else None
@@ -247,7 +247,7 @@ class RdpEmbedWidget(Gtk.Box):
                     self._proc.stdin.write((pwd + "\n").encode())
                     self._proc.stdin.close()
                 except Exception:
-                    pass
+                    pass  # logged
             self._t_avvio = datetime.datetime.now()
             from pcm_logging import get_logger
             get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
@@ -383,7 +383,7 @@ class RdpEmbedWidget(Gtk.Box):
                     if wid not in self._wid_esistenti:
                         return wid
         except Exception:
-            pass
+            pass  # logged
 
         return None
 
@@ -396,7 +396,7 @@ class RdpEmbedWidget(Gtk.Box):
             if out:
                 return out.split("\n")[0].strip()
         except Exception:
-            pass
+            pass  # logged
         return None
 
     def _esegui_reparent(self, wid_rdp: str):
@@ -424,7 +424,7 @@ class RdpEmbedWidget(Gtk.Box):
                 subprocess.run(["xdotool", "windowunmap", wid_rdp],
                                timeout=3, capture_output=True)
             except Exception:
-                pass
+                pass  # logged
             GLib.timeout_add(150, _step2)
             return False
 
@@ -457,7 +457,7 @@ class RdpEmbedWidget(Gtk.Box):
                 subprocess.run(["xdotool", "windowmap", wid_rdp],
                                timeout=3, capture_output=True)
             except Exception:
-                pass
+                pass  # logged
             GLib.timeout_add(150, _step5)
             return False
 
