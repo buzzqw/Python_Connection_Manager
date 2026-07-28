@@ -62,7 +62,10 @@ def load_profiles() -> dict:
 
     cm = _crypto()
     if cm and cm.is_enabled():
-        profili = {nome: cm.decrypt_profile(p) for nome, p in profili.items()}
+        try:
+            profili = {nome: cm.decrypt_profile(p) for nome, p in profili.items()}
+        except (cm.CryptoError, cm.InvalidTokenError):
+            pass
 
     from protocols import validate_profiles
     profili = validate_profiles(profili)
