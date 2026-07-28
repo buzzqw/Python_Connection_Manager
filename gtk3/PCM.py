@@ -1148,24 +1148,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._apri_ftp(nome_tab, dati_ft)
         dlg.destroy()
 
-    def _apri_cluster(self, nome: str, dati: dict):
-        from cluster_dialog import ClusterDialog
-        dlg = ClusterDialog(parent=self, nome_sessione=nome, dati_sessione=dati)
-        resp = dlg.run()
-        if resp != Gtk.ResponseType.OK:
-            dlg.destroy()
-            return
-        hosts = dlg.get_hosts()
-        keep_user = dlg.keep_user()
-        keep_port = dlg.keep_port()
-        enable_bc = dlg.enable_broadcast()
-        delay = dlg.get_delay()
-        dlg.destroy()
-
-        if not hosts:
-            return
-        self._connect_to_cluster(nome, dati, hosts, keep_user, keep_port, delay, enable_bc)
-
     def _on_cluster_from_toolbar(self):
         profili = config_manager.load_profiles()
         if not profili:
@@ -1236,13 +1218,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _load_clusters(self) -> dict:
         return config_manager.load_settings().get("saved_clusters", {})
-
-    def _connect_to_cluster(self, nome: str, dati: dict, hosts: list,
-                            keep_user: bool, keep_port: bool, delay: float,
-                            enable_bc: bool):
-        plan = {nome: {"dati": dati, "hosts": hosts,
-                       "keep_user": keep_user, "keep_port": keep_port}}
-        self._connect_to_cluster_plan(plan, delay, enable_bc)
 
     def _resolve_credentials(self, dati: dict):
         """Inject user/password/domain from a named credential profile into dati."""
