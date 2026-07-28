@@ -200,6 +200,16 @@ def validate_profiles(profiles: dict) -> dict:
             continue
         dati = dict(dati)
         dati["protocol"] = proto
+
+        host = str(dati.get("host", ""))
+        port = str(dati.get("port", ""))
+        if host and any(c in host for c in ' ;|&$(){}[]`\'"\\!@#%^*'):
+            issues.append((nome, f"host '{host}' contiene metacaratteri non consentiti"))
+            continue
+        if port and not port.isdigit():
+            issues.append((nome, f"porta '{port}' non numerica"))
+            continue
+
         # Pulisci campi non pertinenti
         allowed = PROTO_FIELDS.get(proto, _COMMON_FIELDS)
         dati = {k: v for k, v in dati.items() if k in allowed}

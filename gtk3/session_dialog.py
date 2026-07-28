@@ -1344,18 +1344,20 @@ class SessionDialog(Gtk.Dialog):
             return
 
         if resp == Gtk.ResponseType.OK:
-            cmd_str = f"ssh-copy-id -i '{pub_path}' -p {port} {target}"
+            import shlex
+            cmd_str = f"ssh-copy-id -i {shlex.quote(pub_path)} -p {shlex.quote(port)} {shlex.quote(target)}"
+            cmd_quoted = shlex.quote(cmd_str)
             # Apri in terminale
             for term in ["xterm", "gnome-terminal", "xfce4-terminal", "konsole"]:
                 if shutil.which(term):
                     if term == "xterm":
                         subprocess.Popen([term, "-title", t("sd.pubkey.ssh_title"),
-                                         "-e", f"bash -c '{cmd_str}; echo; echo {t('sd.pubkey.press_enter')}; read'"])
+                                         "-e", f"bash -c {cmd_quoted}; echo; echo {shlex.quote(t('sd.pubkey.press_enter'))}; read"])
                     elif term in ("gnome-terminal", "xfce4-terminal"):
                         subprocess.Popen([term, "--", "bash", "-c",
                                          f"{cmd_str}; echo; echo '{t('sd.pubkey.press_enter')}'; read"])
                     else:
-                        subprocess.Popen([term, "-e", f"bash -c '{cmd_str}; read'"])
+                        subprocess.Popen([term, "-e", f"bash -c {cmd_quoted}; read"])
                     break
             else:
                 subprocess.Popen(["bash", "-c", cmd_str])

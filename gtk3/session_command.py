@@ -257,13 +257,13 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     if modalita in ("term_int", "term_ext"):
         if _tool_exists("lftp"):
             lftp_exe = _get_tool("lftp")
-            uri_cred = f"{schema}://{_esc(user)}:{_esc(pwd)}@{host}:{port}" if user and pwd else uri
-            return f"\"{lftp_exe}\" -e 'open {uri_cred}' {host}"
+            uri_cred = f"{schema}://{_esc(user)}:{_esc(pwd)}@{_q(host)}:{_q(port)}" if user and pwd else uri
+            return f"\"{lftp_exe}\" -e 'open {uri_cred}' {_q(host)}"
         elif _tool_exists("ftp"):
             ftp_exe = _get_tool("ftp")
             if user and pwd:
-                return f"bash -c 'printf \"open {host} {port}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | \"{ftp_exe}\" -n'"
-            return f"\"{ftp_exe}\" {host} {port}"
+                return f"bash -c 'printf \"open {_q(host)} {_q(port)}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | \"{ftp_exe}\" -n'"
+            return f"\"{ftp_exe}\" {_q(host)} {_q(port)}"
         else:
             return "bash -c 'echo \"lftp non trovato.\"; sleep 5'"
     return uri
@@ -302,8 +302,8 @@ def _build_sftp_cli(p: dict) -> str:
         return f"\"{sftp_exe}\" {args_str} {target}"
 
     if pwd and _tool_exists("lftp"):
-        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{_esc(host)}:{_esc(port)}" if user else f"sftp://{_esc(host)}:{_esc(port)}"
-        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {_esc(host)}"
+        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{_q(host)}:{_q(port)}" if user else f"sftp://{_q(host)}:{_q(port)}"
+        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {_q(host)}"
 
     return f"\"{sftp_exe}\" {args_str} {target}"
 
