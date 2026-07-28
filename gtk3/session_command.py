@@ -130,16 +130,7 @@ def _wrap_pre(cmd: Optional[str], profilo: dict) -> Optional[str]:
     pre = profilo.get("pre_cmd", "").strip()
     if not pre:
         return cmd
-    pre_esc = pre.replace("'", r"'\''")
-    cmd_esc = cmd.replace("'", r"'\''")
-    return (
-        "bash -c '"
-        "echo \">>> Eseguo pre-connessione: " + pre_esc + "\"; "
-        + pre_esc + " && "
-        "echo \">>> Pre-connessione completata. Connetto...\"; "
-        + cmd_esc +
-        " || (echo \">>> Pre-connessione fallita. Connessione annullata.\"; sleep 5)'"
-    )
+    return pre + " && " + cmd
 
 
 def _resolve_sftp_ftp(p: dict, ft_sub: str) -> tuple:
