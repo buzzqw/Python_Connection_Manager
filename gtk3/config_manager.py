@@ -108,10 +108,13 @@ def save_profiles(profiles: dict) -> bool:
     Se la cifratura è attiva e sbloccata, cifra automaticamente user/password
     prima di scrivere su disco.
     """
-    # Cifratura trasparente
     cm = _crypto()
     if cm and cm.is_enabled() and cm.is_unlocked():
-        to_save = {nome: cm.encrypt_profile(p) for nome, p in profiles.items()}
+        try:
+            to_save = {nome: cm.encrypt_profile(p) for nome, p in profiles.items()}
+        except Exception as e:
+            _get_log(__name__).error("Cifratura fallita, salvataggio annullato: %s", e)
+            return False
     else:
         to_save = profiles
 
@@ -230,6 +233,7 @@ DEFAULT_SETTINGS = {
         "protected_mode": False,
         "audit_log_enabled": False,
         "log_level": "INFO",
+        "auto_lock_minutes": 15,
     },
     "terminal": {
         "default_theme": "Scuro (Default)",

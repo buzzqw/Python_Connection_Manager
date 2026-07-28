@@ -42,6 +42,15 @@ import base64
 import secrets
 import threading
 
+
+class CryptoError(Exception):
+    """Errore di cifratura: chiave non disponibile o operazione non consentita."""
+
+
+class InvalidTokenError(CryptoError):
+    """Token cifrato corrotto o password master errata."""
+
+
 # Importazione lazy di cryptography per dare errore chiaro se mancante
 def _get_fernet():
     try:
@@ -266,14 +275,16 @@ def disable(password: str) -> bool:
 def encrypt_field(value: str) -> str:
     """
     Cifra un singolo valore stringa.
-    Restituisce "ENC:<base64>" oppure il valore originale se la chiave
-    non è disponibile o il valore è già cifrato.
+    Restituisce "ENC:<base64>". Solleva CryptoError se la chiave non è
+    disponibile e la cifratura è attiva.
     """
     if not value or value.startswith(_ENC_PREFIX):
         return value
     with _lock:
         key = _KEY
     if key is None:
+        if is_enabled():
+            raise CryptoError("Cifratura bloccata: impossibile cifrare il campo")
         return value
     Fernet, _, __, ___ = _get_fernet()
     f = Fernet(key)
@@ -284,22 +295,24 @@ def encrypt_field(value: str) -> str:
 def decrypt_field(value: str) -> str:
     """
     Decifra un singolo valore stringa.
-    Restituisce il testo in chiaro, oppure il valore originale se non cifrato
-    o se la chiave non è disponibile.
+    Restituisce il testo in chiaro. Solleva InvalidTokenError se il token
+    è corrotto, CryptoError se la chiave non è disponibile.
     """
     if not value or not value.startswith(_ENC_PREFIX):
         return value
     with _lock:
         key = _KEY
     if key is None:
-        return ""
+        raise CryptoError("Cifratura bloccata: impossibile decifrare il campo")
     try:
         Fernet, InvalidToken, _, __ = _get_fernet()
         f = Fernet(key)
         token = value[len(_ENC_PREFIX):].encode("ascii")
         return f.decrypt(token).decode("utf-8")
-    except Exception:
-        return ""
+    except InvalidToken:
+        from pcm_logging import get_logger
+        get_logger(__name__).warning("Token cifrato corrotto")
+        raise InvalidTokenError("Token cifrato corrotto o password errata")
 
 
 # ---------------------------------------------------------------------------

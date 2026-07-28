@@ -183,6 +183,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._setup_accels()
         self._pannello.aggiorna()
 
+        self._auto_lock_timer = 0
+        self._avvia_auto_lock()
+        self.connect("key-press-event", lambda w, e: self._reset_auto_lock())
+        self.connect("motion-notify-event", lambda w, e: self._reset_auto_lock())
+
         self._pending_cli_uri: str | None = None   # URI da aprire dopo unlock crypto
 
         # Avvio a cascata: ogni step richiama il successivo dopo il rendering
@@ -321,6 +326,29 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
     # Costruzione UI
     # ------------------------------------------------------------------
+
+    def _avvia_auto_lock(self):
+        minuti = self._settings.get("general", {}).get("auto_lock_minutes", 15)
+        if minuti <= 0:
+            return
+        if self._auto_lock_timer:
+            GLib.source_remove(self._auto_lock_timer)
+        self._auto_lock_timer = GLib.timeout_add_seconds(
+            minuti * 60, self._lock_now
+        )
+
+    def _reset_auto_lock(self):
+        if hasattr(self, "_auto_lock_timer") and self._auto_lock_timer:
+            GLib.source_remove(self._auto_lock_timer)
+        self._avvia_auto_lock()
+
+    def _lock_now(self):
+        import crypto_manager
+        if crypto_manager.is_enabled() and crypto_manager.is_unlocked():
+            crypto_manager.lock()
+            _log.info("Cifratura bloccata per inattività")
+        self._auto_lock_timer = 0
+        return GLib.SOURCE_REMOVE
 
     def _build_ui(self):
         # Layout radice: headerbar + contenuto
@@ -2652,6 +2680,8 @@ class MainWindow(Gtk.ApplicationWindow):
             page = self._notebook.get_nth_page(i)
             if page and hasattr(page, "chiudi_processo"):
                 page.chiudi_processo()
+        if self._auto_lock_timer:
+            GLib.source_remove(self._auto_lock_timer)
         return False  # permetti chiusura
 
     # ------------------------------------------------------------------
