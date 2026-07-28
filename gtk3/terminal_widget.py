@@ -199,11 +199,19 @@ class TerminalWidget(Gtk.Box):
 
         # Logging: redirige output su file tramite script(1) se richiesto
         if self._log_dir:
-            os.makedirs(self._log_dir, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_file = os.path.join(self._log_dir, f"pcm_{ts}.log")
-            argv = ["/bin/sh", "-c",
-                    f"script -q -c {_shell_quote(comando)} {_shell_quote(log_file)}"]
+            os.makedirs(self._log_dir, mode=0o700, exist_ok=True)
+            st = os.stat(self._log_dir)
+            if st.st_uid != os.getuid():
+                self._log_dir = None
+            else:
+                os.chmod(self._log_dir, 0o700)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                log_file = os.path.join(self._log_dir, f"pcm_{ts}.log")
+                with open(log_file, "a") as _:
+                    pass
+                os.chmod(log_file, 0o600)
+                argv = ["/bin/sh", "-c",
+                        f"script -q -c {_shell_quote(comando)} {_shell_quote(log_file)}"]
         else:
             argv = ["/bin/sh", "-c", comando]
 

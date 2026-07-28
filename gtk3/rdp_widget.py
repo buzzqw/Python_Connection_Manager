@@ -207,13 +207,13 @@ class RdpEmbedWidget(Gtk.Box):
             # Forza NTLM: evita il timeout Kerberos quando il KDC non è
             # raggiungibile (rete aziendale senza DNS Kerberos configurato)
             args.append("/auth-pkg-list:ntlm")
-        if pwd:    args.append(f"/p:{pwd}")
+        if pwd:    args.append("/from-stdin")
         if clips:  args.append("/clipboard")
         if drives: args.append("/drive:home,/home")
 
-        cmd_display = " ".join(
-            a if not a.startswith("/p:") else "/p:****" for a in args
-        )
+        cmd_display = " ".join(args)
+        if pwd:
+            cmd_display += " /from-stdin ****"
         self._info.set_text(f"  ▶  {cmd_display}")
 
         env = dict(os.environ)
@@ -232,11 +232,19 @@ class RdpEmbedWidget(Gtk.Box):
             pass
 
         try:
+            stdin_arg = subprocess.PIPE if pwd else None
             self._proc = subprocess.Popen(
                 args, preexec_fn=os.setsid,
+                stdin=stdin_arg,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 env=env,
             )
+            if pwd:
+                try:
+                    self._proc.stdin.write((pwd + "\n").encode())
+                    self._proc.stdin.close()
+                except Exception:
+                    pass
             self._t_avvio = datetime.datetime.now()
             from pcm_logging import get_logger
             get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
@@ -664,7 +672,7 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     if domain:
         args.append(f"/d:{domain}")
         args.append("/auth-pkg-list:ntlm")
-    if pwd:    args.append(f"/p:{pwd}")
+    if pwd:    args.append("/from-stdin")
     if fs:     args.append("/f")
     if clips:  args.append("/clipboard")
     if drives: args.append("/drive:home,/home")

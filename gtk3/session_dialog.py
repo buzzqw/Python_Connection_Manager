@@ -621,8 +621,10 @@ class SessionDialog(Gtk.Dialog):
         grid.attach(self.chk_paste_right, 2, row, 2, 1); row += 1
 
         # ── Log folder ───────────────────────────────────────────────────
+        import os as _pcm_os
+        _default_log = _pcm_os.path.join(_pcm_os.path.expanduser("~"), ".local", "share", "pcm", "logs")
         log_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        self.entry_log_dir = _entry("/tmp/pcm_logs")
+        self.entry_log_dir = _entry(_default_log)
         self.entry_log_dir.set_tooltip_text(t("tt.term_log_dir"))
         btn_log = Gtk.Button(label="…")
         btn_log.connect("clicked", lambda b: self._browse_dir(self.entry_log_dir, "Log folder"))
@@ -1897,7 +1899,12 @@ class SessionDialog(Gtk.Dialog):
         self._set_combo_active_text(
             self.combo_term_ext, dati.get("terminal_type", t("sd.open_int_terminal")))
         self.chk_log.set_active(dati.get("log_output", False))
-        self.entry_log_dir.set_text(dati.get("log_dir", "/tmp/pcm_logs"))
+        import os as _pcm_os
+        _default_log = _pcm_os.path.join(_pcm_os.path.expanduser("~"), ".local", "share", "pcm", "logs")
+        raw_log = dati.get("log_dir", "")
+        if raw_log in ("/tmp/pcm_logs", ""):
+            raw_log = _default_log
+        self.entry_log_dir.set_text(raw_log)
         self.chk_paste_right.set_active(dati.get("paste_on_right_click", False))
 
         # Pre-cmd
