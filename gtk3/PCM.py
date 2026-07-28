@@ -170,6 +170,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         _tr.init_from_settings()
         self._settings = config_manager.load_settings()
+        config_manager._fix_permissions()
         self._profili:  dict = {}
 
         # Icona finestra

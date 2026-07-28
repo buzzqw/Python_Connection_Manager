@@ -288,10 +288,43 @@ def load_settings() -> dict:
 
 
 def _write_json_secure(path: str, data: dict):
-    """Scrive JSON con permessi 0600 (solo proprietario)."""
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    """Scrive JSON atomicamente con permessi 0600 (solo proprietario)."""
+    dirname = os.path.dirname(path) or "."
+    os.makedirs(dirname, mode=0o700, exist_ok=True)
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    os.chmod(path, 0o600)
+
+
+def _fix_permissions():
+    """Corregge i permessi dei file e directory di configurazione all'avvio."""
+    from pcm_logging import get_logger
+    _log = get_logger(__name__)
+    config_dir = os.path.dirname(SESSIONS_FILE) or "."
+    os.makedirs(config_dir, mode=0o700, exist_ok=True)
+    os.chmod(config_dir, 0o700)
+    for f in (SESSIONS_FILE, SETTINGS_FILE):
+        if os.path.isfile(f):
+            st = os.stat(f)
+            if st.st_mode & 0o077:
+                os.chmod(f, 0o600)
+                _log.info("Permessi corretti per %s (era 0%o)", f, st.st_mode & 0o777)
+    audit = os.path.join(config_dir, "audit_log.json")
+    if os.path.isfile(audit):
+        st = os.stat(audit)
+        if st.st_mode & 0o077:
+            os.chmod(audit, 0o600)
+            _log.info("Permessi corretti per %s", audit)
 
 
 def save_settings(settings: dict) -> bool:
