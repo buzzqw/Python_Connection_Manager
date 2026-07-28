@@ -645,28 +645,32 @@ class MainWindow(Gtk.ApplicationWindow):
 
         if pre_cmd or wol_mac or use_gateway:
             def _bg():
-                if pre_cmd:
-                    timeout = dati.get("pre_cmd_timeout", 15)
-                    try:
-                        import shlex as _shlex_pre
-                        subprocess.run(_shlex_pre.split(pre_cmd), shell=False, timeout=timeout)
-                    except Exception as e:
-                        GLib.idle_add(self._warn, f"Pre-cmd fallito: {e}")
-                        return
-                if wol_mac:
-                    err = self._invia_wol(wol_mac, dati.get("wol_wait", 20))
-                    if err:
-                        GLib.idle_add(self._warn, f"WoL fallito: {err}")
-                        return
-                if use_gateway:
-                    local_port, gw_proc = self._start_ssh_gateway(dati)
-                    if local_port is None:
-                        GLib.idle_add(self._warn, "SSH gateway fallito: tunnel non stabilito")
-                        return
-                    dati = dict(dati)
-                    dati["_gateway_tunnel"] = gw_proc
-                    dati["_gateway_local_port"] = str(local_port)
-                GLib.idle_add(self._apri_protocollo, proto, nome, dati)
+                try:
+                    dati_loc = dict(dati)
+                    if pre_cmd:
+                        timeout = dati_loc.get("pre_cmd_timeout", 15)
+                        try:
+                            import shlex as _shlex_pre
+                            subprocess.run(_shlex_pre.split(pre_cmd), shell=False, timeout=timeout)
+                        except Exception as e:
+                            GLib.idle_add(self._warn, f"Pre-cmd fallito: {e}")
+                            return
+                    if wol_mac:
+                        err = self._invia_wol(wol_mac, dati_loc.get("wol_wait", 20))
+                        if err:
+                            GLib.idle_add(self._warn, f"WoL fallito: {err}")
+                            return
+                    if use_gateway:
+                        local_port, gw_proc = self._start_ssh_gateway(dati_loc)
+                        if local_port is None:
+                            GLib.idle_add(self._warn, "SSH gateway fallito: tunnel non stabilito")
+                            return
+                        dati_loc["_gateway_tunnel"] = gw_proc
+                        dati_loc["_gateway_local_port"] = str(local_port)
+                    GLib.idle_add(self._apri_protocollo, proto, nome, dati_loc)
+                except Exception as exc:
+                    _log.error("Errore nel thread di connessione (_bg): %s", exc, exc_info=True)
+                    GLib.idle_add(self._warn, f"Errore di connessione: {exc}")
             threading.Thread(target=_bg, daemon=True).start()
             return
 
