@@ -126,6 +126,8 @@ class KeePassXCClient:
     # ── NaCl box ─────────────────────────────────────────────────────────
 
     def _send_encrypted(self, body: dict, timeout: float = 5.0) -> dict:
+        if self._priv is None or self._pub is None:
+            raise ConnectionError("PyNaCl non installato — pip install pynacl")
         nonce = nacl.utils.random(24)
         enc   = self._box.encrypt(json.dumps(body).encode(), nonce)
         resp  = self._send_raw({
