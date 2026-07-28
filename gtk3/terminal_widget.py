@@ -287,8 +287,6 @@ class TerminalWidget(Gtk.Box):
                 r'[Pp]assword[^:\n]{0,40}:\s*$'
                 r'|[Pp]asswd:\s*$'
                 r'|[Ss]ecret[^:\n]{0,15}:\s*$'
-                r'|[Pp]asscode:\s*$'
-                r'|[Vv]erification [Cc]ode:\s*$'
                 r'|[Ee]nter .*[Pp]assword[^:\n]{0,20}:\s*$'
                 r'|[Aa]uthentication [Pp]assword:\s*$'
             ),

@@ -73,7 +73,7 @@ def _get_fernet():
 _KEY: bytes | None = None          # chiave Fernet derivata dalla password
 _lock = threading.Lock()           # protegge l'accesso a _KEY
 _ENC_PREFIX = "ENC:"               # prefisso per valori cifrati
-_FIELDS_TO_ENCRYPT = ("user", "password")  # campi da cifrare nei profili
+_FIELDS_TO_ENCRYPT = ("user", "password", "totp_secret")  # campi da cifrare nei profili
 
 
 # ---------------------------------------------------------------------------
