@@ -20,9 +20,8 @@
 | Version | Folder | Framework | Terminal | Wayland | Status |
 |---|---|---|---|---|---|
 | **GTK3** | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | Native VTE | ✅ Native | **Active development** |
-| PyQt6 | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland required | Critical bugfixes only |
 
-> The [`pyqt6/`](./pyqt6/) folder contains the legacy version (critical bugfixes only); new installations should prefer GTK3.
+> PCM is a single-variant GTK3 application. The legacy PyQt6 version has been removed as of July 2026. Users migrating from PyQt6 can read their existing `connections.json` and `pcm_settings.json` files — GTK3 reads the PyQt6 format. The reverse is not supported.
 
 ---
 
@@ -396,10 +395,6 @@ sudo pkg install \
 ```
 </details>
 
-### PyQt6 — legacy version
-
-> Critical bugfixes only. See [`pyqt6/README.md`](pyqt6/README.md) for installation instructions.
-
 ---
 
 ## Optional dependencies
@@ -480,9 +475,8 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | Versione | Cartella | Framework | Terminale | Wayland | Stato |
 |---|---|---|---|---|---|
 | **GTK3** | [`gtk3/`](./gtk3/) | GTK3 (PyGObject) | VTE nativo | ✅ Nativo | **Sviluppo attivo** |
-| PyQt6 | [`pyqt6/`](./pyqt6/) | PyQt6 | xterm | XWayland richiesto | Solo bugfix critici |
 
-> La cartella [`pyqt6/`](./pyqt6/) contiene la versione legacy (solo bugfix critici); le nuove installazioni devono preferire GTK3.
+> PCM è un'applicazione a variante singola GTK3. La versione legacy PyQt6 è stata rimossa da luglio 2026. Gli utenti che migrano da PyQt6 possono leggere i file `connections.json` e `pcm_settings.json` esistenti — GTK3 legge il formato PyQt6. Il percorso inverso non è supportato.
 
 ---
 
@@ -853,10 +847,6 @@ sudo pkg install \
     py311-cryptography py311-paramiko py311-pyftpdlib
 ```
 </details>
-
-### PyQt6 — versione legacy
-
-> Riceve solo bugfix critici. Istruzioni di installazione in [`pyqt6/README.md`](pyqt6/README.md).
 
 ---
 
