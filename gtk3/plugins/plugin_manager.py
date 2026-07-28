@@ -19,7 +19,6 @@ from pcm_logging import get_logger as _get_log
 from plugins.plugin_base import (
     PluginInfo, ProtocolPlugin, ToolPlugin,
     pcm_register_protocol, pcm_register_tool,
-    pcm_list_plugins,
 )
 
 

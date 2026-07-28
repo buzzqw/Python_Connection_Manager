@@ -15,7 +15,6 @@ Dipendenze:
 
 import os
 import signal
-import subprocess
 from datetime import datetime
 
 import gi

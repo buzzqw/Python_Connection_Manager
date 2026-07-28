@@ -8,8 +8,7 @@ ToolPlugin: add tools/panels/widgets to the UI
 from __future__ import annotations
 
 import abc
-import os
-from typing import Optional, Callable, Any
+from typing import Optional, Callable
 
 import gi
 gi.require_version("Gtk", "3.0")

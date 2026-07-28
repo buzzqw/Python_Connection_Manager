@@ -8,7 +8,7 @@ Funziona con VTE >= 0.46. Su versioni precedenti il modulo viene disabilitato.
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import Gtk, GLib, Vte
+from gi.repository import GLib, Vte
 
 
 DEFAULT_PATTERNS = {

@@ -96,7 +96,7 @@ _check_deps()
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import Gtk, Gdk, GLib, GObject, Gio
+from gi.repository import Gtk, GLib, Gio
 
 from pcm_logging import get_logger
 _log = get_logger("pcm")
@@ -107,13 +107,13 @@ _log = get_logger("pcm")
 import config_manager
 import translations as _tr
 from translations import t
-from themes import apply_css, TERMINAL_THEMES
+from themes import apply_css
 from terminal_widget import TerminalWidget
 from session_panel import SessionPanel
 from session_dialog import SessionDialog
 import protocols
 from protocols import refresh_from_plugins as _refresh_protocols
-from session_command import build_command, check_dipendenze
+from session_command import build_command
 from settings_dialog import SettingsDialog
 from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel, reattach_tunnels
 from vnc_widget import VncWebWidget
@@ -966,7 +966,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if modalita and modalita.endswith("_term_ext"):
             term = dati.get("terminal_type", "Terminale Interno")
             if term and term != "Terminale Interno":
-                import shlex, shutil as _sh
+                import shlex
                 _press_enter_msg = t("term_ext.press_enter")
                 inner = cmd + f"; echo ''; read -rp '{_press_enter_msg}' _x"
                 inner_q = shlex.quote(inner)

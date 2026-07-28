@@ -25,7 +25,7 @@ from datetime import datetime
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, GdkPixbuf, Pango, GObject
+from gi.repository import Gtk, GLib, Pango, GObject
 
 try:
     import paramiko

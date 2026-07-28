@@ -14,7 +14,7 @@ import os
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, Pango, GLib
+from gi.repository import Gtk, GdkPixbuf, GObject, Pango, GLib
 
 import config_manager
 import protocols

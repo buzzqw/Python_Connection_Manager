@@ -15,7 +15,6 @@ import config_manager
 import protocols
 from themes import TERMINAL_THEMES
 from translations import t
-from session_command import installed_tools as _installed_tools
 from plugins.plugin_base import pcm_dialog_pages as _plugin_dialog_pages, pcm_has_protocol as _has_plugin
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
@@ -1621,7 +1620,7 @@ class SessionDialog(Gtk.Dialog):
     def _on_generate_password(self, button):
         """Genera una password casuale e la inserisce nel campo password."""
         try:
-            from password_tools import generate_password, check_password_strength
+            from password_tools import generate_password
         except ImportError:
             return
 

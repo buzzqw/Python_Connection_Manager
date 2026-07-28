@@ -6,12 +6,10 @@ Supporta: SSH, Telnet, SFTP, RDP, VNC, SSH Tunnel, Mosh, Seriale.
 import os
 import shlex
 import shutil
-import subprocess
 from typing import Optional, Tuple
 import config_manager
 from protocols import (MODE_INTERNAL, MODE_EXTERNAL, MODE_BROWSER_INT,
-                       MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT,
-                       MODE_PANEL, MODE_RDP_EMBED, MODE_EMBED)
+                       MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT)
 
 
 # ---------------------------------------------------------------------------

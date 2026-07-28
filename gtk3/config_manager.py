@@ -5,7 +5,6 @@ config_manager.py - Gestione profili sessioni e impostazioni globali PCM
 import hashlib
 import json
 import os
-import secrets
 
 from pcm_logging import get_logger as _get_log
 
