@@ -6,10 +6,11 @@ Supporta: SSH, Telnet, SFTP, RDP, VNC, SSH Tunnel, Mosh, Seriale.
 import os
 import shlex
 import shutil
+from urllib.parse import quote
 from typing import Optional, Tuple
 import config_manager
 from protocols import (MODE_INTERNAL, MODE_EXTERNAL, MODE_BROWSER_INT,
-                       MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT)
+                       MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT, is_ftps)
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +235,7 @@ def _build_sftp(p: dict) -> str:
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
-    return f"sftp://{user}@{host}:{port}"
+    return f"sftp://{quote(str(user), safe='')}@{host}:{port}"
 
 
 def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
@@ -242,27 +243,30 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     port   = p.get("port", "21")
     user   = p.get("user", "")
     pwd    = p.get("password", "")
-    tls    = p.get("ftp_tls", False) or p.get("ft_protocol", "").upper() == "FTPS"
+    tls    = is_ftps(p)
     schema = "ftps" if tls else "ftp"
 
-    uri = f"{schema}://{user}@{host}:{port}" if user else f"{schema}://{host}:{port}"
+    uri_user = quote(str(user), safe="")
+    uri = f"{schema}://{uri_user}@{host}:{port}" if user else f"{schema}://{host}:{port}"
 
     if modalita == "browser_ext":
         for fm in ("nautilus", "thunar", "dolphin", "nemo", "pcmanfm", "xdg-open"):
             if _tool_exists(fm):
-                return f"\"{_get_tool(fm)}\" '{uri}'"
-        return f"xdg-open '{uri}'"
+                return f"{_q(_get_tool(fm))} {_q(uri)}"
+        return f"xdg-open {_q(uri)}"
 
     if modalita in ("term_int", "term_ext"):
         if _tool_exists("lftp"):
             lftp_exe = _get_tool("lftp")
-            uri_cred = f"{schema}://{_esc(user)}:{_esc(pwd)}@{_q(host)}:{_q(port)}" if user and pwd else uri
-            return f"\"{lftp_exe}\" -e 'open {uri_cred}' {_q(host)}"
+            uri_cred = (f"{schema}://{uri_user}:{quote(str(pwd), safe='')}@{host}:{port}"
+                        if user and pwd else uri)
+            return f"{_q(lftp_exe)} -e {_q(f'open {uri_cred}')} {_q(host)}"
         elif _tool_exists("ftp"):
             ftp_exe = _get_tool("ftp")
             if user and pwd:
-                return f"bash -c 'printf \"open {_q(host)} {_q(port)}\\nuser {_esc(user)} {_esc(pwd)}\\nbinary\\n\" | \"{ftp_exe}\" -n'"
-            return f"\"{ftp_exe}\" {_q(host)} {_q(port)}"
+                script = f"open {host} {port}\nuser {user} {pwd}\nbinary\n"
+                return f"printf %s {_q(script)} | {_q(ftp_exe)} -n"
+            return f"{_q(ftp_exe)} {_q(host)} {_q(port)}"
         else:
             return "bash -c 'echo \"lftp non trovato.\"; sleep 5'"
     return uri
@@ -272,13 +276,14 @@ def _build_sftp_uri(p: dict, modalita: str = "browser_ext") -> str:
     host = p.get("host", "")
     port = p.get("port", "22")
     user = p.get("user", "")
-    uri = f"sftp://{user}@{host}:{port}" if user else f"sftp://{host}:{port}"
+    uri = (f"sftp://{quote(str(user), safe='')}@{host}:{port}"
+           if user else f"sftp://{host}:{port}")
     
     if modalita == "browser_ext":
         for fm in ("nautilus", "thunar", "dolphin", "nemo", "pcmanfm", "xdg-open"):
             if _tool_exists(fm):
-                return f"\"{_get_tool(fm)}\" '{uri}'"
-        return f"xdg-open '{uri}'"
+                return f"{_q(_get_tool(fm))} {_q(uri)}"
+        return f"xdg-open {_q(uri)}"
     return uri
 
 
@@ -301,8 +306,9 @@ def _build_sftp_cli(p: dict) -> str:
         return f"\"{sftp_exe}\" {args_str} {target}"
 
     if pwd and _tool_exists("lftp"):
-        uri_cred = f"sftp://{_esc(user)}:{_esc(pwd)}@{_q(host)}:{_q(port)}" if user else f"sftp://{_q(host)}:{_q(port)}"
-        return f"\"{_get_tool('lftp')}\" -e 'open {uri_cred}' {_q(host)}"
+        uri_cred = (f"sftp://{quote(str(user), safe='')}:{quote(str(pwd), safe='')}@{host}:{port}"
+                    if user else f"sftp://{host}:{port}")
+        return f"{_q(_get_tool('lftp'))} -e {_q(f'open {uri_cred}')} {_q(host)}"
 
     return f"\"{sftp_exe}\" {args_str} {target}"
 
@@ -318,7 +324,7 @@ def _build_rdp(p: dict) -> str:
     exe = _get_tool(client)
 
     if client in ("xfreerdp", "xfreerdp3"):
-        args = [f"/v:{_q(host)}:{_q(port)}"]
+        args = [f"/v:{_q(f'{host}:{port}')}"]
         if user: args.append(f"/u:{_q(user)}")
         if domain: args.append(f"/d:{_q(domain)}")
         if pwd: args.append("/from-stdin")
@@ -332,17 +338,16 @@ def _build_rdp(p: dict) -> str:
             ids = p.get("rdp_monitor_ids", "0").strip()
             if ids:
                 args.append(f"/monitors:{ids}")
-        return f"\"{exe}\" {' '.join(args)}"
+        return f"{_q(exe)} {' '.join(args)}"
 
     elif client == "rdesktop":
         args = ["-a 16"]
         if user: args.append(f"-u {_q(user)}")
         if domain: args.append(f"-d {_q(domain)}")
-        if pwd: args.append(f"-p {_q(pwd)}")
         if p.get("fullscreen"): args.append("-f")
-        return f"\"{exe}\" {' '.join(args)} {_q(host)}:{_q(port)}"
+        return f"{_q(exe)} {' '.join(args)} {_q(f'{host}:{port}')}"
 
-    return f"\"{exe}\" {host}:{port}"
+    return f"{_q(exe)} {_q(f'{host}:{port}')}"
 
 
 def _build_vnc(p: dict) -> str:
@@ -359,14 +364,19 @@ def _build_vnc(p: dict) -> str:
     depth = {0: 32, 1: 16, 2: 8}.get(_vnc_idx(p.get("vnc_color",   0), 0), 32)
     qual  = {0: 9,  1: 6,  2: 3}.get(_vnc_idx(p.get("vnc_quality",  2), 2),  6)
 
-    def _passwd_wrap(exe, extra=""):
+    endpoint = f"{host}::{port}"
+
+    def _passwd_wrap(exe, extra="", password_option="-passwd"):
         import tempfile
         fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
         os.close(fd)
         os.chmod(tmp_path, 0o600)
         with open(tmp_path, "w") as f:
             f.write(pwd)
-        return f'"{exe}" {extra}-passwd "{tmp_path}" {host}::{port}'
+        command = f"{_q(exe)} {extra}{password_option} {_q(tmp_path)} {_q(endpoint)}"
+        # The viewer needs the file until it exits; remove it before returning
+        # control to the interactive VTE shell.
+        return f"{command}; _pcm_status=$?; rm -f -- {_q(tmp_path)}; (exit $_pcm_status)"
 
     # Tool personalizzato
     custom = _get_custom_tool("vnc", client)
@@ -377,8 +387,8 @@ def _build_vnc(p: dict) -> str:
             extra = f"-depth {depth} -quality {qual} "
             if pwd:
                 return _passwd_wrap(exe, extra)
-            return f'"{exe}" {extra}{host}::{port}'
-        return f'"{exe}" {host}::{port}'
+            return f"{_q(exe)} {extra}{_q(endpoint)}"
+        return f"{_q(exe)} {_q(endpoint)}"
 
     if client == "realvnc-viewer":
         exe    = _get_tool("realvnc-viewer")
@@ -387,32 +397,26 @@ def _build_vnc(p: dict) -> str:
         qlevel = {9: "Full", 6: "Medium", 3: "Low"}.get(qual, "Full")
         clevel = {32: "rgb888", 16: "rgb565", 8: "rgb332"}.get(depth, "rgb888")
         extra  = f"-Quality={qlevel} -ColorLevel={clevel} "
-        return f'"{exe}" {extra}{host}::{port}'
+        return f"{_q(exe)} {extra}{_q(endpoint)}"
 
     elif client in ("tigervnc", "xtigervncviewer"):
         exe   = _get_tool("xtigervncviewer")
         extra = f"-depth {depth} -quality {qual} "
         if pwd:
             return _passwd_wrap(exe, extra)
-        return f'"{exe}" {extra}{host}::{port}'
+        return f"{_q(exe)} {extra}{_q(endpoint)}"
 
     elif client == "remmina":
-        return f'"{_get_tool("remmina")}" -c vnc://{host}:{port}'
+        return f"{_q(_get_tool('remmina'))} -c {_q(f'vnc://{host}:{port}')}"
 
     elif client == "krdc":
-        return f'"{_get_tool("krdc")}" vnc://{host}:{port}'
+        return f"{_q(_get_tool('krdc'))} {_q(f'vnc://{host}:{port}')}"
 
     else:
         exe = _get_tool(client)
         if pwd:
-            import tempfile
-            fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
-            os.close(fd)
-            os.chmod(tmp_path, 0o600)
-            with open(tmp_path, "w") as f:
-                f.write(pwd)
-            return f'"{exe}" --PasswordFile="{tmp_path}" {host}::{port}'
-        return f'"{exe}" {host}::{port}'
+            return _passwd_wrap(exe, password_option="--PasswordFile")
+        return f"{_q(exe)} {_q(endpoint)}"
 
 
 _REALVNC_PATHS = [
@@ -441,27 +445,43 @@ def _build_mosh(p: dict) -> str:
     if not _tool_exists("mosh"):
         return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
+    strict = "yes" if _strict_host_check(p) else "accept-new"
+    keepalive_interval = config_manager.load_settings().get("ssh", {}).get(
+        "keepalive_interval", 60) if p.get("keepalive") else 15
+    ssh_args = [
+        _q(_get_tool("ssh")), f"-p {_q(port)}",
+        f"-o StrictHostKeyChecking={strict}", "-o ConnectTimeout=10",
+        f"-o ServerAliveInterval={keepalive_interval}", "-o ServerAliveCountMax=3",
+    ]
     if pkey and os.path.exists(pkey):
-        ssh_inner = f"{_get_tool('ssh')} -p {_q(port)} -i {_q(pkey)}"
-        args = [f"--ssh={shlex.quote(ssh_inner)}"]
-    else:
-        ssh_inner = f"{_get_tool('ssh')} -p {_q(port)}"
-        args = [f"--ssh={shlex.quote(ssh_inner)}"]
+        ssh_args.append(f"-i {_q(pkey)}")
+    if p.get("jump_host"):
+        jhost = p.get("jump_host", "")
+        juser = p.get("jump_user", "")
+        jport = p.get("jump_port", "22")
+        jump_target = f"{juser}@{jhost}:{jport}" if juser else f"{jhost}:{jport}"
+        ssh_args.append(f"-J {_q(jump_target)}")
+    args = [f"--ssh={shlex.quote(' '.join(ssh_args))}"]
 
     target = _q(f"{user}@{host}") if user else _q(host)
-    return f"\"{mosh_exe}\" {' '.join(args)} {target}"
+    return f"{_q(mosh_exe)} {' '.join(args)} {target}"
 
 
 def _build_serial(p: dict) -> str:
     device = p.get("device", "/dev/ttyUSB0")
     baud   = p.get("baud", "115200")
+    data_bits = str(p.get("data_bits", "8"))
+    parity = str(p.get("parity", "None")).lower()
+    stop_bits = str(p.get("stop_bits", "1"))
 
     if _tool_exists("picocom"):
-        return f"\"{_get_tool('picocom')}\" -b {_q(baud)} {_q(device)}"
+        return (f"{_q(_get_tool('picocom'))} -b {_q(baud)} "
+                f"--databits {_q(data_bits)} --parity {_q(parity)} "
+                f"--stopbits {_q(stop_bits)} {_q(device)}")
     elif _tool_exists("minicom"):
-        return f"\"{_get_tool('minicom')}\" -b {_q(baud)} -D {_q(device)}"
+        return f"{_q(_get_tool('minicom'))} -b {_q(baud)} -D {_q(device)}"
     elif _tool_exists("screen"):
-        return f"\"{_get_tool('screen')}\" {_q(device)} {_q(baud)}"
+        return f"{_q(_get_tool('screen'))} {_q(device)} {_q(baud)}"
     else:
         return f"bash -c 'echo \"Nessun client seriale trovato.\"; sleep 5'"
 

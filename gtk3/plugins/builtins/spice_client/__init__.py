@@ -52,9 +52,9 @@ class SpicePlugin(ProtocolPlugin):
         for client_name in ["spicy", "remote-viewer", "virt-viewer"]:
             client = shutil.which(client_name)
             if client:
-                return f'"{client}" "{uri}"', "external"
+                return f"{shlex.quote(client)} {shlex.quote(uri)}", "external"
 
-        return f'xdg-open "{uri}"', "external"
+        return f"xdg-open {shlex.quote(uri)}", "external"
 
     def create_widget(self, profilo: dict, parent_window):
         return None

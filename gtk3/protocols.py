@@ -166,6 +166,12 @@ PROTO_FIELDS = {
 VALID_PROTOCOLS = set(PROTOCOLS) | {"sftp", "ftp"}
 
 
+def is_ftps(profile: dict) -> bool:
+    """Return whether a file-transfer profile requires explicit TLS."""
+    return bool(profile.get("ftp_tls") or
+                str(profile.get("ft_protocol", "")).upper() == "FTPS")
+
+
 # ---------------------------------------------------------------------------
 # Validazione profili
 # ---------------------------------------------------------------------------

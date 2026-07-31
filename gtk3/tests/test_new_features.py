@@ -4,6 +4,7 @@ template inheritance, gateway detection, tag filtering, protocol validation.
 """
 import pytest
 import os
+import shlex
 
 from plugins.plugin_manager import discover_plugins, load_plugins, get_builtin_plugin_dir
 from plugins.plugin_base import (
@@ -15,6 +16,7 @@ from protocols import refresh_from_plugins, register_protocol, validate_profiles
 from totp_manager import generate_totp, validate_secret, render_uri_to_secret, extract_otp_from_uri
 from password_tools import generate_password, generate_passphrase, check_password_strength
 from config_manager import _resolve_template_inheritance, get_templates
+from PCM import MainWindow
 
 
 class TestPlugins:
@@ -68,6 +70,15 @@ class TestPlugins:
         cmd, mode = pcm_build_command('spice', {'host': '192.168.1.1', 'port': '5901'})
         assert cmd and 'spice' in cmd
         assert mode == 'external'
+
+    def test_spice_command_quotes_profile_values(self):
+        load_plugins()
+        cmd, mode = pcm_build_command(
+            'spice', {'host': 'vm; touch /tmp/injected', 'port': '5901'}
+        )
+        assert mode == 'external'
+        assert len(shlex.split(cmd)) == 2
+        assert shlex.split(cmd)[1] == 'spice://vm; touch /tmp/injected:5901'
 
     def test_plugin_no_host(self):
         load_plugins()
@@ -272,15 +283,17 @@ class TestGatewayDetection:
     """SSH gateway detection logic tests."""
 
     def _needs_gateway(self, dati):
-        proto = dati.get('protocol', '')
-        jump_host = dati.get('jump_host', '').strip()
-        return bool(jump_host and proto not in ('ssh', 'mosh', 'serial', 'telnet', 'exec'))
+        return bool(dati.get('jump_host', '').strip() and
+                    MainWindow._supports_ssh_gateway(dati))
 
     def test_rdp_needs_gateway(self):
         assert self._needs_gateway({'protocol': 'rdp', 'jump_host': 'gw'})
 
     def test_vnc_needs_gateway(self):
         assert self._needs_gateway({'protocol': 'vnc', 'jump_host': 'gw'})
+
+    def test_telnet_needs_gateway(self):
+        assert self._needs_gateway({'protocol': 'telnet', 'jump_host': 'gw'})
 
     def test_ssh_no_gateway(self):
         assert not self._needs_gateway({'protocol': 'ssh', 'jump_host': 'gw'})
@@ -291,7 +304,22 @@ class TestGatewayDetection:
         assert not self._needs_gateway({'protocol': 'rdp'})
 
     def test_plugin_proto_needs_gateway(self):
-        assert self._needs_gateway({'protocol': 'aws_ssm', 'jump_host': 'gw'})
+        assert self._needs_gateway({'protocol': 'spice', 'jump_host': 'gw'})
+
+    def test_ftp_gateway_is_not_supported_by_single_port_forward(self):
+        assert not self._needs_gateway({'protocol': 'file_transfer', 'ft_protocol': 'FTP',
+                                        'jump_host': 'gw'})
+
+    def test_gateway_replaces_only_the_connection_endpoint(self):
+        profile = {
+            'host': 'internal.example', 'port': '22',
+            '_gateway_local_port': '45321', '_gateway_target_host': 'internal.example',
+        }
+        forwarded = MainWindow._apply_ssh_gateway(profile)
+        assert forwarded['host'] == '127.0.0.1'
+        assert forwarded['port'] == '45321'
+        assert forwarded['_gateway_target_host'] == 'internal.example'
+        assert profile['host'] == 'internal.example'
 
 
 class TestProtocolValidation:

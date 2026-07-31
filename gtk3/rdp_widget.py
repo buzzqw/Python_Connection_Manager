@@ -183,7 +183,13 @@ class RdpEmbedWidget(Gtk.Box):
 
         # rdesktop: embedding nativo con -X (no polling)
         if client == "rdesktop" and self._open_mode == "internal":
-            self._avvia_rdesktop(host, port, user, pwd, domain, clips, drives)
+            if pwd:
+                self._mostra_errore(
+                    "rdesktop integrato non accetta password salvate in modo sicuro. "
+                    "Usa FreeRDP o la modalita esterna."
+                )
+                return False
+            self._avvia_rdesktop(host, port, user, domain, clips, drives)
             return False
 
         # xfreerdp: avvia + polling + xdotool reparent
@@ -269,7 +275,7 @@ class RdpEmbedWidget(Gtk.Box):
     # rdesktop: embedding nativo con -X
     # ------------------------------------------------------------------
 
-    def _avvia_rdesktop(self, host, port, user, pwd, domain, clips, drives):
+    def _avvia_rdesktop(self, host, port, user, domain, clips, drives):
         # Il socket deve essere realizzato prima di passare il XID a rdesktop
         self._log_container.set_visible(False)
         self._socket.set_visible(True)
@@ -293,7 +299,6 @@ class RdpEmbedWidget(Gtk.Box):
                 "-a16", "-DN"]
         if user:   args.append(f"-u{user}")
         if domain: args.append(f"-d{domain}")
-        if pwd:    args.append(f"-p{pwd}")
         if clips:  args.append("-rclipboard:PRIMARYCLIPBOARD")
         args.append(f"{host}:{port}")
 
@@ -657,7 +662,6 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
         args = ["rdesktop", "-a16"]
         if user:   args.append(f"-u{user}")
         if domain: args.append(f"-d{domain}")
-        if pwd:    args.append(f"-p{pwd}")
         if fs:     args.append("-f")
         if clips:  args.append("-rclipboard:PRIMARYCLIPBOARD")
         args.append(f"{host}:{port}")

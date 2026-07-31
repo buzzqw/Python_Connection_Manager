@@ -34,6 +34,7 @@ except ImportError:
     PARAMIKO_OK = False
 
 from translations import t
+from protocols import is_ftps
 
 
 # ---------------------------------------------------------------------------
@@ -1657,7 +1658,7 @@ class FtpWinScpWidget(Gtk.Box):
         port = int(self._profilo.get("port", 21))
         user = self._profilo.get("user", "anonymous")
         pwd  = self._profilo.get("password", "")
-        tls  = self._profilo.get("ftp_tls", False)
+        tls  = is_ftps(self._profilo)
         if tls:
             ftp = ftplib.FTP_TLS()
         else:
@@ -1666,6 +1667,7 @@ class FtpWinScpWidget(Gtk.Box):
         ftp.login(user, pwd)
         if tls:
             ftp.prot_p()
+        ftp.set_pasv(self._profilo.get("ftp_passive", True))
         return ftp
 
     def _connetti(self):

@@ -42,7 +42,7 @@
 | Session restore on startup | ✅ | ✅ | ❌ | partial | ❌ |
 | TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Template inheritance | ✅ | ❌ | ❌ | ❌ | ❌ |
-| SSH gateway (jump for ALL protocols) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| SSH gateway (SFTP/Telnet/RDP/VNC/SPICE) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Plugin architecture | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | Cloud protocols (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
 | SPICE / KVM | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
@@ -146,7 +146,7 @@ Each section can be individually enabled or disabled per session.
 - **Quick Connect**: `user@host:port` from the toolbar — connects without saving a profile
 - Double-click to connect, right-click for rich context menu on both the **session list** and the **open tab** — including "View logs…" and "System monitor…" for SSH sessions
 - **TCP Ping** from the sidebar — checks reachability on the configured port (ms)
-- **SSH gateway** — configure a jump host on RDP, VNC, FTP, or any non-SSH session; PCM establishes an SSH tunnel automatically and forwards the connection through it
+- **SSH gateway** — configure a jump host for SFTP, Telnet, RDP, VNC or SPICE; PCM establishes an SSH tunnel automatically and forwards the connection through it
 - **Session restore** — optionally save open sessions on close and reopen them automatically at the next startup (Settings → General)
 - Duplicate, edit, delete, export `.sh` script to reopen from terminal
 - **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
@@ -497,7 +497,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | Ripristino sessioni all'avvio | ✅ | ✅ | ❌ | parziale | ❌ |
 | TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Ereditarietà template | ✅ | ❌ | ❌ | ❌ | ❌ |
-| SSH gateway (jump per TUTTI i protocolli) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| SSH gateway (SFTP/Telnet/RDP/VNC/SPICE) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Architettura plugin | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | Protocolli cloud (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
 | SPICE / KVM | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
@@ -601,7 +601,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
 - Doppio clic per connettere, tasto destro per menu contestuale ricco sia **sull'elenco sessioni** che sui **tab aperti** — include "Visualizza log…" e "Monitor sistema…" per sessioni SSH
 - **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
-- **SSH gateway** — configura un jump host su RDP, VNC, FTP o qualsiasi sessione non-SSH; PCM stabilisce automaticamente un tunnel SSH e inoltra la connessione
+- **SSH gateway** — configura un jump host per SFTP, Telnet, RDP, VNC o SPICE; PCM stabilisce automaticamente un tunnel SSH e inoltra la connessione
 - **Ripristino sessioni** — salva opzionalmente le sessioni aperte alla chiusura e le riapre automaticamente al prossimo avvio (Impostazioni → Generale)
 - Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
 - **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)

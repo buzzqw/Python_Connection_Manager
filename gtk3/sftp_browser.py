@@ -22,6 +22,7 @@ except ImportError:
     PARAMIKO_OK = False
 
 from translations import t
+from protocols import is_ftps
 
 _HERE  = os.path.dirname(os.path.abspath(__file__))
 _ICONS = os.path.join(_HERE, "icons")
@@ -761,7 +762,7 @@ class FtpBrowserWidget(Gtk.Box):
         port = int(self._profilo.get("port", 21))
         user = self._profilo.get("user", "anonymous")
         pwd  = self._profilo.get("password", "")
-        tls  = self._profilo.get("ftp_tls", False)
+        tls  = is_ftps(self._profilo)
 
         try:
             if tls:
@@ -782,7 +783,7 @@ class FtpBrowserWidget(Gtk.Box):
             GLib.idle_add(self._set_status, t("sftp.ftp_err").format(e=e))
 
     def _on_connesso(self, cwd: str):
-        proto = "FTPS" if self._profilo.get("ftp_tls") else "FTP"
+        proto = "FTPS" if is_ftps(self._profilo) else "FTP"
         host  = self._profilo.get("host", "")
         self._set_status(f"✔ {proto} {host}")
         self._naviga(cwd)

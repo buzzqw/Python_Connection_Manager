@@ -695,6 +695,15 @@ class MainWindow(Gtk.ApplicationWindow):
         pre_cmd = dati.get("pre_cmd", "").strip()
         wol_mac = dati.get("wol_mac", "") if dati.get("wol_enabled") else ""
 
+        if (dati.get("jump_host", "").strip() and
+                proto not in ("ssh", "mosh") and
+                not self._supports_ssh_gateway(dati)):
+            self._warn(
+                "SSH gateway supportato solo per SFTP, Telnet, RDP, VNC e SPICE; "
+                "FTP/FTPS e i protocolli locali non possono usare un singolo port forwarding."
+            )
+            return
+
         config_manager.add_recent(nome, dati)
         self._pannello.aggiorna()
         self._aggiorna_welcome_recenti()
@@ -725,6 +734,7 @@ class MainWindow(Gtk.ApplicationWindow):
                             return
                         dati_loc["_gateway_tunnel"] = gw_proc
                         dati_loc["_gateway_local_port"] = str(local_port)
+                        dati_loc["_gateway_target_host"] = dati_loc.get("host", "")
                     GLib.idle_add(self._apri_protocollo, proto, nome, dati_loc)
                 except Exception as exc:
                     _log.error("Errore nel thread di connessione (_bg): %s", exc, exc_info=True)
@@ -736,13 +746,27 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _needs_ssh_gateway(self, dati: dict) -> bool:
         """Check if this connection needs an SSH gateway tunnel."""
+        return bool(dati.get("jump_host", "").strip() and
+                    self._supports_ssh_gateway(dati))
+
+    @staticmethod
+    def _supports_ssh_gateway(dati: dict) -> bool:
+        """Return whether one local TCP forward can carry this protocol."""
         proto = dati.get("protocol", "")
-        jump_host = dati.get("jump_host", "").strip()
-        if not jump_host:
-            return False
-        if proto in ("ssh", "mosh", "serial", "telnet", "exec"):
-            return False
-        return True
+        return (proto in ("sftp", "telnet", "rdp", "vnc", "spice") or
+                (proto == "file_transfer" and
+                 dati.get("ft_protocol", "SFTP").upper() == "SFTP"))
+
+    @staticmethod
+    def _apply_ssh_gateway(dati: dict) -> dict:
+        """Route a gateway-backed connection through its local TCP forward."""
+        local_port = dati.get("_gateway_local_port")
+        if not local_port:
+            return dati
+        forwarded = dict(dati)
+        forwarded["host"] = "127.0.0.1"
+        forwarded["port"] = str(local_port)
+        return forwarded
 
     def _start_ssh_gateway(self, dati: dict) -> tuple:
         """Start an SSH tunnel to the jump host for gateway access.
@@ -929,6 +953,7 @@ class MainWindow(Gtk.ApplicationWindow):
         }
         if scheme in _FT_PROTO:
             dati["ft_protocol"] = _FT_PROTO[scheme]
+            dati["ftp_tls"] = scheme == "ftps"
 
         # Modalità apertura per protocollo
         mode = qs.get("mode", [""])[0].lower()   # "external" | "internal" | ""
@@ -956,6 +981,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _ts_start = datetime.now()
         _status = "ok"
         try:
+            dati = self._apply_ssh_gateway(dati)
             # Plugin-based protocols
             if pcm_has_protocol(proto):
                 self._apri_protocollo_plugin(proto, nome, dati)
@@ -978,7 +1004,7 @@ class MainWindow(Gtk.ApplicationWindow):
             config_manager.audit_append({
                 "ts":       _ts_start.strftime("%Y-%m-%d %H:%M:%S"),
                 "session":  nome,
-                "host":     dati.get("host", ""),
+                "host":     dati.get("_gateway_target_host", dati.get("host", "")),
                 "proto":    proto,
                 "duration": _dur,
                 "status":   _status,
@@ -1464,10 +1490,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_rdp(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
-        if dati.get("_gateway_local_port"):
-            dati = dict(dati)
-            dati["host"] = "127.0.0.1"
-            dati["port"] = dati["_gateway_local_port"]
         if not self._chiedi_credenziali_rdp(nome, dati):
             return
         open_mode = dati.get("rdp_open_mode", "external")
@@ -1488,6 +1510,11 @@ class MainWindow(Gtk.ApplicationWindow):
                 p if not p.startswith("/p:") else "/p:****" for p in cmd_parts
             )
             _press = t("term_ext.press_enter")
+            pwd = dati.get("password", "")
+            env_extra = {}
+            if pwd and cmd_parts[0] != "rdesktop":
+                cmd_shell = f"printf '%s\\n' \"$PCM_RDP_PASSWORD\" | {cmd_shell}"
+                env_extra["PCM_RDP_PASSWORD"] = pwd
             full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = cmd_display
@@ -1496,16 +1523,12 @@ class MainWindow(Gtk.ApplicationWindow):
             container.show_all()
             self._append_tab(container, nome)
             GLib.idle_add(widget.grab_focus)
-            widget.avvia(full_cmd)
+            widget.avvia(full_cmd, env_extra=env_extra)
             widget.connect("processo-terminato",
                            lambda w: self._on_processo_terminato(w))
 
     def _apri_vnc(self, nome: str, dati: dict):
         self._resolve_credentials(dati)
-        if dati.get("_gateway_local_port"):
-            dati = dict(dati)
-            dati["host"] = "127.0.0.1"
-            dati["port"] = dati["_gateway_local_port"]
         sftp_enabled = dati.get("sftp_browser", False)
 
         if dati.get("vnc_internal", False):

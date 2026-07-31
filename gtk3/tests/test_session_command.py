@@ -1,8 +1,13 @@
 import json
+import os
+import shlex
+import subprocess
 import tempfile
 
 import pytest
 import session_command
+import winscp_widget
+from rdp_widget import _build_freerdp_cmd
 
 
 class TestBuildCommand:
@@ -67,6 +72,18 @@ class TestBuildCommand:
         assert mode == "serial"
         assert "ttyUSB0" in cmd
 
+    def test_serial_picocom_applies_all_line_settings(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "picocom")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: f"/usr/bin/{tool}")
+        cmd, _ = session_command.build_command({
+            "protocol": "serial", "device": "/dev/ttyUSB0", "baud": "9600",
+            "data_bits": "7", "parity": "Even", "stop_bits": "2",
+        })
+        assert shlex.split(cmd) == [
+            "/usr/bin/picocom", "-b", "9600", "--databits", "7",
+            "--parity", "even", "--stopbits", "2", "/dev/ttyUSB0",
+        ]
+
     def test_exec(self):
         cmd, mode = session_command.build_command({
             "protocol": "exec", "exec_cmd": "htop",
@@ -103,3 +120,74 @@ class TestEscaping:
     def test_esc_single_quotes(self):
         result = session_command._esc("te'st")
         assert result == "te'\\''st"
+
+    def test_vnc_quotes_endpoint_and_cleans_password_file(self, monkeypatch, tmp_path):
+        marker = tmp_path / "injected"
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/bin/true")
+        cmd = session_command._build_vnc({
+            "host": f"host; touch {marker}", "port": "5900",
+            "password": "secret", "vnc_client": "tigervnc",
+        })
+        assert "rm -f --" in cmd
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        assert not marker.exists()
+
+
+class TestFileTransferSecurity:
+    def test_ftps_profile_enables_tls_without_legacy_flag(self):
+        from protocols import is_ftps
+
+        assert is_ftps({"ft_protocol": "FTPS"})
+        assert is_ftps({"ftp_tls": True})
+        assert not is_ftps({"ft_protocol": "FTP"})
+
+    def test_ftp_factory_enables_tls_and_passive_mode(self, monkeypatch):
+        calls = []
+
+        class FakeFtp:
+            def connect(self, host, port, timeout):
+                calls.append(("connect", host, port, timeout))
+
+            def login(self, user, password):
+                calls.append(("login", user, password))
+
+            def prot_p(self):
+                calls.append(("prot_p",))
+
+            def set_pasv(self, passive):
+                calls.append(("set_pasv", passive))
+
+        monkeypatch.setattr(winscp_widget.ftplib, "FTP_TLS", FakeFtp)
+        widget = winscp_widget.FtpWinScpWidget.__new__(winscp_widget.FtpWinScpWidget)
+        widget._profilo = {
+            "host": "ftp.example", "port": "21", "user": "alice",
+            "password": "secret", "ft_protocol": "FTPS", "ftp_passive": False,
+        }
+
+        widget._ftp_factory()
+        assert ("prot_p",) in calls
+        assert ("set_pasv", False) in calls
+
+    def test_external_ftp_uri_is_shell_quoted(self, monkeypatch, tmp_path):
+        marker = tmp_path / "injected"
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "xdg-open")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/bin/true")
+        cmd = session_command._build_ftp({
+            "host": f"host; touch {marker}", "port": "21", "user": "alice",
+        }, modalita="browser_ext")
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        assert not marker.exists()
+
+
+class TestRdpSecurity:
+    def test_rdesktop_password_is_not_added_to_argv(self, monkeypatch):
+        import rdp_widget
+
+        monkeypatch.setattr(
+            rdp_widget.shutil, "which",
+            lambda tool: "/usr/bin/rdesktop" if tool == "rdesktop" else None,
+        )
+        args = _build_freerdp_cmd({
+            "rdp_client": "rdesktop", "host": "rdp.example", "password": "secret",
+        })
+        assert not any(arg.startswith("-p") for arg in args)
