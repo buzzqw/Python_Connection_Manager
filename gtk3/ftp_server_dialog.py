@@ -26,6 +26,12 @@ try:
 except ImportError:
     PYFTPDLIB_OK = False
 
+try:
+    from pyftpdlib.handlers import TLS_FTPHandler
+    TLS_OK = True
+except ImportError:
+    TLS_OK = False
+
 
 # ---------------------------------------------------------------------------
 # Calcolo permessi FTP da config utente
@@ -63,6 +69,9 @@ class _ServerThread(threading.Thread):
             return
 
         try:
+            if self.config.get("tls") and not TLS_OK:
+                raise RuntimeError("pyftpdlib con supporto TLS non installato")
+
             auth = DummyAuthorizer()
             for u in self.config.get("utenti", []):
                 perm = _calcola_permessi(u)
@@ -76,7 +85,9 @@ class _ServerThread(threading.Thread):
 
             on_log = self._on_log
 
-            class Handler(FTPHandler):
+            handler_base = TLS_FTPHandler if self.config.get("tls") else FTPHandler
+
+            class Handler(handler_base):
                 def on_connect(self):
                     GLib.idle_add(on_log, f"[+] Connessione da {self.remote_ip}:{self.remote_port}")
                 def on_disconnect(self):
@@ -95,10 +106,19 @@ class _ServerThread(threading.Thread):
             Handler.authorizer  = auth
             Handler.passive_ports = range(
                 self.config.get("pasv_min", 60000),
-                self.config.get("pasv_max", 60100)
+                self.config.get("pasv_max", 60100) + 1
             )
+            if self.config.get("tls"):
+                certfile = self.config.get("tls_certfile", "")
+                keyfile = self.config.get("tls_keyfile", "")
+                if not (os.path.isfile(certfile) and os.path.isfile(keyfile)):
+                    raise RuntimeError("Certificato o chiave TLS non validi")
+                Handler.certfile = certfile
+                Handler.keyfile = keyfile
+                Handler.tls_control_required = True
+                Handler.tls_data_required = True
 
-            host = self.config.get("bind", "0.0.0.0")
+            host = self.config.get("bind", "127.0.0.1")
             port = int(self.config.get("porta", 21))
 
             self._server = FTPServer((host, port), Handler)
@@ -141,14 +161,7 @@ class FtpServerDialog(Gtk.Dialog):
         )
         self.set_default_size(700, 560)
         self._server_thread: _ServerThread | None = None
-        self._utenti: list[dict] = [
-            {
-                "tipo": "named", "nome": "pcm", "password": "pcm",
-                "cartella": os.path.expanduser("~"),
-                "perm_read": True, "perm_write": False,
-                "perm_delete": False, "perm_rename": False, "perm_mkdir": False,
-            }
-        ]
+        self._utenti: list[dict] = []
         self._init_ui()
         self._aggiorna_utenti()
         self.show_all()
@@ -215,7 +228,7 @@ class FtpServerDialog(Gtk.Dialog):
         row(t("ftp.label_port"), self.spin_porta, 0)
 
         self.entry_bind = Gtk.Entry()
-        self.entry_bind.set_text("0.0.0.0")
+        self.entry_bind.set_text("127.0.0.1")
         row(t("ftp.label_bind"), self.entry_bind, 1)
 
         self.spin_pasv_min = Gtk.SpinButton.new_with_range(1024, 65000, 1)
@@ -228,24 +241,38 @@ class FtpServerDialog(Gtk.Dialog):
 
         self.chk_tls = Gtk.CheckButton(label=t("ftp.chk_tls"))
         grid.attach(self.chk_tls, 0, 4, 2, 1)
+        self.chk_tls.connect("toggled", self._on_tls_toggled)
+
+        self.entry_tls_cert = Gtk.Entry()
+        self.entry_tls_cert.set_placeholder_text("/percorso/certificato.pem")
+        self.entry_tls_key = Gtk.Entry()
+        self.entry_tls_key.set_placeholder_text("/percorso/chiave-privata.pem")
+        row(t("ftp.label_tls_cert"), self.entry_tls_cert, 5)
+        row(t("ftp.label_tls_key"), self.entry_tls_key, 6)
+        self._on_tls_toggled(self.chk_tls)
 
         sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        grid.attach(sep, 0, 5, 2, 1)
+        grid.attach(sep, 0, 7, 2, 1)
 
         # Stato server
         self.lbl_stato = Gtk.Label(label=t("ftp.status_idle"))
         self.lbl_stato.set_xalign(0.0)
-        grid.attach(self.lbl_stato, 0, 6, 2, 1)
+        grid.attach(self.lbl_stato, 0, 8, 2, 1)
 
         self.lbl_url = Gtk.Label(label="")
         self.lbl_url.set_xalign(0.0)
         self.lbl_url.set_selectable(True)
-        grid.attach(self.lbl_url, 0, 7, 2, 1)
+        grid.attach(self.lbl_url, 0, 9, 2, 1)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sw.add(grid)
         return sw
+
+    def _on_tls_toggled(self, _button):
+        enabled = self.chk_tls.get_active()
+        self.entry_tls_cert.set_sensitive(enabled)
+        self.entry_tls_key.set_sensitive(enabled)
 
     # ------------------------------------------------------------------
     # Tab Utenti
@@ -370,11 +397,30 @@ class FtpServerDialog(Gtk.Dialog):
         if self._server_thread and self._server_thread.is_alive():
             return
 
+        if not self._utenti:
+            self._on_errore(t("ftp.err_no_users"))
+            return
+        if any(u.get("tipo") != "anonymous" and
+               (not u.get("nome", "").strip() or not u.get("password", ""))
+               for u in self._utenti):
+            self._on_errore(t("ftp.err_user_credentials"))
+            return
+
+        tls = self.chk_tls.get_active()
+        certfile = self.entry_tls_cert.get_text().strip()
+        keyfile = self.entry_tls_key.get_text().strip()
+        if tls and not (os.path.isfile(certfile) and os.path.isfile(keyfile)):
+            self._on_errore(t("ftp.err_tls_files"))
+            return
+
         config = {
             "porta":    int(self.spin_porta.get_value()),
-            "bind":     self.entry_bind.get_text().strip() or "0.0.0.0",
+            "bind":     self.entry_bind.get_text().strip() or "127.0.0.1",
             "pasv_min": int(self.spin_pasv_min.get_value()),
             "pasv_max": int(self.spin_pasv_max.get_value()),
+            "tls": tls,
+            "tls_certfile": certfile,
+            "tls_keyfile": keyfile,
             "utenti":   self._utenti,
         }
 

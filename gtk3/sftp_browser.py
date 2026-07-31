@@ -210,7 +210,8 @@ class SftpBrowserWidget(Gtk.Box):
         try:
             self._ssh = paramiko.SSHClient()
             self._ssh.load_system_host_keys()
-            if self._profilo.get("strict_host", False):
+            strict_default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
+            if self._profilo.get("strict_host", strict_default):
                 self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
             else:
                 self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())

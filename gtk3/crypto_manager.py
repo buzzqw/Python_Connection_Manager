@@ -39,6 +39,7 @@ API pubblica:
 
 import os
 import base64
+import copy
 import secrets
 import threading
 
@@ -87,7 +88,7 @@ def _load_settings() -> dict:
 
 def _save_settings(s: dict):
     import config_manager
-    config_manager.save_settings(s)
+    return config_manager.save_settings(s)
 
 
 # ---------------------------------------------------------------------------
@@ -143,27 +144,28 @@ def setup(password: str):
     NON cifra i profili esistenti — lo fa config_manager dopo.
     """
     global _KEY
-    Fernet, _, __, ___ = _get_fernet()
-
-    salt = secrets.token_bytes(32)
-    key = _derive_key(password, salt)
-    f = Fernet(key)
-
-    # Canary casuale: previene attacchi a dizionario offline su plaintext noto
-    canary = secrets.token_bytes(32)
-    verify_data = b"pcm-verify:" + canary
-
-    s = _load_settings()
-    s["crypto"] = {
-        "enabled": True,
-        "salt":    base64.b64encode(salt).decode("ascii"),
-        "canary":  base64.b64encode(canary).decode("ascii"),
-        "verify":  f.encrypt(verify_data).decode("ascii"),
-    }
-    _save_settings(s)
+    s, key = _new_crypto_settings(password, _load_settings())
+    if not _save_settings(s):
+        raise CryptoError("Impossibile salvare la configurazione di cifratura")
 
     with _lock:
         _KEY = key
+
+
+def _new_crypto_settings(password: str, settings: dict) -> tuple[dict, bytes]:
+    """Create new crypto metadata without writing it to disk."""
+    Fernet, _, __, ___ = _get_fernet()
+    salt = secrets.token_bytes(32)
+    key = _derive_key(password, salt)
+    canary = secrets.token_bytes(32)
+    updated = copy.deepcopy(settings)
+    updated["crypto"] = {
+        "enabled": True,
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "canary": base64.b64encode(canary).decode("ascii"),
+        "verify": Fernet(key).encrypt(b"pcm-verify:" + canary).decode("ascii"),
+    }
+    return updated, key
 
 
 def unlock(password: str) -> bool:
@@ -229,11 +231,23 @@ def change_password(old_password: str, new_password: str) -> bool:
     # Decifra tutti i profili con la vecchia chiave
     profili = config_manager.load_profiles()   # già decifrati da load_profiles
 
-    # Configura nuova cifratura
-    setup(new_password)   # genera nuovo salt, nuova chiave, aggiorna settings
+    old_key = _KEY
+    new_settings, new_key = _new_crypto_settings(new_password, _load_settings())
+    with _lock:
+        _KEY = new_key
+    try:
+        encrypted_profiles = {
+            nome: encrypt_profile(profilo) for nome, profilo in profili.items()
+        }
+    except Exception:
+        with _lock:
+            _KEY = old_key
+        return False
 
-    # Ricifra e salva
-    config_manager.save_profiles(profili)      # save_profiles cifra con la nuova chiave
+    if not config_manager.replace_crypto_state(encrypted_profiles, new_settings):
+        with _lock:
+            _KEY = old_key
+        return False
     return True
 
 
@@ -255,16 +269,12 @@ def disable(password: str) -> bool:
     # Decifra tutti i profili
     profili = config_manager.load_profiles()   # load_profiles decifra
 
-    # Rimuovi cifratura da settings
-    s = _load_settings()
-    s.pop("crypto", None)
-    _save_settings(s)
-
+    new_settings = copy.deepcopy(_load_settings())
+    new_settings.pop("crypto", None)
+    if not config_manager.replace_crypto_state(profili, new_settings):
+        return False
     with _lock:
         _KEY = None
-
-    # Salva profili in chiaro (save_profiles ora vede is_enabled()==False)
-    config_manager.save_profiles(profili)
     return True
 
 
@@ -345,4 +355,3 @@ def decrypt_profile(profilo: dict) -> dict:
         if campo in result:
             result[campo] = decrypt_field(str(result[campo]))
     return result
-

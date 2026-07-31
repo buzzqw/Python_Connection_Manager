@@ -192,7 +192,6 @@ class RdpEmbedWidget(Gtk.Box):
             return False
 
         freerdp_ver = _freerdp_major_version(client)
-        ignore_cert = p.get("rdp_ignore_cert", True)
         # Dimensioni iniziali
         alloc = self.get_allocation()
         w_init = max(alloc.width,  1024)
@@ -200,8 +199,6 @@ class RdpEmbedWidget(Gtk.Box):
 
         args = [client, f"/v:{host}:{port}",
                 f"/w:{w_init}", f"/h:{h_init}"]
-        if ignore_cert:
-            args.append("/cert:ignore")
         if freerdp_ver >= 3:
             args.append("/dynamic-resolution")
         if user:   args.append(f"/u:{user}")
@@ -669,8 +666,6 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     # xfreerdp / xfreerdp3
     ver  = _freerdp_major_version(client)
     args = [client, f"/v:{host}:{port}"]
-    if profilo.get("rdp_ignore_cert", True):
-        args.append("/cert:ignore")
     if ver >= 3:
         args.append("/dynamic-resolution")
     if user:   args.append(f"/u:{user}")

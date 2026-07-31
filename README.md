@@ -92,9 +92,9 @@
 - **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: the helper script is created in `~/.cache/pcm/` (permissions `0700`, not in `/tmp`) and deleted after 5 seconds. The password is passed via environment variable only, never written to the file.
 - **Command injection protection**: all profile parameters (host, port, user, device, etc.) are sanitised with `shlex.quote()` before use in shell commands. Pre-commands run with `shell=False`.
 - **Protected credential files** (`connections.json`, `pcm_settings.json`, `audit_log.json`): written with permissions `0600` — readable only by the owner.
-- **SSH host key verification enabled**: `StrictHostKeyChecking=yes` on all connections. The SFTP browser uses paramiko `RejectPolicy` with automatic `known_hosts` loading.
-- **AES-256 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
-- **Audit log with hash chaining**: each entry includes the SHA-256 of the previous entry — tampering is detectable.
+- **SSH host key verification enabled by default**: new profiles use `StrictHostKeyChecking=yes`; this can be explicitly changed per profile. The SFTP browser uses Paramiko `RejectPolicy` with automatic `known_hosts` loading.
+- **AES-128 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
+- **Audit log with hash chaining**: each entry contains the SHA-256 of the previous one. PCM can detect entries whose chain was not recomputed; the local log is not an externally anchored, tamper-proof audit trail.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
 - **SSH key management**: generate, copy to server, display public key.
 - **Agent Forwarding** (`-A`): propagates ssh-agent keys for multiple hops without copying private keys.

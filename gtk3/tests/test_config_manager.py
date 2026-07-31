@@ -1,8 +1,10 @@
 import json
+import os
 import tempfile
 import pytest
 
 import config_manager
+import crypto_manager
 
 
 @pytest.fixture
@@ -16,16 +18,19 @@ def temp_files():
     old_s = config_manager.SESSIONS_FILE
     old_se = config_manager.SETTINGS_FILE
     old_au = config_manager._AUDIT_FILE
+    old_tx = config_manager.CRYPTO_TRANSACTION_FILE
 
     config_manager.SESSIONS_FILE = sessions_path
     config_manager.SETTINGS_FILE = settings_path
     config_manager._AUDIT_FILE = audit_path
+    config_manager.CRYPTO_TRANSACTION_FILE = os.path.join(tmpdir, "crypto_transaction.json")
 
     yield tmpdir
 
     config_manager.SESSIONS_FILE = old_s
     config_manager.SETTINGS_FILE = old_se
     config_manager._AUDIT_FILE = old_au
+    config_manager.CRYPTO_TRANSACTION_FILE = old_tx
 
     import shutil as _sh
     _sh.rmtree(tmpdir, ignore_errors=True)
@@ -146,6 +151,11 @@ class TestAuditLog:
         assert len(log) == 2
         assert "_hash" in log[0]
         assert "_hash" in log[1]
+        assert config_manager.audit_verify()
+        log[1]["ts"] = "modified"
+        with open(config_manager._AUDIT_FILE, "w", encoding="utf-8") as f:
+            json.dump(log, f)
+        assert not config_manager.audit_verify()
 
     def test_audit_clear(self, temp_files):
         s = config_manager.load_settings()
@@ -154,3 +164,21 @@ class TestAuditLog:
         config_manager.audit_append({"ts": "test"})
         config_manager.audit_clear()
         assert len(config_manager.audit_load()) == 0
+
+
+class TestCryptoTransitions:
+    def test_change_and_disable_password_keep_profiles_readable(self, temp_files):
+        crypto_manager.lock()
+        crypto_manager.setup("old-password")
+        profiles = {"server": {"protocol": "ssh", "user": "alice", "password": "secret"}}
+        assert config_manager.save_profiles(profiles)
+
+        assert crypto_manager.change_password("old-password", "new-password")
+        crypto_manager.lock()
+        assert not crypto_manager.unlock("old-password")
+        assert crypto_manager.unlock("new-password")
+        assert config_manager.load_profiles()["server"]["password"] == "secret"
+
+        assert crypto_manager.disable("new-password")
+        assert not crypto_manager.is_enabled()
+        assert config_manager.load_profiles() == profiles

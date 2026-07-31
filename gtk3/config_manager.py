@@ -32,6 +32,7 @@ def _resolve_config_dir() -> str:
 _HERE          = _resolve_config_dir()
 SESSIONS_FILE  = os.path.join(_HERE, "connections.json")
 SETTINGS_FILE  = os.path.join(_HERE, "pcm_settings.json")
+CRYPTO_TRANSACTION_FILE = os.path.join(_HERE, "crypto_transaction.json")
 
 # ---------------------------------------------------------------------------
 # Sessioni
@@ -250,7 +251,7 @@ DEFAULT_SETTINGS = {
     },
     "ssh": {
         "keepalive_interval": 60,
-        "strict_host_check": False,
+        "strict_host_check": True,
         "default_sftp_browser": True,
     },
     "tunnels": [],
@@ -279,6 +280,7 @@ DEFAULT_SETTINGS = {
 
 
 def load_settings() -> dict:
+    _recover_crypto_transaction()
     if not os.path.exists(SETTINGS_FILE):
         save_settings(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
@@ -339,6 +341,54 @@ def save_settings(settings: dict) -> bool:
         return True
     except Exception as e:
         _get_log(__name__).error("Errore salvataggio settings: %s", e)
+        return False
+
+
+def _read_json(path: str, default: dict) -> dict:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else default
+    except (OSError, json.JSONDecodeError):
+        return default
+
+
+def _recover_crypto_transaction():
+    """Rollback an interrupted crypto change before either config is read."""
+    if not os.path.exists(CRYPTO_TRANSACTION_FILE):
+        return
+    try:
+        transaction = _read_json(CRYPTO_TRANSACTION_FILE, {})
+        old_profiles = transaction["profiles"]
+        old_settings = transaction["settings"]
+        if not isinstance(old_profiles, dict) or not isinstance(old_settings, dict):
+            raise ValueError("transaction data non validi")
+        _write_json_secure(SESSIONS_FILE, old_profiles)
+        _write_json_secure(SETTINGS_FILE, old_settings)
+        os.unlink(CRYPTO_TRANSACTION_FILE)
+        _get_log(__name__).warning("Operazione di cifratura interrotta: ripristinato lo stato precedente")
+    except Exception as e:
+        _get_log(__name__).error("Impossibile recuperare la transazione crypto: %s", e)
+
+
+def replace_crypto_state(profiles: dict, settings: dict) -> bool:
+    """Atomically recoverable replacement of encrypted profiles and settings.
+
+    Two files cannot be replaced atomically together. A private rollback journal
+    makes an interrupted password change recover to the last coherent state.
+    """
+    old_profiles = _read_json(SESSIONS_FILE, {})
+    old_settings = _read_json(SETTINGS_FILE, DEFAULT_SETTINGS)
+    transaction = {"profiles": old_profiles, "settings": old_settings}
+    try:
+        _write_json_secure(CRYPTO_TRANSACTION_FILE, transaction)
+        _write_json_secure(SESSIONS_FILE, profiles)
+        _write_json_secure(SETTINGS_FILE, settings)
+        os.unlink(CRYPTO_TRANSACTION_FILE)
+        return True
+    except Exception as e:
+        _get_log(__name__).error("Errore aggiornamento transazionale crypto: %s", e)
+        _recover_crypto_transaction()
         return False
 
 
@@ -533,6 +583,21 @@ def audit_load() -> list:
             return json.load(f)
     except Exception:
         return []
+
+
+def audit_verify() -> bool:
+    """Verify the on-disk audit hash chain without trusting stored hashes."""
+    log = audit_load()
+    prev_hash = ""
+    for entry in log:
+        if not isinstance(entry, dict):
+            return False
+        stored_hash = entry.get("_hash")
+        data = {key: value for key, value in entry.items() if key != "_hash"}
+        if not isinstance(stored_hash, str) or _audit_hash(data, prev_hash) != stored_hash:
+            return False
+        prev_hash = stored_hash
+    return True
 
 
 def audit_clear():

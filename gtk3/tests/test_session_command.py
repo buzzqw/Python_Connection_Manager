@@ -46,6 +46,13 @@ class TestBuildCommand:
         assert cmd is None
         assert mode == "rdp_embedded"
 
+    def test_rdp_never_ignores_certificates(self):
+        cmd, _ = session_command.build_command({
+            "protocol": "rdp", "host": "win.example.com",
+            "rdp_open_mode": "external", "rdp_ignore_cert": True,
+        })
+        assert "/cert:ignore" not in cmd
+
     def test_mosh(self):
         cmd, mode = session_command.build_command({
             "protocol": "mosh", "host": "example.com",

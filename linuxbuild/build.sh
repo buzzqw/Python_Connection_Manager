@@ -134,6 +134,8 @@ ok "Sorgenti Python copiati."
 info "Copia risorse statiche..."
 # Icone
 cp -r "${GTK3_DIR}/icons" "${STAGING}/icons"
+# Plugin integrati
+cp -r "${GTK3_DIR}/plugins" "${STAGING}/plugins"
 
 # File HTML (help)
 for f in "${GTK3_DIR}"/*.html; do
@@ -295,6 +297,7 @@ if $MAKE_DEB; then
 
         # Risorse
         cp -r "${GTK3_DIR}/icons" "${DEB_INSTALL_DIR}/icons"
+        cp -r "${GTK3_DIR}/plugins" "${DEB_INSTALL_DIR}/plugins"
         for f in "${GTK3_DIR}"/*.html; do
             [[ -e "$f" ]] && cp "$f" "${DEB_INSTALL_DIR}/"
         done

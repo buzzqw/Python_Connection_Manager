@@ -764,7 +764,8 @@ class MainWindow(Gtk.ApplicationWindow):
             return None, None
 
         ssh_exe = shutil.which("ssh") or "ssh"
-        strict = "yes" if dati.get("strict_host", False) else "accept-new"
+        strict_default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
+        strict = "yes" if dati.get("strict_host", strict_default) else "accept-new"
         cmd = [
             ssh_exe, "-N", "-T",
             "-o", f"StrictHostKeyChecking={strict}",
@@ -780,16 +781,35 @@ class MainWindow(Gtk.ApplicationWindow):
         cmd.extend(["-L", f"{local_port}:{target_host}:{target_port}", target])
 
         env = os.environ.copy()
+        askpass = None
         if pwd and not pkey:
-            env["SSH_ASKPASS"] = "true"
+            askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(askpass_dir, mode=0o700, exist_ok=True)
+            if os.stat(askpass_dir).st_uid != os.getuid():
+                _log.error("SSH gateway: directory SSH_ASKPASS non di proprieta dell'utente")
+                return None, None
+            fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=askpass_dir, text=True)
+            with os.fdopen(fd, "w") as f:
+                f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+            os.chmod(askpass, 0o700)
+            env["PCM_ASKPASS_PASSWORD"] = pwd
+            env["SSH_ASKPASS"] = askpass
             env["SSH_ASKPASS_REQUIRE"] = "force"
 
         try:
             proc = subprocess.Popen(
                 cmd, stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                env=env if pwd else None,
+                env=env,
             )
+
+            if askpass:
+                def _cleanup_askpass():
+                    proc.wait()
+                    with contextlib.suppress(OSError):
+                        os.unlink(askpass)
+                threading.Thread(target=_cleanup_askpass, daemon=True).start()
+
             for _ in range(60):
                 time.sleep(0.1)
                 try:
@@ -799,8 +819,16 @@ class MainWindow(Gtk.ApplicationWindow):
                 except OSError:
                     if proc.poll() is not None:
                         return None, None
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
             return None, None
         except Exception:
+            if askpass:
+                with contextlib.suppress(OSError):
+                    os.unlink(askpass)
             return None, None
 
     def apri_da_cli(self, uri: str):

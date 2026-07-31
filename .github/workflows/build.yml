@@ -47,8 +47,8 @@ jobs:
 
       - name: Run tests
         run: |
-          pip install pytest cryptography paramiko pyftpdlib pynacl
-          cd gtk3 && python3 -m pytest tests/ -v --tb=short 2>&1 || true
+          pip install pytest cryptography paramiko pyftpdlib pyopenssl pynacl
+          cd gtk3 && python3 -m pytest tests/ -v --tb=short
 
       - name: Build packages
         run: |
