@@ -1,0 +1,7 @@
+{
+    "plugin_id": "kubectl_exec",
+    "name": "Kubectl Exec",
+    "version": "1.0.0",
+    "description": "Execute commands in Kubernetes pods via kubectl exec",
+    "author": "PCM Contributors"
+}

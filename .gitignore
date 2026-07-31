@@ -8,6 +8,7 @@ __pycache__/
 .DS_Store
 *.bak
 *.json
+!gtk3/plugins/builtins/*/plugin.json
 TRANSLATION_REPORT.md
 .claude
 .venv

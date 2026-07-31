@@ -1,0 +1,7 @@
+{
+    "plugin_id": "aws_ssm",
+    "name": "AWS SSM",
+    "version": "1.0.0",
+    "description": "Connect to EC2 instances via AWS Systems Manager Session Manager",
+    "author": "PCM Contributors"
+}

@@ -1,0 +1,7 @@
+{
+    "plugin_id": "spice_client",
+    "name": "SPICE",
+    "version": "1.0.0",
+    "description": "Connect to KVM/QEMU virtual machines via SPICE protocol",
+    "author": "PCM Contributors"
+}

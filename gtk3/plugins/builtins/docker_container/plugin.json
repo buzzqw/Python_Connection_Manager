@@ -1,0 +1,7 @@
+{
+    "plugin_id": "docker_container",
+    "name": "Docker Container",
+    "version": "1.0.0",
+    "description": "Attach or exec into Docker containers",
+    "author": "PCM Contributors"
+}
