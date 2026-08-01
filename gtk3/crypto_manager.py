@@ -200,6 +200,14 @@ def unlock(password: str) -> bool:
 
         with _lock:
             _KEY = key
+
+        # I profili potrebbero essere già stati caricati (e messi in cache)
+        # prima dello sblocco, quando la decifratura falliva silenziosamente
+        # lasciando i campi "user"/"password" ancora cifrati (ENC:...).
+        # Invalida la cache per forzare una rilettura/decifratura corretta.
+        import config_manager
+        config_manager._invalidate_caches()
+
         return True
 
     except InvalidToken:

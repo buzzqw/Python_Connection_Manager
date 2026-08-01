@@ -184,3 +184,23 @@ class TestCryptoTransitions:
         assert crypto_manager.disable("new-password")
         assert not crypto_manager.is_enabled()
         assert config_manager.load_profiles() == profiles
+
+    def test_unlock_refreshes_profiles_cached_while_locked(self, temp_files):
+        """Se load_profiles() viene chiamato mentre il crypto è ancora bloccato
+        (es. durante la costruzione della UI, prima del dialog di sblocco),
+        i profili restano cifrati (ENC:...) e la cache non deve "congelarsi":
+        dopo unlock(), load_profiles() deve restituire i valori in chiaro."""
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        profiles = {"server": {"protocol": "ssh", "user": "alice", "password": "secret"}}
+        assert config_manager.save_profiles(profiles)
+
+        crypto_manager.lock()
+        # Simula una lettura che avviene prima che l'utente sblocchi il crypto
+        cached_while_locked = config_manager.load_profiles()
+        assert cached_while_locked["server"]["user"].startswith("ENC:")
+
+        assert crypto_manager.unlock("master-pass")
+        refreshed = config_manager.load_profiles()
+        assert refreshed["server"]["user"] == "alice"
+        assert refreshed["server"]["password"] == "secret"
