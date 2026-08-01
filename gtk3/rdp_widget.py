@@ -30,6 +30,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, GObject
 
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 
 def _freerdp_major_version(client: str) -> int:
@@ -41,8 +42,8 @@ def _freerdp_major_version(client: str) -> int:
         m = re.search(r"(\d+)\.\d+", out)
         if m:
             return int(m.group(1))
-    except Exception:
-        pass  # logged
+    except Exception as e:
+        _get_log(__name__).debug("Versione FreeRDP non rilevata per '%s': %s", client, e)
     return 3 if "3" in client else 2
 
 
@@ -234,8 +235,8 @@ class RdpEmbedWidget(Gtk.Box):
             ).strip()
             if out:
                 self._wid_esistenti = set(out.split())
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("xdotool search esistenti fallito: %s", e)
 
         try:
             stdin_arg = subprocess.PIPE if pwd else None
@@ -249,8 +250,10 @@ class RdpEmbedWidget(Gtk.Box):
                 try:
                     self._proc.stdin.write((pwd + "\n").encode())
                     self._proc.stdin.close()
-                except Exception:
-                    pass  # logged
+                except Exception as e:
+                    _get_log(__name__).debug("Invio password RDP fallito: %s", e)
+        except Exception as e:
+            _get_log(__name__).debug("Avvio RDP fallito: %s", e)
             self._t_avvio = datetime.datetime.now()
             from pcm_logging import get_logger
             get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
@@ -384,10 +387,8 @@ class RdpEmbedWidget(Gtk.Box):
                 for wid in out.split():
                     if wid not in self._wid_esistenti:
                         return wid
-        except Exception:
-            pass  # logged
-
-        return None
+        except Exception as e:
+            _get_log(__name__).debug("xdotool search FreeRDP fallito: %s", e)
 
     def _xdotool_search(self, *args) -> str | None:
         try:
@@ -397,8 +398,8 @@ class RdpEmbedWidget(Gtk.Box):
             ).strip()
             if out:
                 return out.split("\n")[0].strip()
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("xdotool search PID fallito: %s", e)
         return None
 
     def _esegui_reparent(self, wid_rdp: str):
@@ -425,8 +426,8 @@ class RdpEmbedWidget(Gtk.Box):
             try:
                 subprocess.run(["xdotool", "windowunmap", wid_rdp],
                                timeout=3, capture_output=True)
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _get_log(__name__).debug("xdotool windowunmap fallito: %s", e)
             GLib.timeout_add(150, _step2)
             return False
 
@@ -458,8 +459,8 @@ class RdpEmbedWidget(Gtk.Box):
             try:
                 subprocess.run(["xdotool", "windowmap", wid_rdp],
                                timeout=3, capture_output=True)
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _get_log(__name__).debug("xdotool windowmap fallito: %s", e)
             GLib.timeout_add(150, _step5)
             return False
 

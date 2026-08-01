@@ -23,6 +23,7 @@ except ImportError:
 
 from translations import t
 from protocols import is_ftps
+from pcm_logging import get_logger as _get_log
 
 _HERE  = os.path.dirname(os.path.abspath(__file__))
 _ICONS = os.path.join(_HERE, "icons")
@@ -33,8 +34,8 @@ def _pb(name: str, size: int = 16) -> GdkPixbuf.Pixbuf | None:
     if os.path.isfile(path):
         try:
             return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
-        except Exception:
-            pass
+        except Exception as e:
+            _get_log(__name__).debug("SFTP icon loading failed: %s", e)
     return None
 
 
@@ -630,13 +631,13 @@ class SftpBrowserWidget(Gtk.Box):
         if self._sftp:
             try:
                 self._sftp.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("SFTP channel close failed: %s", e)
         if self._ssh:
             try:
                 self._ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("SSH connection close failed: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -828,8 +829,8 @@ class FtpBrowserWidget(Gtk.Box):
                         for nome in self._ftp.nlst(self._cwd):
                             if nome not in (".", ".."):
                                 voci.append((nome, False, 0))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _get_log(__name__).debug("FTP directory listing fallback failed: %s", e)
                 else:
                     for riga_b in righe_raw:
                         riga = riga_b.decode("latin-1", errors="replace").strip()
@@ -1077,8 +1078,8 @@ class FtpBrowserWidget(Gtk.Box):
             except Exception:
                 try:
                     self._ftp.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    _get_log(__name__).debug("FTP connection close failed: %s", e)
         self._ftp = None
 
     def _set_status(self, msg: str):

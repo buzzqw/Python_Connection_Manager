@@ -34,6 +34,7 @@ except ImportError:
     PARAMIKO_OK = False
 
 from translations import t
+from pcm_logging import get_logger as _get_log
 from protocols import is_ftps
 
 
@@ -693,6 +694,36 @@ class CodaWidget(Gtk.Box):
     def is_in_pausa(self) -> bool:
         return self._in_pausa
 
+    def aggiungi_in_attesa(self, job: TransferJob) -> int:
+        """Aggiunge un job come «in attesa» (non ancora avviato). Ritorna idx."""
+        self._jobs.append(job)
+        icona = "⬆" if job.op == "upload" else "⬇"
+        self._store.append([icona, job.op.capitalize(),
+                            job.src, job.dst, "—", t("winscp.status_wait_lbl"), 0])
+        return len(self._jobs) - 1
+
+    def prendi_jobs_in_attesa(self) -> list:
+        """Restituisce la lista di (idx, job) in stato 'In attesa' e la svuota
+        impostando lo stato a 'In corso' (così non vengono riletti)."""
+        result = []
+        for i, job in enumerate(self._jobs):
+            if job.stato == t("winscp.status_wait"):
+                result.append((i, job))
+        return result
+
+    def n_in_attesa(self) -> int:
+        return sum(1 for j in self._jobs if j.stato == t("winscp.status_wait"))
+
+    def pulisci(self):
+        """Rimuove dalla coda tutti i job non in esecuzione."""
+        stato_running = t("winscp.status_running")
+        to_remove = [i for i, j in enumerate(self._jobs) if j.stato != stato_running]
+        for i in reversed(to_remove):
+            it = self._store.get_iter_from_string(str(i))
+            if it:
+                self._store.remove(it)
+            self._jobs.pop(i)
+
 
 # ---------------------------------------------------------------------------
 # WinScpWidget — widget principale dual-pane
@@ -981,8 +1012,8 @@ class WinScpWidget(Gtk.Box):
         jobs = []
         try:
             self._sftp.mkdir(remote_dir)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("mkdir SFTP fallito '%s': %s", remote_dir, e)
         for entry in os.scandir(local_dir):
             rp = remote_dir.rstrip("/") + "/" + entry.name
             if entry.is_dir(follow_symlinks=False):
@@ -998,8 +1029,8 @@ class WinScpWidget(Gtk.Box):
         jobs = []
         try:
             os.makedirs(local_dir, exist_ok=True)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("makedirs fallito '%s': %s", local_dir, e)
         for attr in self._sftp.listdir_attr(remote_dir):
             rp = remote_dir.rstrip("/") + "/" + attr.filename
             lp = os.path.join(local_dir, attr.filename)
@@ -1136,53 +1167,6 @@ class WinScpWidget(Gtk.Box):
 
 import ftplib
 
-# ---------------------------------------------------------------------------
-# CodaWidget — metodi aggiuntivi per FTP (in-attesa, pulisci)
-# ---------------------------------------------------------------------------
-# Estendiamo CodaWidget aggiungendo i metodi che servono al flusso FTP
-# dove i job vengono prima accodati come "in attesa" e poi avviati
-# tutti insieme da _avvia_coda().
-
-def _coda_aggiungi_in_attesa(self, job: TransferJob) -> int:
-    """Aggiunge un job come «in attesa» (non ancora avviato). Ritorna idx."""
-    self._jobs.append(job)
-    icona = "⬆" if job.op == "upload" else "⬇"
-    self._store.append([icona, job.op.capitalize(),
-                        job.src, job.dst, "—", t("winscp.status_wait_lbl"), 0])
-    return len(self._jobs) - 1
-
-
-def _coda_prendi_jobs_in_attesa(self) -> list:
-    """Restituisce la lista di (idx, job) in stato 'In attesa' e la svuota
-    impostando lo stato a 'In corso' (così non vengono riletti)."""
-    result = []
-    for i, job in enumerate(self._jobs):
-        if job.stato == t("winscp.status_wait"):
-            result.append((i, job))
-    return result
-
-
-def _coda_n_in_attesa(self) -> int:
-    return sum(1 for j in self._jobs if j.stato == t("winscp.status_wait"))
-
-
-def _coda_pulisci(self):
-    """Rimuove dalla coda tutti i job non in esecuzione."""
-    stato_running = t("winscp.status_running")
-    to_remove = [i for i, j in enumerate(self._jobs) if j.stato != stato_running]
-    for i in reversed(to_remove):
-        it = self._store.get_iter_from_string(str(i))
-        if it:
-            self._store.remove(it)
-        self._jobs.pop(i)
-
-
-# Patching dinamico su CodaWidget (evita modificare la classe originale)
-CodaWidget.aggiungi_in_attesa    = _coda_aggiungi_in_attesa
-CodaWidget.prendi_jobs_in_attesa = _coda_prendi_jobs_in_attesa
-CodaWidget.n_in_attesa           = _coda_n_in_attesa
-CodaWidget.pulisci               = _coda_pulisci
-
 
 # ---------------------------------------------------------------------------
 # FtpTransferWorker — thread trasferimenti FTP
@@ -1246,8 +1230,8 @@ class FtpTransferWorker(threading.Thread):
 
         try:
             ftp.quit()
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("FTP quit fallito: %s", e)
 
         GLib.idle_add(self._cb_tutti_finiti)
 
@@ -1437,8 +1421,8 @@ class FtpRemotePanel(FilePanel):
         """
         try:
             riga = riga.encode("latin-1", errors="replace").decode("utf-8", errors="replace")
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("Decode FTP listing fallito: %s", e)
 
         parts = riga.split(None, 8)
         if len(parts) < 9:
@@ -1856,8 +1840,8 @@ class FtpWinScpWidget(Gtk.Box):
         if self._ftp:
             try:
                 self._ftp.quit()
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _get_log(__name__).debug("FTP quit fallito: %s", e)
 
 
 # ---------------------------------------------------------------------------
@@ -2057,8 +2041,8 @@ class _SyncDialog(Gtk.Dialog):
             for attr in self._sftp.listdir_attr(path):
                 if not stat.S_ISDIR(attr.st_mode):
                     result[attr.filename] = (attr.st_size or 0, attr.st_mtime or 0)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("listdir SFTP fallito '%s': %s", path, e)
         return result
 
     # ------------------------------------------------------------------

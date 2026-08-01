@@ -27,6 +27,7 @@ try:
 except (ValueError, ImportError):
     _GTKSOURCE = False
 
+from pcm_logging import get_logger as _get_log
 
 # Editor che richiedono un terminale — non apribili come processo GUI standalone
 _TERM_EDITORS = {
@@ -82,8 +83,8 @@ def _get_configured_editor() -> str:
         # se davvero non esiste, con un messaggio chiaro all'utente.
         if binary:
             return ed
-    except Exception:
-        pass
+    except Exception as e:
+        _get_log(__name__).debug("GUI editor detection failed: %s", e)
     return ""
 
 

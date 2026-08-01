@@ -11,6 +11,8 @@ import shutil
 import signal
 import subprocess
 import fcntl
+import tempfile
+import contextlib
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -18,6 +20,7 @@ from gi.repository import Gtk, GLib
 
 import config_manager
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 
 # ---------------------------------------------------------------------------
@@ -53,8 +56,8 @@ def _porta_in_ascolto(port: int) -> int | None:
                 inode = target[8:-1]
                 pid = int(fdpath.split('/')[2])
                 inode_to_pid[inode] = pid
-        except Exception:
-            pass
+        except Exception as e:
+            _get_log(__name__).debug("Lettura /proc/*/fd fallita: %s", e)
     for path in ('/proc/net/tcp', '/proc/net/tcp6'):
         try:
             with open(path) as fh:
@@ -66,8 +69,8 @@ def _porta_in_ascolto(port: int) -> int | None:
                     lport = local.split(':')[1]
                     if lport.upper() == hex_port and state == '0A':  # 0A = LISTEN
                         return inode_to_pid.get(inode)  # PID o None
-        except Exception:
-            pass
+        except Exception as e:
+            _get_log(__name__).debug("Lettura /proc/*/fd fallita: %s", e)
     return None
 
 
@@ -95,8 +98,8 @@ def stop_tunnel(idx: int):
         proc = _active_procs.pop(idx)
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except Exception:
-            pass
+        except Exception as e:
+            _get_log(__name__).debug("Lettura /proc/*/fd fallita: %s", e)
         # Azzera il PID salvato nella config
         tunnels = config_manager.load_tunnels()
         if idx < len(tunnels):
@@ -487,13 +490,20 @@ class TunnelManagerDialog(Gtk.Dialog):
 
         self._scrivi_log(f"\n[{t.get('nome', 'Tunnel')}] Esecuzione: {' '.join(cmd)}\n")
 
-        env = None
+        env = os.environ.copy()
+        _askpass_path = None
         if pwd:
-            if not shutil.which("sshpass"):
-                self._scrivi_log("ERRORE: Devi installare 'sshpass'. Esegui: sudo apt install sshpass\n")
-                return
-            cmd = ["sshpass", "-e"] + cmd
-            env = {**os.environ, "SSHPASS": pwd}
+            import shlex as _shlex_t
+            _tdir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(_tdir, mode=0o700, exist_ok=True)
+            _tfd, _askpass_path = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_tdir, text=True)
+            with os.fdopen(_tfd, "w") as _tf:
+                _tf.write(f"#!/bin/sh\nprintf '%s' {_shlex_t.quote(pwd)}\n")
+            os.chmod(_askpass_path, 0o700)
+            env["SSH_ASKPASS"] = _askpass_path
+            env["SSH_ASKPASS_REQUIRE"] = "force"
+            self._tunnel_askpass_paths = getattr(self, "_tunnel_askpass_paths", [])
+            self._tunnel_askpass_paths.append(_askpass_path)
 
         try:
             proc = subprocess.Popen(
@@ -544,9 +554,8 @@ class TunnelManagerDialog(Gtk.Dialog):
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
-            except Exception:
-                pass
-            # Azzera il PID salvato nella config
+            except Exception as e:
+                _get_log(__name__).debug("Terminazione tunnel PID %s fallita: %s", proc.pid, e)
             if idx < len(self._tunnels):
                 self._tunnels[idx]["pid"] = None
                 config_manager.save_tunnels(self._tunnels)
@@ -602,6 +611,9 @@ class TunnelManagerDialog(Gtk.Dialog):
     def _on_destroy(self, *args):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
+        for path in getattr(self, "_tunnel_askpass_paths", []):
+            with contextlib.suppress(OSError):
+                os.unlink(path)
         # I tunnel SSH rimangono attivi dopo la chiusura della finestra.
         # I processi sopravvivono grazie a os.setsid(); i PID sono persistiti
         # su disco e verranno rilevati al prossimo avvio di PCM.

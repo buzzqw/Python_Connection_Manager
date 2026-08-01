@@ -15,6 +15,7 @@ import config_manager
 import protocols
 from themes import TERMINAL_THEMES
 from translations import t
+from pcm_logging import get_logger as _get_log
 from plugins.plugin_base import pcm_dialog_pages as _plugin_dialog_pages, pcm_has_protocol as _has_plugin
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
@@ -1181,10 +1182,10 @@ class SessionDialog(Gtk.Dialog):
                         prima = fh.readline().strip()
                     if "PRIVATE KEY" in prima or prima.startswith("-----BEGIN"):
                         self.combo_chiavi.append_text(f"~/.ssh/{f}")
-                except Exception:
-                    pass  # logged
-        except Exception:
-            pass  # logged
+                except Exception as e:
+                    _get_log(__name__).debug("Lettura chiave SSH fallita '%s': %s", f, e)
+        except Exception as e:
+            _get_log(__name__).debug("Scansione ~/.ssh fallita: %s", e)
         self.combo_chiavi.set_active(0)
         # Seleziona la chiave salvata usando il valore letto prima che i segnali la svuotassero
         if pkey:
@@ -1347,8 +1348,8 @@ class SessionDialog(Gtk.Dialog):
             try:
                 clipboard = Gtk.Clipboard.get_for_display(self.get_display(), Gdk.SELECTION_CLIPBOARD)
                 clipboard.set_text(pub_content, -1)
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _get_log(__name__).debug("Copia chiave pubblica fallita: %s", e)
             return
 
         if resp == Gtk.ResponseType.OK:
@@ -1420,8 +1421,8 @@ class SessionDialog(Gtk.Dialog):
                     cb = Gtk.Clipboard.get_for_display(d.get_display(), Gdk.SELECTION_CLIPBOARD)
                     cb.set_text(contenuto, -1)
                     btn_copia.set_label(t("sd.pubkey.copied"))
-                except Exception:
-                    pass  # logged
+                except Exception as e:
+                    _get_log(__name__).debug("Copia chiave pubblica fallita: %s", e)
                 return
             d.destroy()
 
@@ -1540,8 +1541,8 @@ class SessionDialog(Gtk.Dialog):
             templates = get_templates()
             for nome in sorted(templates.keys()):
                 self.combo_template.append(nome, nome)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("Caricamento template fallito: %s", e)
 
     def _on_template_changed(self, combo):
         """Apply template fields when a template is selected."""
@@ -2298,8 +2299,8 @@ class SessionDialog(Gtk.Dialog):
             pplugin = pcm_get_protocol_plugins().get(proto)
             if pplugin and hasattr(pplugin, 'on_dialog_save'):
                 d = pplugin.on_dialog_save(d)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _get_log(__name__).debug("Plugin on_dialog_save fallito: %s", e)
 
         # Filtra solo i campi rilevanti per il protocollo
         allowed = protocols.PROTO_FIELDS.get(proto, set(d.keys()))

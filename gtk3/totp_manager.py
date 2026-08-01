@@ -29,7 +29,10 @@ def generate_totp(secret: str, digits: int = 6, period: int = 30,
         return None
 
     try:
-        key = _decode_base32(secret.strip().upper().replace(" ", ""))
+        cleaned = secret.strip().upper().replace(" ", "")
+        if not cleaned:
+            return None
+        key = _decode_base32(cleaned)
     except Exception:
         return None
 

@@ -32,50 +32,61 @@ class PluginInfo:
 # Global plugin registry
 # ---------------------------------------------------------------------------
 
+import threading
+
 _registry: dict[str, tuple[PluginInfo, ProtocolPlugin | ToolPlugin]] = {}
 _protocol_registry: dict[str, ProtocolPlugin] = {}
 _tool_registry: dict[str, ToolPlugin] = {}
+_lock = threading.Lock()
 
 
 def pcm_register_protocol(plugin: ProtocolPlugin) -> None:
     """Register a protocol plugin. Called by plugin __init__ or load."""
     info = plugin.plugin_info
-    _registry[info.plugin_id] = (info, plugin)
-    for proto_id in plugin.protocol_ids:
-        _protocol_registry[proto_id] = plugin
+    with _lock:
+        _registry[info.plugin_id] = (info, plugin)
+        for proto_id in plugin.protocol_ids:
+            _protocol_registry[proto_id] = plugin
 
 
 def pcm_register_tool(plugin: ToolPlugin) -> None:
     """Register a tool plugin."""
     info = plugin.plugin_info
-    _registry[info.plugin_id] = (info, plugin)
-    _tool_registry[info.plugin_id] = plugin
+    with _lock:
+        _registry[info.plugin_id] = (info, plugin)
+        _tool_registry[info.plugin_id] = plugin
 
 
 def pcm_get_protocol_plugins() -> dict[str, ProtocolPlugin]:
-    return dict(_protocol_registry)
+    with _lock:
+        return dict(_protocol_registry)
 
 
 def pcm_get_tool_plugins() -> dict[str, ToolPlugin]:
-    return dict(_tool_registry)
+    with _lock:
+        return dict(_tool_registry)
 
 
 def pcm_get_plugin(plugin_id: str) -> ProtocolPlugin | ToolPlugin | None:
-    entry = _registry.get(plugin_id)
+    with _lock:
+        entry = _registry.get(plugin_id)
     return entry[1] if entry else None
 
 
 def pcm_list_plugins() -> list[PluginInfo]:
-    return [info for info, _ in _registry.values()]
+    with _lock:
+        return [info for info, _ in _registry.values()]
 
 
 def pcm_has_protocol(proto_id: str) -> bool:
-    return proto_id in _protocol_registry
+    with _lock:
+        return proto_id in _protocol_registry
 
 
 def pcm_plugin_protocols() -> list[str]:
     """Returns list of plugin-provided protocol IDs."""
-    return list(_protocol_registry.keys())
+    with _lock:
+        return list(_protocol_registry.keys())
 
 
 def pcm_build_command(proto_id: str, profilo: dict) -> tuple[Optional[str], str]:

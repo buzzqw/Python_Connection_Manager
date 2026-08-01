@@ -17,6 +17,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 try:
     from pyftpdlib.handlers   import FTPHandler
@@ -138,8 +139,8 @@ class _ServerThread(threading.Thread):
             if self._server:
                 try:
                     self._server.close_all()
-                except Exception:
-                    pass
+                except Exception as e:
+                    _get_log(__name__).debug("FTP server cleanup failed: %s", e)
             GLib.idle_add(self._on_stop)
 
     def ferma(self):

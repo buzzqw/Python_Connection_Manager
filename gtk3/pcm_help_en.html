@@ -917,7 +917,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
 <div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system. The check also runs automatically at startup.</div>
 
 <h3>Credential encryption</h3>
-<p>PCM can protect users and passwords saved in <code>connections.json</code> with <b>AES-256</b> encryption (Fernet). The key is derived from the master password using PBKDF2-HMAC-SHA256 (480,000 iterations) and is never written to disk.</p>
+<p>PCM can protect users and passwords saved in <code>connections.json</code> with <b>AES-128</b> encryption (Fernet). The key is derived from the master password using PBKDF2-HMAC-SHA256 (480,000 iterations) and is never written to disk.</p>
 <p>At the very first launch, if <code>connections.json</code> does not yet exist, PCM asks whether to enable credential protection. On subsequent launches with encryption active, PCM shows an unlock dialog before opening the main window (3 attempts maximum).</p>
 <p>From <b>Tools → Set global password…</b> you can:</p>
 <ul>

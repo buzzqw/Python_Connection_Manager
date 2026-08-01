@@ -25,6 +25,7 @@ except ImportError:
 
 from log_viewer import LogViewerWidget
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 
 # ---------------------------------------------------------------------------
@@ -710,8 +711,8 @@ class InfoPanelWidget(Gtk.Box):
         if self._log_widget:
             try:
                 self._log_widget.chiudi_processo()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("Log widget cleanup failed: %s", e)
             idx = self._nb.page_num(self._log_widget)
             if idx >= 0:
                 self._nb.remove_page(idx)
@@ -902,14 +903,14 @@ class InfoPanelWidget(Gtk.Box):
         if self._channel:
             try:
                 self._channel.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("Monitor channel close failed: %s", e)
             self._channel = None
         if self._ssh:
             try:
                 self._ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("SSH connection close failed: %s", e)
             self._ssh = None
         self._rimuovi_log()
         self._profilo = None

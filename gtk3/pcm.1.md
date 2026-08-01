@@ -140,7 +140,7 @@ The main window is divided into:
   shell use. Pre-commands run with shell=False.
 - Credential files are written with permissions **0600**.
 - SSH connections use **StrictHostKeyChecking=yes**.
-- Optional AES-256 encryption (Fernet + PBKDF2-SHA256, 480 k iterations)
+- Optional AES-128 encryption (Fernet + PBKDF2-SHA256, 480 k iterations)
   of usernames and passwords with a master password.
 
 # DEPENDENCIES

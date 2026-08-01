@@ -152,8 +152,8 @@ def _load_icon(name: str, size: int = 24):
     if os.path.isfile(path):
         try:
             return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
-        except Exception:
-            pass  # logged
+        except Exception as e:
+            _log.debug("Icona non caricata '%s': %s", name, e)
     return None
 
 
@@ -813,10 +813,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 _log.error("SSH gateway: directory SSH_ASKPASS non di proprieta dell'utente")
                 return None, None
             fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=askpass_dir, text=True)
+            import shlex as _shlex
             with os.fdopen(fd, "w") as f:
-                f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+                f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
             os.chmod(askpass, 0o700)
-            env["PCM_ASKPASS_PASSWORD"] = pwd
             env["SSH_ASKPASS"] = askpass
             env["SSH_ASKPASS_REQUIRE"] = "force"
 
@@ -1026,7 +1026,7 @@ class MainWindow(Gtk.ApplicationWindow):
         pwd  = dati.get("password", "")
         pkey = dati.get("private_key", "").strip()
         if pwd and not pkey:
-            # SSH_ASKPASS: script temp in directory privata (non /tmp), password via env
+            # SSH_ASKPASS: script temp in directory privata (non /tmp), password embedded nel file
             _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
             os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
             # Verifica che la directory sia di proprietà dell'utente corrente
@@ -1035,9 +1035,8 @@ class MainWindow(Gtk.ApplicationWindow):
             else:
                 _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
                 with os.fdopen(_fd, "w") as _f:
-                    _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+                    _f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
                 os.chmod(_askpass, 0o700)
-                env_extra["PCM_ASKPASS_PASSWORD"] = pwd
                 env_extra["SSH_ASKPASS"] = _askpass
                 env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
                 def _cleanup_askpass(path=_askpass):
@@ -1117,8 +1116,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 otp_code = generate_totp(secret)
                 if otp_code:
                     widget.imposta_auto_password(otp_code)
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _log.debug("TOTP fallito per '%s': %s", nome, e)
 
         expect_rules = dati.get("expect_rules", [])
         if expect_rules:
@@ -1146,10 +1145,10 @@ class MainWindow(Gtk.ApplicationWindow):
                     _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
                     os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
                     _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
+                    import shlex as _shlex_r
                     with os.fdopen(_fd, "w") as _f:
-                        _f.write("#!/bin/sh\nprintf '%s' \"$PCM_ASKPASS_PASSWORD\"\n")
+                        _f.write(f"#!/bin/sh\nprintf '%s' {_shlex_r.quote(_pwd)}\n")
                     os.chmod(_askpass, 0o700)
-                    _reconnect_env["PCM_ASKPASS_PASSWORD"] = _pwd
                     _reconnect_env["SSH_ASKPASS"] = _askpass
                     _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
                     def _cleanup_askpass(path=_askpass):
@@ -1513,8 +1512,8 @@ class MainWindow(Gtk.ApplicationWindow):
             pwd = dati.get("password", "")
             env_extra = {}
             if pwd and cmd_parts[0] != "rdesktop":
-                cmd_shell = f"printf '%s\\n' \"$PCM_RDP_PASSWORD\" | {cmd_shell}"
-                env_extra["PCM_RDP_PASSWORD"] = pwd
+                import shlex as _shlex_rdp
+                cmd_shell = f"printf '%s\\n' {_shlex_rdp.quote(pwd)} | {cmd_shell}"
             full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = cmd_display
@@ -1978,8 +1977,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if _dati and _dati.get("_gateway_tunnel"):
             try:
                 _dati["_gateway_tunnel"].terminate()
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _log.debug("Terminazione gateway tunnel fallita: %s", e)
 
         # Cleanup processi
         if hasattr(widget, "chiudi_processo"):
@@ -1992,8 +1991,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if hasattr(widget, "_pcm_reconnect_timer"):
             try:
                 GLib.source_remove(widget._pcm_reconnect_timer)
-            except Exception:
-                pass  # logged
+            except Exception as e:
+                _log.debug("Rimozione timer riconnessione fallita: %s", e)
         nb.remove_page(idx)
         self._tab_labels.pop(widget, None)
         self._widget_nb_map.pop(widget, None)
@@ -2488,8 +2487,8 @@ class MainWindow(Gtk.ApplicationWindow):
                     try:
                         tw._vte.feed_child(payload)
                         n_inviati += 1
-                    except Exception:
-                        pass  # logged
+                    except Exception as e:
+                        _log.debug("Broadcast feed_child fallito: %s", e)
             lbl_result.set_markup(f"<span foreground='green'>{t('broadcast.sent', n=n_inviati)}</span>")
 
         btn_send.connect("clicked", _invia)
@@ -2793,8 +2792,8 @@ class MainWindow(Gtk.ApplicationWindow):
             if hasattr(widget, "chiudi_processo"):
                 try:
                     widget.chiudi_processo()
-                except Exception:
-                    pass  # logged
+                except Exception as e:
+                    _log.debug("chiudi_processo fallito: %s", e)
             elif hasattr(widget, "get_child1"):
                 for child in (widget.get_child1(), widget.get_child2()):
                     if child:
@@ -2803,8 +2802,8 @@ class MainWindow(Gtk.ApplicationWindow):
             if _dati and _dati.get("_gateway_tunnel"):
                 try:
                     _dati["_gateway_tunnel"].terminate()
-                except Exception:
-                    pass  # logged
+                except Exception as e:
+                    _log.debug("Terminazione gateway tunnel fallita: %s", e)
 
         for nb in (self._notebook, self._notebook2):
             for i in range(nb.get_n_pages()):

@@ -38,7 +38,20 @@ CRYPTO_TRANSACTION_FILE = os.path.join(_HERE, "crypto_transaction.json")
 # Sessioni
 # ---------------------------------------------------------------------------
 
+_cache_profiles: dict | None = None
+_cache_settings: dict | None = None
+
+
+def _invalidate_caches():
+    global _cache_profiles, _cache_settings
+    _cache_profiles = None
+    _cache_settings = None
+
+
 def load_profiles() -> dict:
+    global _cache_profiles
+    if _cache_profiles is not None:
+        return _cache_profiles
     if first_run := not os.path.exists(SESSIONS_FILE):
         _create_default_sessions()
         s = load_settings()
@@ -54,11 +67,13 @@ def load_profiles() -> dict:
         _log.warning("connections.json corrotto o illeggibile. Le sessioni non sono state caricate.")
         return {"_corrupted": True}
     except FileNotFoundError:
+        _invalidate_caches()
         return {}
     except Exception as e:
         from pcm_logging import get_logger
         _log = get_logger(__name__)
         _log.warning("Errore lettura sessioni: %s", e)
+        _invalidate_caches()
         return {"_error": str(e)}
 
     cm = _crypto()
@@ -73,6 +88,7 @@ def load_profiles() -> dict:
 
     profili = _resolve_template_inheritance(profili)
 
+    _cache_profiles = profili
     return profili
 
 
@@ -123,6 +139,7 @@ def save_profiles(profiles: dict) -> bool:
 
     try:
         _write_json_secure(SESSIONS_FILE, to_save)
+        _invalidate_caches()
         return True
     except Exception as e:
         _get_log(__name__).error("Errore salvataggio sessioni: %s", e)
@@ -280,18 +297,23 @@ DEFAULT_SETTINGS = {
 
 
 def load_settings() -> dict:
+    global _cache_settings
+    if _cache_settings is not None:
+        return _cache_settings
     _recover_crypto_transaction()
     if not os.path.exists(SETTINGS_FILE):
         save_settings(DEFAULT_SETTINGS)
+        _cache_settings = dict(DEFAULT_SETTINGS)
         return dict(DEFAULT_SETTINGS)
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             saved = json.load(f)
-        # merge con i default per aggiungere chiavi mancanti
         merged = _deep_merge(DEFAULT_SETTINGS, saved)
+        _cache_settings = merged
         return merged
     except Exception as e:
         _get_log(__name__).error("Errore lettura settings: %s", e)
+        _cache_settings = None
         return dict(DEFAULT_SETTINGS)
 
 
@@ -304,6 +326,7 @@ def _write_json_secure(path: str, data: dict):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
+        os.chmod(tmp, 0o600)
         os.replace(tmp, path)
     except Exception:
         try:
@@ -311,7 +334,6 @@ def _write_json_secure(path: str, data: dict):
         except OSError:
             pass
         raise
-    os.chmod(path, 0o600)
 
 
 def _fix_permissions():
@@ -338,6 +360,7 @@ def _fix_permissions():
 def save_settings(settings: dict) -> bool:
     try:
         _write_json_secure(SETTINGS_FILE, settings)
+        _invalidate_caches()
         return True
     except Exception as e:
         _get_log(__name__).error("Errore salvataggio settings: %s", e)
@@ -385,6 +408,7 @@ def replace_crypto_state(profiles: dict, settings: dict) -> bool:
         _write_json_secure(SESSIONS_FILE, profiles)
         _write_json_secure(SETTINGS_FILE, settings)
         os.unlink(CRYPTO_TRANSACTION_FILE)
+        _invalidate_caches()
         return True
     except Exception as e:
         _get_log(__name__).error("Errore aggiornamento transazionale crypto: %s", e)

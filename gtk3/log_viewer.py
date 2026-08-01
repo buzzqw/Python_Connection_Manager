@@ -25,6 +25,7 @@ except ImportError:
     PARAMIKO_OK = False
 
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 
 _SORGENTI = [
@@ -258,8 +259,8 @@ class LogViewerWidget(Gtk.Box):
             if channel:
                 try:
                     channel.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    _get_log(__name__).debug("Log channel close failed: %s", e)
 
     # ------------------------------------------------------------------
     # Rendering testo
@@ -329,8 +330,8 @@ class LogViewerWidget(Gtk.Box):
         if self._ssh_owned and self._ssh:
             try:
                 self._ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("SSH connection close failed: %s", e)
             self._ssh = None
 
     def chiudi_processo(self):

@@ -1080,7 +1080,7 @@ Permette di salvare comandi riutilizzabili globali con nome e categoria.</p>
 </ul>
 
 <h3>Cifratura credenziali</h3>
-<p>PCM può proteggere utenti e password salvati in <code>connections.json</code> con cifratura <b>AES-256</b> (Fernet). La chiave viene derivata dalla password master con PBKDF2-HMAC-SHA256 (480.000 iterazioni) e non viene mai scritta su disco.</p>
+<p>PCM può proteggere utenti e password salvati in <code>connections.json</code> con cifratura <b>AES-128</b> (Fernet). La chiave viene derivata dalla password master con PBKDF2-HMAC-SHA256 (480.000 iterazioni) e non viene mai scritta su disco.</p>
 <p>Al primo avvio assoluto, se <code>connections.json</code> non esiste ancora, PCM chiede se abilitare la protezione delle credenziali. Agli avvii successivi con cifratura attiva, PCM mostra un dialog di sblocco prima di aprire la finestra principale (3 tentativi massimi).</p>
 <p>Da <b>Strumenti → Imposta password globale…</b> puoi:</p>
 <ul>

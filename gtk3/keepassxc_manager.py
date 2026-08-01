@@ -26,6 +26,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 from translations import t
+from pcm_logging import get_logger as _get_log
 
 try:
     import nacl.public
@@ -254,8 +255,8 @@ class KeePassXCClient:
                 self._proc.stdin.close()
                 self._proc.terminate()
                 self._proc.wait(timeout=2)
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("KeePassXC proxy close failed: %s", e)
             self._proc = None
 
 
@@ -482,7 +483,7 @@ class KeePassXCSettingsDialog(Gtk.Dialog):
                     if client is not None:
                         try:
                             client.close()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            _get_log(__name__).debug("KeePassXC client close failed: %s", e)
 
             threading.Thread(target=_test_conn, daemon=True).start()

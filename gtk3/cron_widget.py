@@ -12,6 +12,7 @@ import threading
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
+from pcm_logging import get_logger as _get_log
 
 try:
     import paramiko
@@ -427,8 +428,8 @@ class CronWidget(Gtk.Box):
         if self._ssh:
             try:
                 self._ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("SSH connection close failed: %s", e)
             self._ssh = None
 
     # ------------------------------------------------------------------

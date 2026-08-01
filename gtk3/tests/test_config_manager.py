@@ -24,6 +24,7 @@ def temp_files():
     config_manager.SETTINGS_FILE = settings_path
     config_manager._AUDIT_FILE = audit_path
     config_manager.CRYPTO_TRANSACTION_FILE = os.path.join(tmpdir, "crypto_transaction.json")
+    config_manager._invalidate_caches()
 
     yield tmpdir
 
@@ -31,6 +32,7 @@ def temp_files():
     config_manager.SETTINGS_FILE = old_se
     config_manager._AUDIT_FILE = old_au
     config_manager.CRYPTO_TRANSACTION_FILE = old_tx
+    config_manager._invalidate_caches()
 
     import shutil as _sh
     _sh.rmtree(tmpdir, ignore_errors=True)

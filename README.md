@@ -93,7 +93,7 @@
 - **Command injection protection**: all profile parameters (host, port, user, device, etc.) are sanitised with `shlex.quote()` before use in shell commands. Pre-commands run with `shell=False`.
 - **Protected credential files** (`connections.json`, `pcm_settings.json`, `audit_log.json`): written with permissions `0600` — readable only by the owner.
 - **SSH host key verification enabled by default**: new profiles use `StrictHostKeyChecking=yes`; this can be explicitly changed per profile. The SFTP browser uses Paramiko `RejectPolicy` with automatic `known_hosts` loading.
-- **AES-128 encryption** (Fernet + PBKDF2-SHA256, 480k iterations): usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
+- **AES-128 encryption (Fernet + PBKDF2-SHA256, 480k iterations)**: usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
 - **Audit log with hash chaining**: each entry contains the SHA-256 of the previous one. PCM can detect entries whose chain was not recomputed; the local log is not an externally anchored, tamper-proof audit trail.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
 - **SSH key management**: generate, copy to server, display public key.
@@ -168,7 +168,7 @@ Each section can be individually enabled or disabled per session.
 ### 🌍 Internationalization
 
 5 complete languages: 🇮🇹 Italiano · 🇬🇧 English · 🇩🇪 Deutsch · 🇫🇷 Français · 🇪🇸 Español  
-Instant language change from settings without restart.
+Language change from settings; requires restart to take full effect.
 
 ---
 
@@ -266,7 +266,7 @@ Instant language change from settings without restart.
 | | |
 |---|---|
 | ![Quick Connect GTK3](immagini/pcm81.png) | ![Unlock Credentials GTK3](immagini/pcm80.png) |
-| *Quick Connect — instant connection without saving a profile, choose protocol, host, port, user, password* | *Credential unlock — master password to decrypt saved credentials (AES-256)* |
+| *Quick Connect — instant connection without saving a profile, choose protocol, host, port, user, password* | *Credential unlock — master password to decrypt saved credentials (AES-128)* |
 
 | | |
 |---|---|
@@ -548,7 +548,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **Protezione command injection**: tutti i parametri dei profili (host, porta, utente, device, ecc.) sono sanificati con `shlex.quote()` prima di essere usati nei comandi shell. Il pre-comando è eseguito con `shell=False`.
 - **File credenziali protetti** (`connections.json`, `pcm_settings.json`, `audit_log.json`): scritti con permessi `0600` — leggibili solo dal proprietario.
 - **Verifica host key SSH attiva**: `StrictHostKeyChecking=yes` su tutte le connessioni. Il browser SFTP usa `RejectPolicy` di paramiko con caricamento automatico di `known_hosts`.
-- **Cifratura AES-256** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco. Il token di verifica usa un canary casuale per prevenire attacchi a dizionario offline.
+- **Cifratura AES-128** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco. Il token di verifica usa un canary casuale per prevenire attacchi a dizionario offline.
 - **Audit log con hash chaining**: ogni voce include l'SHA-256 della voce precedente — le manomissioni sono rilevabili.
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.
 - **Gestione chiavi SSH**: genera, copia sul server, visualizza la chiave pubblica.
@@ -623,7 +623,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 ### 🌍 Internazionalizzazione
 
 5 lingue complete: 🇮🇹 Italiano · 🇬🇧 English · 🇩🇪 Deutsch · 🇫🇷 Français · 🇪🇸 Español  
-Cambio lingua immediato dalle impostazioni senza riavvio.
+Cambio lingua dalle impostazioni; richiede riavvio per effetto completo.
 
 ---
 
@@ -721,7 +721,7 @@ Cambio lingua immediato dalle impostazioni senza riavvio.
 | | |
 |---|---|
 | ![Quick Connect GTK3](immagini/pcm81.png) | ![Unlock Credentials GTK3](immagini/pcm80.png) |
-| *Quick Connect — connessione rapida senza salvare il profilo, scelta protocollo, host, porta, utente, password* | *Sblocco credenziali — master password per decifrare le credenziali salvate (AES-256)* |
+| *Quick Connect — connessione rapida senza salvare il profilo, scelta protocollo, host, porta, utente, password* | *Sblocco credenziali — master password per decifrare le credenziali salvate (AES-128)* |
 
 | | |
 |---|---|
@@ -783,7 +783,7 @@ cd Python_Connection_Manager/gtk3
 python3 PCM.py
 ```
 
-Al primo avvio PCM crea `connections.json` con sessioni di esempio e propone di abilitare la cifratura AES-256 delle credenziali.
+Al primo avvio PCM crea `connections.json` con sessioni di esempio e propone di abilitare la cifratura AES-128 delle credenziali.
 
 #### Manuale per distribuzione
 

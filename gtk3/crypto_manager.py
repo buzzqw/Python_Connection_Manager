@@ -202,7 +202,9 @@ def unlock(password: str) -> bool:
             _KEY = key
         return True
 
-    except Exception:
+    except InvalidToken:
+        return False
+    except (ValueError, TypeError, KeyError, base64.binascii.Error):
         return False
 
 
