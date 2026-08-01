@@ -555,11 +555,20 @@ class _VncSocket(Gtk.Box):
 
     @staticmethod
     def _write_passwd_file(password):
+        """Il formato richiesto da -passwd/--PasswordFile è quello binario
+        offuscato prodotto da vncpasswd(1) (DES con chiave fissa), non un
+        semplice XOR byte a byte come faceva questa funzione in precedenza:
+        quel file non veniva mai accettato dal client, che quindi ignorava
+        la password salvata e chiedeva sempre l'immissione manuale.
+        Se vncpasswd non è disponibile si rinuncia al file (return None):
+        il client chiederà la password a schermo, invece di riceverne uno
+        comunque non valido."""
+        from session_command import _vnc_obfuscate_password
+        enc = _vnc_obfuscate_password(password)
+        if enc is None:
+            return None
         try:
             import tempfile
-            key = [23, 82, 107, 6, 35, 78, 88, 7]
-            pw = (password.encode()[:8]).ljust(8, b'\x00')
-            enc = bytes(b ^ key[i] for i, b in enumerate(pw))
             fd, path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
             with os.fdopen(fd, 'wb') as f:
                 f.write(enc)

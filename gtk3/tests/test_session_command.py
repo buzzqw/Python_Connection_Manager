@@ -135,6 +135,34 @@ class TestPreCommand:
         assert cmd == "ssh test.com"
 
 
+class TestVncPasswordObfuscation:
+    def test_returns_none_without_vncpasswd(self, monkeypatch):
+        monkeypatch.setattr(session_command.shutil, "which", lambda tool: None)
+        assert session_command._vnc_obfuscate_password("secret") is None
+
+    def test_uses_vncpasswd_binary_not_plaintext(self, monkeypatch):
+        """-passwd si aspetta l'output di 'vncpasswd -f' (formato offuscato),
+        non la password in chiaro: verifica che venga davvero invocato quel
+        comando con la password su stdin, e che l'output binario non sia la
+        password in chiaro riscritta tale e quale."""
+        monkeypatch.setattr(session_command.shutil, "which",
+                             lambda tool: "/usr/bin/vncpasswd" if tool == "vncpasswd" else None)
+
+        captured = {}
+
+        def fake_run(args, input, stdout, stderr, timeout, check):
+            captured["args"] = args
+            captured["input"] = input
+            return subprocess.CompletedProcess(args, 0, stdout=b"\xaa\xbb\xcc\xdd\xee\xff\x11\x22")
+
+        monkeypatch.setattr(session_command.subprocess, "run", fake_run)
+        result = session_command._vnc_obfuscate_password("secret")
+        assert captured["args"] == ["/usr/bin/vncpasswd", "-f"]
+        assert captured["input"] == b"secret"
+        assert result == b"\xaa\xbb\xcc\xdd\xee\xff\x11\x22"
+        assert result != b"secret"
+
+
 class TestEscaping:
     def test_shlex_quote_handles_spaces(self):
         import shlex
@@ -147,11 +175,29 @@ class TestEscaping:
     def test_vnc_quotes_endpoint_and_cleans_password_file(self, monkeypatch, tmp_path):
         marker = tmp_path / "injected"
         monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/bin/true")
+        monkeypatch.setattr(session_command, "_vnc_obfuscate_password",
+                             lambda pwd: b"\x00" * 8)
         cmd = session_command._build_vnc({
             "host": f"host; touch {marker}", "port": "5900",
             "password": "secret", "vnc_client": "tigervnc",
         })
         assert "rm -f --" in cmd
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        assert not marker.exists()
+
+    def test_vnc_without_vncpasswd_skips_password_file(self, monkeypatch, tmp_path):
+        """Senza vncpasswd non si deve scrivere un file password in chiaro:
+        -passwd si aspetta il formato offuscato, un file in chiaro non
+        funzionerebbe comunque (bug precedente) e romperebbe la connessione
+        ogni volta che è impostata una password."""
+        marker = tmp_path / "injected"
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/bin/true")
+        monkeypatch.setattr(session_command, "_vnc_obfuscate_password", lambda pwd: None)
+        cmd = session_command._build_vnc({
+            "host": f"host; touch {marker}", "port": "5900",
+            "password": "secret", "vnc_client": "tigervnc",
+        })
+        assert "-passwd" not in cmd
         subprocess.run(["/bin/sh", "-c", cmd], check=True)
         assert not marker.exists()
 

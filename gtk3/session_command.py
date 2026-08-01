@@ -6,6 +6,7 @@ Supporta: SSH, Telnet, SFTP, RDP, VNC, SSH Tunnel, Mosh, Seriale.
 import os
 import shlex
 import shutil
+import subprocess
 from urllib.parse import quote
 from typing import Optional, Tuple
 import config_manager
@@ -336,13 +337,20 @@ def _build_vnc(p: dict) -> str:
 
     endpoint = f"{host}::{port}"
 
-    def _passwd_wrap(exe, extra="", password_option="-passwd"):
+    def _passwd_wrap(exe, extra="", password_option="-passwd", obfuscate=True):
         import tempfile
+        contents = _vnc_obfuscate_password(pwd) if obfuscate else pwd.encode("utf-8")
+        if contents is None:
+            # vncpasswd non disponibile: niente file password. Scriverlo in
+            # chiaro non funzionerebbe comunque, dato che -passwd si aspetta
+            # il formato offuscato di vncpasswd(1), non testo semplice.
+            # Il client chiederà la password in modo interattivo.
+            return f"{_q(exe)} {extra}{_q(endpoint)}"
         fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
         os.close(fd)
         os.chmod(tmp_path, 0o600)
-        with open(tmp_path, "w") as f:
-            f.write(pwd)
+        with open(tmp_path, "wb") as f:
+            f.write(contents)
         command = f"{_q(exe)} {extra}{password_option} {_q(tmp_path)} {_q(endpoint)}"
         # The viewer needs the file until it exits; remove it before returning
         # control to the interactive VTE shell.
@@ -385,8 +393,33 @@ def _build_vnc(p: dict) -> str:
     else:
         exe = _get_tool(client)
         if pwd:
-            return _passwd_wrap(exe, password_option="--PasswordFile")
+            return _passwd_wrap(exe, password_option="--PasswordFile", obfuscate=False)
         return f"{_q(exe)} {_q(endpoint)}"
+
+
+def _vnc_obfuscate_password(pwd: str) -> Optional[bytes]:
+    """Offusca la password nel formato binario richiesto da -passwd
+    (vncviewer/xtigervncviewer): NON è testo semplice, ma il formato
+    prodotto da vncpasswd(1) (DES a chiave fissa). Scrivere la password
+    in chiaro nel file, come veniva fatto prima, produce un file che il
+    client non riesce a leggere e la connessione fallisce sempre quando
+    è impostata una password.
+
+    Restituisce None se vncpasswd non è disponibile: in tal caso il
+    chiamante deve rinunciare a -passwd (il client chiederà la password
+    a schermo) invece di scrivere comunque un file che non funzionerebbe."""
+    vncpasswd = shutil.which("vncpasswd")
+    if not vncpasswd:
+        return None
+    try:
+        result = subprocess.run(
+            [vncpasswd, "-f"], input=pwd.encode("utf-8"),
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=5, check=True,
+        )
+        return result.stdout
+    except Exception:
+        return None
 
 
 _REALVNC_PATHS = [
