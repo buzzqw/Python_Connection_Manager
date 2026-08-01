@@ -298,31 +298,59 @@ class MainWindow(Gtk.ApplicationWindow):
             pass
         return False
 
-    def _esegui_unlock_dialog(self):
-        """Mostra il dialog password e sblocca le credenziali."""
-        import crypto_manager
-        dlg = _CryptoUnlockDialog(parent=self)
-        resp = dlg.run()
-        pwd  = dlg.get_password()
-        dlg.destroy()
+    _UNLOCK_MAX_TENTATIVI = 3
 
-        if resp == Gtk.ResponseType.OK and pwd:
-            if crypto_manager.unlock(pwd):
+    def _esegui_unlock_dialog(self):
+        """Mostra il dialog password e sblocca le credenziali.
+
+        Consente fino a _UNLOCK_MAX_TENTATIVI tentativi senza dover
+        riavviare l'app: alla password sbagliata il dialog si riapre subito.
+        Se l'utente annulla, o esaurisce i tentativi, l'app si chiude
+        (senza sblocco le sessioni cifrate sarebbero comunque inutilizzabili)."""
+        import crypto_manager
+        tentativi = 0
+
+        while tentativi < self._UNLOCK_MAX_TENTATIVI:
+            dlg = _CryptoUnlockDialog(parent=self)
+            resp = dlg.run()
+            pwd  = dlg.get_password()
+            dlg.destroy()
+
+            if resp != Gtk.ResponseType.OK:
+                self.get_application().quit()
+                return
+
+            if pwd and crypto_manager.unlock(pwd):
                 self._pannello.aggiorna()
                 self._aggiorna_welcome_recenti()
+                falliti = config_manager.decrypt_failures()
+                if falliti:
+                    self._warn(
+                        "Impossibile decifrare le credenziali di: " + ", ".join(falliti) +
+                        " (token corrotto o chiave non corrispondente)"
+                    )
                 if self._pending_cli_uri:
                     uri, self._pending_cli_uri = self._pending_cli_uri, None
                     GLib.idle_add(self.apri_da_cli, uri)
-            else:
-                err = Gtk.MessageDialog(
-                    transient_for=self,
-                    modal=True,
-                    message_type=Gtk.MessageType.ERROR,
-                    buttons=Gtk.ButtonsType.OK,
-                    text=t("crypto.unlock.wrong_master")
+                return
+
+            tentativi += 1
+            rimanenti = self._UNLOCK_MAX_TENTATIVI - tentativi
+            err = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text=t("crypto.unlock.wrong_master"),
+                secondary_text=(
+                    f"Tentativi rimasti: {rimanenti}" if rimanenti > 0
+                    else "Troppi tentativi errati: l'applicazione verrà chiusa."
                 )
-                err.run()
-                err.destroy()
+            )
+            err.run()
+            err.destroy()
+
+        self.get_application().quit()
 
     # ------------------------------------------------------------------
     # Costruzione UI

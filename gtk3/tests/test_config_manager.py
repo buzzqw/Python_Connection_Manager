@@ -204,3 +204,50 @@ class TestCryptoTransitions:
         refreshed = config_manager.load_profiles()
         assert refreshed["server"]["user"] == "alice"
         assert refreshed["server"]["password"] == "secret"
+
+    def test_corrupted_profile_does_not_block_others(self, temp_files):
+        """Un singolo profilo con token cifrato corrotto (es. chiave cambiata
+        a metà, file mescolato da un'altra installazione) non deve impedire
+        la decifratura degli altri profili: l'errore va isolato per-profilo."""
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        assert crypto_manager.unlock("master-pass")
+
+        good_user = crypto_manager.encrypt_field("alice")
+        profiles_raw = {
+            "good": {"protocol": "ssh", "user": good_user, "password": ""},
+            "bad":  {"protocol": "ssh", "user": "ENC:not-a-valid-fernet-token==", "password": ""},
+        }
+        with open(config_manager.SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(profiles_raw, f)
+        config_manager._invalidate_caches()
+
+        profili = config_manager.load_profiles()
+        assert profili["good"]["user"] == "alice"
+        assert profili["bad"]["user"] == "ENC:not-a-valid-fernet-token=="
+        assert config_manager.decrypt_failures() == ["bad"]
+
+    def test_load_tunnels_does_not_crash_while_locked(self, temp_files):
+        """load_tunnels() non deve sollevare CryptoError se chiamato mentre
+        il crypto è ancora bloccato: deve restituire i campi ancora cifrati."""
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        assert crypto_manager.unlock("master-pass")
+        s = config_manager.load_settings()
+        s["tunnels"] = [{"name": "t1", "password": crypto_manager.encrypt_field("secret")}]
+        config_manager.save_settings(s)
+
+        crypto_manager.lock()
+        tunnels = config_manager.load_tunnels()
+        assert tunnels[0]["password"].startswith("ENC:")
+
+    def test_load_tunnels_handles_corrupted_token(self, temp_files):
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        assert crypto_manager.unlock("master-pass")
+        s = config_manager.load_settings()
+        s["tunnels"] = [{"name": "bad", "password": "ENC:not-a-valid-fernet-token=="}]
+        config_manager.save_settings(s)
+
+        tunnels = config_manager.load_tunnels()
+        assert tunnels[0]["password"] == "ENC:not-a-valid-fernet-token=="

@@ -40,12 +40,20 @@ CRYPTO_TRANSACTION_FILE = os.path.join(_HERE, "crypto_transaction.json")
 
 _cache_profiles: dict | None = None
 _cache_settings: dict | None = None
+_decrypt_failures: list = []
 
 
 def _invalidate_caches():
     global _cache_profiles, _cache_settings
     _cache_profiles = None
     _cache_settings = None
+
+
+def decrypt_failures() -> list:
+    """Nomi dei profili il cui campo cifrato non è stato decifrabile
+    nell'ultima load_profiles() (token corrotto o chiave sbagliata),
+    a differenza del caso "crypto ancora bloccato" che non viene segnalato."""
+    return list(_decrypt_failures)
 
 
 def load_profiles() -> dict:
@@ -76,12 +84,27 @@ def load_profiles() -> dict:
         _invalidate_caches()
         return {"_error": str(e)}
 
+    global _decrypt_failures
+    _decrypt_failures = []
     cm = _crypto()
-    if cm and cm.is_enabled():
-        try:
-            profili = {nome: cm.decrypt_profile(p) for nome, p in profili.items()}
-        except (cm.CryptoError, cm.InvalidTokenError):
-            pass
+    if cm and cm.is_enabled() and cm.is_unlocked():
+        decifrati = {}
+        for nome, p in profili.items():
+            try:
+                decifrati[nome] = cm.decrypt_profile(p)
+            except (cm.CryptoError, cm.InvalidTokenError):
+                decifrati[nome] = p
+                _decrypt_failures.append(nome)
+        profili = decifrati
+        if _decrypt_failures:
+            from pcm_logging import get_logger
+            get_logger(__name__).warning(
+                "Impossibile decifrare i campi di %d profilo/i: %s",
+                len(_decrypt_failures), ", ".join(_decrypt_failures)
+            )
+    # Se il crypto è abilitato ma ancora bloccato, i profili restano cifrati
+    # (ENC:...): verranno ridecifrati automaticamente alla prossima
+    # load_profiles() dopo unlock() (che invalida la cache).
 
     from protocols import validate_profiles
     profili = validate_profiles(profili)
@@ -434,8 +457,14 @@ def load_tunnels() -> list:
     s = load_settings()
     tunnels = s.get("tunnels", [])
     cm = _crypto()
-    if cm and cm.is_enabled():
-        tunnels = [cm.decrypt_profile(t) for t in tunnels]
+    if cm and cm.is_enabled() and cm.is_unlocked():
+        decifrati = []
+        for t in tunnels:
+            try:
+                decifrati.append(cm.decrypt_profile(t))
+            except (cm.CryptoError, cm.InvalidTokenError):
+                decifrati.append(t)
+        tunnels = decifrati
     return tunnels
 
 
