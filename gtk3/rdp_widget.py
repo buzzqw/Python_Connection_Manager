@@ -180,6 +180,8 @@ class RdpEmbedWidget(Gtk.Box):
         domain = p.get("rdp_domain", "").strip()
         clips  = p.get("redirect_clipboard", True)
         drives = p.get("redirect_drives", False)
+        mon_mode = p.get("rdp_monitor_mode", "single")
+        mon_ids  = p.get("rdp_monitor_ids", "0").strip()
         self._rdp_host = host
 
         # rdesktop: embedding nativo con -X (no polling)
@@ -205,7 +207,7 @@ class RdpEmbedWidget(Gtk.Box):
         h_init = max(alloc.height - 30, 768)
 
         args = [client, f"/v:{host}:{port}",
-                f"/w:{w_init}", f"/h:{h_init}"]
+                f"/w:{w_init}", f"/h:{h_init}", "/cert:tofu"]
         if freerdp_ver >= 3:
             args.append("/dynamic-resolution")
         if user:   args.append(f"/u:{user}")
@@ -216,7 +218,11 @@ class RdpEmbedWidget(Gtk.Box):
             args.append("/auth-pkg-list:ntlm")
         if pwd:    args.append("/from-stdin")
         if clips:  args.append("/clipboard")
-        if drives: args.append("/drive:home,/home")
+        if drives: args.append(f"/drive:home,{os.path.expanduser('~')}")
+        if mon_mode == "all":
+            args.append("/multimon")
+        elif mon_mode == "custom" and mon_ids:
+            args.append(f"/monitors:{mon_ids}")
 
         cmd_display = " ".join(args)
         if pwd:
@@ -254,18 +260,18 @@ class RdpEmbedWidget(Gtk.Box):
                     _get_log(__name__).debug("Invio password RDP fallito: %s", e)
         except Exception as e:
             _get_log(__name__).debug("Avvio RDP fallito: %s", e)
-            self._t_avvio = datetime.datetime.now()
-            from pcm_logging import get_logger
-            get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
-            if hasattr(self, "_log_view"):
-                GLib.io_add_watch(
-                    self._proc.stdout.fileno(),
-                    GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR,
-                    self._on_rdp_output,
-                )
-        except Exception as e:
             self._mostra_errore(str(e))
             return False
+
+        self._t_avvio = datetime.datetime.now()
+        from pcm_logging import get_logger
+        get_logger(__name__).info("Avviato %s PID=%s", client, self._proc.pid)
+        if hasattr(self, "_log_view"):
+            GLib.io_add_watch(
+                self._proc.stdout.fileno(),
+                GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR,
+                self._on_rdp_output,
+            )
 
         self._poll_attempts = 0
         if self._open_mode == "internal":
@@ -658,6 +664,8 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     clips  = profilo.get("redirect_clipboard", True)
     drives = profilo.get("redirect_drives", False)
     fs     = profilo.get("fullscreen", False)
+    mon_mode = profilo.get("rdp_monitor_mode", "single")
+    mon_ids  = profilo.get("rdp_monitor_ids", "0").strip()
 
     if client == "rdesktop":
         args = ["rdesktop", "-a16"]
@@ -670,7 +678,7 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
 
     # xfreerdp / xfreerdp3
     ver  = _freerdp_major_version(client)
-    args = [client, f"/v:{host}:{port}"]
+    args = [client, f"/v:{host}:{port}", "/cert:tofu"]
     if ver >= 3:
         args.append("/dynamic-resolution")
     if user:   args.append(f"/u:{user}")
@@ -680,5 +688,9 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     if pwd:    args.append("/from-stdin")
     if fs:     args.append("/f")
     if clips:  args.append("/clipboard")
-    if drives: args.append("/drive:home,/home")
+    if drives: args.append(f"/drive:home,{os.path.expanduser('~')}")
+    if mon_mode == "all":
+        args.append("/multimon")
+    elif mon_mode == "custom" and mon_ids:
+        args.append(f"/monitors:{mon_ids}")
     return args

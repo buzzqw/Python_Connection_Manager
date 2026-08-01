@@ -191,3 +191,44 @@ class TestRdpSecurity:
             "rdp_client": "rdesktop", "host": "rdp.example", "password": "secret",
         })
         assert not any(arg.startswith("-p") for arg in args)
+
+    def test_xfreerdp_uses_cert_tofu_not_full_ignore(self, monkeypatch):
+        """/cert:tofu valida comunque il certificato dopo il primo collegamento;
+        non deve mai regredire a /cert:ignore (bypass totale)."""
+        import rdp_widget
+        monkeypatch.setattr(rdp_widget, "_freerdp_major_version", lambda c: 3)
+        args = _build_freerdp_cmd({
+            "rdp_client": "xfreerdp3", "host": "rdp.example", "password": "secret",
+        })
+        assert "/cert:tofu" in args
+        assert "/cert:ignore" not in args
+
+    def test_xfreerdp_drive_redirect_uses_real_home(self, monkeypatch):
+        """La condivisione unità deve puntare alla home dell'utente corrente,
+        non alla cartella /home che contiene le home di tutti gli utenti."""
+        import rdp_widget
+        monkeypatch.setattr(rdp_widget, "_freerdp_major_version", lambda c: 3)
+        args = _build_freerdp_cmd({
+            "rdp_client": "xfreerdp3", "host": "rdp.example",
+            "redirect_drives": True,
+        })
+        drive_arg = next(a for a in args if a.startswith("/drive:"))
+        assert drive_arg == f"/drive:home,{os.path.expanduser('~')}"
+        assert drive_arg != "/drive:home,/home"
+
+    def test_xfreerdp_multimon_reaches_real_command(self, monkeypatch):
+        """rdp_monitor_mode deve incidere sul comando davvero eseguito
+        (non solo sull'anteprima mostrata nell'editor sessione)."""
+        import rdp_widget
+        monkeypatch.setattr(rdp_widget, "_freerdp_major_version", lambda c: 3)
+        args = _build_freerdp_cmd({
+            "rdp_client": "xfreerdp3", "host": "rdp.example",
+            "rdp_monitor_mode": "all",
+        })
+        assert "/multimon" in args
+
+        args = _build_freerdp_cmd({
+            "rdp_client": "xfreerdp3", "host": "rdp.example",
+            "rdp_monitor_mode": "custom", "rdp_monitor_ids": "0,1",
+        })
+        assert "/monitors:0,1" in args
