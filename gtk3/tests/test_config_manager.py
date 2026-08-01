@@ -227,6 +227,29 @@ class TestCryptoTransitions:
         assert profili["bad"]["user"] == "ENC:not-a-valid-fernet-token=="
         assert config_manager.decrypt_failures() == ["bad"]
 
+    def test_decrypt_failures_cleared_on_next_call_even_if_it_errors(self, temp_files):
+        """decrypt_failures() non deve restare "incollato" a un vecchio
+        risultato: se una load_profiles() successiva fallisce prima di
+        arrivare alla decifratura (es. connections.json corrotto), la
+        lista va svuotata comunque, non lasciata con i valori della
+        chiamata precedente."""
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        assert crypto_manager.unlock("master-pass")
+
+        profiles_raw = {"bad": {"protocol": "ssh", "user": "ENC:not-a-valid-fernet-token==", "password": ""}}
+        with open(config_manager.SESSIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(profiles_raw, f)
+        config_manager._invalidate_caches()
+        config_manager.load_profiles()
+        assert config_manager.decrypt_failures() == ["bad"]
+
+        with open(config_manager.SESSIONS_FILE, "w", encoding="utf-8") as f:
+            f.write("{not valid json")
+        config_manager._invalidate_caches()
+        config_manager.load_profiles()
+        assert config_manager.decrypt_failures() == []
+
     def test_load_tunnels_does_not_crash_while_locked(self, temp_files):
         """load_tunnels() non deve sollevare CryptoError se chiamato mentre
         il crypto è ancora bloccato: deve restituire i campi ancora cifrati."""

@@ -300,6 +300,18 @@ class TestFileTransferSecurity:
         subprocess.run(["/bin/sh", "-c", cmd], check=True)
         assert not marker.exists()
 
+    @staticmethod
+    def _cleanup_pcm_tmp(cmd: str):
+        """I builder scrivono un file privato reale in ~/.cache/pcm; nei
+        test che ispezionano solo la stringa (senza eseguirla) il comando
+        di pulizia embedded non gira mai, quindi va rimosso a mano per non
+        lasciare file nella cache reale dell'utente a ogni run dei test."""
+        import re
+        for m in re.finditer(r"(\S*pcm_(?:ftp|lftp)_\S+\.tmp)", cmd):
+            path = m.group(1).strip("'\"")
+            if os.path.exists(path):
+                os.unlink(path)
+
     def test_ftp_lftp_password_not_in_argv(self, monkeypatch, tmp_path):
         """La password non deve comparire nella riga di comando: sarebbe
         visibile a chiunque sulla macchina tramite 'ps aux' per tutta la
@@ -311,9 +323,12 @@ class TestFileTransferSecurity:
             "host": "ftp.example.com", "port": "21",
             "user": "alice", "password": "S3cr3t!",
         }, modalita="term_int")
-        assert "S3cr3t!" not in cmd
-        assert "source " in cmd
-        assert "rm -f --" in cmd
+        try:
+            assert "S3cr3t!" not in cmd
+            assert "source " in cmd
+            assert "rm -f --" in cmd
+        finally:
+            self._cleanup_pcm_tmp(cmd)
 
     def test_sftp_cli_lftp_password_not_in_argv(self, monkeypatch):
         monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "lftp")
@@ -322,8 +337,11 @@ class TestFileTransferSecurity:
             "host": "sftp.example.com", "port": "22",
             "user": "alice", "password": "S3cr3t!",
         })
-        assert "S3cr3t!" not in cmd
-        assert "source " in cmd
+        try:
+            assert "S3cr3t!" not in cmd
+            assert "source " in cmd
+        finally:
+            self._cleanup_pcm_tmp(cmd)
 
     def test_ftp_plain_binary_password_not_in_argv(self, monkeypatch):
         monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "ftp")
@@ -332,8 +350,11 @@ class TestFileTransferSecurity:
             "host": "ftp.example.com", "port": "21",
             "user": "alice", "password": "S3cr3t!",
         }, modalita="term_int")
-        assert "S3cr3t!" not in cmd
-        assert " < " in cmd
+        try:
+            assert "S3cr3t!" not in cmd
+            assert " < " in cmd
+        finally:
+            self._cleanup_pcm_tmp(cmd)
 
     def test_lftp_script_file_actually_contains_credentials(self, monkeypatch):
         """Verifica end-to-end che il file referenziato da 'source' contenga

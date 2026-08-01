@@ -57,9 +57,10 @@ def decrypt_failures() -> list:
 
 
 def load_profiles() -> dict:
-    global _cache_profiles
+    global _cache_profiles, _decrypt_failures
     if _cache_profiles is not None:
         return _cache_profiles
+    _decrypt_failures = []
     if first_run := not os.path.exists(SESSIONS_FILE):
         _create_default_sessions()
         s = load_settings()
@@ -84,8 +85,6 @@ def load_profiles() -> dict:
         _invalidate_caches()
         return {"_error": str(e)}
 
-    global _decrypt_failures
-    _decrypt_failures = []
     cm = _crypto()
     if cm and cm.is_enabled() and cm.is_unlocked():
         decifrati = {}
