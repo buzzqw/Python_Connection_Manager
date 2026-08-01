@@ -52,6 +52,22 @@ def _tool_exists(cmd_id: str) -> bool:
     return shutil.which(tool) is not None
 
 
+def _write_private_script(contents: str, prefix: str) -> str:
+    """Scrive contents in un file temporaneo privato (0600, in una cartella
+    utente non condivisa) invece di metterlo su riga di comando: altrimenti
+    credenziali embedded nella stringa (es. URI ftp://user:pass@host)
+    resterebbero visibili a chiunque sulla macchina tramite 'ps aux' /
+    /proc/<pid>/cmdline per tutta la durata del processo."""
+    import tempfile
+    _dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+    os.makedirs(_dir, mode=0o700, exist_ok=True)
+    fd, path = tempfile.mkstemp(prefix=prefix, suffix=".tmp", dir=_dir)
+    with os.fdopen(fd, "w") as f:
+        f.write(contents)
+    os.chmod(path, 0o600)
+    return path
+
+
 # ---------------------------------------------------------------------------
 # Builders pubblici
 # ---------------------------------------------------------------------------
@@ -253,14 +269,19 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     if modalita in ("term_int", "term_ext"):
         if _tool_exists("lftp"):
             lftp_exe = _get_tool("lftp")
-            uri_cred = (f"{schema}://{uri_user}:{quote(str(pwd), safe='')}@{host}:{port}"
-                        if user and pwd else uri)
-            return f"{_q(lftp_exe)} -e {_q(f'open {uri_cred}')} {_q(host)}"
+            if user and pwd:
+                uri_cred = f"{schema}://{uri_user}:{quote(str(pwd), safe='')}@{host}:{port}"
+                script_path = _write_private_script(f"open {uri_cred}\n", "pcm_lftp_")
+                return (f"{_q(lftp_exe)} -e {_q(f'source {script_path}')} {_q(host)}"
+                        f"; _pcm_status=$?; rm -f -- {_q(script_path)}; (exit $_pcm_status)")
+            return f"{_q(lftp_exe)} -e {_q(f'open {uri}')} {_q(host)}"
         elif _tool_exists("ftp"):
             ftp_exe = _get_tool("ftp")
             if user and pwd:
                 script = f"open {host} {port}\nuser {user} {pwd}\nbinary\n"
-                return f"printf %s {_q(script)} | {_q(ftp_exe)} -n"
+                script_path = _write_private_script(script, "pcm_ftp_")
+                return (f"{_q(ftp_exe)} -n < {_q(script_path)}"
+                        f"; _pcm_status=$?; rm -f -- {_q(script_path)}; (exit $_pcm_status)")
             return f"{_q(ftp_exe)} {_q(host)} {_q(port)}"
         else:
             return "bash -c 'echo \"lftp non trovato.\"; sleep 5'"
@@ -303,7 +324,9 @@ def _build_sftp_cli(p: dict) -> str:
     if pwd and _tool_exists("lftp"):
         uri_cred = (f"sftp://{quote(str(user), safe='')}:{quote(str(pwd), safe='')}@{host}:{port}"
                     if user else f"sftp://{host}:{port}")
-        return f"{_q(_get_tool('lftp'))} -e {_q(f'open {uri_cred}')} {_q(host)}"
+        script_path = _write_private_script(f"open {uri_cred}\n", "pcm_lftp_")
+        return (f"{_q(_get_tool('lftp'))} -e {_q(f'source {script_path}')} {_q(host)}"
+                f"; _pcm_status=$?; rm -f -- {_q(script_path)}; (exit $_pcm_status)")
 
     return f"\"{sftp_exe}\" {args_str} {target}"
 

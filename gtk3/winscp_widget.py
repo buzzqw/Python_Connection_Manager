@@ -817,10 +817,21 @@ class WinScpWidget(Gtk.Box):
             pwd  = self._profilo.get("password", "")
             pkey = self._profilo.get("private_key", "")
 
-            # Connessione principale per navigazione
-            self._ssh = paramiko.SSHClient()
-            self._ssh.load_system_host_keys()
-            self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+            # Stessa politica host-key della connessione SSH/SFTP da riga di
+            # comando (StrictHostKeyChecking yes/accept-new): prima questo
+            # pannello usava sempre RejectPolicy, rifiutando qualunque host
+            # non già presente in known_hosts anche quando il profilo o le
+            # impostazioni globali avevano "strict_host_check" disattivato,
+            # con un fallimento inatteso e incoerente col resto dell'app.
+            from session_command import _strict_host_check
+            strict = _strict_host_check(self._profilo)
+
+            def _nuovo_client():
+                client = paramiko.SSHClient()
+                client.load_system_host_keys()
+                client.set_missing_host_key_policy(
+                    paramiko.RejectPolicy() if strict else paramiko.AutoAddPolicy())
+                return client
 
             kw = {"hostname": host, "port": port, "username": user, "timeout": 15}
             if pkey and os.path.isfile(pkey):
@@ -828,13 +839,13 @@ class WinScpWidget(Gtk.Box):
             elif pwd:
                 kw["password"] = pwd
 
+            # Connessione principale per navigazione
+            self._ssh = _nuovo_client()
             self._ssh.connect(**kw)
             self._sftp = self._ssh.open_sftp()
 
             # Connessione separata per trasferimenti
-            self._ssh_transfer = paramiko.SSHClient()
-            self._ssh_transfer.load_system_host_keys()
-            self._ssh_transfer.set_missing_host_key_policy(paramiko.RejectPolicy())
+            self._ssh_transfer = _nuovo_client()
             self._ssh_transfer.connect(**kw)
             self._sftp_transfer = self._ssh_transfer.open_sftp()
 

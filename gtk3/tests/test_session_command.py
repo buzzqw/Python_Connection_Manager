@@ -237,6 +237,44 @@ class TestFileTransferSecurity:
         assert ("prot_p",) in calls
         assert ("set_pasv", False) in calls
 
+    def test_sftp_panel_relaxed_strict_host_uses_autoadd(self, monkeypatch):
+        """Il pannello SFTP integrato usava sempre RejectPolicy, rifiutando
+        qualunque host non già in known_hosts anche con
+        strict_host_check/strict_host disattivato nel profilo o nelle
+        impostazioni globali — incoerente con la connessione SSH/SFTP da
+        riga di comando, che in quel caso usa StrictHostKeyChecking=accept-new."""
+        calls = []
+
+        class FakeSSHClient:
+            def load_system_host_keys(self):
+                pass
+
+            def set_missing_host_key_policy(self, policy):
+                calls.append(policy)
+
+            def connect(self, **kw):
+                pass
+
+            def open_sftp(self):
+                return object()
+
+        monkeypatch.setattr(winscp_widget, "paramiko", type(
+            "FakeParamikoModule", (), {
+                "SSHClient": FakeSSHClient,
+                "AutoAddPolicy": winscp_widget.paramiko.AutoAddPolicy,
+                "RejectPolicy": winscp_widget.paramiko.RejectPolicy,
+            }
+        ))
+        widget = winscp_widget.WinScpWidget.__new__(winscp_widget.WinScpWidget)
+        widget._profilo = {
+            "host": "new-host.example", "port": 22, "user": "alice",
+            "strict_host": False,
+        }
+        widget._connetti()
+
+        assert any(isinstance(c, winscp_widget.paramiko.AutoAddPolicy) for c in calls)
+        assert not any(isinstance(c, winscp_widget.paramiko.RejectPolicy) for c in calls)
+
     def test_external_ftp_uri_is_shell_quoted(self, monkeypatch, tmp_path):
         marker = tmp_path / "injected"
         monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "xdg-open")
@@ -246,6 +284,64 @@ class TestFileTransferSecurity:
         }, modalita="browser_ext")
         subprocess.run(["/bin/sh", "-c", cmd], check=True)
         assert not marker.exists()
+
+    def test_ftp_lftp_password_not_in_argv(self, monkeypatch, tmp_path):
+        """La password non deve comparire nella riga di comando: sarebbe
+        visibile a chiunque sulla macchina tramite 'ps aux' per tutta la
+        durata del processo. Deve invece finire in un file privato (0600)
+        referenziato da 'source', letto e poi ripulito da lftp stesso."""
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "lftp")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/usr/bin/lftp")
+        cmd = session_command._build_ftp({
+            "host": "ftp.example.com", "port": "21",
+            "user": "alice", "password": "S3cr3t!",
+        }, modalita="term_int")
+        assert "S3cr3t!" not in cmd
+        assert "source " in cmd
+        assert "rm -f --" in cmd
+
+    def test_sftp_cli_lftp_password_not_in_argv(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "lftp")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/usr/bin/lftp")
+        cmd = session_command._build_sftp_cli({
+            "host": "sftp.example.com", "port": "22",
+            "user": "alice", "password": "S3cr3t!",
+        })
+        assert "S3cr3t!" not in cmd
+        assert "source " in cmd
+
+    def test_ftp_plain_binary_password_not_in_argv(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "ftp")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/usr/bin/ftp")
+        cmd = session_command._build_ftp({
+            "host": "ftp.example.com", "port": "21",
+            "user": "alice", "password": "S3cr3t!",
+        }, modalita="term_int")
+        assert "S3cr3t!" not in cmd
+        assert " < " in cmd
+
+    def test_lftp_script_file_actually_contains_credentials(self, monkeypatch):
+        """Verifica end-to-end che il file referenziato da 'source' contenga
+        davvero il comando 'open' con le credenziali, e che il comando lo
+        cancelli dopo l'uso."""
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "lftp")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: "/bin/true")
+        cmd = session_command._build_ftp({
+            "host": "ftp.example.com", "port": "21",
+            "user": "alice", "password": "sekret123",
+        }, modalita="term_int")
+
+        import re
+        m = re.search(r"source (\S+)'", cmd)
+        assert m
+        script_path = m.group(1)
+        with open(script_path) as f:
+            content = f.read()
+        assert "sekret123" in content
+        assert content.startswith("open ftp://")
+
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        assert not os.path.exists(script_path)
 
 
 class TestRdpUnifiedBuilder:
