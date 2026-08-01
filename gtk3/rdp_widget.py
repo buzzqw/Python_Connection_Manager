@@ -33,18 +33,116 @@ from translations import t
 from pcm_logging import get_logger as _get_log
 
 
+_freerdp_ver_cache: dict[str, int] = {}
+
+
 def _freerdp_major_version(client: str) -> int:
+    """Rileva la major version di xfreerdp/xfreerdp3 lanciando '--version'.
+    Il risultato è cache-ato per eseguibile: non cambia durante la vita
+    del processo e altrimenti verrebbe ri-eseguito a ogni connessione e
+    a ogni aggiornamento dell'anteprima comando nell'editor sessione."""
+    if client in _freerdp_ver_cache:
+        return _freerdp_ver_cache[client]
     try:
         out = subprocess.check_output(
             [client, "--version"], stderr=subprocess.STDOUT,
             timeout=3, text=True
         )
         m = re.search(r"(\d+)\.\d+", out)
-        if m:
-            return int(m.group(1))
+        ver = int(m.group(1)) if m else (3 if "3" in client else 2)
     except Exception as e:
         _get_log(__name__).debug("Versione FreeRDP non rilevata per '%s': %s", client, e)
-    return 3 if "3" in client else 2
+        ver = 3 if "3" in client else 2
+    _freerdp_ver_cache[client] = ver
+    return ver
+
+
+def _resolve_rdp_exe(client_id: str) -> str:
+    """Percorso eseguibile per il client RDP: rispetta un path custom
+    configurato in Impostazioni > Dipendenze (tool_paths), esattamente
+    come session_command._get_tool() fa già per gli altri protocolli.
+    Prima d'ora solo l'anteprima comando lo rispettava; il lancio reale
+    ignorava sempre il path custom e usava il nome nudo dell'eseguibile."""
+    try:
+        import config_manager
+        custom = config_manager.load_settings().get("tool_paths", {}).get(client_id, "").strip()
+    except Exception:
+        custom = ""
+    return custom or client_id
+
+
+def _rdp_tool_available(client_id: str) -> bool:
+    return bool(shutil.which(_resolve_rdp_exe(client_id)))
+
+
+def build_rdp_args(p: dict, client: str, exe: str | None = None,
+                    freerdp_ver: int | None = None,
+                    window_size: tuple[int, int] | None = None,
+                    embed_xid: str | None = None) -> list[str]:
+    """Costruisce l'argv per rdesktop/xfreerdp/xfreerdp3.
+
+    Unica fonte di verità usata sia dall'anteprima comando nell'editor
+    sessione sia dal lancio reale (esterno ed embedded): prima esistevano
+    tre copie di questa logica che avevano già iniziato a divergere
+    (multimonitor, /cert:, drive redirection).
+
+    client:      identificatore del dialetto ("xfreerdp3"/"xfreerdp"/"rdesktop").
+    exe:         percorso eseguibile da mettere in argv[0], se diverso da
+                 `client` (es. path custom); default: `client` stesso.
+    window_size: (w, h) iniziali per la finestra xfreerdp, o geometria
+                 rdesktop quando embed_xid è impostato.
+    embed_xid:   XID del Gtk.Socket per il reparenting nativo di rdesktop
+                 (solo rdesktop supporta l'embedding senza xdotool).
+    """
+    exe = exe or client
+    host   = p.get("host", "")
+    port   = p.get("port", "3389")
+    user   = p.get("user", "")
+    pwd    = p.get("password", "")
+    domain = p.get("rdp_domain", "").strip()
+    fs     = p.get("fullscreen", False)
+    clips  = p.get("redirect_clipboard", True)
+    drives = p.get("redirect_drives", False)
+    mon_mode = p.get("rdp_monitor_mode", "single")
+    mon_ids  = p.get("rdp_monitor_ids", "0").strip()
+
+    if client == "rdesktop":
+        args = [exe]
+        if embed_xid:
+            w, h = window_size or (1024, 768)
+            args += [f"-X{embed_xid}", f"-g{w}x{h}", "-a16", "-DN"]
+        else:
+            args.append("-a16")
+            if fs: args.append("-f")
+        if user:   args.append(f"-u{user}")
+        if domain: args.append(f"-d{domain}")
+        if clips:  args.append("-rclipboard:PRIMARYCLIPBOARD")
+        args.append(f"{host}:{port}")
+        return args
+
+    # xfreerdp / xfreerdp3
+    ver = freerdp_ver if freerdp_ver is not None else _freerdp_major_version(exe)
+    args = [exe, f"/v:{host}:{port}", "/cert:tofu"]
+    if window_size:
+        w, h = window_size
+        args += [f"/w:{w}", f"/h:{h}"]
+    if ver >= 3:
+        args.append("/dynamic-resolution")
+    if user:   args.append(f"/u:{user}")
+    if domain:
+        args.append(f"/d:{domain}")
+        # Forza NTLM: evita il timeout Kerberos quando il KDC non è
+        # raggiungibile (rete aziendale senza DNS Kerberos configurato)
+        args.append("/auth-pkg-list:ntlm")
+    if pwd:    args.append("/from-stdin")
+    if fs:     args.append("/f")
+    if clips:  args.append("/clipboard")
+    if drives: args.append(f"/drive:home,{os.path.expanduser('~')}")
+    if mon_mode == "all":
+        args.append("/multimon")
+    elif mon_mode == "custom" and mon_ids:
+        args.append(f"/monitors:{mon_ids}")
+    return args
 
 
 class RdpEmbedWidget(Gtk.Box):
@@ -163,25 +261,19 @@ class RdpEmbedWidget(Gtk.Box):
         self._extra_env = {"DISPLAY": display} if wayland and display else {}
 
         client = p.get("rdp_client", "xfreerdp3")
-        if not shutil.which(client):
+        if not _rdp_tool_available(client):
             for alt in ("xfreerdp3", "xfreerdp", "rdesktop"):
-                if shutil.which(alt):
+                if _rdp_tool_available(alt):
                     client = alt
                     break
             else:
                 self._mostra_errore(t("rdp.embed.client_missing", client=client))
                 return False
+        exe = _resolve_rdp_exe(client)
 
         self._client_name = client
-        host   = p.get("host", "")
-        port   = p.get("port", "3389")
-        user   = p.get("user", "")
-        pwd    = p.get("password", "")
-        domain = p.get("rdp_domain", "").strip()
-        clips  = p.get("redirect_clipboard", True)
-        drives = p.get("redirect_drives", False)
-        mon_mode = p.get("rdp_monitor_mode", "single")
-        mon_ids  = p.get("rdp_monitor_ids", "0").strip()
+        host = p.get("host", "")
+        pwd  = p.get("password", "")
         self._rdp_host = host
 
         # rdesktop: embedding nativo con -X (no polling)
@@ -192,7 +284,7 @@ class RdpEmbedWidget(Gtk.Box):
                     "Usa FreeRDP o la modalita esterna."
                 )
                 return False
-            self._avvia_rdesktop(host, port, user, domain, clips, drives)
+            self._avvia_rdesktop(p)
             return False
 
         # xfreerdp: avvia + polling + xdotool reparent
@@ -200,29 +292,14 @@ class RdpEmbedWidget(Gtk.Box):
             self._mostra_errore(t("rdp.embed.reparent_failed"))
             return False
 
-        freerdp_ver = _freerdp_major_version(client)
+        freerdp_ver = _freerdp_major_version(exe)
         # Dimensioni iniziali
         alloc = self.get_allocation()
         w_init = max(alloc.width,  1024)
         h_init = max(alloc.height - 30, 768)
 
-        args = [client, f"/v:{host}:{port}",
-                f"/w:{w_init}", f"/h:{h_init}", "/cert:tofu"]
-        if freerdp_ver >= 3:
-            args.append("/dynamic-resolution")
-        if user:   args.append(f"/u:{user}")
-        if domain:
-            args.append(f"/d:{domain}")
-            # Forza NTLM: evita il timeout Kerberos quando il KDC non è
-            # raggiungibile (rete aziendale senza DNS Kerberos configurato)
-            args.append("/auth-pkg-list:ntlm")
-        if pwd:    args.append("/from-stdin")
-        if clips:  args.append("/clipboard")
-        if drives: args.append(f"/drive:home,{os.path.expanduser('~')}")
-        if mon_mode == "all":
-            args.append("/multimon")
-        elif mon_mode == "custom" and mon_ids:
-            args.append(f"/monitors:{mon_ids}")
+        args = build_rdp_args(p, client, exe=exe, freerdp_ver=freerdp_ver,
+                               window_size=(w_init, h_init))
 
         cmd_display = " ".join(args)
         if pwd:
@@ -284,7 +361,8 @@ class RdpEmbedWidget(Gtk.Box):
     # rdesktop: embedding nativo con -X
     # ------------------------------------------------------------------
 
-    def _avvia_rdesktop(self, host, port, user, domain, clips, drives):
+    def _avvia_rdesktop(self, p: dict):
+        host = p.get("host", "")
         # Il socket deve essere realizzato prima di passare il XID a rdesktop
         self._log_container.set_visible(False)
         self._socket.set_visible(True)
@@ -302,14 +380,8 @@ class RdpEmbedWidget(Gtk.Box):
         w = max(alloc.width,  1024)
         h = max(alloc.height - 30, 768)
 
-        args = ["rdesktop",
-                f"-X{xid}",
-                f"-g{w}x{h}",
-                "-a16", "-DN"]
-        if user:   args.append(f"-u{user}")
-        if domain: args.append(f"-d{domain}")
-        if clips:  args.append("-rclipboard:PRIMARYCLIPBOARD")
-        args.append(f"{host}:{port}")
+        args = build_rdp_args(p, "rdesktop", exe=_resolve_rdp_exe("rdesktop"),
+                               window_size=(w, h), embed_xid=xid)
 
         cmd_display = " ".join(
             a if not a.startswith("-p") else "-p****" for a in args
@@ -650,47 +722,10 @@ def _build_freerdp_cmd(profilo: dict) -> list[str]:
     il timeout Kerberos su reti senza KDC raggiungibile.
     """
     client = profilo.get("rdp_client", "xfreerdp3")
-    if not shutil.which(client):
+    if not _rdp_tool_available(client):
         for alt in ("xfreerdp3", "xfreerdp", "rdesktop"):
-            if shutil.which(alt):
+            if _rdp_tool_available(alt):
                 client = alt
                 break
 
-    host   = profilo.get("host", "")
-    port   = profilo.get("port", "3389")
-    user   = profilo.get("user", "")
-    pwd    = profilo.get("password", "")
-    domain = profilo.get("rdp_domain", "").strip()
-    clips  = profilo.get("redirect_clipboard", True)
-    drives = profilo.get("redirect_drives", False)
-    fs     = profilo.get("fullscreen", False)
-    mon_mode = profilo.get("rdp_monitor_mode", "single")
-    mon_ids  = profilo.get("rdp_monitor_ids", "0").strip()
-
-    if client == "rdesktop":
-        args = ["rdesktop", "-a16"]
-        if user:   args.append(f"-u{user}")
-        if domain: args.append(f"-d{domain}")
-        if fs:     args.append("-f")
-        if clips:  args.append("-rclipboard:PRIMARYCLIPBOARD")
-        args.append(f"{host}:{port}")
-        return args
-
-    # xfreerdp / xfreerdp3
-    ver  = _freerdp_major_version(client)
-    args = [client, f"/v:{host}:{port}", "/cert:tofu"]
-    if ver >= 3:
-        args.append("/dynamic-resolution")
-    if user:   args.append(f"/u:{user}")
-    if domain:
-        args.append(f"/d:{domain}")
-        args.append("/auth-pkg-list:ntlm")
-    if pwd:    args.append("/from-stdin")
-    if fs:     args.append("/f")
-    if clips:  args.append("/clipboard")
-    if drives: args.append(f"/drive:home,{os.path.expanduser('~')}")
-    if mon_mode == "all":
-        args.append("/multimon")
-    elif mon_mode == "custom" and mon_ids:
-        args.append(f"/monitors:{mon_ids}")
-    return args
+    return build_rdp_args(profilo, client, exe=_resolve_rdp_exe(client))

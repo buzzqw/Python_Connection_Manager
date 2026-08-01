@@ -314,42 +314,16 @@ def _build_sftp_cli(p: dict) -> str:
 
 
 def _build_rdp(p: dict) -> str:
-    host   = p.get("host", "")
-    port   = p.get("port", "3389")
-    user   = p.get("user", "")
-    pwd    = p.get("password", "")
-    domain = p.get("rdp_domain", "").strip()
+    """Solo anteprima testuale (editor sessione): la connessione reale usa
+    rdp_widget.build_rdp_args, unica fonte di verità per gli argomenti."""
     client = p.get("rdp_client", "xfreerdp3")
-    
-    exe = _get_tool(client)
+    if client not in ("xfreerdp", "xfreerdp3", "rdesktop"):
+        host, port = p.get("host", ""), p.get("port", "3389")
+        return f"{_q(_get_tool(client))} {_q(f'{host}:{port}')}"
 
-    if client in ("xfreerdp", "xfreerdp3"):
-        args = [f"/v:{_q(f'{host}:{port}')}", "/cert:tofu"]
-        if user: args.append(f"/u:{_q(user)}")
-        if domain:
-            args.append(f"/d:{_q(domain)}")
-            args.append("/auth-pkg-list:ntlm")
-        if pwd: args.append("/from-stdin")
-        if p.get("fullscreen"): args.append("/f")
-        if p.get("redirect_clipboard"): args.append("/clipboard")
-        if p.get("redirect_drives"): args.append(f"/drive:home,{_q(os.path.expanduser('~'))}")
-        mon_mode = p.get("rdp_monitor_mode", "single")
-        if mon_mode == "all":
-            args.append("/multimon")
-        elif mon_mode == "custom":
-            ids = p.get("rdp_monitor_ids", "0").strip()
-            if ids:
-                args.append(f"/monitors:{ids}")
-        return f"{_q(exe)} {' '.join(args)}"
-
-    elif client == "rdesktop":
-        args = ["-a 16"]
-        if user: args.append(f"-u {_q(user)}")
-        if domain: args.append(f"-d {_q(domain)}")
-        if p.get("fullscreen"): args.append("-f")
-        return f"{_q(exe)} {' '.join(args)} {_q(f'{host}:{port}')}"
-
-    return f"{_q(exe)} {_q(f'{host}:{port}')}"
+    from rdp_widget import build_rdp_args
+    args = build_rdp_args(p, client, exe=_get_tool(client))
+    return " ".join(_q(a) for a in args)
 
 
 def _build_vnc(p: dict) -> str:

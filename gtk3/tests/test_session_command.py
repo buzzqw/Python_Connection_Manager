@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 
 import pytest
+import config_manager
 import session_command
 import winscp_widget
 from rdp_widget import _build_freerdp_cmd
@@ -177,6 +178,51 @@ class TestFileTransferSecurity:
         }, modalita="browser_ext")
         subprocess.run(["/bin/sh", "-c", cmd], check=True)
         assert not marker.exists()
+
+
+class TestRdpUnifiedBuilder:
+    """Anteprima (session_command._build_rdp) e connessione reale
+    (rdp_widget._build_freerdp_cmd / build_rdp_args) condividono ora la
+    stessa funzione: verifica che non possano più divergere."""
+
+    def test_preview_matches_real_command_args(self, monkeypatch):
+        import rdp_widget
+        monkeypatch.setattr(rdp_widget, "_freerdp_major_version", lambda exe: 3)
+        monkeypatch.setattr(rdp_widget.shutil, "which", lambda tool: f"/usr/bin/{tool}")
+
+        profile = {
+            "protocol": "rdp", "host": "win.example.com", "port": "3389",
+            "user": "alice", "password": "sekret", "rdp_domain": "CORP",
+            "rdp_client": "xfreerdp3", "fullscreen": True,
+            "redirect_clipboard": True, "redirect_drives": True,
+            "rdp_monitor_mode": "custom", "rdp_monitor_ids": "0,1",
+        }
+        preview = session_command._build_rdp(profile)
+        real = " ".join(_build_freerdp_cmd(profile))
+
+        # argv[0] can differ (preview resolves an absolute path via _get_tool,
+        # the real launch relies on PATH); every other flag must be identical.
+        assert preview.split(None, 1)[1] == real.split(None, 1)[1]
+
+    def test_custom_tool_path_is_honored_by_real_connection(self, monkeypatch, tmp_path):
+        """Un path custom impostato in Impostazioni > Dipendenze deve valere
+        anche per il lancio reale, non solo per l'anteprima (bug precedente:
+        solo _get_tool(), usato dall'anteprima, lo rispettava)."""
+        import rdp_widget
+        settings_file = tmp_path / "pcm_settings.json"
+        monkeypatch.setattr(config_manager, "SETTINGS_FILE", str(settings_file))
+        config_manager._invalidate_caches()
+        s = config_manager.load_settings()
+        s["tool_paths"] = {"xfreerdp3": "/opt/custom/xfreerdp3"}
+        config_manager.save_settings(s)
+
+        monkeypatch.setattr(rdp_widget.shutil, "which",
+                             lambda tool: tool if tool == "/opt/custom/xfreerdp3" else None)
+        monkeypatch.setattr(rdp_widget, "_freerdp_major_version", lambda exe: 3)
+
+        args = _build_freerdp_cmd({"rdp_client": "xfreerdp3", "host": "rdp.example"})
+        assert args[0] == "/opt/custom/xfreerdp3"
+        config_manager._invalidate_caches()
 
 
 class TestRdpSecurity:
