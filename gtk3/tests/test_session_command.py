@@ -28,6 +28,28 @@ class TestBuildCommand:
         })
         assert mode == "ssh_term_ext"
 
+    def test_ssh_keepalive_interval_from_session_is_honored(self):
+        """Lo spinner 'keepalive_interval' nell'editor sessione (0 = disabilitato)
+        deve incidere sul comando reale: prima veniva salvato nel profilo ma
+        nessun builder lo leggeva mai."""
+        cmd = session_command._build_ssh({
+            "host": "example.com", "keepalive": True, "keepalive_interval": 45,
+        })
+        assert "-o ServerAliveInterval=45" in cmd
+
+    def test_ssh_keepalive_interval_zero_disables_it(self):
+        cmd = session_command._build_ssh({
+            "host": "example.com", "keepalive": True, "keepalive_interval": 0,
+        })
+        assert "ServerAliveInterval" not in cmd
+
+    def test_mosh_keepalive_interval_from_session_is_honored(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda cmd_id: True)
+        cmd = session_command._build_mosh({
+            "host": "example.com", "keepalive": True, "keepalive_interval": 45,
+        })
+        assert "ServerAliveInterval=45" in cmd
+
     def test_telnet(self):
         cmd, mode = session_command.build_command({
             "protocol": "telnet", "host": "test.com", "port": "23",

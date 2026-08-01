@@ -1097,10 +1097,15 @@ class MainWindow(Gtk.ApplicationWindow):
                 else:
                     # xterm e generici: -e bash -c CMD
                     args = [term, "-e", "bash", "-c", inner]
+                proc_env = None
+                if env_extra:
+                    proc_env = os.environ.copy()
+                    proc_env.update(env_extra)
                 try:
                     subprocess.Popen(args,
                                      stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL)
+                                     stderr=subprocess.DEVNULL,
+                                     env=proc_env)
                 except FileNotFoundError:
                     self._warn(t("term_ext.not_found", term=term))
                 self._status(t("status.connected_ext", name=nome))

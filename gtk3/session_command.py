@@ -166,19 +166,13 @@ def _build_ssh(p: dict) -> str:
     port  = p.get("port", "22")
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
-    
-    strict = "yes" if _strict_host_check(p) else "accept-new"
 
-    keepalive_interval = 15
-    if p.get("keepalive"):
-        import config_manager
-        keepalive_interval = config_manager.load_settings().get("ssh", {}).get("keepalive_interval", 60)
+    strict = "yes" if _strict_host_check(p) else "accept-new"
 
     args = [f"-p {_esc(port)}",
             f"-o StrictHostKeyChecking={strict}",
             "-o ConnectTimeout=10",
-            f"-o ServerAliveInterval={keepalive_interval}",
-            "-o ServerAliveCountMax=3"]
+            *_keepalive_args(p)]
 
     if pkey and os.path.exists(pkey):
         args.append(f"-i {_q(pkey)}")
@@ -422,12 +416,10 @@ def _build_mosh(p: dict) -> str:
         return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
     strict = "yes" if _strict_host_check(p) else "accept-new"
-    keepalive_interval = config_manager.load_settings().get("ssh", {}).get(
-        "keepalive_interval", 60) if p.get("keepalive") else 15
     ssh_args = [
         _q(_get_tool("ssh")), f"-p {_q(port)}",
         f"-o StrictHostKeyChecking={strict}", "-o ConnectTimeout=10",
-        f"-o ServerAliveInterval={keepalive_interval}", "-o ServerAliveCountMax=3",
+        *_keepalive_args(p),
     ]
     if pkey and os.path.exists(pkey):
         ssh_args.append(f"-i {_q(pkey)}")
@@ -471,6 +463,26 @@ def _strict_host_check(profile: dict) -> bool:
     """Use the global secure default when a profile has no explicit choice."""
     default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
     return profile.get("strict_host", default)
+
+
+def _keepalive_args(p: dict) -> list:
+    """Argomenti -o ServerAliveInterval/-o ServerAliveCountMax per ssh/mosh.
+
+    Usa l'intervallo per-sessione impostato nell'editor (session_dialog:
+    spinner "keepalive_interval", 0 = disabilitato) quando il checkbox
+    "Keepalive" è attivo; prima d'ora questo campo veniva salvato nel
+    profilo ma non era mai letto da nessun builder, quindi non aveva
+    alcun effetto sulla connessione reale."""
+    if not p.get("keepalive"):
+        return ["-o ServerAliveInterval=15", "-o ServerAliveCountMax=3"]
+    default = config_manager.load_settings().get("ssh", {}).get("keepalive_interval", 60)
+    try:
+        interval = int(p.get("keepalive_interval", default))
+    except (TypeError, ValueError):
+        interval = default
+    if interval <= 0:
+        return []
+    return [f"-o ServerAliveInterval={interval}", "-o ServerAliveCountMax=3"]
 
 
 def _q(s: str) -> str:
