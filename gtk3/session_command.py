@@ -495,8 +495,16 @@ def _build_serial(p: dict) -> str:
     device = p.get("device", "/dev/ttyUSB0")
     baud   = p.get("baud", "115200")
     data_bits = str(p.get("data_bits", "8"))
-    parity = str(p.get("parity", "None")).lower()
+    parity_label = str(p.get("parity", "None"))
+    parity = parity_label.lower()
     stop_bits = str(p.get("stop_bits", "1"))
+
+    # picocom riconosce solo none/even/odd (guarda solo la prima lettera:
+    # n/e/o). "Mark"/"Space" non hanno equivalente e vengono rifiutati con
+    # un errore fatale invece di aprire la sessione seriale.
+    if parity not in ("none", "even", "odd"):
+        return (f"bash -c 'echo \"Parità {_esc(parity_label)} non supportata "
+                f"(sono disponibili solo None/Even/Odd).\"; sleep 5'")
 
     if _tool_exists("picocom"):
         return (f"{_q(_get_tool('picocom'))} -b {_q(baud)} "

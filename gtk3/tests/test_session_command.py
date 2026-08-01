@@ -107,6 +107,21 @@ class TestBuildCommand:
             "--parity", "even", "--stopbits", "2", "/dev/ttyUSB0",
         ]
 
+    def test_serial_mark_space_parity_rejected_instead_of_crashing_picocom(self, monkeypatch):
+        """picocom (v3.1, verificato empiricamente) accetta solo none/even/odd
+        per --parity: legge solo la prima lettera del valore e la confronta
+        con n/e/o. "Mark"/"Space" (prima lettera m/s) non hanno alcun
+        equivalente e prima venivano comunque passati, facendo fallire
+        picocom con 'Invalid --parity' invece di aprire la sessione."""
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "picocom")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: f"/usr/bin/{tool}")
+        for parity in ("Mark", "Space"):
+            cmd, _ = session_command.build_command({
+                "protocol": "serial", "device": "/dev/ttyUSB0", "parity": parity,
+            })
+            assert "picocom" not in cmd
+            assert parity in cmd
+
     def test_exec(self):
         cmd, mode = session_command.build_command({
             "protocol": "exec", "exec_cmd": "htop",
