@@ -184,7 +184,7 @@ def _build_ssh(p: dict) -> str:
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
 
-    strict = "yes" if _strict_host_check(p) else "accept-new"
+    strict = "ask" if _strict_host_check(p) else "accept-new"
 
     args = [f"-p {_esc(port)}",
             f"-o StrictHostKeyChecking={strict}",
@@ -310,7 +310,7 @@ def _build_sftp_cli(p: dict) -> str:
     pkey = p.get("private_key", "").strip()
     pwd  = p.get("password", "")
 
-    strict = "yes" if _strict_host_check(p) else "accept-new"
+    strict = "ask" if _strict_host_check(p) else "accept-new"
     args = [f"-P {_q(port)}", f"-o StrictHostKeyChecking={strict}"]
     if pkey and os.path.exists(pkey):
         args.append(f"-i {_q(pkey)}")
@@ -471,7 +471,7 @@ def _build_mosh(p: dict) -> str:
     if not _tool_exists("mosh"):
         return f"bash -c 'echo \"mosh non trovato.\"; sleep 5'"
 
-    strict = "yes" if _strict_host_check(p) else "accept-new"
+    strict = "ask" if _strict_host_check(p) else "accept-new"
     ssh_args = [
         _q(_get_tool("ssh")), f"-p {_q(port)}",
         f"-o StrictHostKeyChecking={strict}", "-o ConnectTimeout=10",
