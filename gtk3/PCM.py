@@ -376,8 +376,9 @@ class MainWindow(Gtk.ApplicationWindow):
         )
 
     def _reset_auto_lock(self):
-        if hasattr(self, "_auto_lock_timer") and self._auto_lock_timer:
+        if getattr(self, "_auto_lock_timer", 0):
             GLib.source_remove(self._auto_lock_timer)
+            self._auto_lock_timer = 0
         self._avvia_auto_lock()
 
     def _lock_now(self):
