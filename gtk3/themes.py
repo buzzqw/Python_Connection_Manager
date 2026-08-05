@@ -376,6 +376,16 @@ def apply_css(app=None):
     Chiamare una volta all'avvio, dopo Gtk.Application.__init__().
     """
     from gi.repository import Gtk, Gdk
+
+    # Forza la variante chiara del tema GTK di sistema: se l'utente ha
+    # GTK_THEME=<tema>:dark nell'ambiente (o un tema scuro preferito a
+    # livello desktop), quel tema scuro copre i widget non toccati dal
+    # nostro CSS (menu, popover, liste...) rendendoli illeggibili anche
+    # quando "dark_mode" nelle impostazioni di PCM è disattivato.
+    gtk_settings = Gtk.Settings.get_default()
+    if gtk_settings is not None:
+        gtk_settings.set_property("gtk-application-prefer-dark-theme", False)
+
     provider = Gtk.CssProvider()
     css = _get_current_css()
     provider.load_from_data(css.encode("utf-8"))

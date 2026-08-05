@@ -29,6 +29,21 @@ class WelcomeWidget(Gtk.Box):
         self.set_margin_end(40)
         self._build()
 
+    def _crea_btn_grande(self, icon_name: str, testo: str) -> Gtk.Button:
+        """Pulsante grande con icona simbolica (si ricolora col tema) + testo."""
+        btn = Gtk.Button()
+        btn.set_size_request(160, 48)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
+        box.pack_start(img, False, False, 0)
+        lbl = Gtk.Label(label=testo)
+        lbl.set_justify(Gtk.Justification.CENTER)
+        box.pack_start(lbl, False, False, 0)
+        btn.add(box)
+        return btn
+
     def _build(self):
         title = Gtk.Label(label=t("app.title"))
         title.get_style_context().add_class("section-header")
@@ -42,13 +57,11 @@ class WelcomeWidget(Gtk.Box):
         btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         btn_box.set_halign(Gtk.Align.CENTER)
 
-        btn_new = Gtk.Button(label=t("welcome.btn_new_session"))
+        btn_new = self._crea_btn_grande("list-add-symbolic", t("welcome.btn_new_session"))
         btn_new.get_style_context().add_class("connect-button")
-        btn_new.set_size_request(160, 48)
         btn_new.connect("clicked", lambda b: self.emit("nuova-sessione"))
 
-        btn_term = Gtk.Button(label=t("welcome.btn_local_terminal"))
-        btn_term.set_size_request(160, 48)
+        btn_term = self._crea_btn_grande("utilities-terminal-symbolic", t("welcome.btn_local_terminal"))
         btn_term.connect("clicked", lambda b: self.emit("terminale-locale"))
 
         btn_box.pack_start(btn_new,  False, False, 0)

@@ -93,6 +93,15 @@ def _die(errors, hints):
 _check_deps()
 # ─────────────────────────────────────────────────────────────────────────────
 
+# PCM è pensato per il tema chiaro: se la sessione desktop esporta
+# GTK_THEME=<tema>:dark (o solo ":dark"), quella variabile ha priorità
+# più alta di gtk-application-prefer-dark-theme impostata a runtime e
+# forzerebbe comunque la variante scura di sistema, illeggibile con i
+# nostri colori. Va tolta prima che GTK legga l'ambiente.
+_gtk_theme = os.environ.get("GTK_THEME", "")
+if _gtk_theme.endswith(":dark") or _gtk_theme.lower() == "dark":
+    os.environ.pop("GTK_THEME", None)
+
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")

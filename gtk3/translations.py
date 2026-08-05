@@ -325,8 +325,8 @@ _T: dict[str, dict[str, str]] = {
     "qc.bad_format":  {"it": "Quick Connect: formato non riconosciuto", "en": "Quick Connect: unrecognised format", "de": "Quick Connect: Format nicht erkannt", "fr": "Connexion rapide : format non reconnu", "es": "Conexión rápida: formato no reconocido"},
 
     # ── Schermata Benvenuto ───────────────────────────────────────────────────
-    "welcome.btn_new_session":    {"it": "➕\n\nNuova sessione\nremota", "en": "➕\n\nNew remote\nsession", "de": "➕\n\nNeue\nFernsitzung", "fr": "➕\n\nNouvelle session\ndistante", "es": "➕\n\nNueva sesión\nremota"},
-    "welcome.btn_local_terminal": {"it": "⌨\n\nTerminale\nlocale", "en": "⌨\n\nLocal\nterminal", "de": "⌨\n\nLokales\nTerminal", "fr": "⌨\n\nTerminal\nlocal", "es": "⌨\n\nTerminal\nlocal"},
+    "welcome.btn_new_session":    {"it": "Nuova sessione\nremota", "en": "New remote\nsession", "de": "Neue\nFernsitzung", "fr": "Nouvelle session\ndistante", "es": "Nueva sesión\nremota"},
+    "welcome.btn_local_terminal": {"it": "Terminale\nlocale", "en": "Local\nterminal", "de": "Lokales\nTerminal", "fr": "Terminal\nlocal", "es": "Terminal\nlocal"},
     "welcome.subtitle":           {"it": "Gestisci connessioni SSH, RDP, VNC, FTP e molto altro", "en": "Manage SSH, RDP, VNC, FTP and more", "de": "SSH, RDP, VNC, FTP und mehr verwalten", "fr": "Gérez SSH, RDP, VNC, FTP et plus encore", "es": "Administra SSH, RDP, VNC, FTP y más"},
     "welcome.recent_title":       {"it": "Sessioni recenti", "en": "Recent sessions", "de": "Letzte Sitzungen", "fr": "Sessions récentes", "es": "Sesiones recientes"},
     "welcome.no_recent":          {"it": "Nessuna sessione recente. Connettiti a una sessione per iniziare.", "en": "No recent sessions. Connect to a session to get started.", "de": "Keine letzten Sitzungen. Stellen Sie eine Verbindung her, um zu beginnen.", "fr": "Aucune session récente. Connectez-vous pour commencer.", "es": "Sin sesiones recientes. Conéctese para comenzar."},
