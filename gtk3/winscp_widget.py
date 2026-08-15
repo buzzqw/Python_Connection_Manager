@@ -818,20 +818,14 @@ class WinScpWidget(Gtk.Box):
             pkey = self._profilo.get("private_key", "")
 
             # Stessa politica host-key della connessione SSH/SFTP da riga di
-            # comando (StrictHostKeyChecking yes/accept-new): prima questo
-            # pannello usava sempre RejectPolicy, rifiutando qualunque host
-            # non già presente in known_hosts anche quando il profilo o le
-            # impostazioni globali avevano "strict_host_check" disattivato,
-            # con un fallimento inatteso e incoerente col resto dell'app.
-            from session_command import _strict_host_check
-            strict = _strict_host_check(self._profilo)
+            # comando (StrictHostKeyChecking yes/ask): con strict disattivato
+            # chiediamo conferma all'utente prima di fidarci di un host
+            # sconosciuto (mai AutoAddPolicy: accetterebbe silenziosamente un
+            # host non verificato, esponendo a MITM al primo accesso).
+            from session_command import make_ssh_client
 
             def _nuovo_client():
-                client = paramiko.SSHClient()
-                client.load_system_host_keys()
-                client.set_missing_host_key_policy(
-                    paramiko.RejectPolicy() if strict else paramiko.AutoAddPolicy())
-                return client
+                return make_ssh_client(self._profilo, confirm_host_key=self._conferma_host_key)
 
             kw = {"hostname": host, "port": port, "username": user, "timeout": 15}
             if pkey and os.path.isfile(pkey):
@@ -868,6 +862,37 @@ class WinScpWidget(Gtk.Box):
     def _mostra_errore_init(self, msg: str):
         self._loading_spinner.stop()
         self._loading_lbl.set_text(f"✖ Errore connessione:\n{msg}")
+
+    def _conferma_host_key(self, hostname: str, key) -> bool:
+        """Chiede all'utente (main thread) se fidarsi di una host key ignota."""
+        result = [False]
+        done = threading.Event()
+        GLib.idle_add(self._dlg_host_key, hostname, key, result, done)
+        done.wait(timeout=120)
+        return result[0]
+
+    def _dlg_host_key(self, hostname: str, key, result: list, done: threading.Event):
+        parent = self.get_toplevel()
+        parent = parent if isinstance(parent, Gtk.Window) else None
+        fp = key.get_fingerprint()
+        if isinstance(fp, bytes):
+            fp = ":".join(f"{b:02x}" for b in fp)
+        dlg = Gtk.MessageDialog(
+            transient_for=parent, modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.CANCEL,
+            text=f"Host sconosciuto: {hostname}",
+        )
+        dlg.format_secondary_text(
+            f"Impronta della chiave (MD5):\n{fp}\n\n"
+            "Non è possibile verificare l'identità del server.\n"
+            "Fidarsi e continuare?"
+        )
+        dlg.add_button("Fidati", Gtk.ResponseType.OK)
+        resp = dlg.run()
+        dlg.destroy()
+        result[0] = (resp == Gtk.ResponseType.OK)
+        done.set()
 
     # ------------------------------------------------------------------
     # Operazioni toolbar

@@ -252,43 +252,39 @@ class TestFileTransferSecurity:
         assert ("prot_p",) in calls
         assert ("set_pasv", False) in calls
 
-    def test_sftp_panel_relaxed_strict_host_uses_autoadd(self, monkeypatch):
-        """Il pannello SFTP integrato usava sempre RejectPolicy, rifiutando
-        qualunque host non già in known_hosts anche con
-        strict_host_check/strict_host disattivato nel profilo o nelle
-        impostazioni globali — incoerente con la connessione SSH/SFTP da
-        riga di comando, che in quel caso usa StrictHostKeyChecking=accept-new."""
-        calls = []
+    def test_sftp_panel_relaxed_strict_host_asks_instead_of_autoadd(self):
+        """Con strict_host disattivato il client NON deve usare AutoAddPolicy
+        né WarningPolicy (accettano host sconosciuti/modificati in modo
+        silenzioso, esponendo a MITM): deve chiedere conferma e rifiutare la
+        connessione se l'utente non conferma. Solo strict=True usa
+        RejectPolicy."""
+        import paramiko
 
-        class FakeSSHClient:
-            def load_system_host_keys(self):
-                pass
+        class FakeKey:
+            def get_name(self):
+                return "ssh-rsa"
 
-            def set_missing_host_key_policy(self, policy):
-                calls.append(policy)
+        # strict=False -> policy di conferma (non Auto/Warning/Reject)
+        client = session_command.make_ssh_client({"strict_host": False})
+        policy = client._policy
+        assert not isinstance(policy, paramiko.AutoAddPolicy)
+        assert not isinstance(policy, paramiko.WarningPolicy)
+        assert not isinstance(policy, paramiko.RejectPolicy)
 
-            def connect(self, **kw):
-                pass
+        # conferma rifiutata -> connessione bloccata
+        with pytest.raises(paramiko.SSHException):
+            policy.missing_host_key(client, "new-host.example", FakeKey())
 
-            def open_sftp(self):
-                return object()
+        # conferma accettata -> chiave memorizzata senza errori
+        client2 = session_command.make_ssh_client(
+            {"strict_host": False}, confirm_host_key=lambda h, k: True)
+        client2.get_host_keys().save = lambda *a, **k: None
+        client2._policy.missing_host_key(client2, "new-host.example", FakeKey())
+        assert client2.get_host_keys().lookup("new-host.example") is not None
 
-        monkeypatch.setattr(winscp_widget, "paramiko", type(
-            "FakeParamikoModule", (), {
-                "SSHClient": FakeSSHClient,
-                "AutoAddPolicy": winscp_widget.paramiko.AutoAddPolicy,
-                "RejectPolicy": winscp_widget.paramiko.RejectPolicy,
-            }
-        ))
-        widget = winscp_widget.WinScpWidget.__new__(winscp_widget.WinScpWidget)
-        widget._profilo = {
-            "host": "new-host.example", "port": 22, "user": "alice",
-            "strict_host": False,
-        }
-        widget._connetti()
-
-        assert any(isinstance(c, winscp_widget.paramiko.AutoAddPolicy) for c in calls)
-        assert not any(isinstance(c, winscp_widget.paramiko.RejectPolicy) for c in calls)
+        # strict=True -> RejectPolicy
+        client3 = session_command.make_ssh_client({"strict_host": True})
+        assert isinstance(client3._policy, paramiko.RejectPolicy)
 
     def test_external_ftp_uri_is_shell_quoted(self, monkeypatch, tmp_path):
         marker = tmp_path / "injected"

@@ -370,9 +370,8 @@ def _build_vnc(p: dict) -> str:
             # Il client chiederà la password in modo interattivo.
             return f"{_q(exe)} {extra}{_q(endpoint)}"
         fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
-        os.close(fd)
         os.chmod(tmp_path, 0o600)
-        with open(tmp_path, "wb") as f:
+        with os.fdopen(fd, "wb") as f:
             f.write(contents)
         command = f"{_q(exe)} {extra}{password_option} {_q(tmp_path)} {_q(endpoint)}"
         # The viewer needs the file until it exits; remove it before returning
@@ -527,6 +526,44 @@ def _strict_host_check(profile: dict) -> bool:
     """Use the global secure default when a profile has no explicit choice."""
     default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
     return profile.get("strict_host", default)
+
+
+def make_ssh_client(profile: dict, confirm_host_key=None):
+    """Crea un paramiko.SSHClient con gestione sicura delle host key.
+
+    - strict_host=True  -> RejectPolicy (rifiuta gli host sconosciuti).
+    - strict_host=False -> chiede conferma (confirm_host_key) prima di fidarsi
+      di una chiave sconosciuta; una chiave *modificata* per un host già noto
+      resta sempre rifiutata (Paramiko solleva BadHostKeyException prima di
+      chiamare missing_host_key). Non usa mai AutoAddPolicy/WarningPolicy, che
+      accettano silenziosamente host non verificati (rischio MITM).
+
+    confirm_host_key(hostname, key) -> bool: callback UI opzionale.
+    """
+    import paramiko
+
+    class _AskHostKeyPolicy(paramiko.MissingHostKeyPolicy):
+        def __init__(self, confirm):
+            self._confirm = confirm
+
+        def missing_host_key(self, client, hostname, key):
+            if self._confirm is None or not self._confirm(hostname, key):
+                raise paramiko.SSHException(
+                    f"Verifica host key fallita per '{hostname}'")
+            try:
+                host_keys = client.get_host_keys()
+                host_keys.add(hostname, key.get_name(), key)
+                host_keys.save(os.path.expanduser("~/.ssh/known_hosts"))
+            except Exception:
+                pass
+
+    client = paramiko.SSHClient()
+    client.load_system_host_keys()
+    if _strict_host_check(profile):
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
+    else:
+        client.set_missing_host_key_policy(_AskHostKeyPolicy(confirm_host_key))
+    return client
 
 
 def _keepalive_args(p: dict) -> list:

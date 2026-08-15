@@ -210,13 +210,8 @@ class SftpBrowserWidget(Gtk.Box):
 
         GLib.idle_add(self._set_status, f"Connessione SSH {user}@{host}:{port}…")
         try:
-            self._ssh = paramiko.SSHClient()
-            self._ssh.load_system_host_keys()
-            strict_default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
-            if self._profilo.get("strict_host", strict_default):
-                self._ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
-            else:
-                self._ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
+            from session_command import make_ssh_client
+            self._ssh = make_ssh_client(self._profilo, confirm_host_key=self._conferma_host_key)
 
             kwargs = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):
@@ -292,6 +287,37 @@ class SftpBrowserWidget(Gtk.Box):
 
         if resp == Gtk.ResponseType.OK and user:
             creds[0] = (user, pwd)
+        done.set()
+
+    def _conferma_host_key(self, hostname: str, key) -> bool:
+        """Chiede all'utente (main thread) se fidarsi di una host key ignota."""
+        result = [False]
+        done = threading.Event()
+        GLib.idle_add(self._dlg_host_key, hostname, key, result, done)
+        done.wait(timeout=120)
+        return result[0]
+
+    def _dlg_host_key(self, hostname: str, key, result: list, done: threading.Event):
+        parent = self.get_toplevel()
+        parent = parent if isinstance(parent, Gtk.Window) else None
+        fp = key.get_fingerprint()
+        if isinstance(fp, bytes):
+            fp = ":".join(f"{b:02x}" for b in fp)
+        dlg = Gtk.MessageDialog(
+            transient_for=parent, modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.CANCEL,
+            text=f"Host sconosciuto: {hostname}",
+        )
+        dlg.format_secondary_text(
+            f"Impronta della chiave (MD5):\n{fp}\n\n"
+            "Non è possibile verificare l'identità del server.\n"
+            "Fidarsi e continuare?"
+        )
+        dlg.add_button("Fidati", Gtk.ResponseType.OK)
+        resp = dlg.run()
+        dlg.destroy()
+        result[0] = (resp == Gtk.ResponseType.OK)
         done.set()
 
     # ------------------------------------------------------------------
