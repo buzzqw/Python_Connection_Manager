@@ -28,3 +28,6 @@ pcm
 
 # Script release locale — non pushare
 versiona.sh
+
+# Istruzioni per agenti — locale
+AGENTS.md
