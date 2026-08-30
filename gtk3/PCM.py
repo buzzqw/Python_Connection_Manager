@@ -233,13 +233,33 @@ class MainWindow(Gtk.ApplicationWindow):
     def _load_pcm_plugins(self):
         """Carica i plugin all'avvio e aggiorna il registro protocolli."""
         try:
-            loaded = _load_plugins()
+            loaded = _load_plugins(confirm=self._confirm_external_plugin)
             if loaded:
                 _refresh_protocols()
                 self._pannello.aggiorna()
             _log.info("%d plugin caricati", len(loaded))
         except Exception as e:
             _log.warning("Errore caricamento plugin: %s", e)
+
+    def _confirm_external_plugin(self, info, fingerprint: str) -> bool:
+        """Ask before executing code supplied outside the PCM package."""
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Plugin esterno non ancora autorizzato",
+        )
+        dlg.format_secondary_text(
+            f"Il plugin '{info.name}' ({info.plugin_id}, v{info.version}) "
+            f"eseguira codice Python con i privilegi di PCM.\n\n"
+            f"Percorso: {info.plugin_path}\n"
+            f"Fingerprint SHA-256: {fingerprint}\n\n"
+            "Autorizzarlo solo se la sorgente e affidabile?"
+        )
+        response = dlg.run()
+        dlg.destroy()
+        return response == Gtk.ResponseType.YES
 
     def _check_crypto_unlock(self):
         """Chiamato 300ms dopo l'avvio per sbloccare le credenziali cifrate.

@@ -1,13 +1,15 @@
 """
 plugin_manager.py - Plugin discovery, loading, and lifecycle management.
 
-Scans ~/.local/share/pcm/plugins/ and /usr/share/pcm/plugins/ for
-plugin directories containing plugin.json metadata.
+Scans the built-in, system and ~/.local/share/pcm/plugins/ directories
+for plugin directories containing plugin.json metadata. External plugins
+require explicit approval before their Python code is executed.
 """
 
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import importlib
 import importlib.util
@@ -49,14 +51,62 @@ def get_builtin_plugin_dir() -> str:
                         "plugins", "builtins")
 
 
+def _plugin_fingerprint(plugin_path: str) -> str:
+    """Fingerprint plugin sources before asking the user to trust them."""
+    digest = hashlib.sha256()
+    for root, dirs, files in os.walk(plugin_path):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for filename in sorted(files):
+            if filename.endswith(('.pyc', '.pyo')):
+                continue
+            path = os.path.join(root, filename)
+            if not os.path.isfile(path):
+                continue
+            relative = os.path.relpath(path, plugin_path).replace(os.sep, "/")
+            digest.update(relative.encode("utf-8"))
+            digest.update(b"\0")
+            with open(path, "rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _is_builtin_plugin(plugin_path: str) -> bool:
+    return os.path.dirname(os.path.realpath(plugin_path)) == os.path.realpath(
+        get_builtin_plugin_dir()
+    )
+
+
+def _trusted_plugins() -> dict:
+    try:
+        import config_manager
+        trusted = config_manager.load_settings().get("trusted_plugins", {})
+        return trusted if isinstance(trusted, dict) else {}
+    except Exception as exc:
+        _get_log(__name__).warning("Unable to read trusted plugins: %s", exc)
+        return {}
+
+
+def _remember_trusted_plugin(plugin_id: str, fingerprint: str) -> None:
+    try:
+        import config_manager
+        settings = config_manager.load_settings()
+        trusted = settings.setdefault("trusted_plugins", {})
+        trusted[plugin_id] = fingerprint
+        config_manager.save_settings(settings)
+    except Exception as exc:
+        _get_log(__name__).warning("Unable to save plugin trust: %s", exc)
+
+
 def discover_plugins() -> dict[str, PluginInfo]:
     """Discover all available plugins without loading them.
     
-    Searches: user dir, system dir, and built-in dir.
+    Searches: built-in dir, system dir, and user dir.
     Returns dict of plugin_id -> PluginInfo for all discovered plugins.
     """
     discovered: dict[str, PluginInfo] = {}
-    search_paths = [get_plugin_dir(), get_builtin_plugin_dir(), get_system_plugin_dir()]
+    # Built-ins win over externally supplied plugins with the same ID.
+    search_paths = [get_builtin_plugin_dir(), get_system_plugin_dir(), get_plugin_dir()]
 
     for base_dir in search_paths:
         if not os.path.isdir(base_dir):
@@ -138,11 +188,13 @@ def _load_plugin_from_path(plugin_path: str, info: PluginInfo) -> Optional[Proto
         return None
 
 
-def load_plugins(disabled: list[str] | None = None) -> list[PluginInfo]:
+def load_plugins(disabled: list[str] | None = None, confirm=None) -> list[PluginInfo]:
     """Discover and load all available plugins.
 
     Args:
         disabled: List of plugin IDs to skip.
+        confirm: Callback ``(info, fingerprint) -> bool`` used to approve
+            external plugins whose source has not been trusted yet.
 
     Returns:
         List of PluginInfo for successfully loaded plugins.
@@ -155,6 +207,16 @@ def load_plugins(disabled: list[str] | None = None) -> list[PluginInfo]:
         if plugin_id in disabled:
             _get_log(__name__).info("Skipping disabled plugin: %s", plugin_id)
             continue
+
+        if not _is_builtin_plugin(info.plugin_path):
+            fingerprint = _plugin_fingerprint(info.plugin_path)
+            if _trusted_plugins().get(plugin_id) != fingerprint:
+                if confirm is None or not confirm(info, fingerprint):
+                    _get_log(__name__).warning(
+                        "Skipping untrusted external plugin: %s", plugin_id
+                    )
+                    continue
+                _remember_trusted_plugin(plugin_id, fingerprint)
 
         plugin = _load_plugin_from_path(info.plugin_path, info)
         if plugin is None:

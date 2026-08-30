@@ -48,6 +48,11 @@ class KubectlExecPlugin(ProtocolPlugin):
             return None, "none"
 
         kubectl = shutil.which("kubectl") or "kubectl"
+        try:
+            command_args = shlex.split(startup_cmd)
+        except ValueError as exc:
+            message = f"Comando shell non valido: {exc}"
+            return f"printf '%s\\n' {shlex.quote(message)}", "embedded"
         args = [kubectl, "exec", "-it"]
 
         if namespace:
@@ -58,7 +63,7 @@ class KubectlExecPlugin(ProtocolPlugin):
             args.extend(["--context", context])
 
         args.append(pod_name)
-        args.extend(["--", startup_cmd])
+        args.extend(["--", *(command_args or ["/bin/sh"])])
 
         return " ".join(shlex.quote(a) for a in args), "embedded"
 

@@ -67,6 +67,18 @@ class TestPlugins:
         assert cmd and 'docker' in cmd
         assert mode == 'embedded'
 
+        cmd, mode = pcm_build_command(
+            'docker_container', {'host': 'cont', 'startup_cmd': '/bin/bash -l'}
+        )
+        assert shlex.split(cmd)[-2:] == ['/bin/bash', '-l']
+        assert mode == 'embedded'
+
+        cmd, mode = pcm_build_command(
+            'kubectl_exec', {'host': 'pod', 'startup_cmd': '/bin/bash -l'}
+        )
+        assert shlex.split(cmd)[-2:] == ['/bin/bash', '-l']
+        assert mode == 'embedded'
+
         cmd, mode = pcm_build_command('spice', {'host': '192.168.1.1', 'port': '5901'})
         assert cmd and 'spice' in cmd
         assert mode == 'external'

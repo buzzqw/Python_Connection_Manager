@@ -59,7 +59,7 @@
 
 **SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Serial · Exec · SSH Tunnel · SPICE · AWS SSM · Kubectl · Docker**
 
-> **Plugin system**: new protocols can be added without modifying PCM. Built-in plugins for AWS SSM, kubectl exec, Docker containers, and SPICE (KVM/QEMU) are included. Community plugins go in `~/.local/share/pcm/plugins/`.
+> **Plugin system**: new protocols can be added without modifying PCM. Built-in plugins for AWS SSM, kubectl exec, Docker containers, and SPICE (KVM/QEMU) are included. Community plugins go in `~/.local/share/pcm/plugins/`; external plugins require explicit approval on first load and are re-approved if their SHA-256 fingerprint changes.
 
 ---
 
@@ -84,7 +84,7 @@
 | **Kubectl Exec** | Internal VTE tab | Direct shell into Kubernetes pods, namespace/container selectable |
 | **Docker Container** | Internal VTE tab | Exec or attach to running containers |
 
-> **Plugin system**: these cloud/VM protocols are implemented as built-in plugins. Install additional community plugins in `~/.local/share/pcm/plugins/` to add more protocols without touching PCM's code.
+> **Plugin system**: these cloud/VM protocols are implemented as built-in plugins. Install additional community plugins in `~/.local/share/pcm/plugins/` to add more protocols without touching PCM's code; PCM asks for explicit approval before executing an external plugin and asks again if its SHA-256 fingerprint changes.
 
 ### 🔐 Security — above average
 
@@ -514,7 +514,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 
 **SSH · SFTP · FTP/FTPS · RDP · VNC · Telnet · Mosh · Seriale · Exec · SSH Tunnel · SPICE · AWS SSM · Kubectl · Docker**
 
-> **Sistema plugin**: nuovi protocolli possono essere aggiunti senza modificare PCM. I plugin built-in per AWS SSM, kubectl exec, container Docker e SPICE (KVM/QEMU) sono inclusi. I plugin della community vanno in `~/.local/share/pcm/plugins/`.
+> **Sistema plugin**: nuovi protocolli possono essere aggiunti senza modificare PCM. I plugin built-in per AWS SSM, kubectl exec, container Docker e SPICE (KVM/QEMU) sono inclusi. I plugin della community vanno in `~/.local/share/pcm/plugins/` e richiedono conferma esplicita al primo caricamento.
 
 ---
 

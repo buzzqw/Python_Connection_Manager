@@ -52,14 +52,16 @@ class DockerContainerPlugin(ProtocolPlugin):
             args = [docker, "container", "attach"]
             args.append(container_id)
         else:
+            try:
+                command_args = shlex.split(startup_cmd)
+            except ValueError as exc:
+                message = f"Comando shell non valido: {exc}"
+                return f"printf '%s\\n' {shlex.quote(message)}", "embedded"
             args = [docker, "exec", "-it"]
             if user:
                 args.extend(["-u", user])
             args.append(container_id)
-            if startup_cmd:
-                args.append(startup_cmd)
-            else:
-                args.append("/bin/sh")
+            args.extend(command_args or ["/bin/sh"])
 
         return " ".join(shlex.quote(a) for a in args), "embedded"
 

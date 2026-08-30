@@ -21,13 +21,25 @@ def _crypto():
 # $XDG_CONFIG_HOME/pcm/ (default ~/.config/pcm/).
 # In installazione normale si usa la stessa cartella del modulo.
 def _resolve_config_dir() -> str:
-    if os.environ.get("APPIMAGE"):
-        xdg = os.environ.get("XDG_CONFIG_HOME",
-                             os.path.join(os.path.expanduser("~"), ".config"))
-        d = os.path.join(xdg, "pcm")
-        os.makedirs(d, exist_ok=True)
-        return d
-    return os.path.dirname(os.path.abspath(__file__))
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        module_owned_by_user = os.stat(module_dir).st_uid == os.getuid()
+        module_writable = os.access(module_dir, os.W_OK)
+    except OSError:
+        module_owned_by_user = False
+        module_writable = False
+
+    # Installed packages are normally root-owned/read-only. Never create
+    # user credentials beside code in /usr/lib (or another system directory).
+    if os.environ.get("APPIMAGE") or not (module_owned_by_user and module_writable):
+        xdg = os.environ.get(
+            "XDG_CONFIG_HOME",
+            os.path.join(os.path.expanduser("~"), ".config")
+        )
+        config_dir = os.path.join(xdg, "pcm")
+        os.makedirs(config_dir, mode=0o700, exist_ok=True)
+        return config_dir
+    return module_dir
 
 _HERE          = _resolve_config_dir()
 SESSIONS_FILE  = os.path.join(_HERE, "connections.json")
@@ -296,6 +308,7 @@ DEFAULT_SETTINGS = {
     "tunnels": [],
     "variables": {},
     "tool_paths": {},
+    "trusted_plugins": {},
     "recent_sessions": [],   # lista di {name, ts} — max 20 voci
     "display": {
         "sidebar_visible": True,
