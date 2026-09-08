@@ -766,6 +766,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.aggiorna()
         self._aggiorna_welcome_recenti()
 
+        # La sidebar può contenere un riferimento creato prima dell'ultimo
+        # unlock o aggiornamento della cache. Usa il profilo appena ricaricato
+        # per evitare di passare a SSH credenziali ancora in formato ENC:.
+        profili_correnti = config_manager.load_profiles()
+        if nome in profili_correnti:
+            dati = dict(profili_correnti[nome])
+        else:
+            dati = dict(dati)
+
         use_gateway = self._needs_ssh_gateway(dati)
 
         if pre_cmd or wol_mac or use_gateway:

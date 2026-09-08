@@ -323,6 +323,7 @@ class TerminalWidget(Gtk.Box):
                     "max_trigger": max_t,
                     "delay": delay,
                     "sent": 0,
+                    "last_prompt": None,
                 })
 
         if not compiled:
@@ -348,12 +349,22 @@ class TerminalWidget(Gtk.Box):
             for c in compiled:
                 if c["sent"] >= c["max_trigger"]:
                     continue
-                if c["re"].search(tail):
-                    c["sent"] += 1
-                    cmd = c["command"]
-                    if not cmd.endswith("\n"):
-                        cmd += "\n"
-                    self._vte.feed_child(cmd.encode("utf-8"))
+                match = c["re"].search(tail)
+                if not match:
+                    continue
+
+                # Il prompt resta nello scrollback anche dopo feed_child().
+                # Senza una chiave, ogni output successivo (per esempio il
+                # banner SSH) faceva reinviare la password nel nuovo shell.
+                prompt_key = tail[:match.end()]
+                if prompt_key == c["last_prompt"]:
+                    continue
+                c["last_prompt"] = prompt_key
+                c["sent"] += 1
+                cmd = c["command"]
+                if not cmd.endswith("\n"):
+                    cmd += "\n"
+                self._vte.feed_child(cmd.encode("utf-8"))
             return False
 
         def _on_changed(_vte):
