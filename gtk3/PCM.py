@@ -749,6 +749,18 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _on_connetti(self, panel, nome: str, dati: dict):
+        # Dopo il blocco automatico il pannello puo' ancora contenere i valori
+        # ENC:. Sblocca e ricarica il profilo prima di passarli a un client.
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and not crypto_manager.is_unlocked():
+                self._esegui_unlock_dialog()
+                if not crypto_manager.is_unlocked():
+                    return
+        except ImportError:
+            self._warn("cryptography non installato; impossibile usare le credenziali cifrate.")
+            return
+
         proto = dati.get("protocol", "ssh")
         pre_cmd = dati.get("pre_cmd", "").strip()
         wol_mac = dati.get("wol_mac", "") if dati.get("wol_enabled") else ""
@@ -774,6 +786,14 @@ class MainWindow(Gtk.ApplicationWindow):
             dati = dict(profili_correnti[nome])
         else:
             dati = dict(dati)
+
+        if any(str(dati.get(field, "")).startswith("ENC:")
+               for field in ("user", "password", "totp_secret")):
+            self._warn(
+                "Le credenziali della sessione sono ancora cifrate: "
+                "sblocca PCM con la password master prima di connetterti."
+            )
+            return
 
         use_gateway = self._needs_ssh_gateway(dati)
 
