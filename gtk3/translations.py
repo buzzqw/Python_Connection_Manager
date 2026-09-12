@@ -265,6 +265,11 @@ _T: dict[str, dict[str, str]] = {
         "fr": "📥  Importer depuis une application externe",
         "es": "📥  Importar desde aplicación externa",
     },
+    "menu.tools.port_scan": {
+        "it": "🔎  Scansione porte e discovery…", "en": "🔎  Port scan and discovery…",
+        "de": "🔎  Portscan und Discovery…", "fr": "🔎  Analyse de ports et découverte…",
+        "es": "🔎  Escaneo de puertos y discovery…",
+    },
     "menu.tools.protected_mode": {
         "it": "🔒 Modalità protetta (nascondi password)",
         "en": "🔒 Protected mode (hide passwords)",
@@ -366,6 +371,29 @@ _T: dict[str, dict[str, str]] = {
     "panel.macros":         {"it": "⚡  Macro",     "en": "⚡  Macros",    "de": "⚡  Makros",      "fr": "⚡  Macros",     "es": "⚡  Macros"},
     "panel.delete_confirm": {"it": "Eliminare la sessione «{name}»?", "en": "Delete session «{name}»?", "de": "Sitzung «{name}» löschen?", "fr": "Supprimer la session «{name}» ?", "es": "¿Eliminar la sesión «{name}»?"},
     "panel.open_ft_here":   {"it": "📂  Apri SFTP/FTP qui…", "en": "📂  Open SFTP/FTP here…", "de": "📂  SFTP/FTP hier öffnen…", "fr": "📂  Ouvrir SFTP/FTP ici…", "es": "📂  Abrir SFTP/FTP aquí…"},
+    "panel.external_tools": {"it": "🛠  Strumenti esterni…", "en": "🛠  External tools…", "de": "🛠  Externe Werkzeuge…", "fr": "🛠  Outils externes…", "es": "🛠  Herramientas externas…"},
+
+    "external_tools.title": {"it": "Strumenti esterni", "en": "External tools", "de": "Externe Werkzeuge", "fr": "Outils externes", "es": "Herramientas externas"},
+    "external_tools.target": {"it": "Sessione: {name}", "en": "Session: {name}", "de": "Sitzung: {name}", "fr": "Session : {name}", "es": "Sesión: {name}"},
+    "external_tools.tool": {"it": "Strumento", "en": "Tool", "de": "Werkzeug", "fr": "Outil", "es": "Herramienta"},
+    "external_tools.launch": {"it": "Avvia", "en": "Launch", "de": "Starten", "fr": "Lancer", "es": "Iniciar"},
+    "external_tools.started": {"it": "Processo avviato (PID {pid})", "en": "Process started (PID {pid})", "de": "Prozess gestartet (PID {pid})", "fr": "Processus démarré (PID {pid})", "es": "Proceso iniciado (PID {pid})"},
+    "external_tools.error": {"it": "Errore: {error}", "en": "Error: {error}", "de": "Fehler: {error}", "fr": "Erreur : {error}", "es": "Error: {error}"},
+    "port_scan.title": {"it": "Scansione porte", "en": "Port scan", "de": "Portscan", "fr": "Analyse de ports", "es": "Escaneo de puertos"},
+    "port_scan.first_ip": {"it": "Primo IP", "en": "First IP", "de": "Erste IP", "fr": "Premier IP", "es": "Primera IP"},
+    "port_scan.last_ip": {"it": "Ultimo IP", "en": "Last IP", "de": "Letzte IP", "fr": "Dernier IP", "es": "Última IP"},
+    "port_scan.ports": {"it": "Porte", "en": "Ports", "de": "Ports", "fr": "Ports", "es": "Puertos"},
+    "port_scan.timeout": {"it": "Timeout (s)", "en": "Timeout (s)", "de": "Timeout (s)", "fr": "Délai (s)", "es": "Tiempo de espera (s)"},
+    "port_scan.protocol": {"it": "Protocollo importato", "en": "Import protocol", "de": "Importprotokoll", "fr": "Protocole importé", "es": "Protocolo importado"},
+    "port_scan.start": {"it": "Avvia scansione", "en": "Start scan", "de": "Scan starten", "fr": "Démarrer l'analyse", "es": "Iniciar escaneo"},
+    "port_scan.stop": {"it": "Ferma", "en": "Stop", "de": "Stoppen", "fr": "Arrêter", "es": "Detener"},
+    "port_scan.select": {"it": "Importa", "en": "Import", "de": "Importieren", "fr": "Importer", "es": "Importar"},
+    "port_scan.ready": {"it": "Pronto", "en": "Ready", "de": "Bereit", "fr": "Prêt", "es": "Listo"},
+    "port_scan.scanning": {"it": "Scansione in corso…", "en": "Scanning…", "de": "Scan läuft…", "fr": "Analyse en cours…", "es": "Escaneando…"},
+    "port_scan.stopping": {"it": "Arresto scansione…", "en": "Stopping scan…", "de": "Scan wird angehalten…", "fr": "Arrêt de l'analyse…", "es": "Deteniendo escaneo…"},
+    "port_scan.finished": {"it": "Scansione completata: {count} porte aperte", "en": "Scan complete: {count} open ports", "de": "Scan abgeschlossen: {count} offene Ports", "fr": "Analyse terminée : {count} ports ouverts", "es": "Escaneo completado: {count} puertos abiertos"},
+    "port_scan.import": {"it": "Importa selezionati", "en": "Import selected", "de": "Auswahl importieren", "fr": "Importer la sélection", "es": "Importar seleccionados"},
+    "port_scan.imported": {"it": "Importate {count} connessioni", "en": "Imported {count} connections", "de": "{count} Verbindungen importiert", "fr": "{count} connexions importées", "es": "{count} conexiones importadas"},
 
     # ── Dialog Apri SFTP/FTP da sessione esistente ────────────────────────────
     "dlg_ft.title":    {"it": "Apri connessione file", "en": "Open file connection", "de": "Dateiverbindung öffnen", "fr": "Ouvrir connexion fichier", "es": "Abrir conexión de archivos"},
@@ -405,6 +433,11 @@ _T: dict[str, dict[str, str]] = {
     "settings.tools.add":          {"it": "➕ Aggiungi", "en": "➕ Add",    "de": "➕ Hinzufügen","fr": "➕ Ajouter",  "es": "➕ Añadir"},
     "settings.tools.remove":       {"it": "🗑 Rimuovi",  "en": "🗑 Remove", "de": "🗑 Entfernen", "fr": "🗑 Supprimer","es": "🗑 Eliminar"},
     "settings.tools.note":         {"it": "Nota: usa {host}, {port}, {user} come segnaposto nel campo Sintassi.", "en": "Note: use {host}, {port}, {user} as placeholders in the Syntax field.", "de": "Hinweis: Verwende {host}, {port}, {user} als Platzhalter im Feld Syntax.", "fr": "Remarque : utilisez {host}, {port}, {user} comme espaces réservés dans le champ Syntaxe.", "es": "Nota: usa {host}, {port}, {user} como marcadores en el campo Sintaxis."},
+    "settings.tools.external_group": {"it": "Strumenti esterni generici", "en": "Generic external tools", "de": "Allgemeine externe Werkzeuge", "fr": "Outils externes génériques", "es": "Herramientas externas genéricas"},
+    "settings.tools.external_command": {"it": "Comando", "en": "Command", "de": "Befehl", "fr": "Commande", "es": "Comando"},
+    "settings.tools.external_args": {"it": "Argomenti", "en": "Arguments", "de": "Argumente", "fr": "Arguments", "es": "Argumentos"},
+    "settings.tools.external_cwd": {"it": "Directory lavoro", "en": "Working directory", "de": "Arbeitsverzeichnis", "fr": "Répertoire de travail", "es": "Directorio de trabajo"},
+    "settings.tools.external_dialog_title": {"it": "Aggiungi strumento esterno", "en": "Add external tool", "de": "Externes Werkzeug hinzufügen", "fr": "Ajouter un outil externe", "es": "Añadir herramienta externa"},
     "settings.tools.dlg_title_vnc":{"it": "Aggiungi strumento VNC",  "en": "Add VNC tool",  "de": "VNC-Tool hinzufügen",  "fr": "Ajouter un outil VNC",  "es": "Añadir herramienta VNC"},
     "settings.tools.dlg_title_rdp":{"it": "Aggiungi strumento RDP",  "en": "Add RDP tool",  "de": "RDP-Tool hinzufügen",  "fr": "Ajouter un outil RDP",  "es": "Añadir herramienta RDP"},
     "settings.tools.lbl_label":    {"it": "Etichetta:",  "en": "Label:",   "de": "Bezeichnung:", "fr": "Étiquette :", "es": "Etiqueta:"},
@@ -417,6 +450,9 @@ _T: dict[str, dict[str, str]] = {
     "settings.general.editor":        {"it": "Editor di testo:", "en": "Text editor:", "de": "Texteditor:", "fr": "Éditeur de texte :", "es": "Editor de texto:"},
     "settings.general.confirm_exit":  {"it": "Chiedi conferma alla chiusura", "en": "Ask for confirmation on exit", "de": "Beim Beenden bestätigen", "fr": "Demander confirmation à la fermeture", "es": "Pedir confirmación al salir"},
     "settings.general.audit_log":     {"it": "Abilita registro audit connessioni", "en": "Enable connection audit log", "de": "Verbindungs-Auditprotokoll aktivieren", "fr": "Activer le journal d'audit des connexions", "es": "Habilitar registro de auditoría de conexiones"},
+    "settings.general.backups":        {"it": "Crea backup automatici della configurazione", "en": "Create automatic configuration backups", "de": "Automatische Konfigurationssicherungen erstellen", "fr": "Créer des sauvegardes automatiques de la configuration", "es": "Crear copias de seguridad automáticas de la configuración"},
+    "settings.general.backup_count":   {"it": "Numero backup da conservare:", "en": "Backups to keep:", "de": "Aufbewahrte Sicherungen:", "fr": "Sauvegardes à conserver :", "es": "Copias a conservar:"},
+    "settings.general.backup_dir":     {"it": "Cartella backup:", "en": "Backup folder:", "de": "Sicherungsordner:", "fr": "Dossier de sauvegarde :", "es": "Carpeta de copias:"},
     "settings.general.language":      {"it": "Language / Lingua:", "en": "Language / Lingua:", "de": "Language / Lingua:", "fr": "Language / Lingua:", "es": "Language / Lingua:"},
     "settings.general.language_note": {"it": "Riavvia PCM per applicare la lingua.", "en": "Restart PCM to apply the language.", "de": "PCM neu starten, um die Sprache zu übernehmen.", "fr": "Redémarrez PCM pour appliquer la langue.", "es": "Reinicia PCM para aplicar el idioma."},
 
@@ -548,7 +584,7 @@ _T: dict[str, dict[str, str]] = {
     "tunnel.startup_found":       {"it": "🔌 {n} tunnel SSH attivo/i rilevato/i all'avvio", "en": "🔌 {n} active SSH tunnel(s) detected at startup", "de": "🔌 {n} aktive(r) SSH-Tunnel beim Start erkannt", "fr": "🔌 {n} tunnel(s) SSH actif(s) détecté(s) au démarrage", "es": "🔌 {n} túnel(es) SSH activo(s) detectado(s) al inicio"},
 
     # ── Guida ─────────────────────────────────────────────────────────────────
-    "guide.file_missing": {"it": "File pcm_help.html non trovato nella cartella di PCM.", "en": "File pcm_help.html not found in the PCM folder.", "de": "Datei pcm_help.html nicht im PCM-Ordner gefunden.", "fr": "Fichier pcm_help.html introuvable dans le dossier PCM.", "es": "Archivo pcm_help.html no encontrado en la carpeta de PCM."},
+    "guide.file_missing": {"it": "File pcm_help_<lingua>.html e pcm_help_en.html non trovati nella cartella di PCM.", "en": "Neither pcm_help_<language>.html nor pcm_help_en.html was found in the PCM folder.", "de": "Weder pcm_help_<sprache>.html noch pcm_help_en.html wurde im PCM-Ordner gefunden.", "fr": "Ni pcm_help_<langue>.html ni pcm_help_en.html n'a été trouvé dans le dossier PCM.", "es": "No se encontraron pcm_help_<idioma>.html ni pcm_help_en.html en la carpeta de PCM."},
 
     # ── Esporta comandi.sh ────────────────────────────────────────────────────
     "export_cmd.not_terminal":   {"it": "Il tab selezionato non è una sessione terminale.", "en": "The selected tab is not a terminal session.", "de": "Der ausgewählte Tab ist keine Terminal-Sitzung.", "fr": "L'onglet sélectionné n'est pas une session terminal.", "es": "La pestaña seleccionada no es una sesión de terminal."},

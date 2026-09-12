@@ -137,6 +137,9 @@ from sftp_editor import SftpEditorWidget
 from snippets_dialog import SnippetsDialog
 from welcome_widget import WelcomeWidget
 from quick_connect_dialog import QuickConnectDialog
+from external_tools_dialog import ExternalToolsDialog
+from port_scan_dialog import PortScanDialog
+import port_scanner
 from plugins.plugin_base import (
     pcm_has_protocol, pcm_build_command, pcm_create_widget,
     pcm_menu_items as _plugin_menu_items,
@@ -607,6 +610,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
         _item(t("menu.tools.snippets"),    self._apri_snippet_dialog)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
+        _item(t("menu.tools.port_scan"), self._on_port_scan)
         _item(t("menu.tools.audit"),       self._on_audit_log)
         _item(t("menu.tools.keepass"),     self._on_keepass_settings)
         menu.append(Gtk.SeparatorMenuItem())
@@ -641,6 +645,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("apri-monitor", lambda _p, n, d: self._apri_sysmon(n, d))
         self._pannello.connect("apri-cron",    lambda _p, n, d: self._apri_cron(n, d))
         self._pannello.connect("apri-cluster", lambda _p, n, d: self._apri_cluster(n, d))
+        self._pannello.connect("apri-tools",  lambda _p, n, d: self._apri_external_tools(n, d))
         self.connect("delete-event", self._on_close)
 
     def _accel_to_gtk(self, shortcut):
@@ -2179,6 +2184,11 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.run()
         dlg.destroy()
 
+    def _apri_external_tools(self, nome: str, dati: dict):
+        dlg = ExternalToolsDialog(self, dati, nome)
+        dlg.run()
+        dlg.destroy()
+
     # ------------------------------------------------------------------
     # Indicatore tunnel attivi nella toolbar
     # ------------------------------------------------------------------
@@ -2402,6 +2412,29 @@ class MainWindow(Gtk.ApplicationWindow):
 
         btn_import.connect("clicked", _esegui)
         dlg.show_all()
+        dlg.run()
+        dlg.destroy()
+
+    def _on_port_scan(self):
+        def import_results(results, protocol):
+            profiles = config_manager.load_profiles()
+            added = 0
+            for result in results:
+                name, data = port_scanner.profile_for_result(result, protocol)
+                original = name
+                suffix = 2
+                while name in profiles:
+                    name = f"{original} ({suffix})"
+                    suffix += 1
+                data["group"] = "Port scan"
+                profiles[name] = data
+                added += 1
+            if added:
+                config_manager.save_profiles(profiles)
+                self._pannello.aggiorna(profiles)
+                self._status(t("port_scan.imported").format(count=added))
+
+        dlg = PortScanDialog(self, import_results)
         dlg.run()
         dlg.destroy()
 

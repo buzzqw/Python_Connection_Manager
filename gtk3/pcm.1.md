@@ -1,6 +1,6 @@
 % PCM(1) PCM User Manual
 %
-% 2025
+% 2026
 
 # NAME
 
@@ -16,8 +16,9 @@ pcm — Python Connection Manager, multi-protocol remote session manager
 
 **PCM** (Python Connection Manager) is a GTK3 graphical application for
 managing remote connections. It supports SSH, SFTP, FTP/FTPS, RDP, VNC,
-Telnet, Mosh, Serial, and local Exec sessions, all within a single
-tabbed window.
+Telnet, Mosh, Serial, local Exec, SSH tunnels, and plugin protocols such as
+AWS SSM, kubectl exec, Docker exec, and SPICE, all within a single tabbed
+window.
 
 PCM uses the native VTE terminal emulator and runs natively on both X11
 and Wayland (no XWayland required, except for RDP internal-panel mode).
@@ -85,9 +86,11 @@ Shell alias for frequent hosts:
 The main window is divided into:
 
 **Left panel**
-:   Session list organised in groups. Sessions with an open connection
-    show a green dot (●) next to their name. Supports drag & drop,
-    right-click context menu, live search, and recent sessions.
+:   Session list organised in groups. Use `/` in a group name to display
+    nested groups, for example `Production/Linux`. Sessions with an open
+    connection show a green dot (●) next to their name. The panel supports
+    tags, live search, recent sessions, TCP reachability checks, and a
+    right-click context menu.
 
 **Toolbar**
 :   New Session, Local Terminal, Tunnel Indicator (shows active SSH
@@ -97,20 +100,89 @@ The main window is divided into:
 :   Connect instantly without saving a profile: select protocol, type
     `user@host:port`, press Enter.
 
+**Session templates**
+:   Mark a profile as a template and select it when creating another
+    profile. Template fields are inherited by the child profile, whose
+    explicit values take precedence. Template chains are supported; cycles
+    are detected and do not prevent startup.
+
 **Tab area**
 :   Each connection opens in a tab. Tabs can be reordered, split
     vertically or horizontally, and moved between panels.
 
+# TOOLS
+
+## External tools
+
+External tools are configured in **Settings > Tools > Generic external tools**
+and launched from a session's right-click menu. Each tool has a label,
+command, arguments, and optional working directory. Arguments are parsed into
+an argument vector and started with `shell=False`; PCM never concatenates them
+into a shell command.
+
+The following placeholders are supported, case-insensitively:
+
+`{HOST}`, `{PORT}`, `{USER}`, `{DOMAIN}`, `{DESCRIPTION}`, `{GROUP}`, `{TAGS}`
+:   Values from the selected profile.
+
+`{NAME}`
+:   The profile name when available.
+
+`{VARIABLE}`
+:   A global variable configured in **Tools > Global variables**. Tool-local
+    variables can also be stored in the JSON definition.
+
+Passwords and secrets are deliberately rejected as placeholders.
+
+## Port scan and discovery
+
+Open **Tools > Port scan and discovery** to scan an inclusive IPv4 or IPv6
+range. Enter comma-separated ports and ranges such as `22,80,443` or
+`5900-5902`, then choose the protocol to assign when importing results.
+
+The scanner limits a run to 4096 hosts, 256 ports, and 65536 TCP checks. The
+timeout must be between 0 and 30 seconds. Select the discovered rows and use
+**Import selected** to create profiles in the `Port scan` group. Only TCP
+reachability is detected; the selected protocol is an import choice, not a
+protocol fingerprint.
+
+Only scan networks you own or are explicitly authorised to test.
+
+# CONFIGURATION
+
+## Backups
+
+PCM can create a private backup before replacing `connections.json` or
+`pcm_settings.json`. Configure this in **Settings > General**:
+
+- enable or disable automatic backups;
+- choose the maximum number of copies to retain;
+- optionally choose a backup directory.
+
+The default directory is `backups/` beside the configuration files. The
+directory is forced to mode 0700 and backup files to mode 0600. Backups retain
+the on-disk representation, including encryption if credential encryption is
+enabled.
+
 # FILES
 
-`~/.local/share/pcm/` (or install dir)/`connections.json`
-:   Session profiles in JSON format. Permissions 0600.
+`connections.json`
+:   Session profiles in JSON format. Permissions 0600. In a writable source
+    checkout this is beside the GTK3 modules; for an AppImage or read-only
+    installation it is in `${XDG_CONFIG_HOME:-~/.config}/pcm/`.
 
-`~/.local/share/pcm/` (or install dir)/`pcm_settings.json`
-:   Global settings, shortcuts, recent sessions. Permissions 0600.
+`pcm_settings.json`
+:   Global settings, shortcuts, recent sessions, external tools, and backup
+    policy. Permissions 0600. It uses the same configuration directory as
+    `connections.json`.
 
-`~/.local/share/pcm/` (or install dir)/`audit_log.json`
-:   Connection audit log with SHA-256 hash chaining. Permissions 0600.
+`audit_log.json`
+:   Connection audit log with SHA-256 hash chaining. Permissions 0600. It
+    uses the same configuration directory as `connections.json`.
+
+`backups/`
+:   Rotating pre-edit backups of the two JSON configuration files, unless a
+    custom backup directory is configured.
 
 `~/.local/share/pcm/logs/`
 :   Terminal session output logs (path configurable per session).
@@ -158,7 +230,8 @@ tigervnc-viewer, mosh, xdotool, wakeonlan
 **ssh**(1), **sftp**(1), **xfreerdp**(1), **mosh**(1), **vncviewer**(1),
 **minicom**(1), **picocom**(1)
 
-Full documentation: press **F1** inside PCM to open the built-in HTML guide.
+Full documentation: use **Help > PCM Guide** inside PCM or consult this
+manual and the project README.
 
 Project page: https://github.com/buzzqw/Python_Connection_Manager
 

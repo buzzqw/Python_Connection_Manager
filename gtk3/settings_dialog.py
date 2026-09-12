@@ -13,6 +13,7 @@ from gi.repository import Gtk
 
 import config_manager
 import crypto_manager
+import external_tools
 from themes import TERMINAL_THEMES
 from translations import t, AVAILABLE_LANGUAGES, set_lang
 
@@ -137,6 +138,22 @@ class SettingsDialog(Gtk.Dialog):
         # Audit log
         self.chk_audit_log = Gtk.CheckButton(label=t("settings.general.audit_log"))
         grid.attach(self.chk_audit_log, 0, row, 2, 1); row += 1
+
+        self.chk_backups = Gtk.CheckButton(label=t("settings.general.backups"))
+        grid.attach(self.chk_backups, 0, row, 2, 1); row += 1
+
+        self.spin_backup_count = Gtk.SpinButton.new_with_range(1, 1000, 1)
+        self._form_row(t("settings.general.backup_count"), self.spin_backup_count, grid, row); row += 1
+
+        backup_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.entry_backup_dir = Gtk.Entry()
+        self.entry_backup_dir.set_hexpand(True)
+        btn_backup_dir = Gtk.Button(label="…")
+        btn_backup_dir.connect("clicked", lambda b: self._browse_dir(
+            self.entry_backup_dir, t("settings.general.backup_dir"), self))
+        backup_box.pack_start(self.entry_backup_dir, True, True, 0)
+        backup_box.pack_start(btn_backup_dir, False, False, 0)
+        self._form_row(t("settings.general.backup_dir"), backup_box, grid, row); row += 1
 
         # Session restore
         self.chk_restore_sessions = Gtk.CheckButton(
@@ -425,6 +442,47 @@ class SettingsDialog(Gtk.Dialog):
             else:
                 self._store_rdp = store
 
+        # Strumenti generici: vengono eseguiti senza shell sul profilo
+        # selezionato dal menu contestuale della sidebar.
+        grp = Gtk.Frame()
+        grp_lbl = Gtk.Label(label=f"<b>{t('settings.tools.external_group')}</b>")
+        grp_lbl.set_use_markup(True)
+        grp.set_label_widget(grp_lbl)
+        grp_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        grp_box.set_margin_start(8); grp_box.set_margin_end(8)
+        grp_box.set_margin_top(4); grp_box.set_margin_bottom(8)
+
+        self._store_external = Gtk.ListStore(str, str, str, str)
+        view = Gtk.TreeView(model=self._store_external)
+        view.set_headers_visible(True)
+        view.set_size_request(-1, 130)
+        for i, title in enumerate([
+            t("settings.tools.col_label"), t("settings.tools.external_command"),
+            t("settings.tools.external_args"), t("settings.tools.external_cwd"),
+        ]):
+            cell = Gtk.CellRendererText()
+            cell.set_property("editable", True)
+            cell.connect("edited", self._on_tool_cell_edited, self._store_external, i)
+            col = Gtk.TreeViewColumn(title, cell, text=i)
+            col.set_expand(i in (1, 2))
+            col.set_resizable(True)
+            view.append_column(col)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(view)
+        grp_box.pack_start(scroll, True, True, 0)
+
+        tb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        btn_add = Gtk.Button(label=t("settings.tools.add"))
+        btn_rem = Gtk.Button(label=t("settings.tools.remove"))
+        btn_add.connect("clicked", lambda b: self._aggiungi_external_tool())
+        btn_rem.connect("clicked", lambda b: self._rimuovi_tool(view, self._store_external))
+        tb.pack_start(btn_add, False, False, 0)
+        tb.pack_start(btn_rem, False, False, 0)
+        grp_box.pack_start(tb, False, False, 0)
+        grp.add(grp_box)
+        outer.pack_start(grp, False, False, 0)
+
         nota = Gtk.Label(label=t("settings.tools.note"))
         nota.set_xalign(0.0)
         nota.get_style_context().add_class("dim-label")
@@ -506,6 +564,35 @@ class SettingsDialog(Gtk.Dialog):
         if it:
             store.remove(it)
 
+    def _aggiungi_external_tool(self):
+        dlg = Gtk.Dialog(
+            title=t("settings.tools.external_dialog_title"),
+            transient_for=self,
+            modal=True,
+        )
+        dlg.add_buttons(t("sd.cancel"), Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
+        grid = Gtk.Grid(column_spacing=8, row_spacing=8,
+                        margin_start=12, margin_end=12, margin_top=12, margin_bottom=8)
+        entries = []
+        for row, (label, placeholder) in enumerate([
+            (t("settings.tools.col_label"), "Ping host"),
+            (t("settings.tools.external_command"), "/usr/bin/ping"),
+            (t("settings.tools.external_args"), "-c 4 {HOST}"),
+            (t("settings.tools.external_cwd"), ""),
+        ]):
+            lbl = Gtk.Label(label=f"{label}:", xalign=1.0)
+            entry = Gtk.Entry()
+            entry.set_placeholder_text(placeholder)
+            entry.set_hexpand(True)
+            grid.attach(lbl, 0, row, 1, 1)
+            grid.attach(entry, 1, row, 1, 1)
+            entries.append(entry)
+        dlg.get_content_area().add(grid)
+        dlg.show_all()
+        if dlg.run() == Gtk.ResponseType.OK and entries[0].get_text().strip() and entries[1].get_text().strip():
+            self._store_external.append([entry.get_text().strip() for entry in entries])
+        dlg.destroy()
+
     def _browse_exe(self, entry: Gtk.Entry):
         dlg = Gtk.FileChooserDialog(
             title=t("settings.tools.browse"),
@@ -571,6 +658,10 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_confirm_exit.set_active(g.get("confirm_on_exit", True))
         self.chk_restore_sessions.set_active(g.get("restore_sessions_on_start", False))
         self.chk_audit_log.set_active(g.get("audit_log_enabled", False))
+        backup_s = self._settings.get("backups", {})
+        self.chk_backups.set_active(backup_s.get("enabled", True))
+        self.spin_backup_count.set_value(int(backup_s.get("max_files", 10)))
+        self.entry_backup_dir.set_text(backup_s.get("directory", ""))
 
         # Dark mode
         display = self._settings.get("display", {})
@@ -612,6 +703,17 @@ class SettingsDialog(Gtk.Dialog):
             for e in ct.get(key, []):
                 store.append([e.get("label", ""), e.get("path", ""), e.get("syntax", "")])
 
+        self._store_external.clear()
+        for tool in external_tools.load_tools():
+            raw_args = tool.get("args", tool.get("arguments", ""))
+            args_text = " ".join(str(arg) for arg in raw_args) if isinstance(raw_args, list) else str(raw_args)
+            self._store_external.append([
+                tool.get("label", ""),
+                tool.get("command", tool.get("path", "")),
+                args_text,
+                tool.get("working_directory", ""),
+            ])
+
         # Credenziali
         self._cred_store.clear()
         for p in self._settings.get("credential_profiles", []):
@@ -643,6 +745,11 @@ class SettingsDialog(Gtk.Dialog):
         s["general"]["confirm_on_exit"]          = self.chk_confirm_exit.get_active()
         s["general"]["audit_log_enabled"]        = self.chk_audit_log.get_active()
         s["general"]["restore_sessions_on_start"] = self.chk_restore_sessions.get_active()
+        s["backups"] = {
+            "enabled": self.chk_backups.get_active(),
+            "max_files": int(self.spin_backup_count.get_value()),
+            "directory": self.entry_backup_dir.get_text().strip(),
+        }
 
         s["display"]["dark_mode"] = self.chk_dark_mode.get_active()
 
@@ -678,6 +785,15 @@ class SettingsDialog(Gtk.Dialog):
             "rdp": [{"label": r[0], "path": r[1], "syntax": r[2]}
                     for r in self._store_rdp if r[0] and r[1]],
         }
+        s["external_tools"] = [
+            {
+                "label": row[0],
+                "command": row[1],
+                "args": row[2],
+                "working_directory": row[3],
+            }
+            for row in self._store_external if row[0] and row[1]
+        ]
 
         # Credenziali
         profiles = []

@@ -106,6 +106,7 @@ hiddenimports += [
     'keepassxc_manager', 'crypto_manager_dialog',
     'cluster_dialog', 'cron_widget', 'sftp_editor',
     'terminal_highlight', 'snippets_dialog', 'welcome_widget', 'quick_connect_dialog',
+    'external_tools', 'external_tools_dialog', 'port_scanner', 'port_scan_dialog',
     'protocols', 'totp_manager', 'password_tools',
     'plugins', 'plugins.plugin_base', 'plugins.plugin_manager',
 ]

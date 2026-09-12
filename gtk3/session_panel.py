@@ -55,6 +55,7 @@ class SessionPanel(Gtk.Box):
         "apri-monitor": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-cron":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-cluster": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "apri-tools":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
     }
 
     def __init__(self):
@@ -263,9 +264,19 @@ class SessionPanel(Gtk.Box):
             gruppo = dati.get("group", "") or t("sidebar.no_group")
             gruppi.setdefault(gruppo, []).append(nome)
 
+        group_iters = {}
         for gruppo in sorted(gruppi.keys()):
-            grp_markup = f"<b>{GLib.markup_escape_text(gruppo)}</b>"
-            grp_iter = self._store.append(None, [folder_pb, grp_markup, "", True])
+            parent = None
+            path = []
+            for segment in [part.strip() for part in gruppo.split("/") if part.strip()]:
+                path.append(segment)
+                group_key = "/".join(path)
+                grp_iter = group_iters.get(group_key)
+                if grp_iter is None:
+                    grp_markup = f"<b>{GLib.markup_escape_text(segment)}</b>"
+                    grp_iter = self._store.append(parent, [folder_pb, grp_markup, "", True])
+                    group_iters[group_key] = grp_iter
+                parent = grp_iter
 
             for nome in sorted(gruppi[gruppo]):
                 dati = self._profili[nome]
@@ -285,7 +296,7 @@ class SessionPanel(Gtk.Box):
                 )
 
                 pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
-                self._store.append(grp_iter, [pb, markup, nome, False])
+                self._store.append(parent, [pb, markup, nome, False])
 
         self._tree.expand_all()
 
@@ -359,6 +370,7 @@ class SessionPanel(Gtk.Box):
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.edit"),      lambda: self.emit("modifica", nome, dati))
         _item(t("panel.duplicate"), lambda: self.emit("duplica", nome))
+        _item(t("panel.external_tools"), lambda: self.emit("apri-tools", nome, dati))
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.delete"),    lambda: self._conferma_elimina(nome))
 

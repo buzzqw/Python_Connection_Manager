@@ -352,6 +352,9 @@
   <a href="#highlight">🎨 Syntax Highlight</a>
   <a href="#cluster">🖧 Cluster</a>
   <a href="#monitor">📊 SSH Monitor</a>
+  <a href="#connection-tools">🧰 Connection Tools</a>
+  <a href="#backups">💾 Backups</a>
+  <a href="#locations">📍 File Locations</a>
   <a href="#keys">⌨ Shortcuts</a>
   <a href="#settings">🛠 Settings</a>
   <a href="#faq">❓ FAQ</a>
@@ -1497,6 +1500,50 @@ pcm() { python3 ~/PCM/gtk3/PCM.py "ssh://$1"; }</code></pre>
 </div>
 
 <div class="tip">💡 Make sure to start PCM at least once with the new code before using the URI feature: the first launch registers the D-Bus flag needed for URI forwarding to the existing instance.</div>
+
+<h2 id="connection-tools">🧰 Connection Tools</h2>
+
+<h3>Nested groups and templates</h3>
+<p>Use a slash in a group name, such as <code>Production/Linux</code>, to
+display nested groups without changing the JSON format. Profiles can inherit
+from templates. Child values override inherited values, template chains are
+supported, and cycles are detected without preventing PCM from starting.</p>
+
+<h3>Generic external tools</h3>
+<p>Configure tools in <span class="menu-path">Settings <span>›</span> Tools
+<span>›</span> Generic external tools</span>. Each entry has a label,
+executable, arguments, and optional working directory. Launch a configured
+tool from a profile's right-click menu.</p>
+<p>Arguments support <code>{HOST}</code>, <code>{PORT}</code>,
+<code>{USER}</code>, <code>{DOMAIN}</code>, <code>{DESCRIPTION}</code>,
+<code>{GROUP}</code>, <code>{TAGS}</code>, <code>{NAME}</code>, and global or
+tool-local variables. PCM starts the executable with an argument vector and
+without a shell. Password and secret placeholders are rejected.</p>
+
+<h3>Port scan and discovery</h3>
+<p>Open <span class="menu-path">Tools <span>›</span> Port scan and
+discovery</span>, enter the first and last IP address, and specify ports such
+as <code>22,80,443</code> or <code>5900-5902</code>. A scan is limited to 4096
+hosts, 256 ports, and 65536 TCP checks. Select results and click
+<b>Import selected</b> to create profiles. The selected protocol is an import
+type, not automatic protocol detection. Scan only networks you own or are
+authorised to test.</p>
+
+<h2 id="backups">💾 Configuration Backups</h2>
+<p>Enable automatic backups in <span class="menu-path">Settings <span>›</span>
+General</span>. PCM copies the existing <code>connections.json</code> or
+<code>pcm_settings.json</code> before replacing it, keeps the configured
+number of copies, and supports a custom backup directory. The default is
+<code>backups/</code> beside the configuration files. The directory uses mode
+0700 and backup files use mode 0600; encrypted files retain their on-disk
+encrypted representation.</p>
+
+<h2 id="locations">📍 Configuration Locations</h2>
+<p>In a writable source checkout, <code>connections.json</code> and
+<code>pcm_settings.json</code> are beside the GTK3 modules. AppImage and
+read-only installations use
+<code>${XDG_CONFIG_HOME:-~/.config}/pcm/</code>. Terminal logs normally go to
+<code>~/.local/share/pcm/logs/</code>.</p>
 
 <hr>
 

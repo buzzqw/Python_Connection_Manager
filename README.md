@@ -39,9 +39,9 @@
 | KeePassXC integration | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Native Wayland (no XWayland) | ✅ | ❌ Windows only | partial | ❌ | ❌ Linux |
 | Password NEVER on command line | ✅ autotyped into terminal | ✅ | ❌ | ⚠️ expect | — |
-| Session restore on startup | ✅ | ✅ | ❌ | partial | ❌ |
+| Session restore on startup | ✅ | ✅ | ❌ | partial | ✅ |
 | TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Template inheritance | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Template inheritance | ✅ | ❌ | ❌ | ❌ | ✅ |
 | SSH gateway (SFTP/Telnet/RDP/VNC/SPICE) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Plugin architecture | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | Cloud protocols (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
@@ -139,8 +139,10 @@ Each section can be individually enabled or disabled per session.
 ### 📁 Session management
 
 - Organized by **group** with live search bar
+- **Nested groups** — use `/` in a group name (for example `Production/Linux`) to display a folder hierarchy without changing the JSON format
 - **Tag system** — assign multiple tags (e.g. `prod, database, critical`) and filter by tag with the combobox below the search bar
 - **Template inheritance** — mark a session as template, then create child sessions that inherit all settings (overridable per session)
+- Template inheritance supports chains of templates and detects cycles without preventing startup
 - **Active session indicator** — green dot ● next to session names with an open connection
 - **Recent sessions** section at the top of the sidebar: last 20 sessions with timestamps
 - **Quick Connect**: `user@host:port` from the toolbar — connects without saving a profile
@@ -164,6 +166,9 @@ Each section can be individually enabled or disabled per session.
 - **Wake-on-LAN** — sends magic packet before connecting
 - **Audit log** — connection history with timestamp, duration, protocol, status; exportable to CSV
 - **Dependency checker** — automatically checks which tools are installed at startup
+- **Generic external tools** — define a command, arguments and working directory; launch it from a session without using a shell, with `{HOST}`, `{PORT}`, `{USER}`, `{GROUP}` and global-variable placeholders. Credentials are intentionally not available as placeholders.
+- **Port scan and discovery** — bounded asynchronous TCP scan over an IP range, with explicit timeout and port limits; selected results can be imported as SSH/RDP/VNC/Telnet profiles.
+- **Configuration backups** — encrypted/plain on-disk configuration files are copied before edits and rotated according to the retention settings.
 
 ### 🌍 Internationalization
 
@@ -288,7 +293,9 @@ python3 PCM.py ssh://admin@192.168.1.10:2222
 ```
 
 Supported schemes: `ssh://` `rdp://` `vnc://` `sftp://` `ftp://` `ftps://` `telnet://` `mosh://`  
-For the full reference with all examples, see the built-in manual (**Help** menu).
+For the full reference with all examples, use **Help > PCM Guide** inside the
+application or read the [manual page](gtk3/pcm.1.md).
+The same English guide is available as [`gtk3/pcm_help_en.html`](gtk3/pcm_help_en.html).
 
 ---
 
@@ -431,9 +438,10 @@ The `gtk-vnc` VNC viewer works natively on Wayland.
 
 | File | Contents |
 |---|---|
-| `gtk3/connections.json` | Session profiles — human-readable JSON, editable by hand. Permissions `0600`. |
-| `gtk3/pcm_settings.json` | Global settings, shortcuts, recent sessions, snippets, variables, credentials, custom tools. Permissions `0600`. |
-| `gtk3/audit_log.json` | Connection audit log with SHA-256 hash chaining. Permissions `0600`. |
+| `connections.json` | Session profiles — human-readable JSON, editable by hand. In a writable source checkout it is beside `gtk3/`; AppImage/read-only installs use `${XDG_CONFIG_HOME:-~/.config}/pcm/`. Permissions `0600`. |
+| `pcm_settings.json` | Global settings, shortcuts, recent sessions, snippets, variables, credentials, external tools and backup policy. It uses the same configuration directory as `connections.json`. Permissions `0600`. |
+| `audit_log.json` | Connection audit log with SHA-256 hash chaining. It uses the same configuration directory as `connections.json`. Permissions `0600`. |
+| `backups/` | Rotating pre-edit backups of the two JSON configuration files, unless a custom directory is configured. Permissions `0700`/`0600`. |
 | `gtk3/plugins/builtins/` | Built-in protocol plugins (AWS SSM, kubectl, Docker, SPICE) |
 | `~/.local/share/pcm/plugins/` | User-installed community plugins |
 | `~/.local/share/pcm/logs/` | Terminal output logs (default), path configurable |
@@ -494,9 +502,9 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | KeePassXC integrato | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Wayland nativo (no XWayland) | ✅ | ❌ solo Windows | parziale | ❌ | ❌ Linux |
 | Password MAI sulla command line | ✅ automaticamente digitata nel terminale | ✅ | ❌ | ⚠️ expect | — |
-| Ripristino sessioni all'avvio | ✅ | ✅ | ❌ | parziale | ❌ |
+| Ripristino sessioni all'avvio | ✅ | ✅ | ❌ | parziale | ✅ |
 | TOTP / 2FA auto-type | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Ereditarietà template | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ereditarietà template | ✅ | ❌ | ❌ | ❌ | ✅ |
 | SSH gateway (SFTP/Telnet/RDP/VNC/SPICE) | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Architettura plugin | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | Protocolli cloud (AWS/k8s/Docker) | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
@@ -594,8 +602,10 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 ### 📁 Gestione sessioni
 
 - Organizzate per **gruppo** con barra di ricerca live
+- **Gruppi annidati** — usa `/` nel nome del gruppo (per esempio `Produzione/Linux`) per visualizzare una gerarchia di cartelle senza cambiare il formato JSON
 - **Sistema tag** — assegna tag multipli (es. `prod, database, critico`) e filtra per tag con il combobox sotto la barra di ricerca
 - **Ereditarietà template** — marca una sessione come template, poi crea sessioni figlie che ereditano tutte le impostazioni (con override possibile per sessione)
+- L'ereditarietà supporta catene di template e rileva i cicli senza impedire l'avvio
 - **Indicatore sessioni attive** — pallino verde ● accanto al nome delle sessioni con connessione aperta
 - **Sezione Recenti** in cima alla sidebar: ultime 20 sessioni con timestamp
 - **Quick Connect**: `utente@host:porta` dalla toolbar — si connette senza salvare un profilo
@@ -619,6 +629,9 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Wake-on-LAN** — invia magic packet prima di connettersi
 - **Audit log** — storico connessioni con timestamp, durata, protocollo, stato; esportabile CSV
 - **Verifica dipendenze** — controlla automaticamente quali tool sono installati all'avvio
+- **Strumenti esterni generici** — definisci comando, argomenti e directory di lavoro; avviali dalla sessione senza shell, usando placeholder come `{HOST}`, `{PORT}`, `{USER}`, `{GROUP}` e variabili globali. Le credenziali non sono disponibili come placeholder.
+- **Port scan e discovery** — scansione TCP asincrona e limitata di un intervallo IP, con timeout e limiti espliciti; i risultati selezionati possono diventare profili SSH/RDP/VNC/Telnet.
+- **Backup configurazione** — copia preventiva e rotazione configurabile di `connections.json` e `pcm_settings.json`.
 
 ### 🌍 Internazionalizzazione
 
@@ -743,7 +756,9 @@ python3 PCM.py ssh://admin@192.168.1.10:2222
 ```
 
 Protocolli supportati: `ssh://` `rdp://` `vnc://` `sftp://` `ftp://` `ftps://` `telnet://` `mosh://`  
-Per la documentazione completa con tutti gli esempi consulta il manuale integrato (menu **Aiuto**).
+Per la documentazione completa con tutti gli esempi usa **Aiuto > Guida di PCM**
+oppure consulta il [manuale](gtk3/pcm.1.md).
+La stessa guida inglese è disponibile in [`gtk3/pcm_help_en.html`](gtk3/pcm_help_en.html).
 
 ---
 
@@ -884,9 +899,10 @@ Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 
 | File | Contenuto |
 |---|---|
-| `gtk3/connections.json` | Profili sessione — JSON leggibile, modificabile a mano. Permessi `0600`. |
-| `gtk3/pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti, snippet, variabili, credenziali, tool custom. Permessi `0600`. |
-| `gtk3/audit_log.json` | Log audit connessioni con hash chaining SHA-256. Permessi `0600`. |
+| `connections.json` | Profili sessione — JSON leggibile, modificabile a mano. In un checkout sorgente scrivibile è accanto a `gtk3/`; AppImage/installazioni in sola lettura usano `${XDG_CONFIG_HOME:-~/.config}/pcm/`. Permessi `0600`. |
+| `pcm_settings.json` | Impostazioni globali, scorciatoie, sessioni recenti, snippet, variabili, credenziali, strumenti esterni e politica backup. Usa la stessa cartella di configurazione di `connections.json`. Permessi `0600`. |
+| `audit_log.json` | Log audit connessioni con hash chaining SHA-256. Usa la stessa cartella di configurazione di `connections.json`. Permessi `0600`. |
+| `backups/` | Backup rotazionali pre-modifica dei due file JSON, salvo directory personalizzata. Permessi `0700`/`0600`. |
 | `gtk3/plugins/builtins/` | Plugin di protocollo built-in (AWS SSM, kubectl, Docker, SPICE) |
 | `~/.local/share/pcm/plugins/` | Plugin community installati dall'utente |
 | `~/.local/share/pcm/logs/` | Log output terminali (default), percorso configurabile |

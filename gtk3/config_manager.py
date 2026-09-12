@@ -5,6 +5,9 @@ config_manager.py - Gestione profili sessioni e impostazioni globali PCM
 import hashlib
 import json
 import os
+import glob
+import shutil
+from datetime import datetime
 
 from pcm_logging import get_logger as _get_log
 
@@ -127,25 +130,38 @@ def load_profiles() -> dict:
 
 
 def _resolve_template_inheritance(profiles: dict) -> dict:
-    """Resolve template inheritance: merge template fields into child sessions.
-
-    For each session with a valid template_name, fields from the template
-    are used as defaults. Session-specific values take priority.
-    """
+    """Resolve template inheritance, including chains, without mutating input."""
     templates = {n: d for n, d in profiles.items() if d.get("is_template")}
     if not templates:
         return profiles
 
-    resolved = {}
-    for name, data in profiles.items():
-        template_name = data.get("template_name", "").strip()
-        if template_name and template_name in templates:
-            merged = dict(templates[template_name])
-            merged.update(data)
-            merged["_inherits_from"] = template_name
-            resolved[name] = merged
-        else:
+    resolved: dict = {}
+    resolving: set[str] = set()
+
+    def resolve(name: str) -> dict:
+        if name in resolved:
+            return resolved[name]
+        data = dict(profiles[name])
+        template_name = str(data.get("template_name", "") or "").strip()
+        if not template_name or template_name not in templates:
             resolved[name] = data
+            return data
+        if name in resolving:
+            _get_log(__name__).warning("Ciclo di ereditarietà template rilevato: %s", name)
+            resolved[name] = data
+            return data
+
+        resolving.add(name)
+        parent = resolve(template_name)
+        merged = dict(parent)
+        merged.update(data)
+        merged["_inherits_from"] = template_name
+        resolving.discard(name)
+        resolved[name] = merged
+        return merged
+
+    for name in profiles:
+        resolve(name)
     return resolved
 
 
@@ -172,6 +188,7 @@ def save_profiles(profiles: dict) -> bool:
         to_save = profiles
 
     try:
+        _backup_config_file(SESSIONS_FILE, "connections")
         _write_json_secure(SESSIONS_FILE, to_save)
         _invalidate_caches()
         return True
@@ -289,6 +306,11 @@ DEFAULT_SETTINGS = {
         "log_level": "INFO",
         "auto_lock_minutes": 15,
     },
+    "backups": {
+        "enabled": True,
+        "max_files": 10,
+        "directory": "",
+    },
     "terminal": {
         "default_theme": "Scuro (Default)",
         "default_font": "Monospace",
@@ -394,12 +416,59 @@ def _fix_permissions():
 
 def save_settings(settings: dict) -> bool:
     try:
+        _backup_config_file(SETTINGS_FILE, "pcm_settings")
         _write_json_secure(SETTINGS_FILE, settings)
         _invalidate_caches()
         return True
     except Exception as e:
         _get_log(__name__).error("Errore salvataggio settings: %s", e)
         return False
+
+
+def _backup_config_file(path: str, stem: str) -> None:
+    """Create and rotate a private backup before replacing a config file."""
+    if not os.path.isfile(path):
+        return
+
+    settings = _cache_settings if isinstance(_cache_settings, dict) else _read_json(
+        SETTINGS_FILE, DEFAULT_SETTINGS
+    )
+    settings = _deep_merge(DEFAULT_SETTINGS, settings)
+    backup_settings = settings.get("backups", {})
+    if not backup_settings.get("enabled", True):
+        return
+
+    try:
+        max_files = max(1, min(1000, int(backup_settings.get("max_files", 10))))
+    except (TypeError, ValueError):
+        max_files = 10
+
+    configured_dir = str(backup_settings.get("directory", "") or "").strip()
+    backup_dir = os.path.expanduser(configured_dir) if configured_dir else os.path.join(
+        os.path.dirname(path), "backups"
+    )
+    pattern = os.path.join(backup_dir, f"{stem}-*.json")
+
+    try:
+        os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+        os.chmod(backup_dir, 0o700)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        destination = os.path.join(backup_dir, f"{stem}-{timestamp}.json")
+        shutil.copy2(path, destination)
+        os.chmod(destination, 0o600)
+
+        backups = sorted(
+            glob.glob(pattern),
+            key=lambda item: os.path.getmtime(item),
+            reverse=True,
+        )
+        for old_backup in backups[max_files:]:
+            try:
+                os.unlink(old_backup)
+            except OSError:
+                pass
+    except OSError as exc:
+        _get_log(__name__).warning("Impossibile creare backup di %s: %s", path, exc)
 
 
 def _read_json(path: str, default: dict) -> dict:
