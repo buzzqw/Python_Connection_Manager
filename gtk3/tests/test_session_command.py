@@ -28,6 +28,11 @@ class TestBuildCommand:
         })
         assert mode == "ssh_term_ext"
 
+    def test_ssh_strict_host_check_is_disabled_by_default(self, monkeypatch):
+        monkeypatch.setattr(config_manager, "load_settings", lambda: {"ssh": {}})
+        cmd = session_command._build_ssh({"host": "example.com"})
+        assert "-o StrictHostKeyChecking=accept-new" in cmd
+
     def test_ssh_keepalive_interval_from_session_is_honored(self):
         """Lo spinner 'keepalive_interval' nell'editor sessione (0 = disabilitato)
         deve incidere sul comando reale: prima veniva salvato nel profilo ma

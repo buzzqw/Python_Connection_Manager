@@ -880,7 +880,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return None, None
 
         ssh_exe = shutil.which("ssh") or "ssh"
-        strict_default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
+        strict_default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", False)
         strict = "yes" if dati.get("strict_host", strict_default) else "accept-new"
         cmd = [
             ssh_exe, "-N", "-T",

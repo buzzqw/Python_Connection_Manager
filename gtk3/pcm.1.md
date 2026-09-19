@@ -211,7 +211,7 @@ enabled.
 - All profile parameters are sanitised with **shlex.quote()** before
   shell use. Pre-commands run with shell=False.
 - Credential files are written with permissions **0600**.
-- SSH connections use **StrictHostKeyChecking=yes**.
+- SSH host key checking is disabled by default and can be enabled globally or per profile.
 - Optional AES-128 encryption (Fernet + PBKDF2-SHA256, 480 k iterations)
   of usernames and passwords with a master password.
 

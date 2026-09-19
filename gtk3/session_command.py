@@ -523,8 +523,8 @@ def _esc(s: str) -> str:
 
 
 def _strict_host_check(profile: dict) -> bool:
-    """Use the global secure default when a profile has no explicit choice."""
-    default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", True)
+    """Use the global default when a profile has no explicit choice."""
+    default = config_manager.load_settings().get("ssh", {}).get("strict_host_check", False)
     return profile.get("strict_host", default)
 
 

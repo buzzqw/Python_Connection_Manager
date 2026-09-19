@@ -92,7 +92,7 @@
 - **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: the helper script is created in `~/.cache/pcm/` (permissions `0700`, not in `/tmp`) and deleted after 5 seconds. The password is passed via environment variable only, never written to the file.
 - **Command injection protection**: all profile parameters (host, port, user, device, etc.) are sanitised with `shlex.quote()` before use in shell commands. Pre-commands run with `shell=False`.
 - **Protected credential files** (`connections.json`, `pcm_settings.json`, `audit_log.json`): written with permissions `0600` — readable only by the owner.
-- **SSH host key verification enabled by default**: new profiles use `StrictHostKeyChecking=yes`; this can be explicitly changed per profile. The SFTP browser uses Paramiko `RejectPolicy` with automatic `known_hosts` loading.
+- **SSH host key verification is opt-in**: new profiles leave strict host key checking disabled by default; it can be enabled globally or per profile when verification against `known_hosts` is desired. The SFTP browser uses Paramiko `RejectPolicy` when enabled.
 - **AES-128 encryption (Fernet + PBKDF2-SHA256, 480k iterations)**: usernames and passwords in `connections.json` encrypted with a master password. The key never touches the disk. The verification token uses a random canary to prevent offline dictionary attacks.
 - **Audit log with hash chaining**: each entry contains the SHA-256 of the previous one. PCM can detect entries whose chain was not recomputed; the local log is not an externally anchored, tamper-proof audit trail.
 - **KeePassXC integration** via Browser Protocol v2 (NaCl box): find and fill credentials directly from the open KeePassXC database — no browser needed.
@@ -555,7 +555,7 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 - **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: lo script helper è creato in `~/.cache/pcm/` (permessi `0700`, non in `/tmp`) ed eliminato dopo 5 secondi. La password è passata solo via variabile d'ambiente, mai scritta nel file.
 - **Protezione command injection**: tutti i parametri dei profili (host, porta, utente, device, ecc.) sono sanificati con `shlex.quote()` prima di essere usati nei comandi shell. Il pre-comando è eseguito con `shell=False`.
 - **File credenziali protetti** (`connections.json`, `pcm_settings.json`, `audit_log.json`): scritti con permessi `0600` — leggibili solo dal proprietario.
-- **Verifica host key SSH attiva**: `StrictHostKeyChecking=yes` su tutte le connessioni. Il browser SFTP usa `RejectPolicy` di paramiko con caricamento automatico di `known_hosts`.
+- **Verifica host key SSH opzionale**: nelle nuove connessioni `StrictHostKeyChecking` è disabilitato per impostazione predefinita; può essere abilitato globalmente o per singolo profilo per verificare gli host tramite `known_hosts`. Il browser SFTP usa `RejectPolicy` di paramiko quando l'opzione è attiva.
 - **Cifratura AES-128** (Fernet + PBKDF2-SHA256, 480k iterazioni): utenti e password in `connections.json` cifrati con password master. La chiave non tocca mai il disco. Il token di verifica usa un canary casuale per prevenire attacchi a dizionario offline.
 - **Audit log con hash chaining**: ogni voce include l'SHA-256 della voce precedente — le manomissioni sono rilevabili.
 - **KeePassXC integrato** via Browser Protocol v2 (NaCl box): cerca e compila credenziali direttamente dal database KeePassXC aperto — nessun browser necessario.

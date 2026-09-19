@@ -324,7 +324,7 @@ DEFAULT_SETTINGS = {
     },
     "ssh": {
         "keepalive_interval": 60,
-        "strict_host_check": True,
+        "strict_host_check": False,
         "default_sftp_browser": True,
     },
     "tunnels": [],

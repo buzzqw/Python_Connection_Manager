@@ -818,8 +818,8 @@ class WinScpWidget(Gtk.Box):
             pkey = self._profilo.get("private_key", "")
 
             # Stessa politica host-key della connessione SSH/SFTP da riga di
-            # comando (StrictHostKeyChecking yes/ask): con strict disattivato
-            # chiediamo conferma all'utente prima di fidarci di un host
+            # comando: con strict disattivato chiediamo conferma all'utente
+            # prima di fidarci di un host
             # sconosciuto (mai AutoAddPolicy: accetterebbe silenziosamente un
             # host non verificato, esponendo a MITM al primo accesso).
             from session_command import make_ssh_client

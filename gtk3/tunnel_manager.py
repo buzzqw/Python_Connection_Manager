@@ -576,7 +576,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         cmd = [
             "ssh", "-N",
             "-p", sport,
-            "-o", "StrictHostKeyChecking=yes",
+            "-o", "StrictHostKeyChecking=accept-new",
             "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=60"
         ]

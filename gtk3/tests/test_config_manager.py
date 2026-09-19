@@ -71,6 +71,7 @@ class TestSettings:
         assert "general" in s
         assert "terminal" in s
         assert s["general"]["language"] in ("it", "en")
+        assert s["ssh"]["strict_host_check"] is False
 
     def test_save_and_load_settings(self, temp_files):
         s = config_manager.load_settings()
