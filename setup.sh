@@ -28,6 +28,7 @@ INSTALLED_MARKER="${PROJECT_DIR}/.pcm_installed"
 # ── Rileva distribuzione ──────────────────────────────────────────────────
 detect_distro() {
     if   [[ "$(uname -s)" == "FreeBSD" ]]; then echo "freebsd"
+    elif command -v zypper   &>/dev/null; then echo "opensuse"
     elif command -v apt-get  &>/dev/null; then echo "debian"
     elif command -v pacman   &>/dev/null; then echo "arch"
     elif command -v dnf      &>/dev/null; then echo "fedora"
@@ -114,6 +115,12 @@ elif [[ "$DISTRO" == "freebsd" ]]; then
     SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
     PIP_PACKAGES=()
     USE_VENV=false
+elif [[ "$DISTRO" == "opensuse" ]]; then
+    PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "313")
+    SYS_PKGS="python${PY_VER} python${PY_VER}-pip python${PY_VER}-virtualenv python${PY_VER}-gobject python${PY_VER}-gobject-cairo curl typelib-1_0-Gtk-3_0 typelib-1_0-Vte-2_91 typelib-1_0-GtkVnc-2_0 gtk3 openssh mosh freerdp tigervnc xdotool xdg-utils wol"
+    SYS_PKGS="$SYS_PKGS python${PY_VER}-cryptography python${PY_VER}-paramiko python${PY_VER}-pyftpdlib"
+    PIP_PACKAGES=()
+    USE_VENV=false
 else
     SYS_PKGS=""
     PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
@@ -132,10 +139,11 @@ install_system_deps() {
         return
     fi
     case "$DISTRO" in
-        debian)  sudo apt-get update -qq && sudo apt-get install -y $SYS_PKGS ;;
-        fedora)  sudo dnf install -y $SYS_PKGS ;;
-        arch)    sudo pacman -Sy --noconfirm --needed $SYS_PKGS ;;
-        freebsd) sudo pkg update && sudo pkg install -y $SYS_PKGS ;;
+        debian)   sudo apt-get update -qq && sudo apt-get install -y $SYS_PKGS ;;
+        fedora)   sudo dnf install -y $SYS_PKGS ;;
+        arch)     sudo pacman -Sy --noconfirm --needed $SYS_PKGS ;;
+        opensuse) sudo zypper install -y $SYS_PKGS ;;
+        freebsd)  sudo pkg update && sudo pkg install -y $SYS_PKGS ;;
     esac
 }
 
