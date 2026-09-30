@@ -1235,7 +1235,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 for nb in (_pcm._notebook, _pcm._notebook2):
                     _, page = _pcm._trova_in_notebook(nb, w)
                     if page is not None:
-                        _pcm._set_tab_nome(page, _nome)
+                        _pcm._set_tab_nome(page, getattr(page, "_pcm_tab_nome", _nome))
                         break
                 _reconnect_env = {}
                 if _pwd and not _pkey and _has_env_askpass:
@@ -1830,6 +1830,49 @@ class MainWindow(Gtk.ApplicationWindow):
         if lbl:
             lbl.set_text(nome)
 
+    def _rinomina_tab(self, widget):
+        """Chiede un nuovo nome e aggiorna il label del tab senza modificare il profilo."""
+        nome_attuale = self._get_tab_nome(widget)
+        if not nome_attuale:
+            return
+
+        dlg = Gtk.Dialog(
+            title=t("tab.rename_title"),
+            transient_for=self,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_start(12)
+        area.set_margin_end(12)
+        area.set_margin_top(12)
+        area.set_margin_bottom(8)
+
+        label = Gtk.Label(label=t("tab.rename_label"))
+        label.set_xalign(0.0)
+        area.pack_start(label, False, False, 0)
+
+        entry = Gtk.Entry(text=nome_attuale)
+        entry.set_activates_default(True)
+        entry.select_region(0, -1)
+        area.pack_start(entry, False, False, 0)
+
+        dlg.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        area.show_all()
+
+        response = dlg.run()
+        nuovo_nome = entry.get_text().strip()
+        dlg.destroy()
+
+        if response == Gtk.ResponseType.OK and nuovo_nome:
+            self._set_tab_nome(widget, nuovo_nome)
+            # Nome indipendente dal prefisso temporaneo (↻/✖) usato per lo stato.
+            widget._pcm_tab_nome = nuovo_nome
+            self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
+
     def _get_open_session_names(self) -> set:
         """Nomi delle sessioni con tab aperta e processo ancora vivo (no ✖)."""
         names = set()
@@ -1846,6 +1889,7 @@ class MainWindow(Gtk.ApplicationWindow):
         cb = on_close or (lambda: self._chiudi_tab(widget))
         lbl_box, lbl = self._make_tab_label(nome, cb)
         self._tab_labels[widget] = lbl
+        widget._pcm_tab_nome = nome
         self._widget_nb_map[widget] = self._notebook
         self._notebook.append_page(widget, lbl_box)
         self._notebook.set_tab_reorderable(widget, True)
@@ -1947,6 +1991,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if dati_tab:
             nome_tab = self._get_tab_nome(page)
             menu.append(Gtk.SeparatorMenuItem())
+            mi_rename = Gtk.MenuItem(label=t("tab.rename"))
+            mi_rename.connect("activate", lambda _b, w=page: self._rinomina_tab(w))
+            menu.append(mi_rename)
             mi_dup = Gtk.MenuItem(label=t("tab.duplicate"))
             mi_dup.connect(
                 "activate",
