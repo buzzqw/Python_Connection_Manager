@@ -4,8 +4,9 @@ session_panel.py - Pannello sidebar sessioni PCM (GTK3)
 Usa Gtk.TreeView + Gtk.TreeStore al posto di QTreeWidget.
 Segnali emessi:
   - 'connetti'   (nome: str, dati: dict)
-  - 'nuova'      ()
-  - 'modifica'   (nome: str, dati: dict)
+   - 'nuova'      ()
+   - 'nuova-in-gruppo' (gruppo: str)
+   - 'modifica'   (nome: str, dati: dict)
   - 'elimina'    (nome: str)
   - 'duplica'    (nome: str)
 """
@@ -46,6 +47,7 @@ class SessionPanel(Gtk.Box):
     __gsignals__ = {
         "connetti":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "nuova":        (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "nuova-in-gruppo": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "modifica":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "elimina":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "duplica":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
@@ -261,7 +263,8 @@ class SessionPanel(Gtk.Box):
                 user = str(dati.get("user") or "")
                 if filtro not in host.lower() and filtro not in user.lower():
                     continue
-            gruppo = dati.get("group", "") or t("sidebar.no_group")
+            gruppo_raw = str(dati.get("group", "") or "").strip()
+            gruppo = gruppo_raw or t("sidebar.no_group")
             gruppi.setdefault(gruppo, []).append(nome)
 
         group_iters = {}
@@ -274,7 +277,11 @@ class SessionPanel(Gtk.Box):
                 grp_iter = group_iters.get(group_key)
                 if grp_iter is None:
                     grp_markup = f"<b>{GLib.markup_escape_text(segment)}</b>"
-                    grp_iter = self._store.append(parent, [folder_pb, grp_markup, "", True])
+                    # Conserva il percorso del gruppo nel modello: serve al
+                    # menu contestuale per sapere dove inserire la nuova
+                    # connessione.
+                    grp_iter = self._store.append(parent, [folder_pb, grp_markup,
+                                                           group_key if gruppo != t("sidebar.no_group") else "", True])
                     group_iters[group_key] = grp_iter
                 parent = grp_iter
 
@@ -340,7 +347,9 @@ class SessionPanel(Gtk.Box):
             chiave = self._store.get_value(it, 2)
             if chiave == "__recent__":
                 self._mostra_menu_recent(event)
-            return False
+            else:
+                self._mostra_menu_gruppo(event, chiave)
+            return True
         nome = self._store.get_value(it, 2)
         dati = self._profili.get(nome, {})
         self._mostra_menu(event, nome, dati)
@@ -350,6 +359,17 @@ class SessionPanel(Gtk.Box):
         menu = Gtk.Menu()
         mi = Gtk.MenuItem(label=t("sidebar.recent_clear"))
         mi.connect("activate", lambda _: self._cancella_recenti())
+        menu.append(mi)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def _mostra_menu_gruppo(self, event, gruppo: str):
+        """Mostra le azioni disponibili per una cartella di sessioni."""
+        menu = Gtk.Menu()
+        nome_gruppo = gruppo or t("sidebar.no_group").strip()
+        label = t("panel.new_in_group", group=nome_gruppo)
+        mi = Gtk.MenuItem(label=label)
+        mi.connect("activate", lambda _: self.emit("nuova-in-gruppo", gruppo))
         menu.append(mi)
         menu.show_all()
         menu.popup_at_pointer(event)

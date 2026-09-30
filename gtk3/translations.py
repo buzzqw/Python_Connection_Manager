@@ -365,6 +365,7 @@ _T: dict[str, dict[str, str]] = {
 
     # ── Pannello sessioni (menu contestuale) ──────────────────────────────────
     "panel.connect":        {"it": "▶  Connetti",   "en": "▶  Connect",    "de": "▶  Verbinden",    "fr": "▶  Connecter",  "es": "▶  Conectar"},
+    "panel.new_in_group":   {"it": "＋  Nuova connessione in «{group}»", "en": "＋  New connection in “{group}”", "de": "＋  Neue Verbindung in „{group}“", "fr": "＋  Nouvelle connexion dans « {group} »", "es": "＋  Nueva conexión en «{group}»"},
     "panel.edit":           {"it": "✏  Modifica",   "en": "✏  Edit",       "de": "✏  Bearbeiten",   "fr": "✏  Modifier",   "es": "✏  Editar"},
     "panel.duplicate":      {"it": "📋  Duplica",   "en": "📋  Duplicate", "de": "📋  Duplizieren", "fr": "📋  Dupliquer",  "es": "📋  Duplicar"},
     "panel.copy_command":   {"it": "📋  Copia comando", "en": "📋  Copy command", "de": "📋  Befehl kopieren", "fr": "📋  Copier la commande", "es": "📋  Copiar comando"},

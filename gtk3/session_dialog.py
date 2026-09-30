@@ -108,7 +108,8 @@ def _check(label: str) -> Gtk.CheckButton:
 
 class SessionDialog(Gtk.Dialog):
 
-    def __init__(self, parent=None, nome: str = "", dati: dict = None):
+    def __init__(self, parent=None, nome: str = "", dati: dict = None,
+                 gruppo: str = ""):
         super().__init__(
             title=t("sd.new_title") if not nome else t("sd.edit_title", name=nome),
             transient_for=parent,
@@ -117,6 +118,7 @@ class SessionDialog(Gtk.Dialog):
         )
         self._nome_originale = nome
         self._dati_originali = dati or {}
+        self._gruppo_iniziale = gruppo or ""
         self._macros: list[dict] = []
         self._is_new = not bool(nome and dati)  # True = nuova sessione
 
@@ -124,6 +126,10 @@ class SessionDialog(Gtk.Dialog):
         self._init_ui()
         if nome and dati:
             self._popola(nome, dati)
+        elif self._gruppo_iniziale:
+            child = self.combo_gruppo.get_child()
+            if child is not None:
+                child.set_text(self._gruppo_iniziale)
         self.show_all()
         self._aggiorna_proto_fields()
 
@@ -1214,7 +1220,17 @@ class SessionDialog(Gtk.Dialog):
         # Remove all items after the first two fixed ones (index 0 and 1)
         while combo.get_model() is not None and len(combo.get_model()) > 2:
             combo.remove(2)
-        for p in config_manager.load_credential_profiles():
+        try:
+            profiles = config_manager.load_credential_profiles()
+        except Exception as exc:
+            # La finestra di nuova sessione deve rimanere utilizzabile anche
+            # prima dello sblocco della cifratura. I profili verranno
+            # riproposti al prossimo dialogo dopo lo sblocco.
+            _get_log(__name__).debug(
+                "Profili credenziali non disponibili: %s", exc
+            )
+            profiles = []
+        for p in profiles:
             name = p.get("name", "")
             if name:
                 combo.append(name, name)

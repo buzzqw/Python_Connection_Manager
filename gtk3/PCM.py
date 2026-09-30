@@ -636,6 +636,8 @@ class MainWindow(Gtk.ApplicationWindow):
     def _connect_signals(self):
         self._pannello.connect("connetti", self._on_connetti)
         self._pannello.connect("nuova",    lambda p: self._on_nuova_sessione())
+        self._pannello.connect("nuova-in-gruppo",
+                               lambda _p, g: self._on_nuova_sessione(g))
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
@@ -2166,8 +2168,19 @@ class MainWindow(Gtk.ApplicationWindow):
     # Azioni menu / toolbar
     # ------------------------------------------------------------------
 
-    def _on_nuova_sessione(self):
-        dlg = SessionDialog(parent=self)
+    def _on_nuova_sessione(self, gruppo: str = ""):
+        # Evita di costruire il dialogo con credenziali ancora cifrate: in
+        # quel caso il caricamento dei profili credenziali non è possibile.
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and not crypto_manager.is_unlocked():
+                self._esegui_unlock_dialog()
+                if not crypto_manager.is_unlocked():
+                    return
+        except ImportError:
+            pass
+
+        dlg = SessionDialog(parent=self, gruppo=gruppo)
         resp = dlg.run()
         if resp == Gtk.ResponseType.CANCEL:
             dlg.destroy()
