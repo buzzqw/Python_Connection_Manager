@@ -624,6 +624,7 @@ _T: dict[str, dict[str, str]] = {
 
     # ── Session dialog ────────────────────────────────────────────────────────
     "sd.new_title":       {"it": "Nuova sessione",     "en": "New session",          "de": "Neue Sitzung",        "fr": "Nouvelle session",    "es": "Nueva sesión"},
+    "sd.open_error":      {"it": "Impossibile aprire il dialogo della nuova connessione: {error}", "en": "Unable to open the new connection dialog: {error}", "de": "Der Dialog für die neue Verbindung konnte nicht geöffnet werden: {error}", "fr": "Impossible d’ouvrir le dialogue de nouvelle connexion : {error}", "es": "No se pudo abrir el diálogo de nueva conexión: {error}"},
     "sd.edit_title":      {"it": "Modifica: {name}",   "en": "Edit: {name}",         "de": "Bearbeiten: {name}", "fr": "Modifier : {name}",   "es": "Editar: {name}"},
     "sd.session_name":    {"it": "Nome sessione:",     "en": "Session name:",        "de": "Sitzungsname:",      "fr": "Nom de session :",    "es": "Nombre de sesión:"},
     "sd.session_name_ph": {"it": "es. Server produzione", "en": "e.g. Production server", "de": "z.B. Produktionsserver", "fr": "ex. Serveur de production", "es": "ej. Servidor producción"},

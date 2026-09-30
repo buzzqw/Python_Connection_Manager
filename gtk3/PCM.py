@@ -2180,7 +2180,13 @@ class MainWindow(Gtk.ApplicationWindow):
         except ImportError:
             pass
 
-        dlg = SessionDialog(parent=self, gruppo=gruppo)
+        try:
+            dlg = SessionDialog(parent=self, gruppo=gruppo)
+        except Exception as exc:
+            _log.error("Impossibile aprire il dialogo nuova sessione: %s",
+                       exc, exc_info=True)
+            self._warn(t("sd.open_error", error=str(exc)))
+            return
         resp = dlg.run()
         if resp == Gtk.ResponseType.CANCEL:
             dlg.destroy()
