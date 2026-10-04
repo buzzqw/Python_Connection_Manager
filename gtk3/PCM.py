@@ -2068,8 +2068,41 @@ class MainWindow(Gtk.ApplicationWindow):
         mi_chiudi.connect("activate", lambda _: self._chiudi_tab(notebook.get_nth_page(idx)))
         menu.append(mi_chiudi)
 
+        mi_chiudi_altre = Gtk.MenuItem(label=t("tab.close_others"))
+        mi_chiudi_altre.connect("activate", lambda _: self._chiudi_altre_schede(notebook, page))
+        menu.append(mi_chiudi_altre)
+
+        mi_chiudi_destra = Gtk.MenuItem(label=t("tab.close_right"))
+        mi_chiudi_destra.connect("activate", lambda _: self._chiudi_schede_a_destra(notebook, page))
+        menu.append(mi_chiudi_destra)
+
         menu.show_all()
         menu.popup_at_pointer(event)
+
+    def _chiudi_altre_schede(self, notebook: Gtk.Notebook, target_page: Gtk.Widget):
+        """Chiude tutte le schede del notebook tranne quella selezionata (e la welcome page)."""
+        pagine = [notebook.get_nth_page(i) for i in range(notebook.get_n_pages())]
+        for p in pagine:
+            if p is target_page:
+                continue
+            if notebook is self._notebook and notebook.page_num(p) == 0:
+                continue
+            if getattr(p, "_pcm_pinned", False):
+                continue
+            self._chiudi_tab(p)
+
+    def _chiudi_schede_a_destra(self, notebook: Gtk.Notebook, target_page: Gtk.Widget):
+        """Chiude tutte le schede a destra della scheda selezionata."""
+        target_idx = notebook.page_num(target_page)
+        if target_idx < 0:
+            return
+        pagine = [notebook.get_nth_page(i) for i in range(notebook.get_n_pages())]
+        for p in pagine:
+            curr_idx = notebook.page_num(p)
+            if curr_idx > target_idx:
+                if getattr(p, "_pcm_pinned", False):
+                    continue
+                self._chiudi_tab(p)
 
     def _on_nb_button_press(self, nb, event):
         if event.button != 3:

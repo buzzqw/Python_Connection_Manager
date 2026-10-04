@@ -247,3 +247,46 @@ class TestFixes:
         assert lbl1.get_text() == "Server A"
         assert btn1.get_visible()
 
+    def test_chiudi_altre_schede_and_a_destra(self):
+        """Verifica chiusura schede a destra e altre schede, preservando schede fissate e home."""
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk
+        import PCM
+
+        nb = Gtk.Notebook()
+        p0 = Gtk.Label(label="Home")
+        p1 = Gtk.Label(label="P1 (Pinned)")
+        p1._pcm_pinned = True
+        p2 = Gtk.Label(label="P2 (Active)")
+        p3 = Gtk.Label(label="P3")
+        p4 = Gtk.Label(label="P4")
+
+        for p in (p0, p1, p2, p3, p4):
+            nb.append_page(p, Gtk.Label(label="Tab"))
+
+        class DummyPCM:
+            def __init__(self, notebook):
+                self._notebook = notebook
+                self.closed = []
+
+            def _chiudi_tab(self, page):
+                self.closed.append(page)
+
+            _chiudi_altre_schede = PCM.MainWindow._chiudi_altre_schede
+            _chiudi_schede_a_destra = PCM.MainWindow._chiudi_schede_a_destra
+
+        # Test chiudi a destra di p2 (dovrebbe chiudere p3 e p4)
+        dummy = DummyPCM(nb)
+        dummy._chiudi_schede_a_destra(nb, p2)
+        assert dummy.closed == [p3, p4]
+
+        # Test chiudi altre schede rispetto a p2 (non chiude p0 Home, non chiude p1 pinned, non chiude p2)
+        dummy.closed.clear()
+        dummy._chiudi_altre_schede(nb, p2)
+        assert p0 not in dummy.closed
+        assert p1 not in dummy.closed
+        assert p2 not in dummy.closed
+        assert p3 in dummy.closed
+        assert p4 in dummy.closed
+

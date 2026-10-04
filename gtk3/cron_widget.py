@@ -10,8 +10,10 @@ import re
 import threading
 
 import gi
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
+from cron_explainer import spiega_cron
+from gi.repository import GLib, Gtk
 from pcm_logging import get_logger as _get_log
 from translations import t
 
@@ -199,6 +201,11 @@ class _CronEntryDialog(Gtk.Dialog):
                 grid.attach(widget,      1, row, 1, 1)
             row_hint = 6
 
+        self._lbl_spiegazione = Gtk.Label()
+        self._lbl_spiegazione.set_xalign(0.0)
+        self._lbl_spiegazione.set_line_wrap(True)
+        grid.attach(self._lbl_spiegazione, 0, row_hint, 2, 1)
+
         hint = Gtk.Label()
         hint.set_markup(
             "<small>Esempio: <tt>0 2 * * 0  /usr/bin/backup.sh</tt>"
@@ -209,16 +216,43 @@ class _CronEntryDialog(Gtk.Dialog):
             "  →  ad ogni avvio</small>"
         )
         hint.set_xalign(0.0)
-        grid.attach(hint, 0, row_hint, 2, 1)
+        grid.attach(hint, 0, row_hint + 1, 2, 1)
 
-        chk_row = row_hint + 1
+        chk_row = row_hint + 2
         self._chk = Gtk.CheckButton(label=t("cron.enabled"))
         self._chk.set_active(e.get("abilitata", True))
         grid.attach(self._chk, 0, chk_row, 2, 1)
 
+        if self._is_shortcut:
+            child = self._combo_sc.get_child()
+            if child:
+                child.connect("changed", self._aggiorna_spiegazione)
+            self._combo_sc.connect("changed", self._aggiorna_spiegazione)
+        else:
+            for w in (self._e_min, self._e_hour, self._e_dom, self._e_mon, self._e_dow):
+                w.connect("changed", self._aggiorna_spiegazione)
+
+        self._aggiorna_spiegazione()
+
         self.get_content_area().add(grid)
         grid.show_all()
         self.set_default_response(Gtk.ResponseType.OK)
+
+    def _aggiorna_spiegazione(self, *_args):
+        if self._is_shortcut:
+            child = self._combo_sc.get_child()
+            sc = child.get_text().strip() if child else "@reboot"
+            txt = spiega_cron(sc or "@reboot")
+        else:
+            txt = spiega_cron(
+                self._e_min.get_text().strip() or "*",
+                self._e_hour.get_text().strip() or "*",
+                self._e_dom.get_text().strip() or "*",
+                self._e_mon.get_text().strip() or "*",
+                self._e_dow.get_text().strip() or "*",
+            )
+        prefix = t("cron.schedule_lbl")
+        self._lbl_spiegazione.set_markup(f"🕒 <b>{prefix}:</b> <span foreground='#1a73e8'><b>{txt}</b></span>")
 
     def get_entry(self) -> dict:
         if self._is_shortcut:
