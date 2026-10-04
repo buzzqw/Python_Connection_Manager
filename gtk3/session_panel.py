@@ -51,6 +51,8 @@ class SessionPanel(Gtk.Box):
         "modifica":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "elimina":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "duplica":      (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "clona-modifica": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "ping-gruppo":    (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "apri-ft":      (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "ping":         (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-log":     (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
@@ -371,6 +373,11 @@ class SessionPanel(Gtk.Box):
         mi = Gtk.MenuItem(label=label)
         mi.connect("activate", lambda _: self.emit("nuova-in-gruppo", gruppo))
         menu.append(mi)
+
+        mi_ping = Gtk.MenuItem(label=t("panel.ping_group"))
+        mi_ping.connect("activate", lambda _: self.emit("ping-gruppo", gruppo))
+        menu.append(mi_ping)
+
         menu.show_all()
         menu.popup_at_pointer(event)
 
@@ -390,6 +397,7 @@ class SessionPanel(Gtk.Box):
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.edit"),      lambda: self.emit("modifica", nome, dati))
         _item(t("panel.duplicate"), lambda: self.emit("duplica", nome))
+        _item(t("panel.clone_edit"), lambda: self.emit("clona-modifica", nome, dati))
         _item(t("panel.external_tools"), lambda: self.emit("apri-tools", nome, dati))
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.delete"),    lambda: self._conferma_elimina(nome))

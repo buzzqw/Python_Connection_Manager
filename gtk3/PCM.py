@@ -618,6 +618,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.snippets"),    self._apri_snippet_dialog)
         _item(t("menu.tools.quick_switcher"), self._on_quick_switcher)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
+        _item(t("menu.file.export_sessions"), self._on_esporta_sessioni)
         _item(t("menu.tools.port_scan"), self._on_port_scan)
         _item(t("menu.tools.audit"),       self._on_audit_log)
         _item(t("menu.tools.keepass"),     self._on_keepass_settings)
@@ -649,6 +650,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
+        self._pannello.connect("clona-modifica", self._on_clona_modifica_sessione)
+        self._pannello.connect("ping-gruppo",    self._on_ping_gruppo)
         self._pannello.connect("apri-ft",      lambda _p, n, d: self._apri_ft_da_sessione(d))
         self._pannello.connect("ping",         self._on_ping_sessione)
         self._pannello.connect("apri-log",     lambda _p, n, d: self._apri_log_viewer(n, d))
@@ -2329,6 +2332,35 @@ class MainWindow(Gtk.ApplicationWindow):
         else:
             self._pannello.aggiorna()
 
+    def _on_clona_modifica_sessione(self, panel, nome: str, dati: dict):
+        nuovo_nome = f"{nome} (copia)"
+        nuovi_dati = dict(dati)
+        dlg = SessionDialog(parent=self, nome=nuovo_nome, dati=nuovi_dati)
+        resp = dlg.run()
+        if resp == Gtk.ResponseType.CANCEL:
+            dlg.destroy()
+            return
+        salvato_nome, salvato_dati = dlg.get_data()
+        profili = config_manager.load_profiles()
+        profili[salvato_nome] = salvato_dati
+        config_manager.save_profiles(profili)
+        self._pannello.aggiorna(profili)
+        dlg.destroy()
+        if resp in (100, 101):
+            self._on_connetti(None, salvato_nome, salvato_dati)
+
+    def _on_ping_gruppo(self, panel, gruppo: str):
+        from group_health_dialog import GroupHealthDialog
+        dlg = GroupHealthDialog(parent=self, gruppo=gruppo)
+        dlg.run()
+        dlg.destroy()
+
+    def _on_esporta_sessioni(self):
+        from export_dialog import ExportDialog
+        dlg = ExportDialog(parent=self)
+        dlg.run()
+        dlg.destroy()
+
     def _on_tunnel_manager(self):
         dlg = TunnelManagerDialog(parent=self)
         dlg.run()
@@ -2715,7 +2747,15 @@ class MainWindow(Gtk.ApplicationWindow):
             dlg.show_all(); dlg.run(); dlg.destroy()
             return
 
-        lbl = Gtk.Label(label=t("broadcast.label"))
+        banner = Gtk.InfoBar()
+        banner.set_message_type(Gtk.MessageType.WARNING)
+        banner_lbl = Gtk.Label(label=t("broadcast.banner"))
+        banner_lbl.set_line_wrap(True)
+        banner.get_content_area().pack_start(banner_lbl, True, True, 0)
+        banner.show_all()
+        area.pack_start(banner, False, False, 0)
+
+        lbl = Gtk.Label(label=t("broadcast.select_terminals"))
         lbl.set_xalign(0.0)
         area.pack_start(lbl, False, False, 0)
 
