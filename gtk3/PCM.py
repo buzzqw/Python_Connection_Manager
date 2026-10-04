@@ -575,18 +575,22 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_split.add(self._split_img)
         split_menu = Gtk.Menu()
         self._split_menu_items = []
+        self._updating_split_ui = False
+        group = None
         for label, cb, mode in [
             (f"□  {t('toolbar.split.single')}",     self._split_singolo, "single"),
             (f"◫  {t('toolbar.split.vertical')}",   self._split_verticale, "vertical"),
             (f"⬒  {t('toolbar.split.horizontal')}", self._split_orizzontale, "horizontal"),
         ]:
-            mi = Gtk.CheckMenuItem(label=label)
-            mi.connect("activate", lambda _, c=cb, m=mode: (c(), self._aggiorna_split_indicator(m)))
+            mi = Gtk.RadioMenuItem.new_with_label(group, label)
+            group = mi.get_group()
+            mi.connect("toggled", lambda w, c=cb, m=mode: self._on_split_toggled(w, c, m))
             split_menu.append(mi)
             self._split_menu_items.append((mi, mode))
         split_menu.show_all()
         btn_split.set_popup(split_menu)
         hb.pack_start(btn_split)
+        self._aggiorna_split_indicator("single")
 
         # Menu applicazione (⋮ tre puntini verticali)
         self._menu_btn = Gtk.MenuButton()
@@ -744,6 +748,17 @@ class MainWindow(Gtk.ApplicationWindow):
             if _k:
                 ag.connect(_k, _m, Gtk.AccelFlags.VISIBLE,
                            lambda *_: self._on_quick_switcher() or True)
+
+        # Accel per modalità split (Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3)
+        for _sc, _cb, _m in (
+            ("<Primary><Alt>1", self._split_singolo, "single"),
+            ("<Primary><Alt>2", self._split_verticale, "vertical"),
+            ("<Primary><Alt>3", self._split_orizzontale, "horizontal"),
+        ):
+            _k, _m_code = Gtk.accelerator_parse(_sc)
+            if _k:
+                ag.connect(_k, _m_code, Gtk.AccelFlags.VISIBLE,
+                           lambda *_, c=_cb, m=_m: (c(), self._aggiorna_split_indicator(m)) or True)
 
     def _attiva_ricerca_terminale(self):
         idx = self._notebook_attivo.get_current_page()
@@ -1931,6 +1946,8 @@ class MainWindow(Gtk.ApplicationWindow):
         while self._notebook2.get_n_pages() > 0:
             self._sposta_tab(self._notebook2, self._notebook, 0)
         self._notebook2.hide()
+        self._notebook_attivo = self._notebook
+        self._paned_term.set_orientation(Gtk.Orientation.HORIZONTAL)
         self._paned_term.set_position(99999)
 
     def _split_verticale(self):
@@ -1945,6 +1962,13 @@ class MainWindow(Gtk.ApplicationWindow):
         alloc = self._paned_term.get_allocation()
         self._paned_term.set_position(max(100, alloc.height // 2))
 
+    def _on_split_toggled(self, widget, cb, mode: str):
+        if getattr(self, "_updating_split_ui", False):
+            return
+        if widget.get_active():
+            cb()
+            self._aggiorna_split_indicator(mode)
+
     def _aggiorna_split_indicator(self, mode: str = None):
         if not hasattr(self, "_split_menu_items"):
             return
@@ -1955,8 +1979,12 @@ class MainWindow(Gtk.ApplicationWindow):
                 mode = "horizontal"
             else:
                 mode = "vertical"
-        for mi, m in self._split_menu_items:
-            mi.set_active(m == mode)
+        self._updating_split_ui = True
+        try:
+            for mi, m in self._split_menu_items:
+                mi.set_active(m == mode)
+        finally:
+            self._updating_split_ui = False
         icons = {
             "single": "window-maximize-symbolic",
             "vertical": "view-dual-symbolic",
@@ -1989,6 +2017,8 @@ class MainWindow(Gtk.ApplicationWindow):
             self._notebook2.show()
         if sorgente is self._notebook2 and sorgente.get_n_pages() == 0:
             self._notebook2.hide()
+            self._notebook_attivo = self._notebook
+            self._aggiorna_split_indicator("single")
 
     def _toggle_pin_tab(self, widget, notebook: Gtk.Notebook):
         """Fissa o sblocca la scheda selezionata (tab pinning)."""
@@ -2264,6 +2294,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._widget_nb_map.pop(widget, None)
         if nb is self._notebook2 and nb.get_n_pages() == 0:
             self._notebook2.hide()
+            self._notebook_attivo = self._notebook
+            self._aggiorna_split_indicator("single")
         self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
 
     def _on_processo_terminato(self, widget, tab_label=None):

@@ -290,3 +290,65 @@ class TestFixes:
         assert p3 in dummy.closed
         assert p4 in dummy.closed
 
+    def test_split_horizontal_to_single_toggle(self):
+        """Verifica che la transizione da Horizontal split a Single avvenga correttamente senza ricorsioni."""
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk
+        import PCM
+
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        nb1 = Gtk.Notebook()
+        nb2 = Gtk.Notebook()
+        paned.pack1(nb1, True, True)
+        paned.pack2(nb2, True, True)
+
+        split_menu = Gtk.Menu()
+        split_menu_items = []
+        group = None
+
+        class DummyWindow:
+            def __init__(self):
+                self._paned_term = paned
+                self._notebook = nb1
+                self._notebook2 = nb2
+                self._notebook_attivo = nb1
+                self._updating_split_ui = False
+                self._split_menu_items = split_menu_items
+                self._split_img = Gtk.Image()
+
+            _split_singolo = PCM.MainWindow._split_singolo
+            _split_verticale = PCM.MainWindow._split_verticale
+            _split_orizzontale = PCM.MainWindow._split_orizzontale
+            _on_split_toggled = PCM.MainWindow._on_split_toggled
+            _aggiorna_split_indicator = PCM.MainWindow._aggiorna_split_indicator
+
+            def _sposta_tab(self, src, dst, idx):
+                p = src.get_nth_page(idx)
+                src.remove_page(idx)
+                dst.append_page(p, Gtk.Label(label="tab"))
+
+        win = DummyWindow()
+
+        for label, cb, mode in [
+            ("single", win._split_singolo, "single"),
+            ("vertical", win._split_verticale, "vertical"),
+            ("horizontal", win._split_orizzontale, "horizontal"),
+        ]:
+            mi = Gtk.RadioMenuItem.new_with_label(group, label)
+            group = mi.get_group()
+            mi.connect("toggled", lambda w, c=cb, m=mode: win._on_split_toggled(w, c, m))
+            split_menu.append(mi)
+            split_menu_items.append((mi, mode))
+
+        # Attiva horizontal split
+        split_menu_items[2][0].set_active(True)
+        assert paned.get_orientation() == Gtk.Orientation.VERTICAL
+        assert nb2.get_visible() is True
+
+        # Torna a single mode
+        split_menu_items[0][0].set_active(True)
+        assert paned.get_orientation() == Gtk.Orientation.HORIZONTAL
+        assert nb2.get_visible() is False
+        assert win._notebook_attivo is nb1
+
