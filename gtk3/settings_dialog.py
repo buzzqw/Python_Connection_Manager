@@ -622,6 +622,7 @@ class SettingsDialog(Gtk.Dialog):
             "new_session":    "settings.shortcuts.new_session",
             "toggle_sidebar": "settings.shortcuts.toggle_sidebar",
             "find":           "settings.shortcuts.find",
+            "quick_switcher": "settings.shortcuts.quick_switcher",
             "fullscreen":     "settings.shortcuts.fullscreen",
         }
         for key, t_key in labels.items():

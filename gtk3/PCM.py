@@ -537,6 +537,13 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_cl.connect("clicked", lambda b: self._on_cluster_from_toolbar())
         hb.pack_start(btn_cl)
 
+        # Pulsante quick search / command palette
+        btn_qs = Gtk.Button()
+        btn_qs.set_tooltip_text(t("toolbar.quick_switcher.tooltip"))
+        btn_qs.add(Gtk.Image.new_from_icon_name("system-search-symbolic", Gtk.IconSize.BUTTON))
+        btn_qs.connect("clicked", lambda b: self._on_quick_switcher())
+        hb.pack_start(btn_qs)
+
         # Bottone tunnel unificato: indicatore stato + accesso al gestore
         self._btn_tun_ind = Gtk.MenuButton()
         _tun_box = Gtk.Box(spacing=2)
@@ -609,6 +616,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
         _item(t("menu.tools.snippets"),    self._apri_snippet_dialog)
+        _item(t("menu.tools.quick_switcher"), self._on_quick_switcher)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
         _item(t("menu.tools.port_scan"), self._on_port_scan)
         _item(t("menu.tools.audit"),       self._on_audit_log)
@@ -706,6 +714,7 @@ class MainWindow(Gtk.ApplicationWindow):
             "next_tab":       lambda: self._notebook_attivo.next_page() or True,
             "prev_tab":       lambda: self._notebook_attivo.prev_page() or True,
             "find":           self._attiva_ricerca_terminale,
+            "quick_switcher": self._on_quick_switcher,
             "toggle_sidebar": self._toggle_sidebar,
             "fullscreen":     self._toggle_fullscreen,
         }
@@ -725,6 +734,13 @@ class MainWindow(Gtk.ApplicationWindow):
         if key_fissa:
             ag.connect(key_fissa, mod_fissa, Gtk.AccelFlags.VISIBLE,
                        lambda *_: self._on_variabili_globali() or True)
+
+        # Accel rapido per quick switcher (Ctrl+P, Ctrl+K)
+        for _sc in ("<Primary>p", "<Primary>k"):
+            _k, _m = Gtk.accelerator_parse(_sc)
+            if _k:
+                ag.connect(_k, _m, Gtk.AccelFlags.VISIBLE,
+                           lambda *_: self._on_quick_switcher() or True)
 
     def _attiva_ricerca_terminale(self):
         idx = self._notebook_attivo.get_current_page()
@@ -1809,7 +1825,7 @@ class MainWindow(Gtk.ApplicationWindow):
     # Helper label tab
     # ------------------------------------------------------------------
 
-    def _make_tab_label(self, nome: str, on_close) -> "tuple[Gtk.Box, Gtk.Label]":
+    def _make_tab_label(self, nome: str, on_close) -> "tuple[Gtk.Box, Gtk.Label, Gtk.Button]":
         """Crea la box label di un tab con nome + pulsante X."""
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         lbl = Gtk.Label(label=nome)
@@ -1823,7 +1839,7 @@ class MainWindow(Gtk.ApplicationWindow):
         box.pack_start(lbl, True, True, 0)
         box.pack_start(btn, False, False, 0)
         box.show_all()
-        return box, lbl
+        return box, lbl, btn
 
     def _get_tab_nome(self, widget) -> str:
         """Legge il nome del tab da _tab_labels (o stringa vuota per la Home)."""
@@ -1893,8 +1909,9 @@ class MainWindow(Gtk.ApplicationWindow):
     def _append_tab(self, widget, nome: str, on_close=None):
         """Aggiunge un tab con label personalizzata (nome + pulsante X)."""
         cb = on_close or (lambda: self._chiudi_tab(widget))
-        lbl_box, lbl = self._make_tab_label(nome, cb)
+        lbl_box, lbl, btn = self._make_tab_label(nome, cb)
         self._tab_labels[widget] = lbl
+        widget._tab_close_btn = btn
         widget._pcm_tab_nome = nome
         self._widget_nb_map[widget] = self._notebook
         self._notebook.append_page(widget, lbl_box)
@@ -1956,8 +1973,11 @@ class MainWindow(Gtk.ApplicationWindow):
         nome   = self._get_tab_nome(widget)
         sorgente.remove_page(idx)
         # Ricrea la label custom per il notebook di destinazione
-        lbl_box, lbl = self._make_tab_label(nome, lambda: self._chiudi_tab(widget))
+        lbl_box, lbl, btn = self._make_tab_label(nome, lambda: self._chiudi_tab(widget))
         self._tab_labels[widget] = lbl
+        widget._tab_close_btn = btn
+        if getattr(widget, "_pcm_pinned", False):
+            btn.set_visible(False)
         self._widget_nb_map[widget] = destinazione
         destinazione.append_page(widget, lbl_box)
         destinazione.set_tab_reorderable(widget, True)
@@ -1966,6 +1986,26 @@ class MainWindow(Gtk.ApplicationWindow):
             self._notebook2.show()
         if sorgente is self._notebook2 and sorgente.get_n_pages() == 0:
             self._notebook2.hide()
+
+    def _toggle_pin_tab(self, widget, notebook: Gtk.Notebook):
+        """Fissa o sblocca la scheda selezionata (tab pinning)."""
+        pinned = getattr(widget, "_pcm_pinned", False)
+        new_pinned = not pinned
+        widget._pcm_pinned = new_pinned
+        nome = self._get_tab_nome(widget)
+        btn = getattr(widget, "_tab_close_btn", None)
+        if new_pinned:
+            if not nome.startswith("📌 "):
+                self._set_tab_nome(widget, f"📌 {nome}")
+            if btn:
+                btn.set_visible(False)
+            first_idx = 1 if notebook is self._notebook else 0
+            notebook.reorder_child(widget, first_idx)
+        else:
+            if nome.startswith("📌 "):
+                self._set_tab_nome(widget, nome[2:].lstrip())
+            if btn:
+                btn.set_visible(True)
 
     def _menu_tab(self, notebook, idx, event):
         """Menu tasto destro su un tab."""
@@ -1979,6 +2019,11 @@ class MainWindow(Gtk.ApplicationWindow):
         menu.append(mi_sposta)
 
         page = notebook.get_nth_page(idx)
+        is_pinned = getattr(page, "_pcm_pinned", False)
+        mi_pin = Gtk.MenuItem(label=t("tab.unpin") if is_pinned else t("tab.pin"))
+        mi_pin.connect("activate", lambda _: self._toggle_pin_tab(page, notebook))
+        menu.append(mi_pin)
+
         dati_tab = getattr(page, "_pcm_dati", None)
         if dati_tab and dati_tab.get("protocol") in ("ssh", "telnet", "mosh", "serial"):
             menu.append(Gtk.SeparatorMenuItem())
@@ -2093,6 +2138,22 @@ class MainWindow(Gtk.ApplicationWindow):
                 break
         if idx < 0 or nb is None:
             return
+
+        # Conferma se la scheda è fissata
+        if getattr(widget, "_pcm_pinned", False):
+            _nome_fissata = self._get_tab_nome(widget).lstrip("📌 ")
+            dlg_pin = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text=t("tab.close_pinned_title"),
+            )
+            dlg_pin.format_secondary_text(t("tab.close_pinned_msg", name=_nome_fissata))
+            resp_pin = dlg_pin.run()
+            dlg_pin.destroy()
+            if resp_pin != Gtk.ResponseType.YES:
+                return
 
         # --- Conferma chiusura se processo attivo ---
         # Trova il TerminalWidget (direttamente o dentro un Paned)
@@ -2384,11 +2445,12 @@ class MainWindow(Gtk.ApplicationWindow):
         lbl.set_markup(f"<b>{t('import.label')}</b>")
         area.pack_start(lbl, False, False, 0)
 
-        # Sorgenti: 0=Remmina, 1=RDM, 2=PuTTY, 3=SSH Config, 4=MobaXterm
+        # Sorgenti: 0=Remmina, 1=RDM, 2=mRemoteNG, 3=PuTTY, 4=SSH Config, 5=MobaXterm
         # (indici usati in _esegui e _on_src_changed)
         SORGENTI = [
             t("import.source_remmina"),
             t("import.source_rdm"),
+            t("import.source_mremoteng"),
             t("importer.putty_title"),
             t("importer.ssh_cfg_title"),
             t("importer.moba_title"),
@@ -2406,7 +2468,7 @@ class MainWindow(Gtk.ApplicationWindow):
         sorgente_box.pack_start(combo_src, True, True, 0)
         area.pack_start(sorgente_box, False, False, 0)
 
-        # Selettore file (solo per sorgenti file: Remmina e RDM)
+        # Selettore file (per sorgenti basate su file: Remmina, RDM, mRemoteNG, MobaXterm)
         fc = Gtk.FileChooserButton(title=t("import.file_chooser"),
                                    action=Gtk.FileChooserAction.OPEN)
         fc.set_hexpand(True)
@@ -2414,6 +2476,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         _filters_remmina = [("Remmina", "*.remmina"), (t("import.filter_all"), "*")]
         _filters_rdm     = [(t("import.filter_rdmxml"), "*.rdm"), (t("import.filter_rdmjson"), "*.json"), (t("import.filter_all"), "*")]
+        _filters_mrng    = [(t("import.filter_mrng"), "*.xml"), (t("import.filter_all"), "*")]
         _filters_moba    = [("MobaXterm sessions", "*.mxtsessions"), ("MobaXterm config", "*.mobaconf"), (t("import.filter_all"), "*")]
 
         def _set_filters(filtri):
@@ -2427,13 +2490,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
         def _on_src_changed(_combo):
             src = combo_src.get_active()
-            file_based = src in (0, 1, 4)
+            file_based = src in (0, 1, 2, 5)
             fc.set_sensitive(file_based)
             if src == 0:
                 _set_filters(_filters_remmina)
             elif src == 1:
                 _set_filters(_filters_rdm)
-            elif src == 4:
+            elif src == 2:
+                _set_filters(_filters_mrng)
+            elif src == 5:
                 _set_filters(_filters_moba)
 
         combo_src.connect("changed", _on_src_changed)
@@ -2466,12 +2531,21 @@ class MainWindow(Gtk.ApplicationWindow):
                         lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
                         return
                     nuovi = _imp.importa_rdm(percorso)
-                elif src == 2:  # PuTTY
+                elif src == 2:  # mRemoteNG
+                    percorso = fc.get_filename()
+                    if not percorso:
+                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
+                        return
+                    nuovi = _imp.importa_mremoteng(percorso)
+                    if not nuovi:
+                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.mrng_none')}</span>")
+                        return
+                elif src == 3:  # PuTTY
                     nuovi = _imp.importa_putty()
                     if not nuovi:
                         lbl_result.set_markup(f"<span foreground='orange'>{t('importer.putty_none')}</span>")
                         return
-                elif src == 3:  # SSH Config
+                elif src == 4:  # SSH Config
                     nuovi = _imp.importa_ssh_config()
                     if not nuovi:
                         lbl_result.set_markup(f"<span foreground='orange'>{t('importer.ssh_cfg_none')}</span>")
@@ -2543,6 +2617,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if result:
             proto, nome_tab, dati = result
             self._apri_protocollo(proto, nome_tab, dati)
+
+    def _on_quick_switcher(self):
+        """Dialog Command Palette per ricerca e connessione rapida."""
+        from quick_switcher_dialog import QuickSwitcherDialog
+        dlg = QuickSwitcherDialog(parent=self, on_connect=lambda n, d: self._on_connetti(None, n, d))
+        dlg.run()
 
     # ------------------------------------------------------------------
     # Connectivity test / ping
@@ -3078,7 +3158,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._status(t("status.ready"))
             self._info_panel.nascondi()
         else:
-            nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
+            nome_pulito = self._get_tab_nome(page).lstrip("📌✖ ")
             self._status(t("status.connected", name=nome_pulito))
             dati = getattr(page, "_pcm_dati", None)
             if dati and dati.get("protocol") in ("ssh", "mosh", "vnc", "rdp"):
@@ -3110,7 +3190,7 @@ class MainWindow(Gtk.ApplicationWindow):
         stato, terminato = tw.get_stato()
         if not stato:
             return True
-        nome_pulito = self._get_tab_nome(page).lstrip("✖ ")
+        nome_pulito = self._get_tab_nome(page).lstrip("📌✖ ")
         if terminato:
             self._status(t("status.terminated", name=nome_pulito, state=stato))
         else:

@@ -396,6 +396,133 @@ def _rdm_extra(pr: dict, proto: str, tipo_upper: str):
 
 
 # ===========================================================================
+# mRemoteNG XML (confCons.xml)
+# ===========================================================================
+
+_MREMOTENG_PROTO: dict[str, str] = {
+    "SSH2":    "ssh",
+    "SSH1":    "ssh",
+    "SSH":     "ssh",
+    "RDP":     "rdp",
+    "VNC":     "vnc",
+    "TELNET":  "telnet",
+    "RAW":     "serial",
+    "SERIAL":  "serial",
+    "SFTP":    "sftp",
+    "FTP":     "ftp",
+}
+
+
+def importa_mremoteng(percorso: str) -> dict:
+    """Importa connessioni e gruppi da un file XML esportato da mRemoteNG (confCons.xml)."""
+    p = Path(percorso)
+    if not p.exists():
+        raise FileNotFoundError(f"File non trovato: {percorso}")
+    tree = ET.parse(str(p))
+    root = tree.getroot()
+    profili: dict = {}
+
+    def _tag(el: ET.Element) -> str:
+        return el.tag.split("}")[-1] if "}" in el.tag else el.tag
+
+    def _traverse(node: ET.Element, current_group: str = ""):
+        tag = _tag(node)
+        if tag.lower() == "node":
+            node_type = node.attrib.get("Type", "").strip()
+            name = node.attrib.get("Name", "").strip()
+            is_container = node_type.lower() == "container" or (
+                not node_type and not node.attrib.get("Hostname") and not node.attrib.get("Host")
+                and any(_tag(c).lower() == "node" for c in node)
+            )
+            if is_container:
+                new_group = current_group
+                if name and name.lower() not in ("root", "connections"):
+                    new_group = f"{current_group}/{name}" if current_group else name
+                for child in node:
+                    _traverse(child, new_group)
+                return
+            elif node_type.lower() == "connection" or node.attrib.get("Hostname") or node.attrib.get("Host"):
+                pr = _mremoteng_node_to_profile(node, current_group)
+                if pr:
+                    nome = pr.pop("__nome__")
+                    profili[_univoco(nome, profili)] = pr
+                for child in node:
+                    _traverse(child, current_group)
+                return
+
+        for child in node:
+            _traverse(child, current_group)
+
+    _traverse(root)
+    return profili
+
+
+def _mremoteng_node_to_profile(node: ET.Element, current_group: str) -> Optional[dict]:
+    proto_raw = node.attrib.get("Protocol", "SSH2").strip().upper()
+    proto = _MREMOTENG_PROTO.get(proto_raw, "ssh")
+    nome = node.attrib.get("Name", "").strip()
+    host = (node.attrib.get("Hostname") or node.attrib.get("Host") or "").strip()
+    porta = (node.attrib.get("Port") or "").strip()
+    if not porta or porta == "0":
+        porta = _PORTE_DEFAULT.get(proto, "22")
+    user = (node.attrib.get("Username") or node.attrib.get("User") or "").strip()
+    note = (node.attrib.get("Description") or "").strip()
+
+    if not host and not nome:
+        return None
+
+    pr: dict = {
+        "__nome__":   nome or host,
+        "protocol":   proto,
+        "host":       host,
+        "port":       str(porta),
+        "user":       user,
+        "password":   "",
+        "notes":      note,
+        "group":      current_group,
+        "_sorgente":  "mremoteng",
+    }
+
+    if proto == "rdp":
+        pr.update({
+            "rdp_client": "xfreerdp",
+            "fullscreen": False,
+            "redirect_clipboard": node.attrib.get("RedirectClipboard", "True").lower() in ("true", "1", "yes"),
+            "redirect_drives": node.attrib.get("RedirectDrives", "False").lower() in ("true", "1", "yes"),
+        })
+        dom = node.attrib.get("Domain", "").strip()
+        if dom:
+            pr["rdp_domain"] = dom
+    elif proto in ("ssh", "sftp"):
+        pr.update({
+            "private_key": "",
+            "compression": False,
+            "x11": False,
+            "keepalive": False,
+            "sftp_browser": proto == "sftp",
+        })
+    elif proto == "vnc":
+        pr.update({
+            "vnc_client": "vncviewer",
+            "vnc_color": "Truecolor (32 bpp)",
+            "vnc_quality": "Buona",
+        })
+    elif proto == "ftp":
+        pr.update({
+            "protocol": "file_transfer",
+            "ft_protocol": "FTP",
+            "ftp_passive": True,
+        })
+    elif proto == "serial":
+        pr.update({
+            "host": host or "/dev/ttyS0",
+            "port": str(porta) if porta != "22" else "9600",
+        })
+
+    return pr
+
+
+# ===========================================================================
 # Utility
 # ===========================================================================
 
@@ -822,6 +949,7 @@ def _uso():
     print("Uso:")
     print("  python importer.py remmina   [percorso]")
     print("  python importer.py rdm       file.xml|json")
+    print("  python importer.py mremoteng confCons.xml")
     print("  python importer.py putty     [percorso]")
     print("  python importer.py sshconfig [percorso]")
     print("  python importer.py mobaxterm file.mxtsessions|.mobaconf")
@@ -848,6 +976,11 @@ if __name__ == "__main__":
             _uso()
         print(f"[importer] RDM: {sys.argv[2]}")
         profili = importa_rdm(sys.argv[2])
+    elif cmd == "mremoteng":
+        if len(sys.argv) < 3:
+            _uso()
+        print(f"[importer] mRemoteNG: {sys.argv[2]}")
+        profili = importa_mremoteng(sys.argv[2])
     elif cmd == "putty":
         percorso = sys.argv[2] if len(sys.argv) > 2 else None
         print(f"[importer] PuTTY: {percorso or '~/.putty/sessions'}")

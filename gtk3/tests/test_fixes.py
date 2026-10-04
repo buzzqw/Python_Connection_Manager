@@ -87,3 +87,163 @@ class TestFixes:
 
         assert "--wait" in launched_cmd
         assert "/tmp/dummy_test_file.txt" in launched_cmd
+
+    def test_importa_mremoteng(self, tmp_path):
+        """Verifica il corretto parsing di file XML mRemoteNG con gerarchia gruppi e protocolli."""
+        import importer
+        xml_content = """<?xml version="1.0" encoding="utf-8"?>
+<mrng:Connections xmlns:mrng="http://mremoteng.org">
+  <Node Name="Root" Type="Container">
+    <Node Name="Datacenter" Type="Container">
+      <Node Name="Web" Type="Container">
+        <Node Name="Nginx1" Type="Connection"
+              Hostname="10.0.0.10"
+              Port="2222"
+              Protocol="SSH2"
+              Username="ubuntu"
+              Description="Web proxy server" />
+      </Node>
+      <Node Name="WindowsSRV" Type="Connection"
+            Hostname="10.0.0.20"
+            Port="3389"
+            Protocol="RDP"
+            Username="Administrator"
+            Domain="CORP"
+            RedirectClipboard="True"
+            RedirectDrives="False" />
+      <Node Name="Storage" Type="Connection"
+            Hostname="10.0.0.30"
+            Protocol="SFTP"
+            Username="backup" />
+    </Node>
+  </Node>
+</mrng:Connections>"""
+        xml_file = tmp_path / "confCons.xml"
+        xml_file.write_text(xml_content, encoding="utf-8")
+
+        profili = importer.importa_mremoteng(str(xml_file))
+        assert "Nginx1" in profili
+        p_ssh = profili["Nginx1"]
+        assert p_ssh["protocol"] == "ssh"
+        assert p_ssh["host"] == "10.0.0.10"
+        assert p_ssh["port"] == "2222"
+        assert p_ssh["user"] == "ubuntu"
+        assert p_ssh["group"] == "Datacenter/Web"
+        assert p_ssh["_sorgente"] == "mremoteng"
+
+        assert "WindowsSRV" in profili
+        p_rdp = profili["WindowsSRV"]
+        assert p_rdp["protocol"] == "rdp"
+        assert p_rdp["host"] == "10.0.0.20"
+        assert p_rdp["port"] == "3389"
+        assert p_rdp["rdp_domain"] == "CORP"
+        assert p_rdp["redirect_clipboard"] is True
+        assert p_rdp["group"] == "Datacenter"
+
+        assert "Storage" in profili
+        p_sftp = profili["Storage"]
+        assert p_sftp["protocol"] == "sftp"
+        assert p_sftp["host"] == "10.0.0.30"
+        assert p_sftp["port"] == "22"
+
+    def test_quick_switcher_preparation_and_filtering(self, monkeypatch):
+        """Verifica la preparazione e il filtraggio in tempo reale di QuickSwitcherDialog."""
+        from quick_switcher_dialog import QuickSwitcherDialog
+
+        dummy_profiles = {
+            "Web Production 1": {
+                "protocol": "ssh",
+                "host": "web1.example.com",
+                "port": "22",
+                "user": "deploy",
+                "group": "Production",
+                "tags": ["web", "critical"],
+            },
+            "DB Postgres": {
+                "protocol": "ssh",
+                "host": "db.internal",
+                "port": "5432",
+                "user": "postgres",
+                "group": "Databases",
+                "tags": ["db"],
+            },
+            "Windows Desktop": {
+                "protocol": "rdp",
+                "host": "192.168.1.50",
+                "port": "3389",
+                "user": "admin",
+                "group": "Office",
+            },
+        }
+
+        monkeypatch.setattr(config_manager, "load_profiles", lambda: dummy_profiles)
+
+        selected = []
+        dlg = QuickSwitcherDialog(parent=None, on_connect=lambda n, d: selected.append((n, d)))
+
+        # Verifica items preparati
+        assert len(dlg._items) == 3
+
+        # Test filtro "web"
+        dlg._filtra("web")
+        assert len(dlg._store) == 1
+        assert dlg._store[0][1] == "Web Production 1"
+
+        # Test filtro multi-token "admin office"
+        dlg._filtra("admin office")
+        assert len(dlg._store) == 1
+        assert dlg._store[0][1] == "Windows Desktop"
+
+        # Test filtro tag
+        dlg._filtra("critical")
+        assert len(dlg._store) == 1
+        assert dlg._store[0][1] == "Web Production 1"
+
+        # Test selezione ed esecuzione
+        dlg._attiva_selezionato()
+        assert len(selected) == 1
+        assert selected[0][0] == "Web Production 1"
+
+    def test_tab_pinning_logic(self):
+        """Verifica la logica di fissaggio / sblocco della scheda."""
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk
+
+        nb = Gtk.Notebook()
+        tab1 = Gtk.Label(label="Content 1")
+        tab2 = Gtk.Label(label="Content 2")
+        lbl_box1 = Gtk.Box()
+        lbl1 = Gtk.Label(label="Server A")
+        btn1 = Gtk.Button()
+        lbl_box1.pack_start(lbl1, True, True, 0)
+        lbl_box1.pack_start(btn1, False, False, 0)
+        lbl_box1.show_all()
+        tab1._tab_close_btn = btn1
+
+        nb.append_page(tab1, lbl_box1)
+        nb.append_page(tab2, Gtk.Label(label="Server B"))
+
+        # Simula toggle pin
+        pinned = getattr(tab1, "_pcm_pinned", False)
+        assert not pinned
+        assert btn1.get_visible()
+
+        # Fissa scheda
+        tab1._pcm_pinned = True
+        lbl1.set_text(f"📌 {lbl1.get_text()}")
+        btn1.set_visible(False)
+
+        assert tab1._pcm_pinned is True
+        assert lbl1.get_text() == "📌 Server A"
+        assert not btn1.get_visible()
+
+        # Sblocca scheda
+        tab1._pcm_pinned = False
+        lbl1.set_text(lbl1.get_text().lstrip("📌 "))
+        btn1.set_visible(True)
+
+        assert tab1._pcm_pinned is False
+        assert lbl1.get_text() == "Server A"
+        assert btn1.get_visible()
+

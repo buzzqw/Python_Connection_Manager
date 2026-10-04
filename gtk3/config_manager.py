@@ -353,6 +353,7 @@ DEFAULT_SETTINGS = {
         "new_session": "Ctrl+Shift+N",
         "toggle_sidebar": "Ctrl+Shift+B",
         "find": "Ctrl+Shift+F",
+        "quick_switcher": "Ctrl+Shift+P",
         "fullscreen": "F11",
     },
     "credential_profiles": [],
