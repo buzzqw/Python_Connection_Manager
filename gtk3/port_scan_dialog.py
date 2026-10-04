@@ -145,7 +145,7 @@ class PortScanDialog(Gtk.Dialog):
         if error:
             self._status.set_text(error)
         else:
-            self._status.set_text(t("port_scan.finished").format(count=count))
+            self._status.set_text(t("port_scan.finished", count=count))
         return False
 
     def _stop_scan(self):
@@ -160,7 +160,7 @@ class PortScanDialog(Gtk.Dialog):
         ]
         self._on_import_callback(results, protocol)
         self._store.clear()
-        self._status.set_text(t("port_scan.imported").format(count=len(results)))
+        self._status.set_text(t("port_scan.imported", count=len(results)))
 
     def _on_response(self, _dialog, response):
         if response == Gtk.ResponseType.CLOSE:

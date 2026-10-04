@@ -562,7 +562,7 @@ _T: dict[str, dict[str, str]] = {
     "import.app.title_done":     {"it": "Importazione completata", "en": "Import complete", "de": "Import abgeschlossen", "fr": "Importation terminée", "es": "Importación completada"},
 
     # ── Dipendenze ────────────────────────────────────────────────────────────
-    "deps.title":        {"it": "Dipendenze PCM", "en": "PCM Dependencies", "de": "PCM-Abhängigkeiten", "fr": "Dépendances PCM", "es": "Dependencias PCM"},
+    "deps.title":        {"it": "Configurazione Dipendenze", "en": "Dependencies Configuration", "de": "Abhängigkeitskonfiguration", "fr": "Configuration des dépendances", "es": "Configuración de dependencias"},
     "deps.install_hint": {"it": "\n\nInstalla i mancanti con il gestore pacchetti della tua distribuzione.", "en": "\n\nInstall missing ones with your distribution's package manager.", "de": "\n\nInstalliere fehlende mit dem Paketmanager deiner Distribution.", "fr": "\n\nInstallez les manquants avec le gestionnaire de paquets de votre distribution.", "es": "\n\nInstala los faltantes con el gestor de paquetes de tu distribución."},
 
     # ── Connessione sessione ──────────────────────────────────────────────────
@@ -747,9 +747,9 @@ _T: dict[str, dict[str, str]] = {
     "sd.ssh.compression": {"it": "Compressione (-C)",     "en": "Compression (-C)",     "de": "Komprimierung (-C)",     "fr": "Compression (-C)",      "es": "Compresión (-C)"},
     "sd.ssh.keepalive":   {"it": "Keepalive (ServerAliveInterval=60)", "en": "Keepalive (ServerAliveInterval=60)", "de": "Keepalive (ServerAliveInterval=60)", "fr": "Keepalive (ServerAliveInterval=60)", "es": "Keepalive (ServerAliveInterval=60)"},
     "sd.ssh.strict":      {"it": "Strict Host Key Checking", "en": "Strict Host Key Checking", "de": "Strenge Host-Key-Prüfung", "fr": "Vérification stricte de la clé hôte", "es": "Verificación estricta de clave host"},
-    "sd.grp.ssh_open":    {"it": "Modalità apertura SSH",  "en": "SSH open mode",        "de": "SSH-Öffnungsmodus",      "fr": "Mode d'ouverture SSH",  "es": "Modo apertura SSH"},
-    "sd.grp.sftp_open":   {"it": "Modalità apertura SFTP", "en": "SFTP open mode",       "de": "SFTP-Öffnungsmodus",     "fr": "Mode d'ouverture SFTP", "es": "Modo apertura SFTP"},
-    "sd.grp.ftp_open":    {"it": "Modalità apertura FTP",  "en": "FTP open mode",        "de": "FTP-Öffnungsmodus",      "fr": "Mode d'ouverture FTP",  "es": "Modo apertura FTP"},
+    "sd.grp.ssh_open":    {"it": "Apertura SSH:",   "en": "SSH open mode:", "de": "SSH-Öffnung:",   "fr": "Ouverture SSH :",  "es": "Apertura SSH:"},
+    "sd.grp.sftp_open":   {"it": "Apertura SFTP:",  "en": "SFTP open mode:","de": "SFTP-Öffnung:",  "fr": "Ouverture SFTP :", "es": "Apertura SFTP:"},
+    "sd.grp.ftp_open":    {"it": "Apertura FTP:",   "en": "FTP open mode:", "de": "FTP-Öffnung:",   "fr": "Ouverture FTP :",  "es": "Apertura FTP:"},
     "sd.open_with":       {"it": "Apri con:",              "en": "Open with:",           "de": "Öffnen mit:",            "fr": "Ouvrir avec :",         "es": "Abrir con:"},
     "sd.grp.terminal":    {"it": "Terminale",              "en": "Terminal",             "de": "Terminal",               "fr": "Terminal",              "es": "Terminal"},
     "sd.terminal_lbl":    {"it": "Terminale:",             "en": "Terminal:",            "de": "Terminal:",              "fr": "Terminal :",            "es": "Terminal:"},
@@ -805,12 +805,6 @@ _T: dict[str, dict[str, str]] = {
     "sd.template.checkbox": {"it": "💠 Usa come template", "en": "💠 Use as template",  "de": "💠 Als Vorlage verwenden", "fr": "💠 Utiliser comme modèle", "es": "💠 Usar como plantilla"},
     "sd.extra.expander":    {"it": "⚙ Opzioni extra",  "en": "⚙ Extra options",  "de": "⚙ Zusätzliche Optionen", "fr": "⚙ Options supplémentaires", "es": "⚙ Opciones extra"},
     "sd.tab.tunnel":   {"it": "Tunnel",          "en": "Tunnel",         "de": "Tunnel",         "fr": "Tunnel",           "es": "Túnel"},
-    "sd.grp.ssh_open": {"it": "Apertura SSH:",   "en": "SSH open mode:", "de": "SSH-Öffnung:",   "fr": "Ouverture SSH :",  "es": "Apertura SSH:"},
-    "sd.grp.sftp_open":{"it": "Apertura SFTP:",  "en": "SFTP open mode:","de": "SFTP-Öffnung:",  "fr": "Ouverture SFTP :", "es": "Apertura SFTP:"},
-    "sd.grp.ftp_open": {"it": "Apertura FTP:",   "en": "FTP open mode:", "de": "FTP-Öffnung:",   "fr": "Ouverture FTP :",  "es": "Apertura FTP:"},
-    # Valori combo modalità apertura (indice-based, usati come display)
-    "sd.rdp.open_ext":   {"it": "Finestra esterna",   "en": "External window",   "de": "Externes Fenster",   "fr": "Fenêtre externe",   "es": "Ventana externa"},
-    "sd.rdp.open_int":   {"it": "Pannello interno",   "en": "Internal panel",    "de": "Internes Panel",     "fr": "Panneau interne",    "es": "Panel interno"},
     "sd.open_int":       {"it": "Browser interno",    "en": "Internal browser",  "de": "Interner Browser",   "fr": "Navigateur interne", "es": "Navegador interno"},
     "sd.open_ext":       {"it": "Terminale esterno",  "en": "External terminal", "de": "Externes Terminal",  "fr": "Terminal externe",   "es": "Terminal externo"},
     "sd.open_int_terminal": {"it": "Terminale interno", "en": "Internal terminal", "de": "Internes Terminal", "fr": "Terminal interne", "es": "Terminal interno"},
@@ -910,7 +904,6 @@ _T: dict[str, dict[str, str]] = {
     "crypto.custom.msg_wrong":      {"it": "Password errata!", "en": "Incorrect password!", "de": "Falsches Passwort!", "fr": "Mot de passe incorrect !", "es": "¡Contraseña incorrecta!"},
 
     # ── deps_dialog ──────────────────────────────────────────────────────────
-    "deps.title":           {"it": "Configurazione Dipendenze",          "en": "Dependencies Configuration",      "de": "Abhängigkeitskonfiguration",     "fr": "Configuration des dépendances",    "es": "Configuración de dependencias"},
     "deps.col_status":      {"it": "Status",                             "en": "Status",                          "de": "Status",                          "fr": "Statut",                           "es": "Estado"},
     "deps.col_component":   {"it": "Componente",                         "en": "Component",                       "de": "Komponente",                      "fr": "Composant",                        "es": "Componente"},
     "deps.col_default":     {"it": "Comando Default",                    "en": "Default Command",                 "de": "Standardbefehl",                  "fr": "Commande par défaut",              "es": "Comando predeterminado"},
@@ -1024,7 +1017,7 @@ _T: dict[str, dict[str, str]] = {
     "winscp.col_name":      {"it": "Nome",                               "en": "Name",                            "de": "Name",                            "fr": "Nom",                              "es": "Nombre"},
     "winscp.col_size":      {"it": "Dim.",                               "en": "Size",                            "de": "Größe",                           "fr": "Taille",                           "es": "Tamaño"},
     "winscp.col_perms":     {"it": "Perm.",                              "en": "Perms",                           "de": "Rechte",                          "fr": "Droits",                           "es": "Perm."},
-    "winscp.col_op":        {"it": "Op",                                 "en": "Op",                              "de": "Op",                              "fr": "Op",                               "es": "Op"},
+    "winscp.col_op":        {"it": "Op.",                                "en": "Op.",                             "de": "Op.",                             "fr": "Op.",                              "es": "Op."},
     "winscp.col_src":       {"it": "Sorgente",                           "en": "Source",                          "de": "Quelle",                          "fr": "Source",                           "es": "Origen"},
     "winscp.col_dst":       {"it": "Destinazione",                       "en": "Destination",                     "de": "Ziel",                            "fr": "Destination",                      "es": "Destino"},
     "winscp.col_pct":       {"it": "%",                                  "en": "%",                               "de": "%",                               "fr": "%",                                "es": "%"},
@@ -1158,7 +1151,6 @@ _T: dict[str, dict[str, str]] = {
     "winscp.col_modified":  {"it": "Modificato",                         "en": "Modified",                        "de": "Geändert",                        "fr": "Modifié",                          "es": "Modificado"},
     "winscp.col_attrs":     {"it": "Attributi",                          "en": "Attributes",                      "de": "Attribute",                       "fr": "Attributs",                        "es": "Atributos"},
     "winscp.col_transferred":{"it":"Trasferito",                         "en": "Transferred",                     "de": "Übertragen",                      "fr": "Transféré",                        "es": "Transferido"},
-    "winscp.col_op":        {"it": "Op.",                                "en": "Op.",                             "de": "Op.",                             "fr": "Op.",                              "es": "Op."},
     "winscp.tooltip_home":  {"it": "Home",                               "en": "Home",                            "de": "Home",                            "fr": "Accueil",                          "es": "Inicio"},
     "winscp.tooltip_refresh":{"it":"Aggiorna",                           "en": "Refresh",                         "de": "Aktualisieren",                   "fr": "Actualiser",                       "es": "Actualizar"},
     "winscp.tooltip_up":    {"it": "Su",                                 "en": "Up",                              "de": "Nach oben",                       "fr": "Monter",                           "es": "Subir"},
@@ -1517,6 +1509,7 @@ _T: dict[str, dict[str, str]] = {
     "quickconn.user_lbl":    {"it": "Utente:", "en": "Username:", "de": "Benutzer:", "fr": "Utilisateur :", "es": "Usuario:"},
     "quickconn.pass_lbl":    {"it": "Password:", "en": "Password:", "de": "Passwort:", "fr": "Mot de passe :", "es": "Contraseña:"},
     "quickconn.no_host":     {"it": "Inserire un host", "en": "Enter a host", "de": "Host eingeben", "fr": "Saisissez un hôte", "es": "Ingrese un host"},
+    "quickconn.advanced":    {"it": "Opzioni avanzate", "en": "Advanced options", "de": "Erweiterte Optionen", "fr": "Options avancées", "es": "Opciones avanzadas"},
 
     # ── About dialog ─────────────────────────────────────────────────────────
     "about.dev_label":        {"it": "Sviluppato in Python/GTK3.", "en": "Developed in Python/GTK3.", "de": "Entwickelt in Python/GTK3.", "fr": "Développé en Python/GTK3.", "es": "Desarrollado en Python/GTK3."},
@@ -1594,6 +1587,26 @@ _T: dict[str, dict[str, str]] = {
     "panel.apri_log":           {"it": "Visualizza log…",         "en": "View logs…",            "de": "Logs anzeigen…",          "fr": "Afficher les logs…",       "es": "Ver registros…"},
     "panel.apri_monitor":       {"it": "Monitor sistema…",        "en": "System monitor…",       "de": "Systemmonitor…",          "fr": "Moniteur système…",        "es": "Monitor del sistema…"},
     "panel.apri_cron":          {"it": "Cron Manager…",           "en": "Cron Manager…",         "de": "Cron-Manager…",           "fr": "Gestionnaire cron…",       "es": "Gestor de cron…"},
+    # ── Cron Manager ──────────────────────────────────────────────────────────
+    "cron.title":               {"it": "Gestione Crontab",            "en": "Crontab Manager",                 "de": "Crontab-Manager",                 "fr": "Gestionnaire Crontab",             "es": "Gestor de Crontab"},
+    "cron.delete_title":        {"it": "Eliminare questa voce cron?", "en": "Delete this cron entry?",         "de": "Diesen Cron-Eintrag löschen?",   "fr": "Supprimer cette entrée cron ?",    "es": "¿Eliminar esta entrada de cron?"},
+    "cron.delete_btn":          {"it": "Elimina",                     "en": "Delete",                          "de": "Löschen",                         "fr": "Supprimer",                        "es": "Eliminar"},
+    "cron.new_title":           {"it": "Nuova voce cron",             "en": "New cron entry",                  "de": "Neuer Cron-Eintrag",              "fr": "Nouvelle entrée cron",             "es": "Nueva entrada de cron"},
+    "cron.edit_title":          {"it": "Modifica voce cron",          "en": "Edit cron entry",                 "de": "Cron-Eintrag bearbeiten",         "fr": "Modifier l'entrée cron",           "es": "Editar entrada de cron"},
+    "cron.reload_tooltip":      {"it": "Ricarica crontab dal server", "en": "Reload crontab from server",      "de": "Crontab vom Server neu laden",    "fr": "Recharger crontab depuis le serveur", "es": "Recargar crontab desde el servidor"},
+    "cron.connecting":          {"it": "Connessione in corso…",       "en": "Connecting…",                     "de": "Verbindung wird hergestellt…",    "fr": "Connexion en cours…",              "es": "Conectando…"},
+    "cron.entries_count":       {"it": "✔ {n} voci cron",             "en": "✔ {n} cron entries",              "de": "✔ {n} Cron-Einträge",             "fr": "✔ {n} entrées cron",               "es": "✔ {n} entradas cron"},
+    "cron.host_key_warning":    {"it": "Chiave host non in known_hosts.\nAbilita 'Accetta host key sconosciute' nelle impostazioni SSH.", "en": "Host key not in known_hosts.\nEnable 'Accept unknown host keys' in SSH settings.", "de": "Host-Key nicht in known_hosts.\nAktiviere 'Unbekannte Host-Keys akzeptieren' in den SSH-Einstellungen.", "fr": "Clé hôte absente de known_hosts.\nActivez 'Accepter les clés hôtes inconnues' dans les paramètres SSH.", "es": "Clave de host no encontrada en known_hosts.\nHabilite 'Aceptar claves de host desconocidas' en la configuración SSH."},
+    "cron.btn_cancel":          {"it": "_Annulla",                    "en": "_Cancel",                         "de": "_Abbrechen",                      "fr": "_Annuler",                         "es": "_Cancelar"},
+    "cron.btn_ok":              {"it": "_OK",                         "en": "_OK",                             "de": "_OK",                             "fr": "_OK",                              "es": "_OK"},
+    "cron.field_shortcut":      {"it": "Shortcut:",                   "en": "Shortcut:",                       "de": "Shortcut:",                       "fr": "Raccourci :",                      "es": "Atajo:"},
+    "cron.field_cmd":           {"it": "Comando:",                    "en": "Command:",                        "de": "Befehl:",                         "fr": "Commande :",                       "es": "Comando:"},
+    "cron.field_min":           {"it": "Minuti:",                     "en": "Minutes:",                        "de": "Minuten:",                        "fr": "Minutes :",                        "es": "Minutos:"},
+    "cron.field_hour":          {"it": "Ore:",                        "en": "Hours:",                          "de": "Stunden:",                        "fr": "Heures :",                         "es": "Horas:"},
+    "cron.field_dom":           {"it": "Giorno mese:",                "en": "Day of month:",                   "de": "Tag des Monats:",                 "fr": "Jour du mois :",                   "es": "Día del mes:"},
+    "cron.field_mon":           {"it": "Mese:",                       "en": "Month:",                          "de": "Monat:",                          "fr": "Mois :",                           "es": "Mes:"},
+    "cron.field_dow":           {"it": "Giorno sett.:",               "en": "Day of week:",                    "de": "Wochentag:",                      "fr": "Jour de la semaine :",             "es": "Día de la semana:"},
+    "cron.enabled":             {"it": "Abilitata",                   "en": "Enabled",                         "de": "Aktiviert",                       "fr": "Activée",                          "es": "Habilitada"},
     "mon.tab_monitor":          {"it": "Monitor",                  "en": "Monitor",               "de": "Monitor",                 "fr": "Moniteur",                 "es": "Monitor"},
     "mon.tab_logs":             {"it": "Logs",                     "en": "Logs",                  "de": "Protokolle",              "fr": "Journaux",                 "es": "Registros"},
     "mon.sys_overview":         {"it": "System Overview",          "en": "System Overview",       "de": "Systemübersicht",         "fr": "Vue système",              "es": "Resumen del sistema"},
@@ -1722,18 +1735,6 @@ _T: dict[str, dict[str, str]] = {
 
     # ── Session dialog: browser device seriale ─────────────────────────────────
     "sd.serial.browse_title":   {"it": "Seleziona device seriale", "en": "Select serial device",  "de": "Serielles Gerät wählen",  "fr": "Sélectionner le périphérique série", "es": "Seleccionar dispositivo serie"},
-
-    # ── Quick Connect ──────────────────────────────────────────────────────────
-    "quickconn.title":          {"it": "Connessione rapida",         "en": "Quick Connect",           "de": "Schnellverbindung",       "fr": "Connexion rapide",            "es": "Conexión rápida"},
-    "quickconn.subtitle":       {"it": "Connessione diretta senza salvare una sessione", "en": "Direct connection without saving a session", "de": "Direktverbindung ohne Speichern einer Sitzung", "fr": "Connexion directe sans enregistrer de session", "es": "Conexión directa sin guardar una sesión"},
-    "quickconn.proto_lbl":      {"it": "Protocollo:",               "en": "Protocol:",               "de": "Protokoll:",              "fr": "Protocole :",                "es": "Protocolo:"},
-    "quickconn.host_lbl":       {"it": "Host:",                     "en": "Host:",                   "de": "Host:",                   "fr": "Hôte :",                     "es": "Host:"},
-    "quickconn.port_lbl":       {"it": "Porta:",                    "en": "Port:",                   "de": "Port:",                   "fr": "Port :",                     "es": "Puerto:"},
-    "quickconn.user_lbl":       {"it": "Utente:",                   "en": "User:",                   "de": "Benutzer:",               "fr": "Utilisateur :",              "es": "Usuario:"},
-    "quickconn.pass_lbl":       {"it": "Password:",                 "en": "Password:",               "de": "Passwort:",               "fr": "Mot de passe :",             "es": "Contraseña:"},
-    "quickconn.no_host":        {"it": "Inserire un host",          "en": "Enter a host",            "de": "Host eingeben",           "fr": "Saisir un hôte",             "es": "Ingrese un host"},
-    "quickconn.connect":        {"it": "Connetti",                  "en": "Connect",                 "de": "Verbinden",               "fr": "Connecter",                  "es": "Conectar"},
-    "quickconn.advanced":       {"it": "Opzioni avanzate",          "en": "Advanced options",        "de": "Erweiterte Optionen",     "fr": "Options avancées",           "es": "Opciones avanzadas"},
 
     # ── Tooltip pannelli monitoraggio ──────────────────────────────────────────
     "tt.panel_cpu_mem":         {"it": "Mostra utilizzo CPU e RAM in tempo reale via SSH", "en": "Show real-time CPU and RAM usage via SSH", "de": "CPU- und RAM-Auslastung in Echtzeit via SSH anzeigen", "fr": "Afficher l'utilisation CPU et RAM en temps réel via SSH", "es": "Mostrar uso de CPU y RAM en tiempo real vía SSH"},

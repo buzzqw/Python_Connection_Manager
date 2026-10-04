@@ -574,7 +574,7 @@ class MainWindow(Gtk.ApplicationWindow):
             (f"⬒  {t('toolbar.split.horizontal')}", self._split_orizzontale, "horizontal"),
         ]:
             mi = Gtk.CheckMenuItem(label=label)
-            mi.connect("activate", lambda _, c=cb, m=mode: (c(), self._aggiorna_split_indicator(mode)))
+            mi.connect("activate", lambda _, c=cb, m=mode: (c(), self._aggiorna_split_indicator(m)))
             split_menu.append(mi)
             self._split_menu_items.append((mi, mode))
         split_menu.show_all()
@@ -1417,26 +1417,30 @@ class MainWindow(Gtk.ApplicationWindow):
         self._connect_to_cluster_plan(cluster_plan, delay, enable_bc)
 
     def _connect_to_cluster_plan(self, plan: dict, delay: float, enable_bc: bool):
-        import time
-        connected = 0
-        for nome_sessione, hosts_info in plan.items():
-            dati = hosts_info.get("dati", {})
-            keep_user = hosts_info.get("keep_user", True)
-            keep_port = hosts_info.get("keep_port", True)
-            for host in hosts_info.get("hosts", []):
-                d = dict(dati)
-                d["host"] = host
-                if not keep_user:
-                    d["user"] = ""
-                if not keep_port:
-                    d["port"] = ""
-                label = f"{nome_sessione} [{host}]"
-                if connected > 0 and delay > 0:
-                    time.sleep(delay)
-                GLib.idle_add(lambda dd=d, l=label: self._on_connetti(None, l, dd))
-                connected += 1
-        if enable_bc and connected > 0:
-            GLib.idle_add(self._on_broadcast)
+        def _worker():
+            import time
+            connected = 0
+            for nome_sessione, hosts_info in plan.items():
+                dati = hosts_info.get("dati", {})
+                keep_user = hosts_info.get("keep_user", True)
+                keep_port = hosts_info.get("keep_port", True)
+                for host in hosts_info.get("hosts", []):
+                    d = dict(dati)
+                    d["host"] = host
+                    if not keep_user:
+                        d["user"] = ""
+                    if not keep_port:
+                        d["port"] = ""
+                    label = f"{nome_sessione} [{host}]"
+                    if connected > 0 and delay > 0:
+                        time.sleep(delay)
+                    GLib.idle_add(lambda dd=d, l=label: self._on_connetti(None, l, dd))
+                    connected += 1
+            if enable_bc and connected > 0:
+                GLib.idle_add(self._on_broadcast)
+
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _save_cluster(self, name: str, session_names: list[str]):
         s = config_manager.load_settings()
@@ -1933,9 +1937,16 @@ class MainWindow(Gtk.ApplicationWindow):
                 mode = "vertical"
         for mi, m in self._split_menu_items:
             mi.set_active(m == mode)
-        icons = {"single": "view-dual-symbolic", "vertical": "view-dual-symbolic",
-                 "horizontal": "view-dual-symbolic"}
-        self._split_img.set_from_icon_name(icons.get(mode, "view-dual-symbolic"), Gtk.IconSize.BUTTON)
+        icons = {
+            "single": "window-maximize-symbolic",
+            "vertical": "view-dual-symbolic",
+            "horizontal": "format-justify-fill-symbolic",
+        }
+        icon_name = icons.get(mode, "view-dual-symbolic")
+        theme = Gtk.IconTheme.get_default()
+        if not (theme and theme.has_icon(icon_name)):
+            icon_name = "view-dual-symbolic"
+        self._split_img.set_from_icon_name(icon_name, Gtk.IconSize.BUTTON)
 
     def _sposta_tab(self, sorgente: Gtk.Notebook, destinazione: Gtk.Notebook, idx: int):
         """Sposta il tab idx da sorgente a destinazione."""
@@ -2127,12 +2138,24 @@ class MainWindow(Gtk.ApplicationWindow):
                 _log.debug("Terminazione gateway tunnel fallita: %s", e)
 
         # Cleanup processi
-        if hasattr(widget, "chiudi_processo"):
-            widget.chiudi_processo()
-        elif hasattr(widget, "get_child1"):
-            for child in [widget.get_child1(), widget.get_child2()]:
-                if child and hasattr(child, "chiudi_processo"):
-                    child.chiudi_processo()
+        def _cleanup_widget(w):
+            if not w:
+                return
+            if hasattr(w, "chiudi_processo"):
+                try:
+                    w.chiudi_processo()
+                except Exception as e:
+                    _log.debug("chiudi_processo fallito su %s: %s", w, e)
+            elif hasattr(w, "chiudi"):
+                try:
+                    w.chiudi()
+                except Exception as e:
+                    _log.debug("chiudi fallito su %s: %s", w, e)
+            if hasattr(w, "get_child1"):
+                _cleanup_widget(w.get_child1())
+                _cleanup_widget(w.get_child2())
+
+        _cleanup_widget(widget)
         # Cleanup timer di riconnessione
         if hasattr(widget, "_pcm_reconnect_timer"):
             try:
@@ -3065,10 +3088,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _aggiorna_stato_live(self) -> bool:
         """Timer ogni 3s: aggiorna la statusbar con le stat live del terminale attivo."""
-        idx = self._notebook.get_current_page()
-        if idx <= 0:
+        nb = getattr(self, "_notebook_attivo", None) or self._notebook
+        idx = nb.get_current_page()
+        if nb is self._notebook and idx <= 0:
             return True
-        page = self._notebook.get_nth_page(idx)
+        if idx < 0:
+            return True
+        page = nb.get_nth_page(idx)
         if page is None:
             return True
         # Cerca il TerminalWidget (può essere direttamente la page o figlio di Paned)

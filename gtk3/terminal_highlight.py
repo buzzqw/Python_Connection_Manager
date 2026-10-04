@@ -8,7 +8,8 @@ Funziona con VTE >= 0.46. Su versioni precedenti il modulo viene disabilitato.
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import GLib, Vte
+from gi.repository import GLib, Vte, Gdk
+from pcm_logging import get_logger as _get_log
 
 
 DEFAULT_PATTERNS = {
@@ -116,18 +117,27 @@ class Highlighter:
                 rgba = Gdk.RGBA()
                 if not rgba.parse(cat_data["color"]):
                     rgba.parse("#ffffff")
-                tag = self._vte.match_add_regex(
-                    GLib.Regex.new("|".join(cat_data["patterns"]),
-                                   GLib.RegexCompileFlags.OPTIMIZE |
-                                   GLib.RegexCompileFlags.MULTILINE,
-                                   0),
-                    Vte.RegexMatchFlags(0),
-                )
+                pattern_str = "|".join(cat_data["patterns"])
+                tag = -1
+                if hasattr(Vte, "Regex") and hasattr(Vte.Regex, "new_for_match"):
+                    # PCRE2_MULTILINE = 0x00000400
+                    vr = Vte.Regex.new_for_match(pattern_str, len(pattern_str), 0x00000400)
+                    tag = self._vte.match_add_regex(vr, 0)
+                elif hasattr(self._vte, "match_add_gregex"):
+                    gr = GLib.Regex.new(
+                        pattern_str,
+                        GLib.RegexCompileFlags.OPTIMIZE | GLib.RegexCompileFlags.MULTILINE,
+                        0,
+                    )
+                    tag = self._vte.match_add_gregex(gr, 0)
                 if tag >= 0:
-                    self._vte.match_set_cursor_type(tag, Gdk.CursorType.XTERM)
+                    if hasattr(self._vte, "match_set_cursor_name"):
+                        self._vte.match_set_cursor_name(tag, "text")
+                    elif hasattr(self._vte, "match_set_cursor_type"):
+                        self._vte.match_set_cursor_type(tag, Gdk.CursorType.XTERM)
                     self._match_tags.append(tag)
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("Highlight regex fallito per '%s': %s", cat_name, e)
 
     def _clear_all(self):
         for tag in self._match_tags:

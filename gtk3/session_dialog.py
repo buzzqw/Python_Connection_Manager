@@ -6,6 +6,7 @@ Gtk.Dialog con Gtk.Notebook. Adatta i widget visibili al protocollo scelto.
 
 import os
 import shutil
+import subprocess
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -1360,7 +1361,6 @@ class SessionDialog(Gtk.Dialog):
         dlg.destroy()
 
         if resp == Gtk.ResponseType.APPLY:
-            clipboard = Gtk.Clipboard.get(self.get_display().get_default_seat().get_keyboard().get_surface() if False else self.get_display())
             try:
                 clipboard = Gtk.Clipboard.get_for_display(self.get_display(), Gdk.SELECTION_CLIPBOARD)
                 clipboard.set_text(pub_content, -1)

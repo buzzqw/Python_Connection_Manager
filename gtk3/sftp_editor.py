@@ -281,7 +281,13 @@ class SftpEditorWidget(Gtk.Box):
         if not self._tmp_path:
             return
         hash_before = _file_hash(self._tmp_path)
-        cmd = self._ext_editor.split() + [self._tmp_path]
+        cmd_parts = self._ext_editor.split()
+        binary = os.path.basename(cmd_parts[0])
+        # Aggiungi --wait per editor come VS Code o Sublime che altrimenti ritornano subito
+        if binary in ("code", "codium", "subl", "sublime_text") and "--wait" not in cmd_parts and "-w" not in cmd_parts:
+            cmd = [cmd_parts[0], "--wait"] + cmd_parts[1:] + [self._tmp_path]
+        else:
+            cmd = cmd_parts + [self._tmp_path]
         try:
             proc = subprocess.Popen(cmd)
         except FileNotFoundError:

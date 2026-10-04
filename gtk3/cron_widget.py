@@ -13,6 +13,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 from pcm_logging import get_logger as _get_log
+from translations import t
 
 try:
     import paramiko
@@ -138,10 +139,10 @@ def _rows_to_crontab(rows: list) -> str:
 class _CronEntryDialog(Gtk.Dialog):
 
     def __init__(self, parent, entry=None):
-        title = "Nuova voce cron" if entry is None else "Modifica voce cron"
+        title = t("cron.new_title") if entry is None else t("cron.edit_title")
         super().__init__(title=title, transient_for=parent, modal=True)
-        self.add_buttons("_Annulla", Gtk.ResponseType.CANCEL,
-                         "_OK",      Gtk.ResponseType.OK)
+        self.add_buttons(t("cron.btn_cancel"), Gtk.ResponseType.CANCEL,
+                         t("cron.btn_ok"),      Gtk.ResponseType.OK)
         self.set_default_size(520, 300)
         self._build(entry or {})
 
@@ -175,9 +176,9 @@ class _CronEntryDialog(Gtk.Dialog):
             child = self._combo_sc.get_child()
             if child:
                 child.set_text(e.get("min", "@reboot"))
-            grid.attach(_lbl("Shortcut:"), 0, 0, 1, 1)
+            grid.attach(_lbl(t("cron.field_shortcut")), 0, 0, 1, 1)
             grid.attach(self._combo_sc,    1, 0, 1, 1)
-            grid.attach(_lbl("Comando:"),  0, 1, 1, 1)
+            grid.attach(_lbl(t("cron.field_cmd")),  0, 1, 1, 1)
             grid.attach(self._e_cmd,       1, 1, 1, 1)
             row_hint = 2
         else:
@@ -187,12 +188,12 @@ class _CronEntryDialog(Gtk.Dialog):
             self._e_mon  = _entry(e.get("mon",  "*"), "1-12, *…")
             self._e_dow  = _entry(e.get("dow",  "*"), "0-7 (0=dom), *…")
             for row, (label, widget) in enumerate([
-                ("Minuti:",       self._e_min),
-                ("Ore:",          self._e_hour),
-                ("Giorno mese:",  self._e_dom),
-                ("Mese:",         self._e_mon),
-                ("Giorno sett.:", self._e_dow),
-                ("Comando:",      self._e_cmd),
+                (t("cron.field_min"),       self._e_min),
+                (t("cron.field_hour"),      self._e_hour),
+                (t("cron.field_dom"),       self._e_dom),
+                (t("cron.field_mon"),       self._e_mon),
+                (t("cron.field_dow"),       self._e_dow),
+                (t("cron.field_cmd"),       self._e_cmd),
             ]):
                 grid.attach(_lbl(label), 0, row, 1, 1)
                 grid.attach(widget,      1, row, 1, 1)
@@ -211,7 +212,7 @@ class _CronEntryDialog(Gtk.Dialog):
         grid.attach(hint, 0, row_hint, 2, 1)
 
         chk_row = row_hint + 1
-        self._chk = Gtk.CheckButton(label="Abilitata")
+        self._chk = Gtk.CheckButton(label=t("cron.enabled"))
         self._chk.set_active(e.get("abilitata", True))
         grid.attach(self._chk, 0, chk_row, 2, 1)
 
@@ -292,7 +293,7 @@ class CronWidget(Gtk.Box):
         btn_ref  = Gtk.Button()
         btn_ref.add(Gtk.Image.new_from_icon_name("view-refresh-symbolic",
                                                   Gtk.IconSize.SMALL_TOOLBAR))
-        btn_ref.set_tooltip_text("Ricarica crontab dal server")
+        btn_ref.set_tooltip_text(t("cron.reload_tooltip"))
 
         btn_add.connect("clicked",  self._on_add)
         btn_edit.connect("clicked", self._on_edit)
@@ -343,7 +344,7 @@ class CronWidget(Gtk.Box):
         scroll.add(self._view)
         self.pack_start(scroll, True, True, 0)
 
-        self._status_lbl = Gtk.Label(label="Connessione in corso…")
+        self._status_lbl = Gtk.Label(label=t("cron.connecting"))
         self._status_lbl.set_xalign(0.0)
         self._status_lbl.set_margin_start(8)
         self._status_lbl.set_margin_top(3); self._status_lbl.set_margin_bottom(3)
@@ -447,7 +448,7 @@ class CronWidget(Gtk.Box):
                 r.get("dom",  "*"), r.get("mon",  "*"),
                 r.get("dow",  "*"), r.get("cmd",  ""),
             ])
-        self._set_status(f"✔ {len(cron_rows)} voci cron")
+        self._set_status(t("cron.entries_count", n=len(cron_rows)))
 
     def _cron_rows(self) -> list:
         """Sottolista di _rows senza commenti puri."""
@@ -520,7 +521,7 @@ class CronWidget(Gtk.Box):
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text="Eliminare questa voce cron?",
+            text=t("cron.delete_title"),
             secondary_text=f"{schedule}  {row['cmd']}"
         )
         if dlg.run() == Gtk.ResponseType.YES:

@@ -664,6 +664,12 @@ class SftpBrowserWidget(Gtk.Box):
                 self._ssh.close()
             except Exception as e:
                 _get_log(__name__).debug("SSH connection close failed: %s", e)
+        self._sftp = None
+        self._ssh = None
+
+    def chiudi_processo(self):
+        """Alias per PCM per il cleanup alla chiusura della tab."""
+        self.chiudi()
 
 
 # ---------------------------------------------------------------------------
@@ -1107,6 +1113,10 @@ class FtpBrowserWidget(Gtk.Box):
                 except Exception as e:
                     _get_log(__name__).debug("FTP connection close failed: %s", e)
         self._ftp = None
+
+    def chiudi_processo(self):
+        """Alias per PCM per il cleanup alla chiusura della tab."""
+        self.chiudi()
 
     def _set_status(self, msg: str):
         self._status_lbl.set_text(msg)

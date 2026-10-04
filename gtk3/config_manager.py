@@ -177,15 +177,22 @@ def save_profiles(profiles: dict) -> bool:
     Se la cifratura è attiva e sbloccata, cifra automaticamente user/password
     prima di scrivere su disco.
     """
+    clean_profiles = {}
+    for nome, p in profiles.items():
+        if isinstance(p, dict):
+            clean_profiles[nome] = {k: v for k, v in p.items() if not k.startswith("_inherits_")}
+        else:
+            clean_profiles[nome] = p
+
     cm = _crypto()
     if cm and cm.is_enabled() and cm.is_unlocked():
         try:
-            to_save = {nome: cm.encrypt_profile(p) for nome, p in profiles.items()}
+            to_save = {nome: cm.encrypt_profile(p) for nome, p in clean_profiles.items()}
         except Exception as e:
             _get_log(__name__).error("Cifratura fallita, salvataggio annullato: %s", e)
             return False
     else:
-        to_save = profiles
+        to_save = clean_profiles
 
     try:
         _backup_config_file(SESSIONS_FILE, "connections")
