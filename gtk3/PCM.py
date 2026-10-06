@@ -173,6 +173,36 @@ def _load_icon(name: str, size: int = 24):
 # Finestra principale
 # ===========================================================================
 
+def _askpass_autodelete(widget, path, timeout_ms=120000):
+    """Elimina lo script SSH_ASKPASS quando il processo termina (o dopo timeout_ms).
+
+    Un timer breve e fisso lo cancellava prima che ssh arrivasse all'autenticazione
+    (connessione lenta dopo inattivita'/sospensione): ssh falliva con
+    'ssh_askpass: exec(...): No such file or directory'.
+    """
+    state = {"hid": None, "src": None}
+
+    def _cleanup(*_a):
+        if state["hid"] is not None:
+            with contextlib.suppress(Exception):
+                widget.disconnect(state["hid"])
+            state["hid"] = None
+        if state["src"] is not None:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(state["src"])
+            state["src"] = None
+        with contextlib.suppress(Exception):
+            os.unlink(path)
+        return False
+
+    def _on_timeout():
+        state["src"] = None
+        return _cleanup()
+
+    state["hid"] = widget.connect("processo-terminato", _cleanup)
+    state["src"] = GLib.timeout_add(timeout_ms, _on_timeout)
+
+
 class MainWindow(Gtk.ApplicationWindow):
 
     def __init__(self, app):
@@ -1153,6 +1183,7 @@ class MainWindow(Gtk.ApplicationWindow):
         #   Old SSH → SSH_ASKPASS ignorato (TTY presente) → feed_child gestisce tutto.
         import shlex as _shlex
         env_extra = {}
+        _initial_askpass = None
         pwd  = dati.get("password", "")
         pkey = dati.get("private_key", "").strip()
         if pwd and not pkey:
@@ -1169,11 +1200,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 os.chmod(_askpass, 0o700)
                 env_extra["SSH_ASKPASS"] = _askpass
                 env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
-                def _cleanup_askpass(path=_askpass):
-                    with contextlib.suppress(Exception):
-                        os.unlink(path)
-                    return False
-                GLib.timeout_add(5000, _cleanup_askpass)    # pulizia dopo 5 s
+                _initial_askpass = _askpass
 
         # Modalità terminale ESTERNO: lancia nel terminal emulator scelto
         if modalita and modalita.endswith("_term_ext"):
@@ -1259,6 +1286,8 @@ class MainWindow(Gtk.ApplicationWindow):
             widget.imposta_expect(expect_rules)
 
         widget.avvia(cmd, env_extra=env_extra)
+        if _initial_askpass:
+            _askpass_autodelete(widget, _initial_askpass)
         widget.connect("processo-terminato",
                        lambda w: self._on_processo_terminato(w))
 
@@ -1286,11 +1315,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     os.chmod(_askpass, 0o700)
                     _reconnect_env["SSH_ASKPASS"] = _askpass
                     _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
-                    def _cleanup_askpass(path=_askpass):
-                        with contextlib.suppress(Exception):
-                            os.unlink(path)
-                        return False
-                    GLib.timeout_add(5000, _cleanup_askpass)
+                    _askpass_autodelete(w, _askpass)
                 w.avvia(_cmd, env_extra=_reconnect_env)
                 if _pwd and not _pkey:
                     w.imposta_auto_password(_pwd)
