@@ -105,7 +105,7 @@ if _gtk_theme.endswith(":dark") or _gtk_theme.lower() == "dark":
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import Gtk, GLib, Gio
+from gi.repository import Gtk, Gdk, GLib, Gio, Vte
 
 from pcm_logging import get_logger
 _log = get_logger("pcm")
@@ -735,19 +735,14 @@ class MainWindow(Gtk.ApplicationWindow):
             if risultato is None:
                 continue
             _, key, mod = risultato
-            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *a, cb=azione: cb())
+            solo_ctrl = (mod & Gtk.accelerator_get_default_mod_mask()) == Gdk.ModifierType.CONTROL_MASK
+            ag.connect(key, mod, Gtk.AccelFlags.VISIBLE,
+                       lambda *a, cb=azione, sc=solo_ctrl: self._esegui_accel(cb, sc))
 
         key_fissa, mod_fissa = Gtk.accelerator_parse("<Primary><Shift>G")
         if key_fissa:
             ag.connect(key_fissa, mod_fissa, Gtk.AccelFlags.VISIBLE,
                        lambda *_: self._on_variabili_globali() or True)
-
-        # Accel rapido per quick switcher (Ctrl+P, Ctrl+K)
-        for _sc in ("<Primary>p", "<Primary>k"):
-            _k, _m = Gtk.accelerator_parse(_sc)
-            if _k:
-                ag.connect(_k, _m, Gtk.AccelFlags.VISIBLE,
-                           lambda *_: self._on_quick_switcher() or True)
 
         # Accel per modalità split (Ctrl+Alt+1, Ctrl+Alt+2, Ctrl+Alt+3)
         for _sc, _cb, _m in (
@@ -759,6 +754,13 @@ class MainWindow(Gtk.ApplicationWindow):
             if _k:
                 ag.connect(_k, _m_code, Gtk.AccelFlags.VISIBLE,
                            lambda *_, c=_cb, m=_m: (c(), self._aggiorna_split_indicator(m)) or True)
+
+    def _esegui_accel(self, cb, solo_ctrl):
+        # Ctrl+lettera semplice appartiene ai programmi nel terminale
+        # (nano, bash, vim...): se il focus e' su un VTE lascialo passare.
+        if solo_ctrl and isinstance(self.get_focus(), Vte.Terminal):
+            return False
+        return cb()
 
     def _attiva_ricerca_terminale(self):
         idx = self._notebook_attivo.get_current_page()
