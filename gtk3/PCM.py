@@ -2591,28 +2591,11 @@ class MainWindow(Gtk.ApplicationWindow):
     def _notifica_tunnel_avvio(self) -> bool:
         """Chiamato 1s dopo l'avvio: riagganicia i tunnel con PID persistito e mostra notifica."""
         reattach_tunnels()  # popola _active_procs dai PID salvati nella config
-        self._avvia_tunnel_autostart()
         attivi = get_active_tunnels()
         if attivi:
             nomi = ", ".join(tun.get("nome", "?") for tun in attivi)
             self._status(t("tunnel.startup_found").format(n=len(attivi)) + f": {nomi}")
         return False  # esegui una volta sola
-
-    def _avvia_tunnel_autostart(self):
-        """Avvia in background i tunnel con 'avvio automatico' non ancora attivi."""
-        da_avviare = [(i, tun.get("nome", "?"))
-                      for i, tun in enumerate(config_manager.load_tunnels())
-                      if tun.get("autostart")]
-        if not da_avviare:
-            return
-
-        def _bg():
-            for i, nome in da_avviare:
-                ok, err = start_tunnel(i, wait=8)
-                if not ok:
-                    GLib.idle_add(self._warn, f"{t('tunnel.start_failed')} ({nome}): {err}")
-            GLib.idle_add(self._aggiorna_tun_indicator)
-        threading.Thread(target=_bg, daemon=True).start()
 
     def _aggiorna_tun_indicator(self) -> bool:
         attivi = get_active_tunnels()
