@@ -93,7 +93,7 @@ _SSH_FIELDS = {
     "strict_host", "agent_forward",
     "legacy_kex", "legacy_cipher", "legacy_hostkey",
     "legacy_mac", "legacy_pubkey",
-    "ssh_open_mode",
+    "ssh_open_mode", "ssh_multiplex",
 }
 
 _SFTP_FIELDS = {

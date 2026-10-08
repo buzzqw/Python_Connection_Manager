@@ -156,6 +156,22 @@ def _porta_listening(port: int) -> bool:
     return False
 
 
+def _e_nostro_tunnel(pid: int, lport: int) -> bool:
+    """True se il PID e' un ssh che inoltra la porta locale indicata
+    (evita di adottare un processo estraneo che ha riusato il PID)."""
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            argv = f.read().decode(errors="replace").split("\0")
+    except OSError:
+        return False
+    if not argv or not os.path.basename(argv[0]).startswith("ssh"):
+        return False
+    for i, a in enumerate(argv[:-1]):
+        if a in ("-D", "-L") and argv[i + 1].split(":")[0] == str(lport):
+            return True
+    return False
+
+
 def _ultimo_errore(path: str) -> str:
     """Ultima riga non vuota del file stderr di ssh."""
     try:
@@ -182,6 +198,12 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
     if ("SOCKS" in tipo or "Locale" in tipo) and tun.get("local_port"):
         lport = int(tun["local_port"])
         if _porta_listening(lport):
+            # Il tunnel potrebbe essere ancora quello avviato da noi (es. PCM
+            # riavviato): riconoscilo dal PID salvato e riusalo.
+            pid_conf = tun.get("pid")
+            if pid_conf and _proc_vivo(pid_conf) and _e_nostro_tunnel(pid_conf, lport):
+                _active_procs[idx] = _PidProxy(pid_conf)
+                return True, ""
             pid = _porta_in_ascolto(lport)
             quale = ""
             if pid:

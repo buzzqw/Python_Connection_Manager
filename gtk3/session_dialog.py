@@ -703,14 +703,17 @@ class SessionDialog(Gtk.Dialog):
         self.chk_strict_host.set_tooltip_text(t("tt.ssh_strict"))
         self.chk_agent_forward = _check(t("sd.ssh.agent_forward"))
         self.chk_agent_forward.set_tooltip_text(t("tt.ssh_agent"))
+        self.chk_multiplex = _check(t("sd.ssh.multiplex"))
+        self.chk_multiplex.set_tooltip_text(t("tt.ssh_multiplex"))
         for _chk in (self.chk_x11, self.chk_compression, self.chk_keepalive,
-                     self.chk_strict_host, self.chk_agent_forward):
+                     self.chk_strict_host, self.chk_agent_forward, self.chk_multiplex):
             _chk.set_halign(Gtk.Align.START)
 
         # Left column checkboxes (X11, Keepalive)
         _chk_left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         _chk_left_box.pack_start(self.chk_x11,      False, False, 0)
         _chk_left_box.pack_start(self.chk_keepalive, False, False, 0)
+        _chk_left_box.pack_start(self.chk_multiplex, False, False, 0)
 
         # Right column checkboxes (Compression, Strict host, Agent forward)
         _chk_right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -1948,6 +1951,7 @@ class SessionDialog(Gtk.Dialog):
         self.chk_panel_network.set_active(dati.get("panel_network", False))
         self.chk_panel_log.set_active(dati.get("panel_log", False))
         self.chk_agent_forward.set_active(dati.get("agent_forward", False))
+        self.chk_multiplex.set_active(dati.get("ssh_multiplex", False))
 
         # Jump
         self.entry_jump_host.set_text(dati.get("jump_host", ""))
@@ -2095,6 +2099,7 @@ class SessionDialog(Gtk.Dialog):
             "keepalive": self.chk_keepalive.get_active(),
             "strict_host": self.chk_strict_host.get_active(),
             "agent_forward": self.chk_agent_forward.get_active(),
+            "ssh_multiplex": self.chk_multiplex.get_active(),
             "rdp_client": self.combo_rdp_client.get_active_text() or "xfreerdp",
             "rdp_auth": "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
             "rdp_domain": self.entry_rdp_domain.get_text().strip(),
@@ -2289,6 +2294,7 @@ class SessionDialog(Gtk.Dialog):
             "keepalive_interval": int(self.spin_keepalive_interval.get_value()),
             "strict_host":    self.chk_strict_host.get_active(),
             "agent_forward":  self.chk_agent_forward.get_active(),
+            "ssh_multiplex":  self.chk_multiplex.get_active(),
             "rdp_client":     self.combo_rdp_client.get_active_text() or "xfreerdp",
             "rdp_auth":       "kerberos" if self.combo_rdp_auth.get_active() == 1 else "ntlm",
             "fullscreen":     self.chk_rdp_fs.get_active(),

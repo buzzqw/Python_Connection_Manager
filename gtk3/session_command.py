@@ -196,6 +196,7 @@ def _build_ssh(p: dict) -> str:
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
     if p.get("agent_forward"): args.append("-A")
+    args += [_q(a) if " " in a else a for a in multiplex_args(p)]
 
     if p.get("jump_host"):
         jhost = p.get('jump_host', '')
@@ -564,6 +565,51 @@ def make_ssh_client(profile: dict, confirm_host_key=None):
     else:
         client.set_missing_host_key_policy(_AskHostKeyPolicy(confirm_host_key))
     return client
+
+
+def _control_path() -> Optional[str]:
+    """Percorso del socket ControlMaster. I socket Unix hanno un limite di
+    ~108 byte: con una home lunga si ripiega su /tmp/pcm-<uid> (privata).
+    Restituisce None se non c'e' una cartella sicura utilizzabile."""
+    d = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+    if len(d) + len("/cm-") + 40 >= 100:
+        d = f"/tmp/pcm-{os.getuid()}"
+    try:
+        os.makedirs(d, mode=0o700, exist_ok=True)
+        st = os.stat(d)
+    except OSError:
+        return None
+    if st.st_uid != os.getuid() or st.st_mode & 0o077:
+        return None
+    return os.path.join(d, "cm-%C")
+
+
+def multiplex_args(p: dict) -> list:
+    """Opzioni -o per il multiplexing SSH (ControlMaster) se attivo nella sessione.
+    Le sessioni successive verso lo stesso user@host:porta riusano la
+    connessione gia' aperta, senza rifare handshake e login."""
+    if not p.get("ssh_multiplex"):
+        return []
+    path = _control_path()
+    if not path:
+        return []
+    return ["-o", "ControlMaster=auto",
+            "-o", f"ControlPath={path}",
+            "-o", "ControlPersist=600"]
+
+
+def ssh_master_active(p: dict) -> bool:
+    """True se esiste gia' una connessione master riusabile per questa sessione."""
+    if not multiplex_args(p) or not p.get("host"):
+        return False
+    target = f"{p['user']}@{p['host']}" if p.get("user") else p["host"]
+    cmd = [_get_tool("ssh"), "-p", str(p.get("port", "22") or "22"),
+           *multiplex_args(p), "-O", "check", target]
+    try:
+        return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=3).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def _keepalive_args(p: dict) -> list:

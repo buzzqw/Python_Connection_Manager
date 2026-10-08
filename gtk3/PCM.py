@@ -122,7 +122,7 @@ from session_panel import SessionPanel
 from session_dialog import SessionDialog
 import protocols
 from protocols import refresh_from_plugins as _refresh_protocols
-from session_command import build_command
+from session_command import build_command, ssh_master_active
 from settings_dialog import SettingsDialog
 from tunnel_manager import (TunnelManagerDialog, get_active_tunnels, stop_tunnel,
                             reattach_tunnels, get_recent_tunnels, start_tunnel,
@@ -1204,6 +1204,12 @@ class MainWindow(Gtk.ApplicationWindow):
         _initial_askpass = None
         pwd  = dati.get("password", "")
         pkey = dati.get("private_key", "").strip()
+        # Multiplexing SSH: se la connessione master esiste gia' non c'e' login,
+        # quindi niente password/OTP da digitare (finirebbero in un prompt
+        # successivo, ad es. quello di sudo).
+        _riusa_master = ssh_master_active(dati)
+        if _riusa_master:
+            pwd = ""
         if pwd and not pkey:
             # SSH_ASKPASS: script temp in directory privata (non /tmp), password embedded nel file
             _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
@@ -1288,7 +1294,7 @@ class MainWindow(Gtk.ApplicationWindow):
             widget.imposta_auto_password(pwd)
 
         # TOTP / 2FA: feed_child digita il codice OTP dopo la password
-        totp_secret = dati.get("totp_secret", "").strip()
+        totp_secret = "" if _riusa_master else dati.get("totp_secret", "").strip()
         if totp_secret:
             try:
                 from totp_manager import generate_totp, render_uri_to_secret
@@ -1335,7 +1341,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
                     _askpass_autodelete(w, _askpass)
                 w.avvia(_cmd, env_extra=_reconnect_env)
-                if _pwd and not _pkey:
+                if _pwd and not _pkey and not ssh_master_active(dati):
                     w.imposta_auto_password(_pwd)
                 if _erules:
                     w.imposta_expect(_erules)
