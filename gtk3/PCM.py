@@ -2476,8 +2476,17 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apri_sessioni_multiple(self, nomi: list):
         """Apre piu' sessioni in sequenza (salta quelle già aperte)."""
+        # Sblocca una volta sola: altrimenti ogni apertura aprirebbe un suo dialogo
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and not crypto_manager.is_unlocked():
+                self._esegui_unlock_dialog()
+                if not crypto_manager.is_unlocked():
+                    return
+        except ImportError:
+            pass
         profili = config_manager.load_profiles()
-        gia_aperte = self._get_open_session_names()
+        gia_aperte = {n.lstrip("📌↻✖ ") for n in self._get_open_session_names()}
         da_aprire = [n for n in nomi if n in profili and n not in gia_aperte]
         for i, nome in enumerate(da_aprire):
             def _apri(n=nome):
@@ -2526,7 +2535,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
         def _salva(*_):
             nome = entry.get_text().strip()
-            aperte = sorted(self._get_open_session_names())
+            profili = config_manager.load_profiles()
+            aperte = sorted({n.lstrip("📌↻✖ ") for n in self._get_open_session_names()}
+                            & set(profili))
             if not nome:
                 return
             if not aperte:

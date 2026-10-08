@@ -228,6 +228,21 @@ class SessionPanel(Gtk.Box):
         adj = self._scroll.get_vadjustment()
         saved_scroll = adj.get_value()
 
+        # Ricorda i gruppi chiusi dall'utente: expand_all() li riaprirebbe
+        chiusi = set()
+        it = self._store.get_iter_first()
+        def _raccogli(it):
+            while it:
+                if self._store.get_value(it, 3):
+                    pth = self._store.get_path(it)
+                    if not self._tree.row_expanded(pth):
+                        chiusi.add(self._store.get_value(it, 2))
+                    ch = self._store.iter_children(it)
+                    if ch:
+                        _raccogli(ch)
+                it = self._store.iter_next(it)
+        _raccogli(it)
+
         self._store.clear()
         filtro = filtro.strip().lower()
         tag_filter = self._tag_combo.get_active_text() or ""
@@ -349,6 +364,18 @@ class SessionPanel(Gtk.Box):
                 self._store.append(parent, [pb, markup, nome, False])
 
         self._tree.expand_all()
+        if chiusi and not filtro:
+            def _richiudi(it):
+                while it:
+                    if self._store.get_value(it, 3):
+                        if self._store.get_value(it, 2) in chiusi:
+                            self._tree.collapse_row(self._store.get_path(it))
+                        else:
+                            ch = self._store.iter_children(it)
+                            if ch:
+                                _richiudi(ch)
+                    it = self._store.iter_next(it)
+            _richiudi(self._store.get_iter_first())
 
         if saved_scroll > 0:
             GLib.idle_add(adj.set_value, saved_scroll)
