@@ -902,15 +902,6 @@ class SessionDialog(Gtk.Dialog):
         vbox.pack_start(self._adv_row(t("sd.term.pre_cmd"),       self.entry_pre_cmd),         False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.term.timeout"), self.spin_pre_cmd_timeout),  False, False, 0)
 
-        self.combo_tunnel = Gtk.ComboBoxText()
-        self.combo_tunnel.append_text(t("sd.tunnel.none"))
-        for _tun in config_manager.load_tunnels():
-            if _tun.get("nome"):
-                self.combo_tunnel.append_text(_tun["nome"])
-        self.combo_tunnel.set_active(0)
-        self.combo_tunnel.set_tooltip_text(t("sd.tunnel.tip"))
-        vbox.pack_start(self._adv_row(t("sd.tunnel.label"), self.combo_tunnel), False, False, 0)
-
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sw.add(outer)
@@ -923,6 +914,16 @@ class SessionDialog(Gtk.Dialog):
     def _build_tab_tunnel(self) -> Gtk.Widget:
         grid = _make_grid()
         row = 0
+
+        # Tunnel (definito in menu → Tunnel) da avviare prima di connettersi
+        self.combo_tunnel = Gtk.ComboBoxText()
+        self.combo_tunnel.append_text(t("sd.tunnel.none"))
+        for _tun in config_manager.load_tunnels():
+            if _tun.get("nome"):
+                self.combo_tunnel.append_text(_tun["nome"])
+        self.combo_tunnel.set_active(0)
+        self.combo_tunnel.set_tooltip_text(t("sd.tunnel.tip"))
+        _form_row(t("sd.tunnel.label"), self.combo_tunnel, grid, row); row += 1
 
         self.combo_tunnel_type = _combo(
             "Proxy SOCKS (-D)", "Locale (-L)", "Remoto (-R)"

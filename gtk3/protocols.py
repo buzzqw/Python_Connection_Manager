@@ -74,7 +74,7 @@ TUNNEL_REMOTE        = "remote"
 _COMMON_FIELDS = {
     "protocol", "group", "host", "port", "user", "password", "private_key",
     "notes", "credential_profile", "totp_secret",
-    "is_template", "template_name", "tags",
+    "is_template", "template_name", "tags", "favorite",
 }
 
 _TERM_FIELDS = {
@@ -137,7 +137,7 @@ _WOL_FIELDS = {
 }
 
 _PRECMD_FIELDS = {
-    "pre_cmd", "pre_cmd_timeout",
+    "pre_cmd", "pre_cmd_timeout", "tunnel",
 }
 
 _MACRO_FIELDS = {"macros", "expect_rules"}
