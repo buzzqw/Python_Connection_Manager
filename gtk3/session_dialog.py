@@ -902,6 +902,15 @@ class SessionDialog(Gtk.Dialog):
         vbox.pack_start(self._adv_row(t("sd.term.pre_cmd"),       self.entry_pre_cmd),         False, False, 0)
         vbox.pack_start(self._adv_row(t("sd.term.timeout"), self.spin_pre_cmd_timeout),  False, False, 0)
 
+        self.combo_tunnel = Gtk.ComboBoxText()
+        self.combo_tunnel.append_text(t("sd.tunnel.none"))
+        for _tun in config_manager.load_tunnels():
+            if _tun.get("nome"):
+                self.combo_tunnel.append_text(_tun["nome"])
+        self.combo_tunnel.set_active(0)
+        self.combo_tunnel.set_tooltip_text(t("sd.tunnel.tip"))
+        vbox.pack_start(self._adv_row(t("sd.tunnel.label"), self.combo_tunnel), False, False, 0)
+
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         sw.add(outer)
@@ -1998,6 +2007,15 @@ class SessionDialog(Gtk.Dialog):
         # Pre-cmd
         self.entry_pre_cmd.set_text(dati.get("pre_cmd", ""))
         self.spin_pre_cmd_timeout.set_value(int(dati.get("pre_cmd_timeout", 15)))
+        _tn = dati.get("tunnel", "")
+        self.combo_tunnel.set_active(0)
+        if _tn:
+            _mod = self.combo_tunnel.get_model()
+            if not any(r[0] == _tn for r in _mod):
+                self.combo_tunnel.append_text(_tn)
+            for _i, _r in enumerate(_mod):
+                if _r[0] == _tn:
+                    self.combo_tunnel.set_active(_i)
 
         # Exec
         self.entry_exec_cmd.set_text(dati.get("exec_cmd", ""))
@@ -2295,6 +2313,8 @@ class SessionDialog(Gtk.Dialog):
             "wol_wait":       int(self.spin_wol_wait.get_value()),
             "pre_cmd":        self.entry_pre_cmd.get_text().strip(),
             "pre_cmd_timeout": int(self.spin_pre_cmd_timeout.get_value()),
+            "tunnel":         ("" if self.combo_tunnel.get_active() <= 0
+                               else (self.combo_tunnel.get_active_text() or "")),
             "notes":          notes,
             "macros":         macros,
             "expect_rules":   expect_rules,

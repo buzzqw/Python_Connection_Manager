@@ -100,7 +100,7 @@ class QuickSwitcherDialog(Gtk.Dialog):
             proto_label = protocols.PROTO_LABEL.get(proto, proto.upper())
 
             # Testo per la ricerca indicizzato minuscolo
-            searchable = f"{nome} {host} {user} {port} {proto} {proto_label} {group} {' '.join(tags_list)}".lower()
+            searchable = (config_manager.session_search_text(nome, dati) + f" {proto_label}").lower()
 
             items.append({
                 "nome": nome,
@@ -112,8 +112,13 @@ class QuickSwitcherDialog(Gtk.Dialog):
                 "searchable": searchable,
             })
 
-        # Ordina alfabeticamente per nome di default
-        items.sort(key=lambda x: x["nome"].lower())
+        # Ordine di default: preferiti, poi recenti (piu' recente prima), poi alfabetico
+        recenti = [r.get("name") for r in config_manager.load_recent()]
+        rank = {n: i for i, n in enumerate(recenti)}
+        for it in items:
+            it["favorite"] = config_manager.is_favorite(it["dati"])
+            it["rank"] = rank.get(it["nome"], len(rank))
+        items.sort(key=lambda x: (not x["favorite"], x["rank"], x["nome"].lower()))
         return items
 
     def _build_ui(self):
@@ -220,13 +225,14 @@ class QuickSwitcherDialog(Gtk.Dialog):
                 matches.append((score, item))
 
         if terms:
-            matches.sort(key=lambda m: (-m[0], m[1]["nome"].lower()))
+            # a parita' di punteggio: preferiti, poi usati di recente, poi nome
+            matches.sort(key=lambda m: (-m[0], not m[1]["favorite"], m[1]["rank"], m[1]["nome"].lower()))
 
         for _score, item in matches:
             pb = _get_icon_pixbuf(item["proto"])
             self._store.append([
                 pb,
-                item["nome"],
+                ("★ " if item["favorite"] else "") + item["nome"],
                 item["proto_label"],
                 item["detail"],
                 item["meta"],

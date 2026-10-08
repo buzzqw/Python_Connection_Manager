@@ -17,6 +17,7 @@ class WelcomeWidget(Gtk.Box):
         "nuova-sessione": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "terminale-locale": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "apri-sessione": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "preferiti-cambiati": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self):
@@ -73,6 +74,7 @@ class WelcomeWidget(Gtk.Box):
         self._recent_list.set_halign(Gtk.Align.CENTER)
         self._recent_list.set_size_request(440, -1)
         self._recent_list.connect("row-activated", self._on_recent_activated)
+        self._recent_list.connect("button-press-event", self._on_recent_button_press)
 
         rec_frame = Gtk.Frame()
         rec_frame.set_margin_top(12)
@@ -110,6 +112,15 @@ class WelcomeWidget(Gtk.Box):
         recenti = config_manager.load_recent()
         profili = config_manager.load_profiles()
 
+        # Preferiti in testa (★), poi i recenti non gia' preferiti
+        preferiti = sorted(n for n, d in profili.items()
+                           if isinstance(d, dict) and config_manager.is_favorite(d))
+        voci = [{"name": n, "proto": profili[n].get("protocol", ""),
+                 "host": profili[n].get("host", ""), "ts": "", "fav": True}
+                for n in preferiti]
+        voci += [dict(r, fav=False) for r in recenti if r.get("name") not in preferiti]
+        recenti = voci
+
         if not recenti:
             empty = Gtk.Label()
             empty.set_markup(f"<i><span foreground='#888'>{t('welcome.no_recent')}</span></i>")
@@ -146,7 +157,7 @@ class WelcomeWidget(Gtk.Box):
             proto_lbl.set_xalign(0.0)
             row_box.pack_start(proto_lbl, False, False, 0)
 
-            name_lbl = Gtk.Label(label=nome)
+            name_lbl = Gtk.Label(label=("★ " if r.get("fav") else "") + nome)
             name_lbl.set_xalign(0.0)
             name_lbl.set_hexpand(True)
             row_box.pack_start(name_lbl, True, True, 0)
@@ -159,6 +170,7 @@ class WelcomeWidget(Gtk.Box):
             row.add(row_box)
             row._pcm_nome = nome
             row._pcm_dati = dati
+            row._pcm_fav = bool(r.get("fav"))
             row.show_all()
             self._recent_list.add(row)
 
@@ -170,3 +182,32 @@ class WelcomeWidget(Gtk.Box):
             return
         self.emit("apri-sessione", row._pcm_nome, row._pcm_dati)
 
+
+    def _on_recent_button_press(self, listbox, event):
+        if event.button != 3:
+            return False
+        row = listbox.get_row_at_y(int(event.y))
+        if row is None or not hasattr(row, "_pcm_nome"):
+            return False
+        nome = row._pcm_nome
+        menu = Gtk.Menu()
+        mi = Gtk.MenuItem(label=t("panel.unfavorite") if row._pcm_fav else t("panel.favorite"))
+        mi.connect("activate", lambda _: self._toggle_preferito(nome))
+        menu.append(mi)
+        if not row._pcm_fav:
+            mi = Gtk.MenuItem(label=t("sidebar.recent_remove"))
+            mi.connect("activate", lambda _: self._rimuovi_recente(nome))
+            menu.append(mi)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
+
+    def _toggle_preferito(self, nome: str):
+        if config_manager.toggle_favorite(nome) is not None:
+            self.aggiorna()
+            self.emit("preferiti-cambiati")
+
+    def _rimuovi_recente(self, nome: str):
+        config_manager.remove_recent(nome)
+        self.aggiorna()
+        self.emit("preferiti-cambiati")

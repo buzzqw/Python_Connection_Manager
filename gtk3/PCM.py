@@ -125,7 +125,8 @@ from protocols import refresh_from_plugins as _refresh_protocols
 from session_command import build_command
 from settings_dialog import SettingsDialog
 from tunnel_manager import (TunnelManagerDialog, get_active_tunnels, stop_tunnel,
-                            reattach_tunnels, get_recent_tunnels, start_tunnel)
+                            reattach_tunnels, get_recent_tunnels, start_tunnel,
+                            ensure_tunnel_by_name, pop_died_tunnels)
 from vnc_widget import VncWebWidget
 from rdp_widget import RdpEmbedWidget
 from sftp_browser import SftpBrowserWidget
@@ -685,6 +686,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
+        self._pannello.connect("preferiti-cambiati", lambda p: self._aggiorna_welcome_recenti())
         self._pannello.connect("clona-modifica", self._on_clona_modifica_sessione)
         self._pannello.connect("ping-gruppo",    self._on_ping_gruppo)
         self._pannello.connect("apri-ft",      lambda _p, n, d: self._apri_ft_da_sessione(d))
@@ -814,6 +816,7 @@ class MainWindow(Gtk.ApplicationWindow):
         welcome.connect("nuova-sessione",   lambda w: self._on_nuova_sessione())
         welcome.connect("terminale-locale", lambda w: self._on_terminale_locale())
         welcome.connect("apri-sessione",    lambda w, n, d: self._on_connetti(None, n, d))
+        welcome.connect("preferiti-cambiati", lambda w: self._pannello.aggiorna())
         welcome.show_all()
         lbl = Gtk.Label(label=t("app.home_tab"))
         self._notebook.append_page(welcome, lbl)
@@ -875,11 +878,17 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         use_gateway = self._needs_ssh_gateway(dati)
+        tunnel_assoc = str(dati.get("tunnel", "") or "").strip()
 
-        if pre_cmd or wol_mac or use_gateway:
+        if pre_cmd or wol_mac or use_gateway or tunnel_assoc:
             def _bg():
                 try:
                     dati_loc = dict(dati)
+                    if tunnel_assoc:
+                        ok, err = ensure_tunnel_by_name(tunnel_assoc)
+                        if not ok:
+                            GLib.idle_add(self._warn, f"{t('tunnel.start_failed')} ({tunnel_assoc}): {err}")
+                            return
                     if pre_cmd:
                         timeout = dati_loc.get("pre_cmd_timeout", 15)
                         try:
@@ -2401,6 +2410,8 @@ class MainWindow(Gtk.ApplicationWindow):
             dlg.destroy()
             return
         nuovo_nome, nuovi_dati = dlg.get_data()
+        if dati.get("favorite"):
+            nuovi_dati["favorite"] = True
         profili = config_manager.load_profiles()
         if nome != nuovo_nome and nome in profili:
             del profili[nome]
@@ -2425,6 +2436,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if nome in profili:
             nuovo_nome = f"{nome} (copia)"
             profili[nuovo_nome] = dict(profili[nome])
+            profili[nuovo_nome].pop("favorite", None)
             config_manager.save_profiles(profili)
             self._pannello.aggiorna(profili)
         else:
@@ -2433,6 +2445,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_clona_modifica_sessione(self, panel, nome: str, dati: dict):
         nuovo_nome = f"{nome} (copia)"
         nuovi_dati = dict(dati)
+        nuovi_dati.pop("favorite", None)
         dlg = SessionDialog(parent=self, nome=nuovo_nome, dati=nuovi_dati)
         resp = dlg.run()
         if resp == Gtk.ResponseType.CANCEL:
@@ -2484,6 +2497,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _aggiorna_tun_indicator(self) -> bool:
         attivi = get_active_tunnels()
+        morti = pop_died_tunnels()
+        if morti:
+            self._status(t("tunnel.died").format(names=", ".join(morti)))
         n = len(attivi)
         self._lbl_tun_count.set_text(str(n) if n > 0 else "")
         if n > 0:
@@ -2561,9 +2577,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _avvia_da_ind(self, idx: int):
         self._tun_pop.popdown()
-        if not start_tunnel(idx):
-            self._warn(t("tunnel.start_failed"))
-        self._aggiorna_tun_indicator()
+
+        def _bg():
+            ok, err = start_tunnel(idx, wait=5)
+            if not ok:
+                GLib.idle_add(self._warn, f"{t('tunnel.start_failed')}: {err}" if err else t("tunnel.start_failed"))
+            GLib.idle_add(self._aggiorna_tun_indicator)
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _ferma_da_ind(self, idx: int):
         stop_tunnel(idx)

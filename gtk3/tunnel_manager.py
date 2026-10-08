@@ -33,6 +33,20 @@ from pcm_logging import get_logger as _get_log
 # ---------------------------------------------------------------------------
 
 _active_procs: dict = {}  # idx → Popen | _PidProxy
+_died_names: list = []    # tunnel terminati da soli (non fermati dall'utente)
+
+
+def _mark_died(idx: int):
+    tunnels = config_manager.load_tunnels()
+    if idx < len(tunnels):
+        _died_names.append(tunnels[idx].get("nome", "?"))
+
+
+def pop_died_tunnels() -> list:
+    """Nomi dei tunnel morti da soli dall'ultima chiamata."""
+    out = list(_died_names)
+    _died_names.clear()
+    return out
 
 
 def _proc_vivo(pid: int) -> bool:
@@ -90,6 +104,7 @@ def get_active_tunnels() -> list:
             dead.append(idx)
     for idx in dead:
         _active_procs.pop(idx, None)
+        _mark_died(idx)
     return result
 
 
@@ -125,47 +140,103 @@ def get_recent_tunnels(limit: int = 4) -> list:
     return result
 
 
-def start_tunnel(idx: int) -> bool:
-    """Avvia un tunnel per indice senza aprire il dialogo. Restituisce True se avviato."""
+def _porta_listening(port: int) -> bool:
+    """True se la porta locale e' in LISTEN (anche se il PID non e' risolvibile)."""
+    hex_port = format(int(port), '04X')
+    for path in ('/proc/net/tcp', '/proc/net/tcp6'):
+        try:
+            with open(path) as fh:
+                for line in fh:
+                    parts = line.split()
+                    if (len(parts) >= 4 and parts[3] == '0A'
+                            and parts[1].split(':')[1].upper() == hex_port):
+                        return True
+        except OSError:
+            pass
+    return False
+
+
+def _ultimo_errore(path: str) -> str:
+    """Ultima riga non vuota del file stderr di ssh."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            righe = [r.strip() for r in f if r.strip()]
+        return righe[-1] if righe else ""
+    except OSError:
+        return ""
+
+
+def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
+    """Avvia un tunnel per indice senza aprire il dialogo.
+
+    Con ``wait`` > 0 attende (bloccando il chiamante: usare un thread) che la
+    porta locale sia in ascolto o che ssh termini. Restituisce (ok, errore)."""
     tunnels = config_manager.load_tunnels()
     if idx >= len(tunnels):
-        return False
+        return False, "tunnel inesistente"
     proc = _active_procs.get(idx)
     if proc and _proc_vivo(proc.pid):
-        return True
+        return True, ""
     tun = tunnels[idx]
     cmd = TunnelManagerDialog._build_cmd(tun)
     pwd = tun.get("password", "")
     env = os.environ.copy()
     askpass = None
+    cache = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+    os.makedirs(cache, mode=0o700, exist_ok=True)
+    errpath = os.path.join(cache, f".tunnel_{idx}.err")
     try:
         if pwd:
             import shlex
-            tdir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
-            os.makedirs(tdir, mode=0o700, exist_ok=True)
-            fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=tdir, text=True)
+            fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=cache, text=True)
             with os.fdopen(fd, "w") as f:
                 f.write(f"#!/bin/sh\nprintf '%s' {shlex.quote(pwd)}\n")
             os.chmod(askpass, 0o700)
             env["SSH_ASKPASS"] = askpass
             env["SSH_ASKPASS_REQUIRE"] = "force"
-        proc = subprocess.Popen(
-            cmd, preexec_fn=os.setsid, env=env,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        errfd = os.open(errpath, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            proc = subprocess.Popen(
+                cmd, preexec_fn=os.setsid, env=env,
+                stdout=subprocess.DEVNULL, stderr=errfd,
+            )
+        finally:
+            os.close(errfd)
     except Exception as e:
         _get_log(__name__).warning("Avvio tunnel fallito: %s", e)
         if askpass:
-            with contextlib.suppress(OSError):
-                os.unlink(askpass)
-        return False
+            _unlink_quiet(askpass)
+        return False, str(e)
     if askpass:
         GLib.child_watch_add(proc.pid, lambda pid, status, path=askpass: _unlink_quiet(path))
     _active_procs[idx] = proc
     tun["pid"] = proc.pid
     tun["last_used"] = time.time()
     config_manager.save_tunnels(tunnels)
-    return True
+
+    if wait > 0:
+        tipo = tun.get("tipo", "")
+        attendi_porta = ("SOCKS" in tipo or "Locale" in tipo) and tun.get("local_port")
+        fine = time.time() + wait
+        while time.time() < fine:
+            if proc.poll() is not None:
+                _active_procs.pop(idx, None)
+                return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
+            if not attendi_porta or _porta_listening(int(tun["local_port"])):
+                return True, ""
+            time.sleep(0.2)
+        if proc.poll() is not None:
+            _active_procs.pop(idx, None)
+            return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
+    return True, ""
+
+
+def ensure_tunnel_by_name(nome: str, wait: float = 10) -> tuple[bool, str]:
+    """Avvia (se non attivo) il tunnel con il nome dato e attende che sia pronto."""
+    for i, tun in enumerate(config_manager.load_tunnels()):
+        if tun.get("nome") == nome:
+            return start_tunnel(i, wait)
+    return False, f"tunnel '{nome}' non trovato"
 
 
 def _unlink_quiet(path: str):
@@ -675,6 +746,7 @@ class TunnelManagerDialog(Gtk.Dialog):
             if not vivo and idx in self._procs:
                 # processo morto inaspettatamente: pulizia
                 self._procs.pop(idx)
+                _mark_died(idx)
             self._store.set_value(it, 6, t("tunnel.status_active") if vivo else t("tunnel.status_idle"))
             it = self._store.iter_next(it)
         return True  # mantieni il timer attivo

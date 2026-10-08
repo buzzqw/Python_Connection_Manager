@@ -60,6 +60,7 @@ class SessionPanel(Gtk.Box):
         "apri-cron":    (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-cluster": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-tools":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
+        "preferiti-cambiati": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self):
@@ -227,6 +228,28 @@ class SessionPanel(Gtk.Box):
 
         folder_pb = _load_pixbuf("folder.png", 16)
 
+        # ── Sezione Preferiti (solo senza filtro) ─────────────────────────
+        if not filtro and not tag_filter:
+            favoriti = sorted(n for n, d in self._profili.items()
+                              if isinstance(d, dict) and config_manager.is_favorite(d))
+            if favoriti:
+                fav_markup = f"<b><span foreground='#f5c518'>★ {GLib.markup_escape_text(t('sidebar.favorites_title'))}</span></b>"
+                fav_iter = self._store.append(None, [folder_pb, fav_markup, "__favorites__", True])
+                for nome in favoriti:
+                    dati  = self._profili[nome]
+                    proto = dati.get("protocol", "ssh")
+                    host  = dati.get("host", "")
+                    color = PROTO_COLOR.get(proto, "#888888")
+                    proto_lbl = PROTO_LABEL.get(proto, proto.upper())
+                    sub = f" <span foreground='gray' size='smaller'>({GLib.markup_escape_text(host)})</span>" if host else ""
+                    dot = "<span foreground='#22cc55'>●</span> " if nome in self._open_sessions else ""
+                    markup = (
+                        f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
+                        f"{dot}{GLib.markup_escape_text(nome)}{sub}"
+                    )
+                    pb = _load_pixbuf(PROTO_ICON_FILE.get(proto, "network.png"), 16)
+                    self._store.append(fav_iter, [pb, markup, nome, False])
+
         # ── Sezione Recenti (solo senza filtro) ───────────────────────────
         if not filtro and not tag_filter:
             recenti = config_manager.load_recent()
@@ -260,11 +283,9 @@ class SessionPanel(Gtk.Box):
         for nome, dati in self._profili.items():
             if not _match_tag(dati):
                 continue
-            if filtro and filtro not in nome.lower():
-                host = dati.get("host", "")
-                user = str(dati.get("user") or "")
-                if filtro not in host.lower() and filtro not in user.lower():
-                    continue
+            if filtro and not all(term in config_manager.session_search_text(nome, dati)
+                                  for term in filtro.split()):
+                continue
             gruppo_raw = str(dati.get("group", "") or "").strip()
             gruppo = gruppo_raw or t("sidebar.no_group")
             gruppi.setdefault(gruppo, []).append(nome)
@@ -349,12 +370,16 @@ class SessionPanel(Gtk.Box):
             chiave = self._store.get_value(it, 2)
             if chiave == "__recent__":
                 self._mostra_menu_recent(event)
+            elif chiave == "__favorites__":
+                return False
             else:
                 self._mostra_menu_gruppo(event, chiave)
             return True
         nome = self._store.get_value(it, 2)
         dati = self._profili.get(nome, {})
-        self._mostra_menu(event, nome, dati)
+        parent = self._store.iter_parent(it)
+        in_recent = bool(parent and self._store.get_value(parent, 2) == "__recent__")
+        self._mostra_menu(event, nome, dati, in_recent)
         return True
 
     def _mostra_menu_recent(self, event):
@@ -385,7 +410,18 @@ class SessionPanel(Gtk.Box):
         config_manager.clear_recent()
         self.aggiorna()
 
-    def _mostra_menu(self, event, nome: str, dati: dict):
+    def _toggle_preferito(self, nome: str):
+        profili = config_manager.toggle_favorite(nome)
+        if profili is not None:
+            self.aggiorna(profili)
+            self.emit("preferiti-cambiati")
+
+    def _rimuovi_recente(self, nome: str):
+        config_manager.remove_recent(nome)
+        self.aggiorna()
+        self.emit("preferiti-cambiati")
+
+    def _mostra_menu(self, event, nome: str, dati: dict, in_recent: bool = False):
         menu = Gtk.Menu()
 
         def _item(label, callback):
@@ -394,6 +430,10 @@ class SessionPanel(Gtk.Box):
             menu.append(mi)
 
         _item(t("panel.connect"),   lambda: self.emit("connetti", nome, dati))
+        _item(t("panel.unfavorite") if config_manager.is_favorite(dati) else t("panel.favorite"),
+              lambda: self._toggle_preferito(nome))
+        if in_recent:
+            _item(t("sidebar.recent_remove"), lambda: self._rimuovi_recente(nome))
         menu.append(Gtk.SeparatorMenuItem())
         _item(t("panel.edit"),      lambda: self.emit("modifica", nome, dati))
         _item(t("panel.duplicate"), lambda: self.emit("duplica", nome))

@@ -640,6 +640,47 @@ def add_recent(nome: str, dati: dict):
     save_settings(s)
 
 
+def remove_recent(nome: str):
+    """Rimuove una singola sessione dalla lista dei recenti."""
+    s = load_settings()
+    s["recent_sessions"] = [r for r in s.get("recent_sessions", [])
+                            if not (isinstance(r, dict) and r.get("name") == nome)]
+    save_settings(s)
+
+
+def session_search_text(nome: str, dati: dict) -> str:
+    """Testo minuscolo su cui cercare una sessione (nome, host, utente, porta,
+    protocollo, gruppo, tag). Usato da sidebar e quick switcher."""
+    tags = dati.get("tags", [])
+    if isinstance(tags, str):
+        tags = [x.strip() for x in tags.split(",")]
+    elif not isinstance(tags, list):
+        tags = []
+    user = str(dati.get("user") or "")
+    if user.startswith("ENC:"):
+        user = ""
+    parts = [nome, dati.get("host", ""), user, dati.get("port", ""),
+             dati.get("protocol", ""), dati.get("group", "")] + [str(x) for x in tags]
+    return " ".join(str(x) for x in parts if x).lower()
+
+
+def is_favorite(dati: dict) -> bool:
+    return bool(dati.get("favorite"))
+
+
+def toggle_favorite(nome: str) -> dict | None:
+    """Inverte il flag preferito della sessione. Restituisce i profili aggiornati."""
+    profili = load_profiles()
+    if nome not in profili or not isinstance(profili[nome], dict):
+        return None
+    if profili[nome].get("favorite"):
+        profili[nome].pop("favorite", None)
+    else:
+        profili[nome]["favorite"] = True
+    save_profiles(profili)
+    return profili
+
+
 def clear_recent():
     s = load_settings()
     s["recent_sessions"] = []
