@@ -1006,6 +1006,8 @@ _T: dict[str, dict[str, str]] = {
     "tunnel.btn_edit":      {"it": "✏ Modifica",                         "en": "✏ Edit",                          "de": "✏ Bearbeiten",                    "fr": "✏ Modifier",                       "es": "✏ Editar"},
     "tunnel.btn_delete":    {"it": "🗑 Elimina",                          "en": "🗑 Delete",                       "de": "🗑 Löschen",                       "fr": "🗑 Supprimer",                      "es": "🗑 Eliminar"},
     "tunnel.btn_start":     {"it": "▶ Avvia",                            "en": "▶ Start",                         "de": "▶ Starten",                       "fr": "▶ Démarrer",                       "es": "▶ Iniciar"},
+    "tunnel.recent_header": {"it": "Ultimi usati", "en": "Recently used", "de": "Zuletzt verwendet", "fr": "Utilisés récemment", "es": "Usados recientemente"},
+    "tunnel.start_failed":  {"it": "Impossibile avviare il tunnel", "en": "Unable to start the tunnel", "de": "Tunnel konnte nicht gestartet werden", "fr": "Impossible de démarrer le tunnel", "es": "No se pudo iniciar el túnel"},
     "tunnel.btn_stop":      {"it": "■ Ferma",                            "en": "■ Stop",                          "de": "■ Stoppen",                       "fr": "■ Arrêter",                        "es": "■ Detener"},
     "tunnel.btn_start_all": {"it": "▶▶ Avvia tutti",                     "en": "▶▶ Start all",                    "de": "▶▶ Alle starten",                  "fr": "▶▶ Démarrer tout",                 "es": "▶▶ Iniciar todos"},
     "tunnel.btn_stop_all":  {"it": "■■ Ferma tutti",                     "en": "■■ Stop all",                     "de": "■■ Alle stoppen",                  "fr": "■■ Arrêter tout",                  "es": "■■ Detener todos"},

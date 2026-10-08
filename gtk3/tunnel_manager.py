@@ -12,6 +12,7 @@ import signal
 import subprocess
 import fcntl
 import tempfile
+import time
 import contextlib
 
 import gi
@@ -105,6 +106,71 @@ def stop_tunnel(idx: int):
         if idx < len(tunnels):
             tunnels[idx]["pid"] = None
             config_manager.save_tunnels(tunnels)
+
+
+def get_recent_tunnels(limit: int = 4) -> list:
+    """Ultimi `limit` tunnel avviati (piu' recenti per primi), con chiave _idx
+    e _active (True se il processo e' in esecuzione)."""
+    tunnels = config_manager.load_tunnels()
+    usati = [(tun.get("last_used", 0), i) for i, tun in enumerate(tunnels)
+             if tun.get("last_used")]
+    usati.sort(reverse=True)
+    result = []
+    for _, i in usati[:limit]:
+        tun = dict(tunnels[i])
+        tun["_idx"] = i
+        proc = _active_procs.get(i)
+        tun["_active"] = bool(proc and _proc_vivo(proc.pid))
+        result.append(tun)
+    return result
+
+
+def start_tunnel(idx: int) -> bool:
+    """Avvia un tunnel per indice senza aprire il dialogo. Restituisce True se avviato."""
+    tunnels = config_manager.load_tunnels()
+    if idx >= len(tunnels):
+        return False
+    proc = _active_procs.get(idx)
+    if proc and _proc_vivo(proc.pid):
+        return True
+    tun = tunnels[idx]
+    cmd = TunnelManagerDialog._build_cmd(tun)
+    pwd = tun.get("password", "")
+    env = os.environ.copy()
+    askpass = None
+    try:
+        if pwd:
+            import shlex
+            tdir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(tdir, mode=0o700, exist_ok=True)
+            fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=tdir, text=True)
+            with os.fdopen(fd, "w") as f:
+                f.write(f"#!/bin/sh\nprintf '%s' {shlex.quote(pwd)}\n")
+            os.chmod(askpass, 0o700)
+            env["SSH_ASKPASS"] = askpass
+            env["SSH_ASKPASS_REQUIRE"] = "force"
+        proc = subprocess.Popen(
+            cmd, preexec_fn=os.setsid, env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        _get_log(__name__).warning("Avvio tunnel fallito: %s", e)
+        if askpass:
+            with contextlib.suppress(OSError):
+                os.unlink(askpass)
+        return False
+    if askpass:
+        GLib.child_watch_add(proc.pid, lambda pid, status, path=askpass: _unlink_quiet(path))
+    _active_procs[idx] = proc
+    tun["pid"] = proc.pid
+    tun["last_used"] = time.time()
+    config_manager.save_tunnels(tunnels)
+    return True
+
+
+def _unlink_quiet(path: str):
+    with contextlib.suppress(OSError):
+        os.unlink(path)
 
 
 def reattach_tunnels():
@@ -455,7 +521,11 @@ class TunnelManagerDialog(Gtk.Dialog):
         if idx is None: return
         dlg = TunnelEditDialog(parent=self, dati=self._tunnels[idx])
         if dlg.run() == Gtk.ResponseType.OK:
-            self._tunnels[idx] = dlg.get_data()
+            nuovo = dlg.get_data()
+            for k in ("last_used", "pid"):
+                if k in self._tunnels[idx]:
+                    nuovo.setdefault(k, self._tunnels[idx][k])
+            self._tunnels[idx] = nuovo
             config_manager.save_tunnels(self._tunnels)
             self._ricarica()
         dlg.destroy()
@@ -516,6 +586,7 @@ class TunnelManagerDialog(Gtk.Dialog):
             self._procs[idx] = proc
             # Persisti il PID nella config per rilevarlo al prossimo avvio
             self._tunnels[idx]["pid"] = proc.pid
+            self._tunnels[idx]["last_used"] = time.time()
             config_manager.save_tunnels(self._tunnels)
 
             # Rendiamo l'output non-bloccante per leggerlo in tempo reale

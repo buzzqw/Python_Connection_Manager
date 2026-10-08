@@ -124,7 +124,8 @@ import protocols
 from protocols import refresh_from_plugins as _refresh_protocols
 from session_command import build_command
 from settings_dialog import SettingsDialog
-from tunnel_manager import TunnelManagerDialog, get_active_tunnels, stop_tunnel, reattach_tunnels
+from tunnel_manager import (TunnelManagerDialog, get_active_tunnels, stop_tunnel,
+                            reattach_tunnels, get_recent_tunnels, start_tunnel)
 from vnc_widget import VncWebWidget
 from rdp_widget import RdpEmbedWidget
 from sftp_browser import SftpBrowserWidget
@@ -2528,12 +2529,41 @@ class MainWindow(Gtk.ApplicationWindow):
                 row.pack_start(btn_stop, False, False, 0)
                 self._tun_pop_box.pack_start(row, False, False, 0)
 
+        recenti = get_recent_tunnels(4)
+        if recenti:
+            self._tun_pop_box.pack_start(Gtk.Separator(), False, False, 0)
+            hdr2 = Gtk.Label()
+            hdr2.set_markup(f"<b>{t('tunnel.recent_header')}</b>")
+            hdr2.set_halign(Gtk.Align.START)
+            self._tun_pop_box.pack_start(hdr2, False, False, 0)
+            for tun in recenti:
+                row = Gtk.Box(spacing=8)
+                lbl = Gtk.Label(label=f"{tun.get('nome', '?')}  ({tun.get('tipo', '')} :{tun.get('local_port', '')})")
+                lbl.set_halign(Gtk.Align.START)
+                lbl.set_hexpand(True)
+                row.pack_start(lbl, True, True, 0)
+                idx = tun["_idx"]
+                if tun["_active"]:
+                    btn = Gtk.Button(label=t("tunnel.btn_stop"))
+                    btn.connect("clicked", lambda b, i=idx: self._ferma_da_ind(i))
+                else:
+                    btn = Gtk.Button(label=t("tunnel.btn_start"))
+                    btn.connect("clicked", lambda b, i=idx: self._avvia_da_ind(i))
+                row.pack_start(btn, False, False, 0)
+                self._tun_pop_box.pack_start(row, False, False, 0)
+
         self._tun_pop_box.pack_start(Gtk.Separator(), False, False, 0)
         btn_mgr = Gtk.Button(label=t("tunnel.open_manager"))
         btn_mgr.connect("clicked", lambda b: (self._tun_pop.popdown(), self._on_tunnel_manager()))
         self._tun_pop_box.pack_start(btn_mgr, False, False, 0)
 
         self._tun_pop_box.show_all()
+
+    def _avvia_da_ind(self, idx: int):
+        self._tun_pop.popdown()
+        if not start_tunnel(idx):
+            self._warn(t("tunnel.start_failed"))
+        self._aggiorna_tun_indicator()
 
     def _ferma_da_ind(self, idx: int):
         stop_tunnel(idx)
