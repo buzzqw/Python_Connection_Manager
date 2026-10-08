@@ -830,6 +830,11 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._esegui_unlock_dialog()
                 if not crypto_manager.is_unlocked():
                     return
+                # I dati ricevuti sono stati letti prima dello sblocco (ENC:):
+                # ricarica il profilo decifrato.
+                fresh = config_manager.load_profiles().get(nome)
+                if isinstance(fresh, dict):
+                    dati = fresh
         except ImportError:
             self._warn("cryptography non installato; impossibile usare le credenziali cifrate.")
             return
