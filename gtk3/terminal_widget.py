@@ -51,6 +51,7 @@ class TerminalWidget(Gtk.Box):
         self._fg = fg
         self._font = font
         self._font_size = self._parse_int(font_size, 11)
+        self._font_size_base = self._font_size  # per Ctrl+0 (reset zoom)
         self._log_dir = log_dir
         self._paste_on_right_click = paste_on_right_click
         self._warn_paste = warn_paste
@@ -607,19 +608,53 @@ class TerminalWidget(Gtk.Box):
             else:
                 return False
         if direction == Gdk.ScrollDirection.UP:
-            self._font_size = min(self._font_size + 1, 72)
+            self._zoom_font(+1)
         elif direction == Gdk.ScrollDirection.DOWN:
-            self._font_size = max(self._font_size - 1, 4)
+            self._zoom_font(-1)
         else:
             return False
-        self._applica_font()
         return True
 
+    def _zoom_font(self, delta: int):
+        """Varia la dimensione font di delta punti (0 → reset al valore della sessione)."""
+        if delta == 0:
+            nuova = self._font_size_base
+        else:
+            nuova = max(4, min(self._font_size + delta, 72))
+        if nuova != self._font_size:
+            self._font_size = nuova
+            self._applica_font()
+
+    # Ctrl(+Shift) + tasto → zoom font. Si confronta il keyval *senza* Shift,
+    # così Ctrl+Shift funziona su ogni layout (IT: '+' diretto, US: '=').
+    _ZOOM_KEYS = {
+        "PLUS": +1, "EQUAL": +1, "KP_ADD": +1,
+        "MINUS": -1, "KP_SUBTRACT": -1,
+        "0": 0, "KP_0": 0,
+    }
+
+    def _zoom_da_tasto(self, terminal, event):
+        """Ritorna il delta di zoom per l'evento, o None se non è un tasto zoom."""
+        keymap = Gdk.Keymap.get_for_display(terminal.get_display())
+        ok, keyval, *_ = keymap.translate_keyboard_state(
+            event.hardware_keycode,
+            event.state & ~Gdk.ModifierType.SHIFT_MASK,
+            event.group)
+        nome = Gdk.keyval_name(keyval if ok else event.keyval) or ""
+        return self._ZOOM_KEYS.get(nome.upper())
+
     def _on_key_press(self, terminal, event):
-        """Ctrl+Shift+V / Shift+Insert → incolla; Ctrl+F → search bar."""
+        """Ctrl+Shift+V / Shift+Insert → incolla; Ctrl+F → search bar;
+        Ctrl+'+' / Ctrl+'-' / Ctrl+0 → zoom font."""
         ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
-        key   = Gdk.keyval_name(event.keyval).upper()
+        key   = (Gdk.keyval_name(event.keyval) or "").upper()
+        alt   = bool(event.state & Gdk.ModifierType.MOD1_MASK)
+        if ctrl and not alt:
+            delta = self._zoom_da_tasto(terminal, event)
+            if delta is not None:
+                self._zoom_font(delta)
+                return True
         if ctrl and shift and key == "V":
             self._incolla_clipboard()
             return True

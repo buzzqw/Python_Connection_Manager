@@ -131,7 +131,7 @@ Each section can be individually enabled or disabled per session.
 - **Snippet library** — global reusable commands accessible from the right-click context menu ("Insert snippet…")
 - **Terminal broadcast** — send the same text to all selected terminals simultaneously (ideal for clusters)
 - **Multi-exec** — run a command across multiple sessions in sequence
-- **Ctrl+Wheel** to change font size in the VTE terminal
+- **Ctrl+Wheel** or **Ctrl+`+`** / **Ctrl+`-`** to change font size in the VTE terminal, **Ctrl+`0`** to reset it
 - File output logging per session (via `script(1)`)
 - Configurable or infinite scrollback per session
 - Local pre-command: activate VPN or mount volume before opening the connection
@@ -594,7 +594,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Libreria snippet** — comandi riutilizzabili globali accessibili dal menu contestuale del terminale ("Inserisci snippet…")
 - **Broadcast terminali** — invia lo stesso testo a tutti i terminali selezionati contemporaneamente (ideale per cluster)
 - **Multi-exec** — esegui un comando su più sessioni in sequenza
-- **Ctrl+Rotella** per cambiare la dimensione del font nel terminale VTE
+- **Ctrl+Rotella** oppure **Ctrl+`+`** / **Ctrl+`-`** per cambiare la dimensione del font nel terminale VTE, **Ctrl+`0`** per ripristinarla
 - Log output su file per ogni sessione (con `script(1)`)
 - Scrollback configurabile o infinito per sessione
 - Pre-comando locale: attiva VPN o monta volume prima di aprire la connessione
