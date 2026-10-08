@@ -137,7 +137,7 @@ _WOL_FIELDS = {
 }
 
 _PRECMD_FIELDS = {
-    "pre_cmd", "pre_cmd_timeout", "tunnel",
+    "pre_cmd", "pre_cmd_timeout", "tunnel", "tunnel_start",
 }
 
 _MACRO_FIELDS = {"macros", "expect_rules"}

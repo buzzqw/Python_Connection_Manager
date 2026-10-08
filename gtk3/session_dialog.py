@@ -925,6 +925,18 @@ class SessionDialog(Gtk.Dialog):
         self.combo_tunnel.set_tooltip_text(t("sd.tunnel.tip"))
         _form_row(t("sd.tunnel.label"), self.combo_tunnel, grid, row); row += 1
 
+        self.chk_tunnel_start = Gtk.CheckButton(label=t("sd.tunnel.start_before"))
+        self.chk_tunnel_start.set_tooltip_text(t("sd.tunnel.tip"))
+        self.chk_tunnel_start.set_halign(Gtk.Align.START)
+        grid.attach(self.chk_tunnel_start, 1, row, 1, 1); row += 1
+        self.chk_tunnel_start.set_sensitive(False)
+        self.combo_tunnel.connect(
+            "changed", lambda c: self.chk_tunnel_start.set_sensitive(c.get_active() > 0))
+
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        sep.set_margin_top(6); sep.set_margin_bottom(6)
+        grid.attach(sep, 0, row, 2, 1); row += 1
+
         self.combo_tunnel_type = _combo(
             "Proxy SOCKS (-D)", "Locale (-L)", "Remoto (-R)"
         )
@@ -2017,6 +2029,7 @@ class SessionDialog(Gtk.Dialog):
             for _i, _r in enumerate(_mod):
                 if _r[0] == _tn:
                     self.combo_tunnel.set_active(_i)
+        self.chk_tunnel_start.set_active(bool(dati.get("tunnel_start", False)) and self.combo_tunnel.get_active() > 0)
 
         # Exec
         self.entry_exec_cmd.set_text(dati.get("exec_cmd", ""))
@@ -2316,6 +2329,8 @@ class SessionDialog(Gtk.Dialog):
             "pre_cmd_timeout": int(self.spin_pre_cmd_timeout.get_value()),
             "tunnel":         ("" if self.combo_tunnel.get_active() <= 0
                                else (self.combo_tunnel.get_active_text() or "")),
+            "tunnel_start":   bool(self.combo_tunnel.get_active() > 0
+                                    and self.chk_tunnel_start.get_active()),
             "notes":          notes,
             "macros":         macros,
             "expect_rules":   expect_rules,

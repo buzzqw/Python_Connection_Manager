@@ -880,7 +880,8 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         use_gateway = self._needs_ssh_gateway(dati)
-        tunnel_assoc = str(dati.get("tunnel", "") or "").strip()
+        tunnel_assoc = (str(dati.get("tunnel", "") or "").strip()
+                        if dati.get("tunnel_start") else "")
 
         if pre_cmd or wol_mac or use_gateway or tunnel_assoc:
             def _bg():
