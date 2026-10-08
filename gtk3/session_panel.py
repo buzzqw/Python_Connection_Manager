@@ -12,6 +12,8 @@ Segnali emessi:
 """
 
 import os
+import threading
+import time
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -42,6 +44,12 @@ PROTO_LABEL = {k: v for k, v in protocols.PROTO_LABEL.items()}
 PROTO_LABEL.update({"sftp": "SFTP", "ftp": "FTP"})
 
 
+_DEFAULT_PORT = {
+    "ssh": 22, "mosh": 22, "sftp": 22, "file_transfer": 22, "telnet": 23,
+    "ftp": 21, "ftps": 21, "rdp": 3389, "vnc": 5900, "spice": 5900,
+}
+
+
 class SessionPanel(Gtk.Box):
 
     __gsignals__ = {
@@ -61,6 +69,7 @@ class SessionPanel(Gtk.Box):
         "apri-cluster": (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "apri-tools":   (GObject.SignalFlags.RUN_FIRST, None, (str, object)),
         "preferiti-cambiati": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "apri-multiplo": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
     }
 
     def __init__(self):
@@ -68,8 +77,15 @@ class SessionPanel(Gtk.Box):
         self.get_style_context().add_class("session-sidebar")
         self._profili: dict = {}
         self._open_sessions: set = set()
+        self._reach: dict = {}          # nome -> bool (raggiungibilita' host:porta)
+        self._reach_enabled = bool(
+            config_manager.load_settings().get("general", {}).get("sidebar_status", True))
         self._init_ui()
         self.aggiorna()
+        if self._reach_enabled:
+            self._reach_stop = False
+            threading.Thread(target=self._reach_loop, daemon=True).start()
+            self.connect("destroy", lambda *_: setattr(self, "_reach_stop", True))
 
     # ------------------------------------------------------------------
     # UI
@@ -149,6 +165,9 @@ class SessionPanel(Gtk.Box):
 
         self._tree.connect("row-activated", self._on_row_activated)
         self._tree.connect("button-press-event", self._on_button_press)
+        self._tree.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
+        self._tree.set_has_tooltip(True)
+        self._tree.connect("query-tooltip", self._on_query_tooltip)
 
         self._scroll = Gtk.ScrolledWindow()
         self._scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -320,6 +339,7 @@ class SessionPanel(Gtk.Box):
                 user_host = f"{GLib.markup_escape_text(user_display + '@' if user_display else '')}{GLib.markup_escape_text(host)}"
                 sub = f" <span foreground='gray' size='smaller'>({user_host})</span>" if host else ""
                 dot = "<span foreground='#22cc55'>●</span> " if nome in self._open_sessions else ""
+                dot += self._reach_dot(nome)
                 markup = (
                     f"<span foreground='{color}'><b>{GLib.markup_escape_text(proto_lbl)}</b></span> "
                     f"{dot}{GLib.markup_escape_text(nome)}{sub}"
@@ -375,6 +395,12 @@ class SessionPanel(Gtk.Box):
             else:
                 self._mostra_menu_gruppo(event, chiave)
             return True
+        sel_model, sel_paths = self._tree.get_selection().get_selected_rows()
+        selezionati = [sel_model.get_value(sel_model.get_iter(pth), 2) for pth in sel_paths
+                       if not sel_model.get_value(sel_model.get_iter(pth), 3)]
+        if len(selezionati) > 1 and path in sel_paths:
+            self._mostra_menu_selezione(event, selezionati)
+            return True
         nome = self._store.get_value(it, 2)
         dati = self._profili.get(nome, {})
         parent = self._store.iter_parent(it)
@@ -399,6 +425,10 @@ class SessionPanel(Gtk.Box):
         mi.connect("activate", lambda _: self.emit("nuova-in-gruppo", gruppo))
         menu.append(mi)
 
+        mi_all = Gtk.MenuItem(label=t("panel.open_group_all"))
+        mi_all.connect("activate", lambda _: self._apri_gruppo(gruppo))
+        menu.append(mi_all)
+
         mi_ping = Gtk.MenuItem(label=t("panel.ping_group"))
         mi_ping.connect("activate", lambda _: self.emit("ping-gruppo", gruppo))
         menu.append(mi_ping)
@@ -409,6 +439,106 @@ class SessionPanel(Gtk.Box):
     def _cancella_recenti(self):
         config_manager.clear_recent()
         self.aggiorna()
+
+    # ------------------------------------------------------------------
+    # Raggiungibilita' host (pallino in sidebar) e tooltip
+    # ------------------------------------------------------------------
+
+    _REACH_INTERVAL = 60
+    _REACH_SKIP_PROTO = {"serial", "exec", "local"}
+
+    def _reach_dot(self, nome: str) -> str:
+        ok = self._reach.get(nome)
+        if ok is None:
+            return ""
+        colore = "#4caf50" if ok else "#e55353"
+        return f"<span foreground='{colore}' size='x-small'>▪</span> "
+
+    def _reach_targets(self) -> dict:
+        targets = {}
+        for nome, d in self._profili.items():
+            if not isinstance(d, dict):
+                continue
+            host = str(d.get("host", "") or "").strip()
+            if (not host or d.get("protocol", "ssh") in self._REACH_SKIP_PROTO
+                    or str(d.get("jump_host", "")).strip() or host.startswith("ENC:")
+                    or str(d.get("pre_cmd", "")).strip() or d.get("wol_enabled")):
+                continue
+            porta = d.get("port") or _DEFAULT_PORT.get(d.get("protocol", "ssh"), 22)
+            try:
+                targets[nome] = (host, int(porta))
+            except (TypeError, ValueError):
+                pass
+        return targets
+
+    def _reach_loop(self):
+        import socket
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _check(item):
+            nome, (host, porta) = item
+            try:
+                with socket.create_connection((host, porta), timeout=1.5):
+                    return nome, True
+            except OSError:
+                return nome, False
+
+        while not self._reach_stop:
+            targets = dict(self._reach_targets())
+            if targets:
+                with ThreadPoolExecutor(max_workers=8) as ex:
+                    risultati = dict(ex.map(_check, targets.items()))
+                if risultati != self._reach:
+                    self._reach = risultati
+                    GLib.idle_add(self._reach_refresh)
+            for _ in range(self._REACH_INTERVAL * 2):
+                if self._reach_stop:
+                    return
+                time.sleep(0.5)
+
+    def _reach_refresh(self):
+        self._ricostruisci(self._search.get_text())
+        return False
+
+    def _on_query_tooltip(self, tree, x, y, keyboard, tooltip):
+        info = tree.get_path_at_pos(*tree.convert_widget_to_bin_window_coords(x, y))
+        if not info:
+            return False
+        it = self._store.get_iter(info[0])
+        if it is None or self._store.get_value(it, 3):
+            return False
+        nome = self._store.get_value(it, 2)
+        dati = self._profili.get(nome, {})
+        righe = [nome]
+        host = dati.get("host", "")
+        if host:
+            righe.append(f"{dati.get('protocol', 'ssh').upper()}  {host}")
+        st = config_manager.get_session_stats(nome)
+        if st:
+            righe.append(t("sidebar.tt_stats", count=st.get("count", 0), last=st.get("last", "")))
+        ok = self._reach.get(nome)
+        if ok is not None:
+            righe.append(t("sidebar.tt_reachable") if ok else t("sidebar.tt_unreachable"))
+        tooltip.set_text("\n".join(righe))
+        tree.set_tooltip_row(tooltip, info[0])
+        return True
+
+    def _apri_gruppo(self, gruppo: str):
+        nomi = []
+        for nome, d in sorted(self._profili.items()):
+            g = str(d.get("group", "") or "").strip()
+            if gruppo == "" and g == "" or g == gruppo or (gruppo and g.startswith(gruppo + "/")):
+                nomi.append(nome)
+        if nomi:
+            self.emit("apri-multiplo", nomi)
+
+    def _mostra_menu_selezione(self, event, nomi: list):
+        menu = Gtk.Menu()
+        mi = Gtk.MenuItem(label=t("panel.open_selected", n=len(nomi)))
+        mi.connect("activate", lambda _: self.emit("apri-multiplo", nomi))
+        menu.append(mi)
+        menu.show_all()
+        menu.popup_at_pointer(event)
 
     def _toggle_preferito(self, nome: str):
         profili = config_manager.toggle_favorite(nome)

@@ -164,6 +164,10 @@ class SettingsDialog(Gtk.Dialog):
         )
         grid.attach(self.chk_restore_sessions, 0, row, 2, 1); row += 1
 
+        self.chk_sidebar_status = Gtk.CheckButton(label=t("settings.general.sidebar_status"))
+        self.chk_sidebar_status.set_tooltip_text(t("settings.general.sidebar_status_tt"))
+        grid.attach(self.chk_sidebar_status, 0, row, 2, 1); row += 1
+
         self.chk_dark_mode = Gtk.CheckButton(label=t("settings.general.dark_mode"))
         self.chk_dark_mode.set_tooltip_text(t("settings.general.dark_mode_tt"))
         grid.attach(self.chk_dark_mode, 0, row, 2, 1); row += 1
@@ -658,6 +662,7 @@ class SettingsDialog(Gtk.Dialog):
 
         self.chk_confirm_exit.set_active(g.get("confirm_on_exit", True))
         self.chk_restore_sessions.set_active(g.get("restore_sessions_on_start", False))
+        self.chk_sidebar_status.set_active(g.get("sidebar_status", True))
         self.chk_audit_log.set_active(g.get("audit_log_enabled", False))
         backup_s = self._settings.get("backups", {})
         self.chk_backups.set_active(backup_s.get("enabled", True))
@@ -746,6 +751,7 @@ class SettingsDialog(Gtk.Dialog):
         s["general"]["confirm_on_exit"]          = self.chk_confirm_exit.get_active()
         s["general"]["audit_log_enabled"]        = self.chk_audit_log.get_active()
         s["general"]["restore_sessions_on_start"] = self.chk_restore_sessions.get_active()
+        s["general"]["sidebar_status"]           = self.chk_sidebar_status.get_active()
         s["backups"] = {
             "enabled": self.chk_backups.get_active(),
             "max_files": int(self.spin_backup_count.get_value()),

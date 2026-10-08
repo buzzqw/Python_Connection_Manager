@@ -648,6 +648,7 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.append(mi)
 
         _item(t("menu.tools.tunnels"),     self._on_tunnel_manager)
+        _item(t("menu.tools.workspaces"),  self._on_workspaces)
         _item(t("menu.tools.broadcast"),   self._on_broadcast)
         _item(t("menu.tools.variables"),   self._on_variabili_globali)
         _item(t("menu.tools.ftp_server"),  self._on_ftp_server)
@@ -686,6 +687,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("modifica", self._on_modifica_sessione)
         self._pannello.connect("elimina",  self._on_elimina_sessione)
         self._pannello.connect("duplica",  self._on_duplica_sessione)
+        self._pannello.connect("apri-multiplo", lambda p, nomi: self._apri_sessioni_multiple(nomi))
         self._pannello.connect("preferiti-cambiati", lambda p: self._aggiorna_welcome_recenti())
         self._pannello.connect("clona-modifica", self._on_clona_modifica_sessione)
         self._pannello.connect("ping-gruppo",    self._on_ping_gruppo)
@@ -2472,6 +2474,95 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.run()
         dlg.destroy()
 
+    def _apri_sessioni_multiple(self, nomi: list):
+        """Apre piu' sessioni in sequenza (salta quelle già aperte)."""
+        profili = config_manager.load_profiles()
+        gia_aperte = self._get_open_session_names()
+        da_aprire = [n for n in nomi if n in profili and n not in gia_aperte]
+        for i, nome in enumerate(da_aprire):
+            def _apri(n=nome):
+                self._on_connetti(None, n, dict(config_manager.load_profiles().get(n, {})))
+                return False
+            GLib.timeout_add(i * 250, _apri)
+
+    def _on_workspaces(self):
+        """Dialog per salvare le sessioni aperte come workspace e riaprirle."""
+        dlg = Gtk.Dialog(title=t("workspace.title"), transient_for=self, modal=True)
+        dlg.set_default_size(420, 360)
+        area = dlg.get_content_area()
+        area.set_spacing(8)
+        for side in ("start", "end", "top", "bottom"):
+            getattr(area, f"set_margin_{side}")(12)
+
+        store = Gtk.ListStore(str, str)
+        view = Gtk.TreeView(model=store)
+        view.set_headers_visible(False)
+        view.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=1))
+        sc = Gtk.ScrolledWindow()
+        sc.set_vexpand(True)
+        sc.add(view)
+        area.pack_start(sc, True, True, 0)
+
+        def _ricarica():
+            store.clear()
+            for nome, sess in sorted(config_manager.load_workspaces().items()):
+                store.append([nome, f"{nome}  ({len(sess)})"])
+
+        def _sel():
+            model, it = view.get_selection().get_selected()
+            return model.get_value(it, 0) if it else None
+
+        def _apri(*_):
+            nome = _sel()
+            if nome:
+                dlg.destroy()
+                self._apri_sessioni_multiple(config_manager.load_workspaces().get(nome, []))
+
+        def _elimina(*_):
+            nome = _sel()
+            if nome:
+                config_manager.delete_workspace(nome)
+                _ricarica()
+
+        def _salva(*_):
+            nome = entry.get_text().strip()
+            aperte = sorted(self._get_open_session_names())
+            if not nome:
+                return
+            if not aperte:
+                self._warn(t("workspace.no_open"))
+                return
+            config_manager.save_workspace(nome, aperte)
+            entry.set_text("")
+            _ricarica()
+
+        view.connect("row-activated", _apri)
+        row = Gtk.Box(spacing=6)
+        btn_apri = Gtk.Button(label=t("workspace.open"))
+        btn_apri.connect("clicked", _apri)
+        btn_del = Gtk.Button(label=t("workspace.delete"))
+        btn_del.connect("clicked", _elimina)
+        row.pack_start(btn_apri, False, False, 0)
+        row.pack_start(btn_del, False, False, 0)
+        area.pack_start(row, False, False, 0)
+
+        area.pack_start(Gtk.Separator(), False, False, 0)
+        save_row = Gtk.Box(spacing=6)
+        entry = Gtk.Entry()
+        entry.set_placeholder_text(t("workspace.name_ph"))
+        entry.connect("activate", _salva)
+        btn_salva = Gtk.Button(label=t("workspace.save_open"))
+        btn_salva.connect("clicked", _salva)
+        save_row.pack_start(entry, True, True, 0)
+        save_row.pack_start(btn_salva, False, False, 0)
+        area.pack_start(save_row, False, False, 0)
+
+        dlg.add_button(t("tunnel.btn_close"), Gtk.ResponseType.CLOSE)
+        _ricarica()
+        dlg.show_all()
+        dlg.run()
+        dlg.destroy()
+
     def _on_tunnel_manager(self):
         dlg = TunnelManagerDialog(parent=self)
         dlg.run()
@@ -2489,11 +2580,28 @@ class MainWindow(Gtk.ApplicationWindow):
     def _notifica_tunnel_avvio(self) -> bool:
         """Chiamato 1s dopo l'avvio: riagganicia i tunnel con PID persistito e mostra notifica."""
         reattach_tunnels()  # popola _active_procs dai PID salvati nella config
+        self._avvia_tunnel_autostart()
         attivi = get_active_tunnels()
         if attivi:
             nomi = ", ".join(tun.get("nome", "?") for tun in attivi)
             self._status(t("tunnel.startup_found").format(n=len(attivi)) + f": {nomi}")
         return False  # esegui una volta sola
+
+    def _avvia_tunnel_autostart(self):
+        """Avvia in background i tunnel con 'avvio automatico' non ancora attivi."""
+        da_avviare = [(i, tun.get("nome", "?"))
+                      for i, tun in enumerate(config_manager.load_tunnels())
+                      if tun.get("autostart")]
+        if not da_avviare:
+            return
+
+        def _bg():
+            for i, nome in da_avviare:
+                ok, err = start_tunnel(i, wait=8)
+                if not ok:
+                    GLib.idle_add(self._warn, f"{t('tunnel.start_failed')} ({nome}): {err}")
+            GLib.idle_add(self._aggiorna_tun_indicator)
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _aggiorna_tun_indicator(self) -> bool:
         attivi = get_active_tunnels()
@@ -2800,7 +2908,23 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_quick_switcher(self):
         """Dialog Command Palette per ricerca e connessione rapida."""
         from quick_switcher_dialog import QuickSwitcherDialog
-        dlg = QuickSwitcherDialog(parent=self, on_connect=lambda n, d: self._on_connetti(None, n, d))
+        azioni = [
+            (t("menu.tools.tunnels"),        self._on_tunnel_manager),
+            (t("menu.tools.workspaces"),     self._on_workspaces),
+            (t("sidebar.new_session_tooltip"), self._on_nuova_sessione),
+            (t("menu.tools.import_from"),    self._on_importa_sessioni),
+            (t("menu.file.export_sessions"), self._on_esporta_sessioni),
+            (t("menu.tools.snippets"),       self._apri_snippet_dialog),
+            (t("menu.tools.variables"),      self._on_variabili_globali),
+            (t("menu.tools.port_scan"),      self._on_port_scan),
+            (t("menu.tools.audit"),          self._on_audit_log),
+            (t("menu.tools.crypto"),         self._on_gestione_crypto),
+            (t("menu.help.guide"),           self._on_guida),
+            (t("menu.help.about"),           self._on_about),
+            (t("quick_switcher.act_settings"), self._on_impostazioni),
+        ]
+        dlg = QuickSwitcherDialog(parent=self, on_connect=lambda n, d: self._on_connetti(None, n, d),
+                                  actions=azioni)
         dlg.run()
 
     # ------------------------------------------------------------------

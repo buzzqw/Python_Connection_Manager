@@ -637,6 +637,33 @@ def add_recent(nome: str, dati: dict):
         "host":  dati.get("host", ""),
     })
     s["recent_sessions"] = recenti[:_MAX_RECENT]
+    st = s.setdefault("session_stats", {}).setdefault(nome, {})
+    st["count"] = int(st.get("count", 0)) + 1
+    st["last"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    save_settings(s)
+
+
+def get_session_stats(nome: str) -> dict:
+    """Statistiche d'uso: {'count': int, 'last': 'YYYY-MM-DD HH:MM'} (vuoto se mai usata)."""
+    st = load_settings().get("session_stats", {}).get(nome, {})
+    return st if isinstance(st, dict) else {}
+
+
+def load_workspaces() -> dict:
+    """Workspace salvati: {nome: [nomi sessione, ...]}."""
+    ws = load_settings().get("workspaces", {})
+    return ws if isinstance(ws, dict) else {}
+
+
+def save_workspace(nome: str, sessioni: list):
+    s = load_settings()
+    s.setdefault("workspaces", {})[nome] = list(sessioni)
+    save_settings(s)
+
+
+def delete_workspace(nome: str):
+    s = load_settings()
+    s.get("workspaces", {}).pop(nome, None)
     save_settings(s)
 
 

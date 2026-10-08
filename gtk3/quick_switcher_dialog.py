@@ -43,7 +43,8 @@ def _get_icon_pixbuf(proto: str) -> GdkPixbuf.Pixbuf | None:
 class QuickSwitcherDialog(Gtk.Dialog):
     """Dialog compatto in stile Spotlight/Command-Palette per ricerca rapida sessioni."""
 
-    def __init__(self, parent: Gtk.Window | None, on_connect: Callable[[str, dict], None]):
+    def __init__(self, parent: Gtk.Window | None, on_connect: Callable[[str, dict], None],
+                 actions: list | None = None):
         super().__init__(
             title=t("quick_switcher.title"),
             transient_for=parent,
@@ -51,6 +52,8 @@ class QuickSwitcherDialog(Gtk.Dialog):
             destroy_with_parent=True,
         )
         self._on_connect = on_connect
+        # Azioni dell'app [(etichetta, callback)] mostrate insieme alle sessioni
+        self._actions = {f"__action__:{lbl}": (lbl, cb) for lbl, cb in (actions or [])}
         self.set_default_size(580, 420)
         self.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
 
@@ -239,6 +242,11 @@ class QuickSwitcherDialog(Gtk.Dialog):
                 item["nome"],
             ])
 
+        # Azioni dell'app dopo le sessioni (tutte a campo vuoto, altrimenti quelle che combaciano)
+        for key, (lbl, _cb) in self._actions.items():
+            if not terms or all(term in lbl.lower() for term in terms):
+                self._store.append([None, "⚡ " + lbl, t("quick_switcher.action"), "", "", key])
+
         # Seleziona la prima riga
         if len(self._store) > 0:
             first_path = Gtk.TreePath.new_first()
@@ -293,6 +301,11 @@ class QuickSwitcherDialog(Gtk.Dialog):
         if not cur_iter:
             return
         nome = model.get_value(cur_iter, 5)
+        if nome in self._actions:
+            cb = self._actions[nome][1]
+            self.destroy()
+            GLib.idle_add(lambda: (cb(), False)[1])
+            return
         dati = self._profili.get(nome)
         if dati:
             self.destroy()

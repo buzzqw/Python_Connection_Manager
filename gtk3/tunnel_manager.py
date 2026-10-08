@@ -178,6 +178,19 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
     if proc and _proc_vivo(proc.pid):
         return True, ""
     tun = tunnels[idx]
+    tipo = tun.get("tipo", "")
+    if ("SOCKS" in tipo or "Locale" in tipo) and tun.get("local_port"):
+        lport = int(tun["local_port"])
+        if _porta_listening(lport):
+            pid = _porta_in_ascolto(lport)
+            quale = ""
+            if pid:
+                try:
+                    with open(f"/proc/{pid}/comm") as f:
+                        quale = f" da {f.read().strip()} (PID {pid})"
+                except OSError:
+                    quale = f" (PID {pid})"
+            return False, f"porta locale {lport} già in uso{quale}"
     cmd = TunnelManagerDialog._build_cmd(tun)
     pwd = tun.get("password", "")
     env = os.environ.copy()
@@ -462,6 +475,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         for label, callback in [
             (t("tunnel.btn_add"), self._on_aggiungi),
             (t("tunnel.btn_edit"), self._on_modifica),
+            (t("tunnel.btn_duplicate"), self._on_duplica),
             (t("tunnel.btn_delete"),  self._on_elimina),
         ]:
             btn = Gtk.Button(label=label)
@@ -600,6 +614,27 @@ class TunnelManagerDialog(Gtk.Dialog):
             config_manager.save_tunnels(self._tunnels)
             self._ricarica()
         dlg.destroy()
+
+    def _on_duplica(self):
+        idx = self._selected_idx()
+        if idx is None: return
+        nuovo = dict(self._tunnels[idx])
+        nuovo["nome"] = f"{nuovo.get('nome', 'Tunnel')} (copia)"
+        for k in ("pid", "last_used"):
+            nuovo.pop(k, None)
+        nuovo["autostart"] = False
+        # porta locale libera: la prima non usata da altri tunnel né in ascolto
+        usate = {str(x.get("local_port")) for x in self._tunnels}
+        try:
+            porta = int(nuovo.get("local_port", 1080))
+            while str(porta) in usate or _porta_listening(porta):
+                porta += 1
+            nuovo["local_port"] = str(porta)
+        except (TypeError, ValueError):
+            pass
+        self._tunnels.append(nuovo)
+        config_manager.save_tunnels(self._tunnels)
+        self._ricarica()
 
     def _on_elimina(self):
         idx = self._selected_idx()
