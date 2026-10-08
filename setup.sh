@@ -4,6 +4,7 @@
 # Uso:
 #   bash setup.sh           # installazione / aggiornamento guidato
 #   bash setup.sh --check   # verifica senza installare
+#   bash setup.sh --deps    # installa/aggiorna solo le dipendenze
 #
 # Variante unica: GTK3 + PyGObject
 
@@ -21,6 +22,7 @@ ask()  { echo -e "  ${CYAN}?${NC}  $*"; }
 
 MODE="full"
 [[ "${1:-}" == "--check" ]] && MODE="check"
+[[ "${1:-}" == "--deps" ]] && MODE="deps"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALLED_MARKER="${PROJECT_DIR}/.pcm_installed"
@@ -46,7 +48,7 @@ echo -e "${BOLD}${BLUE}╚══════════════════
 echo -e "  Sistema rilevato: ${BOLD}${DISTRO}${NC}"
 
 # ── Controllo se già installato → offri aggiornamento ─────────────────────
-if [[ -f "$INSTALLED_MARKER" ]]; then
+if [[ -f "$INSTALLED_MARKER" && "$MODE" == "full" ]]; then
     INSTALLED_VERSION=$(cat "$INSTALLED_MARKER" 2>/dev/null || echo "sconosciuta")
     if [[ "$INSTALLED_VERSION" != "gtk3" ]]; then
         warn "Installazione PyQt6 rilevata. La variante PyQt6 non è più distribuita."
@@ -71,6 +73,12 @@ if [[ -f "$INSTALLED_MARKER" ]]; then
                 warn "git pull non riuscito. Verifica manualmente lo stato del repository."
             fi
             echo
+            # Le nuove versioni possono richiedere nuove dipendenze: rilancia
+            # lo script aggiornato in modalita' --deps.
+            read -rp "  Aggiornare anche le dipendenze? [S/n]: " DEPS_CHOICE || DEPS_CHOICE="n"
+            if [[ ! "${DEPS_CHOICE:-S}" =~ ^[nN]$ ]]; then
+                exec bash "$PROJECT_DIR/setup.sh" --deps
+            fi
             echo -e "  ${GREEN}Aggiornamento terminato.${NC}"
             exit 0
             ;;
@@ -97,33 +105,41 @@ fi
 
 # ── Configurazione pacchetti per distro ────────────────────────────────────
 USE_VENV=false
+# OPT_PKGS: pacchetti facoltativi (es. GtkSource per l'evidenziazione
+# sintassi nell'editor SFTP). Installati a parte: se mancano non bloccano.
+OPT_PKGS=""
 
 if [[ "$DISTRO" == "debian" ]]; then
-    SYS_PKGS="python3 python3-venv python3-gi python3-gi-cairo curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool wakeonlan xdg-utils"
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
+    SYS_PKGS="python3 python3-venv python3-gi python3-gi-cairo curl libglib2.0-dev gir1.2-gtk-3.0 gir1.2-vte-2.91 gir1.2-gtk-vnc-2.0 openssh-client mosh freerdp3-x11 tigervnc-viewer xdotool xdg-utils telnet lftp picocom"
+    OPT_PKGS="gir1.2-gtksource-3.0"
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5")
     USE_VENV=true
 elif [[ "$DISTRO" == "fedora" ]]; then
-    SYS_PKGS="python3 python3-devel python3-gobject curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool wol xdg-utils"
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
+    SYS_PKGS="python3 python3-devel python3-gobject curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool xdg-utils telnet lftp picocom"
+    OPT_PKGS="gtksourceview3"
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5")
     USE_VENV=true
 elif [[ "$DISTRO" == "arch" ]]; then
-    SYS_PKGS="python python-gobject curl gtk3 vte3 gtk-vnc openssh mosh freerdp tigervnc xdotool wol xdg-utils python-cryptography python-paramiko python-pyftpdlib"
+    SYS_PKGS="python python-gobject curl gtk3 vte3 gtk-vnc openssh mosh freerdp tigervnc xdotool xdg-utils inetutils lftp picocom python-cryptography python-paramiko python-pyftpdlib python-pyopenssl python-pynacl"
+    OPT_PKGS="gtksourceview3"
     PIP_PACKAGES=()
     USE_VENV=false
 elif [[ "$DISTRO" == "freebsd" ]]; then
     PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "311")
-    SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool wakeonlan xdg-utils py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib"
+    SYS_PKGS="bash python3 curl py${PY_VER}-pygobject gtk3 vte3 gtk-vnc mosh freerdp3 tigervnc-viewer xdotool xdg-utils lftp picocom py${PY_VER}-cryptography py${PY_VER}-paramiko py${PY_VER}-pyftpdlib py${PY_VER}-openssl py${PY_VER}-pynacl"
+    OPT_PKGS="gtksourceview3"
     PIP_PACKAGES=()
     USE_VENV=false
 elif [[ "$DISTRO" == "opensuse" ]]; then
     PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')" 2>/dev/null || echo "313")
-    SYS_PKGS="python${PY_VER} python${PY_VER}-pip python${PY_VER}-virtualenv python${PY_VER}-gobject python${PY_VER}-gobject-cairo curl typelib-1_0-Gtk-3_0 typelib-1_0-Vte-2_91 typelib-1_0-GtkVnc-2_0 gtk3 openssh mosh freerdp tigervnc xdotool xdg-utils wol"
-    SYS_PKGS="$SYS_PKGS python${PY_VER}-cryptography python${PY_VER}-paramiko python${PY_VER}-pyftpdlib"
+    SYS_PKGS="python${PY_VER} python${PY_VER}-pip python${PY_VER}-virtualenv python${PY_VER}-gobject python${PY_VER}-gobject-cairo curl typelib-1_0-Gtk-3_0 typelib-1_0-Vte-2_91 typelib-1_0-GtkVnc-2_0 gtk3 openssh mosh freerdp tigervnc xdotool xdg-utils telnet lftp picocom"
+    SYS_PKGS="$SYS_PKGS python${PY_VER}-cryptography python${PY_VER}-paramiko python${PY_VER}-pyftpdlib python${PY_VER}-pyOpenSSL python${PY_VER}-PyNaCl"
+    OPT_PKGS="typelib-1_0-GtkSource-3_0"
     PIP_PACKAGES=()
     USE_VENV=false
 else
     SYS_PKGS=""
-    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pynacl>=1.5")
+    PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5")
     USE_VENV=false
 fi
 VARIANT_DIR="${PROJECT_DIR}/gtk3"
@@ -145,6 +161,21 @@ install_system_deps() {
         opensuse) sudo zypper install -y $SYS_PKGS ;;
         freebsd)  sudo pkg update && sudo pkg install -y $SYS_PKGS ;;
     esac
+
+    if [[ -n "$OPT_PKGS" ]]; then
+        echo "  Pacchetti facoltativi: $OPT_PKGS"
+        local rc=0
+        case "$DISTRO" in
+            debian)   sudo apt-get install -y $OPT_PKGS || rc=$? ;;
+            fedora)   sudo dnf install -y $OPT_PKGS || rc=$? ;;
+            arch)     sudo pacman -S --noconfirm --needed $OPT_PKGS || rc=$? ;;
+            opensuse) sudo zypper install -y $OPT_PKGS || rc=$? ;;
+            freebsd)  sudo pkg install -y $OPT_PKGS || rc=$? ;;
+        esac
+        if [[ $rc -ne 0 ]]; then
+            warn "Pacchetti facoltativi non installati ($OPT_PKGS): l'editor SFTP userà testo semplice."
+        fi
+    fi
 }
 
 setup_python_env() {
@@ -221,10 +252,22 @@ check_status() {
     local PYTHON_CHK="${PYTHON_CMD:-python3}"
     [[ "$USE_VENV" == true && -d "${VARIANT_DIR}/.venv" ]] && PYTHON_CHK="${VARIANT_DIR}/.venv/bin/python3"
 
-    if $PYTHON_CHK -c "import cryptography, paramiko, pyftpdlib" &>/dev/null; then
-        ok "Moduli Python principali (cryptography, paramiko, pyftpdlib) trovati"
+    local mod
+    for mod in cryptography paramiko pyftpdlib; do
+        if $PYTHON_CHK -c "import $mod" &>/dev/null; then ok "Python: $mod"
+        else err "Python: $mod mancante"
+        fi
+    done
+    if $PYTHON_CHK -c "import nacl" &>/dev/null; then ok "Python: pynacl"
+    else warn "Python: pynacl mancante (integrazione KeePassXC non disponibile)"
+    fi
+    if $PYTHON_CHK -c "import OpenSSL" &>/dev/null; then ok "Python: pyopenssl"
+    else warn "Python: pyopenssl mancante (FTPS nel server FTP locale non disponibile)"
+    fi
+    if $PYTHON_CHK -c 'import gi; gi.require_version("GtkSource","3.0"); from gi.repository import GtkSource' &>/dev/null; then
+        ok "GtkSource 3 (evidenziazione sintassi editor SFTP)"
     else
-        err "Alcuni moduli Python principali mancano"
+        warn "GtkSource 3 non trovato (facoltativo: l'editor SFTP userà testo semplice)"
     fi
 
     if $PYTHON_CHK -c "$CHECK_CMD_PY" &>/dev/null; then
@@ -241,7 +284,7 @@ check_status() {
         else warn "$tool: non trovato"
         fi
     done
-    for tool in xfreerdp3 xfreerdp rdesktop mosh; do
+    for tool in xfreerdp3 xfreerdp rdesktop mosh telnet lftp picocom xtigervncviewer vncviewer; do
         if command -v "$tool" &>/dev/null; then ok "$tool"
         else echo -e "    ${NC}$tool: non installato${NC}"
         fi
@@ -254,6 +297,14 @@ if [[ "$MODE" == "check" ]]; then
     PYTHON_CMD="python3"
     [[ -d "${VARIANT_DIR}/.venv" ]] && PYTHON_CMD="${VARIANT_DIR}/.venv/bin/python3"
     check_status
+    exit 0
+fi
+
+if [[ "$MODE" == "deps" ]]; then
+    install_system_deps
+    setup_python_env
+    check_status
+    hdr "Dipendenze aggiornate"
     exit 0
 fi
 
