@@ -96,6 +96,13 @@ jobs:
             echo "Tentativo ${i}/24, attendo 10s..."
             sleep 10
           done
+          if ! gh release view "${RELEASE_TAG}" &>/dev/null; then
+            echo "Release ${RELEASE_TAG} non trovata dopo l'attesa: la creo come rete di sicurezza."
+            git log -1 --pretty=%B > /tmp/release_notes.txt
+            gh release create "${RELEASE_TAG}" \
+              --title "PCM build ${{ steps.version.outputs.VERSION }}" \
+              --notes-file /tmp/release_notes.txt
+          fi
           gh release upload "${RELEASE_TAG}" \
             "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.tar.gz" \
             "dist/PCM_v${{ steps.version.outputs.VERSION }}_Linux_GTK3.zip" \
