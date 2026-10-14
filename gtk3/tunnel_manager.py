@@ -222,13 +222,14 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
     errpath = os.path.join(cache, f".tunnel_{idx}.err")
     try:
         if pwd:
-            import shlex
             fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=cache, text=True)
             with os.fdopen(fd, "w") as f:
-                f.write(f"#!/bin/sh\nprintf '%s' {shlex.quote(pwd)}\n")
+                # Nessun segreto nel file: la password arriva via ambiente.
+                f.write('#!/bin/sh\nprintf \'%s\' "$PCM_ASKPASS_PW"\n')
             os.chmod(askpass, 0o700)
             env["SSH_ASKPASS"] = askpass
             env["SSH_ASKPASS_REQUIRE"] = "force"
+            env["PCM_ASKPASS_PW"] = pwd
         errfd = os.open(errpath, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
             proc = subprocess.Popen(
@@ -686,15 +687,15 @@ class TunnelManagerDialog(Gtk.Dialog):
         env = os.environ.copy()
         _askpass_path = None
         if pwd:
-            import shlex as _shlex_t
             _tdir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
             os.makedirs(_tdir, mode=0o700, exist_ok=True)
             _tfd, _askpass_path = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_tdir, text=True)
             with os.fdopen(_tfd, "w") as _tf:
-                _tf.write(f"#!/bin/sh\nprintf '%s' {_shlex_t.quote(pwd)}\n")
+                _tf.write('#!/bin/sh\nprintf \'%s\' "$PCM_ASKPASS_PW"\n')
             os.chmod(_askpass_path, 0o700)
             env["SSH_ASKPASS"] = _askpass_path
             env["SSH_ASKPASS_REQUIRE"] = "force"
+            env["PCM_ASKPASS_PW"] = pwd
             self._tunnel_askpass_paths = getattr(self, "_tunnel_askpass_paths", [])
             self._tunnel_askpass_paths.append(_askpass_path)
 

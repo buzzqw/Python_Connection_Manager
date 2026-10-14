@@ -701,11 +701,18 @@ class MainWindow(Gtk.ApplicationWindow):
         self.connect("delete-event", self._on_close)
 
     def _accel_to_gtk(self, shortcut):
-        parti = shortcut.rsplit("+", 1)
-        if len(parti) != 2:
+        shortcut = (shortcut or "").strip()
+        if not shortcut:
             return None
-        mods_str, tasto = parti
-        parti_mods = mods_str.split("+")
+        # Accetta anche tasti singoli senza modificatori (es. "F11"): prima
+        # rsplit("+", 1) restituiva un solo elemento e li scartava in silenzio.
+        if "+" in shortcut:
+            mods_str, tasto = shortcut.rsplit("+", 1)
+            parti_mods = mods_str.split("+")
+        else:
+            parti_mods, tasto = [], shortcut
+        if not tasto:
+            return None
         gtk_mods = []
         for m in parti_mods:
             m = m.strip()
@@ -991,12 +998,14 @@ class MainWindow(Gtk.ApplicationWindow):
                 _log.error("SSH gateway: directory SSH_ASKPASS non di proprieta dell'utente")
                 return None, None
             fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=askpass_dir, text=True)
-            import shlex as _shlex
             with os.fdopen(fd, "w") as f:
-                f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
+                # Nessun segreto scritto su disco: lo script legge la password
+                # dall'ambiente ereditato dal processo ssh.
+                f.write('#!/bin/sh\nprintf \'%s\' "$PCM_ASKPASS_PW"\n')
             os.chmod(askpass, 0o700)
             env["SSH_ASKPASS"] = askpass
             env["SSH_ASKPASS_REQUIRE"] = "force"
+            env["PCM_ASKPASS_PW"] = pwd
 
         try:
             proc = subprocess.Popen(
@@ -1053,7 +1062,7 @@ class MainWindow(Gtk.ApplicationWindow):
             "sftp": "file_transfer", "ftp": "file_transfer", "ftps": "file_transfer",
         }
         _DEFAULT_PORTS = {
-            "ssh": "22", "telnet": "23", "mosh": "60001", "rdp": "3389",
+            "ssh": "22", "telnet": "23", "mosh": "22", "rdp": "3389",
             "vnc": "5900", "file_transfer": "22", "ftp": "21", "ftps": "21",
         }
         _FT_PROTO = {"sftp": "SFTP", "ftp": "FTP", "ftps": "FTPS"}
@@ -1160,6 +1169,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _status = "ok"
         try:
             dati = self._apply_ssh_gateway(dati)
+            handled = True
             # Plugin-based protocols
             if pcm_has_protocol(proto):
                 self._apri_protocollo_plugin(proto, nome, dati)
@@ -1173,7 +1183,15 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._apri_rdp(nome, dati)
             elif proto == "vnc":
                 self._apri_vnc(nome, dati)
-            self._status(t("status.connected", name=nome))
+            else:
+                # Protocollo sconosciuto: prima non succedeva nulla ma lo stato
+                # riportava "connesso" e l'audit registrava un successo.
+                handled = False
+            if handled:
+                self._status(t("status.connected", name=nome))
+            else:
+                _status = "error"
+                self._warn(f"Protocollo non supportato: {proto}")
         except Exception as e:
             _status = "error"
             self._warn(str(e))
@@ -1199,7 +1217,6 @@ class MainWindow(Gtk.ApplicationWindow):
         # SSH_ASKPASS gestisce il caso in cui SSH non mostra il prompt nel VTE:
         #   OpenSSH ≥ 8.4 + SSH_ASKPASS_REQUIRE=force → auth silenziosa senza prompt visibile.
         #   Old SSH → SSH_ASKPASS ignorato (TTY presente) → feed_child gestisce tutto.
-        import shlex as _shlex
         env_extra = {}
         _initial_askpass = None
         pwd  = dati.get("password", "")
@@ -1211,7 +1228,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if _riusa_master:
             pwd = ""
         if pwd and not pkey:
-            # SSH_ASKPASS: script temp in directory privata (non /tmp), password embedded nel file
+            # SSH_ASKPASS: script temp in directory privata (non /tmp).
+            # La password NON è nel file: passa via variabile d'ambiente.
             _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
             os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
             # Verifica che la directory sia di proprietà dell'utente corrente
@@ -1220,10 +1238,11 @@ class MainWindow(Gtk.ApplicationWindow):
             else:
                 _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
                 with os.fdopen(_fd, "w") as _f:
-                    _f.write(f"#!/bin/sh\nprintf '%s' {_shlex.quote(pwd)}\n")
+                    _f.write('#!/bin/sh\nprintf \'%s\' "$PCM_ASKPASS_PW"\n')
                 os.chmod(_askpass, 0o700)
                 env_extra["SSH_ASKPASS"] = _askpass
                 env_extra["SSH_ASKPASS_REQUIRE"] = "force"   # OpenSSH ≥ 8.4
+                env_extra["PCM_ASKPASS_PW"] = pwd
                 _initial_askpass = _askpass
 
         # Modalità terminale ESTERNO: lancia nel terminal emulator scelto
@@ -1297,9 +1316,19 @@ class MainWindow(Gtk.ApplicationWindow):
         totp_secret = "" if _riusa_master else dati.get("totp_secret", "").strip()
         if totp_secret:
             try:
-                from totp_manager import generate_totp, render_uri_to_secret
-                secret = render_uri_to_secret(totp_secret)
-                otp_code = generate_totp(secret)
+                from totp_manager import generate_totp, parse_otpauth, render_uri_to_secret
+                # Se è un otpauth:// URI rispetta digits/period/algorithm,
+                # altrimenti usa i default RFC 6238.
+                parsed_uri = parse_otpauth(totp_secret)
+                if parsed_uri:
+                    otp_code = generate_totp(
+                        parsed_uri["secret"],
+                        parsed_uri.get("digits", 6),
+                        parsed_uri.get("period", 30),
+                        parsed_uri.get("algorithm", "sha1"),
+                    )
+                else:
+                    otp_code = generate_totp(render_uri_to_secret(totp_secret))
                 if otp_code:
                     widget.imposta_auto_password(otp_code)
             except Exception as e:
@@ -1333,12 +1362,12 @@ class MainWindow(Gtk.ApplicationWindow):
                     _askpass_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
                     os.makedirs(_askpass_dir, mode=0o700, exist_ok=True)
                     _fd, _askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=_askpass_dir, text=True)
-                    import shlex as _shlex_r
                     with os.fdopen(_fd, "w") as _f:
-                        _f.write(f"#!/bin/sh\nprintf '%s' {_shlex_r.quote(_pwd)}\n")
+                        _f.write('#!/bin/sh\nprintf \'%s\' "$PCM_ASKPASS_PW"\n')
                     os.chmod(_askpass, 0o700)
                     _reconnect_env["SSH_ASKPASS"] = _askpass
                     _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
+                    _reconnect_env["PCM_ASKPASS_PW"] = _pwd
                     _askpass_autodelete(w, _askpass)
                 w.avvia(_cmd, env_extra=_reconnect_env)
                 if _pwd and not _pkey and not ssh_master_active(dati):
@@ -1700,8 +1729,10 @@ class MainWindow(Gtk.ApplicationWindow):
             pwd = dati.get("password", "")
             env_extra = {}
             if pwd and cmd_parts[0] != "rdesktop":
-                import shlex as _shlex_rdp
-                cmd_shell = f"printf '%s\\n' {_shlex_rdp.quote(pwd)} | {cmd_shell}"
+                # Non mettere la password nell'argv (visibile con ps): la
+                # passiamo via variabile d'ambiente e la inviamo su stdin.
+                cmd_shell = f"printf '%s\\n' \"$PCM_RDP_PW\" | {cmd_shell}"
+                env_extra["PCM_RDP_PW"] = pwd
             full_cmd = f'{cmd_shell}; echo; read -rp "{_press}" _x'
             widget = TerminalWidget.da_profilo(dati)
             widget.comando_display = cmd_display
@@ -3438,15 +3469,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
         profili = config_manager.load_profiles()
 
+        # I profili sono un dict piatto nome -> dati (non annidati per gruppo).
         lookup = {}
-        for gruppo in profili.values():
-            if not isinstance(gruppo, dict):
+        for nome, dati in profili.items():
+            if not isinstance(dati, dict):
                 continue
-            for nome, dati in gruppo.items():
-                key = (dati.get("host"), dati.get("protocol", "ssh"),
-                       str(dati.get("port", "22")), dati.get("user", ""),
-                       dati.get("ft_protocol", ""))
-                lookup[key] = (nome, dati)
+            key = (dati.get("host"), dati.get("protocol", "ssh"),
+                   str(dati.get("port", "22")), dati.get("user", ""),
+                   dati.get("ft_protocol", ""))
+            lookup[key] = (nome, dati)
 
         for ref in refs:
             key = (ref.get("host", ""), ref.get("protocol", "ssh"),
