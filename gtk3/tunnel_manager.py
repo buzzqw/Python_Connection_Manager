@@ -57,6 +57,17 @@ def _proc_vivo(pid: int) -> bool:
         return False
 
 
+def _reap_process(proc) -> None:
+    """Reap non bloccante del processo per evitare che resti zombie."""
+    import threading
+
+    def _wait():
+        with contextlib.suppress(Exception):
+            proc.wait(timeout=5)
+
+    threading.Thread(target=_wait, daemon=True).start()
+
+
 def _porta_in_ascolto(port: int) -> int | None:
     """Cerca in /proc/net/tcp e /proc/net/tcp6 se la porta locale è in LISTEN.
     Restituisce il PID del processo che la tiene aperta, oppure None.
@@ -257,12 +268,14 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
         while time.time() < fine:
             if proc.poll() is not None:
                 _active_procs.pop(idx, None)
+                _reap_process(proc)
                 return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
             if not attendi_porta or _porta_listening(int(tun["local_port"])):
                 return True, ""
             time.sleep(0.2)
         if proc.poll() is not None:
             _active_procs.pop(idx, None)
+            _reap_process(proc)
             return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
     return True, ""
 
@@ -474,6 +487,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         self.set_default_size(750, 550)
         self._tunnels: list[dict] = config_manager.load_tunnels()
         self._procs = _active_procs  # alias al dict condiviso a livello di modulo
+        self._proc_sources = {}      # idx → id del GLib.io_add_watch sullo stdout
         self._init_ui()
         self._ricarica_e_riaggancia()
         self.show_all()
@@ -718,7 +732,8 @@ class TunnelManagerDialog(Gtk.Dialog):
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-            GLib.io_add_watch(proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._leggi_output_processo)
+            self._proc_sources[idx] = GLib.io_add_watch(
+                proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._leggi_output_processo)
 
         except Exception as e:
             self._scrivi_log(f"ERRORE CRITICO: {str(e)}\n")
@@ -743,7 +758,14 @@ class TunnelManagerDialog(Gtk.Dialog):
         mark = self.log_buffer.get_insert()
         self.log_view.scroll_to_mark(mark, 0.0, True, 0.0, 1.0)
 
+    def _rimuovi_watch(self, idx: int):
+        src = self._proc_sources.pop(idx, None)
+        if src:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(src)
+
     def _on_ferma_idx(self, idx: int):
+        self._rimuovi_watch(idx)
         if idx in self._procs:
             proc = self._procs.pop(idx)
             try:
@@ -751,6 +773,7 @@ class TunnelManagerDialog(Gtk.Dialog):
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
             except Exception as e:
                 _get_log(__name__).debug("Terminazione tunnel PID %s fallita: %s", proc.pid, e)
+            _reap_process(proc)
             if idx < len(self._tunnels):
                 self._tunnels[idx]["pid"] = None
                 config_manager.save_tunnels(self._tunnels)
@@ -768,10 +791,12 @@ class TunnelManagerDialog(Gtk.Dialog):
 
         target = f"{user}@{host}" if user else host
 
+        # Rispetta l'impostazione globale invece di accettare sempre host nuovi.
+        strict = config_manager.load_settings().get("ssh", {}).get("strict_host_check", False)
         cmd = [
             "ssh", "-N",
             "-p", sport,
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", f"StrictHostKeyChecking={'yes' if strict else 'accept-new'}",
             "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=60"
         ]
@@ -807,6 +832,10 @@ class TunnelManagerDialog(Gtk.Dialog):
     def _on_destroy(self, *args):
         if hasattr(self, "_poll_source"):
             GLib.source_remove(self._poll_source)
+        # Interrompi l'osservazione dell'output: le callback scriverebbero su
+        # widget ormai distrutti. I tunnel (setsid) continuano a vivere.
+        for idx in list(getattr(self, "_proc_sources", {}).keys()):
+            self._rimuovi_watch(idx)
         for path in getattr(self, "_tunnel_askpass_paths", []):
             with contextlib.suppress(OSError):
                 os.unlink(path)
