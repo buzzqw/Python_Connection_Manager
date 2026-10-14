@@ -49,6 +49,7 @@ class SftpBrowserWidget(Gtk.Box):
         self._sftp           = None
         self._ssh            = None
         self._cwd            = "/"
+        self._chiuso         = False   # True dopo chiudi(): stop aggiornamenti UI
         self._on_apri_editor = on_apri_editor  # callback(sftp, remote_path)
         self._init_ui()
 
@@ -351,6 +352,8 @@ class SftpBrowserWidget(Gtk.Box):
             GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
 
     def _popola_lista(self, entries):
+        if self._chiuso:
+            return
         self._store.clear()
         folder_pb = _pb("folder.png", 16)
         file_pb   = _pb("file.png", 16)
@@ -383,6 +386,8 @@ class SftpBrowserWidget(Gtk.Box):
         return f"{n:.1f} TB"
 
     def _set_status(self, msg: str):
+        if self._chiuso:
+            return
         self._status_lbl.set_text(msg)
 
     def _mostra_progress(self, nome: str):
@@ -392,6 +397,8 @@ class SftpBrowserWidget(Gtk.Box):
         self._progress.show()
 
     def _aggiorna_progress(self, tx: int, tot: int):
+        if self._chiuso:
+            return
         frac = min(tx / tot, 1.0) if tot > 0 else 0.0
         self._progress.set_fraction(frac)
         self._progress.set_text(
@@ -399,6 +406,8 @@ class SftpBrowserWidget(Gtk.Box):
         )
 
     def _nascondi_progress(self, msg: str):
+        if self._chiuso:
+            return
         self._progress.hide()
         self._set_status(msg)
 
@@ -654,6 +663,7 @@ class SftpBrowserWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def chiudi(self):
+        self._chiuso = True
         if self._sftp:
             try:
                 self._sftp.close()
