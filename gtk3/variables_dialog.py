@@ -14,7 +14,7 @@ class VariablesDialog(Gtk.Dialog):
             destroy_with_parent=True
         )
         self.set_default_size(450, 350)
-        
+
         # Recupera le variabili salvate (gestisce sia se sono in un file separato sia se sono nei settings)
         try:
             self._vars = config_manager.load_variables()
@@ -42,7 +42,7 @@ class VariablesDialog(Gtk.Dialog):
             self._store.append([k, v])
 
         self._view = Gtk.TreeView(model=self._store)
-        
+
         # Colonna Nome (modificabile)
         renderer_k = Gtk.CellRendererText()
         renderer_k.set_property("editable", True)
@@ -103,7 +103,7 @@ class VariablesDialog(Gtk.Dialog):
                 k, v = row[0].strip(), row[1].strip()
                 if k:  # Salva solo se il nome non è vuoto
                     nuove_vars[k] = v
-            
+
             # Tenta di salvare usando config_manager
             try:
                 config_manager.save_variables(nuove_vars)
@@ -112,5 +112,5 @@ class VariablesDialog(Gtk.Dialog):
                 s = config_manager.load_settings()
                 s["variables"] = nuove_vars
                 config_manager.save_settings(s)
-                
+
         return resp

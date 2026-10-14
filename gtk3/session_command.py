@@ -37,7 +37,7 @@ def _get_tool(cmd_id: str) -> str:
 
     if lookup_id in custom_paths and custom_paths[lookup_id].strip():
         return custom_paths[lookup_id].strip()
-    
+
     if cmd_id in custom_paths and custom_paths[cmd_id].strip():
         return custom_paths[cmd_id].strip()
 
@@ -183,7 +183,7 @@ def _resolve_sftp_ftp(p: dict, ft_sub: str) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# Protocol Builders 
+# Protocol Builders
 # ---------------------------------------------------------------------------
 
 def _build_ssh(p: dict) -> str:
@@ -304,7 +304,7 @@ def _build_sftp_uri(p: dict, modalita: str = "browser_ext") -> str:
     user = p.get("user", "")
     uri = (f"sftp://{quote(str(user), safe='')}@{host}:{port}"
            if user else f"sftp://{host}:{port}")
-    
+
     if modalita == "browser_ext":
         for fm in ("nautilus", "thunar", "dolphin", "nemo", "pcmanfm", "xdg-open"):
             if _tool_exists(fm):
@@ -677,9 +677,9 @@ def check_dipendenze() -> dict:
                   "foot", "tilix", "lxterminal", "mate-terminal", "st"]
     for t in _terminali: tools[t] = shutil.which(t) is not None
     for c in ["xfreerdp3", "xfreerdp", "rdesktop"]: tools[c] = _tool_exists(c)
-    for c in ["vncviewer", "realvnc-viewer", "xtigervncviewer", "remmina", "krdc"]: 
+    for c in ["vncviewer", "realvnc-viewer", "xtigervncviewer", "remmina", "krdc"]:
         tools[c] = _tool_exists(c)
-        
+
     try:
         import paramiko
         tools["paramiko"] = True

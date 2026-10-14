@@ -149,12 +149,12 @@ class SessionPanel(Gtk.Box):
         col = Gtk.TreeViewColumn()
         cell_pix = Gtk.CellRendererPixbuf()
         cell_txt = Gtk.CellRendererText()
-        
-        # OTTIMIZZAZIONE LAYOUT: 
+
+        # OTTIMIZZAZIONE LAYOUT:
         # 1. Troncamento testo troppo lungo
         cell_txt.set_property("ellipsize", Pango.EllipsizeMode.END)
         # 2. Riduciamo il padding verticale della riga (compattezza estrema)
-        cell_txt.set_property("ypad", 1)  
+        cell_txt.set_property("ypad", 1)
         cell_pix.set_property("ypad", 1)
 
         col.pack_start(cell_pix, False)

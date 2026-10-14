@@ -99,7 +99,7 @@ class TestSessionPicker:
         """Salvataggio e caricamento di un cluster."""
         w = Gtk.Window()
         dlg = _SessionPickerDialog(parent=w, profili=sample_profiles)
-        
+
         # Select some sessions
         dlg._store[0][0] = True
         dlg._store[1][0] = True

@@ -13,7 +13,7 @@ I valori cifrati hanno il prefisso "ENC:" per distinguerli dal testo chiaro.
 Flusso primo avvio:
   1. config_manager rileva che connections.json non esiste ancora
   2. Chiede se cifrare (dialog in PCM.py)
-  3. Se sì: genera sale, deriva chiave, salva sale in settings, 
+  3. Se sì: genera sale, deriva chiave, salva sale in settings,
      setta _KEY in memoria
   4. Ogni save_profiles() cifra automaticamente user/password
 

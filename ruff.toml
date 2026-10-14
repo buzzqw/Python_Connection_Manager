@@ -1,0 +1,24 @@
+# Configurazione Ruff per PCM.
+# Focalizzata su errori reali (import/undefined/whitespace); le regole
+# puramente stilistiche molto diffuse nel codice sono volutamente ignorate.
+
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = ["E4", "E7", "E9", "F", "W"]
+ignore = [
+    "E402",  # import non in cima: molti sono lazy o dopo gi.require_version()
+    "E501",  # riga lunga (spesso stringhe di traduzione)
+    "E701",  # più istruzioni su una riga con ':'
+    "E702",  # più istruzioni su una riga con ';' (stile compatto diffuso)
+    "E731",  # lambda assegnata a variabile
+    "E741",  # nomi ambigui l/I/O
+    "F401",  # import non usato: alcuni servono per side-effect/check opzionali
+    "F541",  # f-string senza placeholder
+    "F841",  # variabile locale non usata
+]
+
+[lint.per-file-ignores]
+# I test possono avere import volutamente inutilizzati (fixture, monkeypatch).
+"gtk3/tests/*" = ["F401", "F811", "F841"]

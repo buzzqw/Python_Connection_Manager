@@ -273,7 +273,7 @@ def spiega_cron(
 
     # Costruzione componibile
     parti_tempo: list[str] = []
-    
+
     # Orario
     if min_s.isdigit() and hour_s.isdigit():
         hh = int(hour_s)

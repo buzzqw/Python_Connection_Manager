@@ -11,13 +11,13 @@ class DepsConfigDialog(Gtk.Dialog):
         self.set_default_size(600, 400)
         self._settings = config_manager.load_settings()
         self._custom_paths = self._settings.get("tool_paths", {})
-        
+
         self._tools = {
             "ssh": "SSH client", "scp": "SCP", "sftp": "SFTP client",
             "telnet": "Telnet", "ftp": "FTP client", "xfreerdp3": "FreeRDP 3.x",
             "xtigervncviewer": "TigerVNC", "xdotool": "xdotool", "wol": "Wake-on-LAN"
         }
-        
+
         self._init_ui()
         self.show_all()
 
@@ -30,12 +30,12 @@ class DepsConfigDialog(Gtk.Dialog):
         self._ricarica_lista()
 
         self._view = Gtk.TreeView(model=self._store)
-        
+
         # Colonne
         self._add_col(t("deps.col_status"), 0, False)
         self._add_col(t("deps.col_component"), 1, False)
         self._add_col(t("deps.col_default"), 2, False)
-        
+
         # Colonna EDITABILE per il percorso
         renderer = Gtk.CellRendererText()
         renderer.set_property("editable", True)

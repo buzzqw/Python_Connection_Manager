@@ -133,7 +133,7 @@ class TerminalWidget(Gtk.Box):
         # Ctrl+rotella → zoom font
         self._vte.add_events(Gdk.EventMask.SCROLL_MASK)
         self._vte.connect("scroll-event", self._on_scroll)
-        
+
     def _init_search_bar(self):
         self._search_bar = Gtk.SearchBar()
         self._search_bar.set_show_close_button(True)

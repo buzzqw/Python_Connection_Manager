@@ -3006,7 +3006,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _test_connettivita(self, host: str, port: int, callback):
         """Verifica TCP raggiungibilità in thread. Chiama callback(ms) o callback(-1)."""
-        import socket, time
+        import socket
+        import time
         def _check():
             try:
                 t0 = time.monotonic()
@@ -3206,7 +3207,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         btn_csv = Gtk.Button(label=t("audit.export_csv"))
         def _esporta_csv(_b):
-            import csv, io
+            import csv
+            import io
             fc = Gtk.FileChooserDialog(
                 title=t("audit.csv_title"), transient_for=dlg,
                 action=Gtk.FileChooserAction.SAVE
@@ -3578,7 +3580,8 @@ class MainWindow(Gtk.ApplicationWindow):
     def _invia_wol(self, mac: str, attesa: int) -> str:
         """Invia magic packet WoL e attende. Restituisce stringa errore o "" se OK.
         Thread-safe: non tocca la UI."""
-        import socket, time
+        import socket
+        import time
         try:
             mac_clean = mac.replace(":", "").replace("-", "")
             payload = bytes.fromhex("FF" * 6 + mac_clean * 16)

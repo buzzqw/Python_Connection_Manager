@@ -85,7 +85,7 @@ class TestExporter:
         rows = list(reader)
         header = rows[0]
         assert header == ["Nome", "Protocollo", "Host", "Porta", "Utente", "Gruppo", "Tag", "Note"]
-        
+
         # Check Web Server row
         web_row = next(r for r in rows if r[0] == "Web Server")
         assert web_row[1] == "ssh"

@@ -41,7 +41,7 @@ def get_system_plugin_dir() -> str:
 
 def get_builtin_plugin_dir() -> str:
     """Get the built-in plugins directory (shipped with PCM).
-    
+
     Supports PyInstaller (sys._MEIPASS) and normal installs.
     """
     if getattr(sys, 'frozen', False):
@@ -100,7 +100,7 @@ def _remember_trusted_plugin(plugin_id: str, fingerprint: str) -> None:
 
 def discover_plugins() -> dict[str, PluginInfo]:
     """Discover all available plugins without loading them.
-    
+
     Searches: built-in dir, system dir, and user dir.
     Returns dict of plugin_id -> PluginInfo for all discovered plugins.
     """

@@ -221,11 +221,11 @@ class SettingsDialog(Gtk.Dialog):
         # Scrollback infinito checkbox
         self.chk_infinite_scrollback = Gtk.CheckButton(label=t("settings.terminal.infinite_scrollback"))
         grid.attach(self.chk_infinite_scrollback, 0, row, 2, 1); row += 1
-        
+
         # Scrollback lines (disabilitato se infinito è attivo)
         self.spin_scrollback = Gtk.SpinButton.new_with_range(100, 100000, 1000)
         self._form_row(t("settings.terminal.scrollback"), self.spin_scrollback, grid, row); row += 1
-        
+
         # Connetti il segnale per abilitare/disabilitare lo spin button
         self.chk_infinite_scrollback.connect("toggled", self._on_infinite_scrollback_toggled)
 

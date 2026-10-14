@@ -642,13 +642,6 @@ def load_custom_tools() -> dict:
     return s.get("custom_tools", {"vnc": [], "rdp": []})
 
 
-def save_custom_tools(custom_tools: dict):
-    """Salva il dizionario dei tool personalizzati."""
-    s = load_settings()
-    s["custom_tools"] = custom_tools
-    save_settings(s)
-
-
 # ---------------------------------------------------------------------------
 # Variabili globali
 # ---------------------------------------------------------------------------
