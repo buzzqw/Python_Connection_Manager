@@ -12,6 +12,7 @@ import signal
 import subprocess
 import fcntl
 import tempfile
+import threading
 import time
 import contextlib
 
@@ -34,6 +35,7 @@ from pcm_logging import get_logger as _get_log
 
 _active_procs: dict = {}  # idx → Popen | _PidProxy
 _died_names: list = []    # tunnel terminati da soli (non fermati dall'utente)
+_procs_lock = threading.Lock()  # protegge _active_procs da accessi concorrenti
 
 
 def _mark_died(idx: int):
@@ -59,8 +61,6 @@ def _proc_vivo(pid: int) -> bool:
 
 def _reap_process(proc) -> None:
     """Reap non bloccante del processo per evitare che resti zombie."""
-    import threading
-
     def _wait():
         with contextlib.suppress(Exception):
             proc.wait(timeout=5)
@@ -105,24 +105,27 @@ def get_active_tunnels() -> list:
     tunnels = config_manager.load_tunnels()
     result = []
     dead = []
-    for idx, proc in _active_procs.items():
-        if _proc_vivo(proc.pid):
-            if idx < len(tunnels):
-                tun = dict(tunnels[idx])
-                tun["_idx"] = idx
-                result.append(tun)
-        else:
-            dead.append(idx)
+    with _procs_lock:
+        for idx, proc in list(_active_procs.items()):
+            if _proc_vivo(proc.pid):
+                if idx < len(tunnels):
+                    tun = dict(tunnels[idx])
+                    tun["_idx"] = idx
+                    result.append(tun)
+            else:
+                dead.append(idx)
+        for idx in dead:
+            _active_procs.pop(idx, None)
     for idx in dead:
-        _active_procs.pop(idx, None)
         _mark_died(idx)
     return result
 
 
 def stop_tunnel(idx: int):
     """Ferma un tunnel per indice (usabile senza aprire il dialogo)."""
-    if idx in _active_procs:
-        proc = _active_procs.pop(idx)
+    with _procs_lock:
+        proc = _active_procs.pop(idx, None)
+    if proc is not None:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
         except Exception as e:
@@ -213,7 +216,8 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
             # riavviato): riconoscilo dal PID salvato e riusalo.
             pid_conf = tun.get("pid")
             if pid_conf and _proc_vivo(pid_conf) and _e_nostro_tunnel(pid_conf, lport):
-                _active_procs[idx] = _PidProxy(pid_conf)
+                with _procs_lock:
+                    _active_procs[idx] = _PidProxy(pid_conf)
                 return True, ""
             pid = _porta_in_ascolto(lport)
             quale = ""
@@ -256,7 +260,8 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
         return False, str(e)
     if askpass:
         GLib.child_watch_add(proc.pid, lambda pid, status, path=askpass: _unlink_quiet(path))
-    _active_procs[idx] = proc
+    with _procs_lock:
+        _active_procs[idx] = proc
     tun["pid"] = proc.pid
     tun["last_used"] = time.time()
     config_manager.save_tunnels(tunnels)
@@ -267,14 +272,16 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
         fine = time.time() + wait
         while time.time() < fine:
             if proc.poll() is not None:
-                _active_procs.pop(idx, None)
+                with _procs_lock:
+                    _active_procs.pop(idx, None)
                 _reap_process(proc)
                 return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
             if not attendi_porta or _porta_listening(int(tun["local_port"])):
                 return True, ""
             time.sleep(0.2)
         if proc.poll() is not None:
-            _active_procs.pop(idx, None)
+            with _procs_lock:
+                _active_procs.pop(idx, None)
             _reap_process(proc)
             return False, _ultimo_errore(errpath) or f"ssh terminato (codice {proc.returncode})"
     return True, ""
@@ -301,8 +308,9 @@ def reattach_tunnels():
     tunnels = config_manager.load_tunnels()
     changed = False
     for i, tun in enumerate(tunnels):
-        if i in _active_procs:
-            continue
+        with _procs_lock:
+            if i in _active_procs:
+                continue
         lport = tun.get("local_port")
         pid_conf = tun.get("pid")
 
@@ -314,7 +322,8 @@ def reattach_tunnels():
                 # non riusciamo a risolvere l'inode→PID, ma la porta c'è)
                 effective_pid = pid_net or pid_conf
                 if effective_pid:
-                    _active_procs[i] = _PidProxy(effective_pid)
+                    with _procs_lock:
+                        _active_procs[i] = _PidProxy(effective_pid)
                     if tunnels[i].get("pid") != effective_pid:
                         tunnels[i]["pid"] = effective_pid
                         changed = True
@@ -322,7 +331,8 @@ def reattach_tunnels():
 
         # Strategia 2 — fallback: PID salvato nella config
         if pid_conf and _proc_vivo(pid_conf):
-            _active_procs[i] = _PidProxy(pid_conf)
+            with _procs_lock:
+                _active_procs[i] = _PidProxy(pid_conf)
         elif pid_conf:
             # PID non più valido: azzera nella config
             tunnels[i]["pid"] = None
@@ -766,8 +776,9 @@ class TunnelManagerDialog(Gtk.Dialog):
 
     def _on_ferma_idx(self, idx: int):
         self._rimuovi_watch(idx)
-        if idx in self._procs:
-            proc = self._procs.pop(idx)
+        with _procs_lock:
+            proc = self._procs.pop(idx, None)
+        if proc is not None:
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 self._scrivi_log(f"Tunnel (PID {proc.pid}) terminato.\n")
