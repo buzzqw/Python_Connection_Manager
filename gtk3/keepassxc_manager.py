@@ -121,7 +121,13 @@ class KeePassXCClient:
         if len(raw_len) < 4:
             raise ConnectionError("Risposta troncata da keepassxc-proxy")
         length  = struct.unpack("<I", raw_len)[0]
+        # Limite di sicurezza: un proxy/DB compromesso non deve poterci far
+        # allocare/leggere una quantità arbitraria di dati.
+        if length > 4 * 1024 * 1024:
+            raise ConnectionError("Risposta keepassxc-proxy troppo grande")
         payload = self._proc.stdout.read(length)
+        if len(payload) < length:
+            raise ConnectionError("Risposta troncata da keepassxc-proxy")
         return json.loads(payload)
 
     # ── NaCl box ─────────────────────────────────────────────────────────
