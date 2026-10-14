@@ -448,11 +448,15 @@ class _VncGtkVnc(Gtk.Box):
 
 class _VncSocket(Gtk.Box):
 
+    # Ogni voce è (argomenti embedding, argomenti password): tuple di template
+    # in cui "{}" viene sostituito dallo XID / dal percorso del file password.
+    # Devono restare argomenti separati: un'unica stringa "-Parent {}" verrebbe
+    # passata al client come un solo argv e non funzionerebbe.
     _EMBED = {
-        "vncviewer":       ("--EmbedIn={}",  None),
-        "xtigervncviewer": ("--EmbedIn={}",  None),
-        "xtightvncviewer": ("-Parent {}",    "-passwd {}"),
-        "xvnc4viewer":    ("-Parent {}",    "-passwd {}"),
+        "vncviewer":       (("--EmbedIn={}",), None),
+        "xtigervncviewer": (("--EmbedIn={}",), None),
+        "xtightvncviewer": (("-Parent", "{}"), ("-passwd", "{}")),
+        "xvnc4viewer":     (("-Parent", "{}"), ("-passwd", "{}")),
     }
 
     def __init__(self, host, port, password, on_vnc_ready=None):
@@ -515,22 +519,23 @@ class _VncSocket(Gtk.Box):
         if not xid:
             return False
 
-        embed_fmt, passwd_fmt = self._EMBED.get(self._client, ("--EmbedIn={}", None))
+        embed_args, passwd_args = self._EMBED.get(
+            self._client, (("--EmbedIn={}",), None))
         cmd = [self._client]
 
         if self._password:
-            if passwd_fmt:
+            if passwd_args:
                 pf = self._write_passwd_file(self._password)
                 if pf:
                     self._passwd_files.append(pf)
-                    cmd.append(passwd_fmt.format(pf))
+                    cmd += [a.format(pf) for a in passwd_args]
             elif self._client in ("vncviewer", "xtigervncviewer"):
                 pf = self._write_passwd_file(self._password)
                 if pf:
                     self._passwd_files.append(pf)
                     cmd += ["--PasswordFile", pf]
 
-        cmd.append(embed_fmt.format(xid))
+        cmd += [a.format(xid) for a in embed_args]
         cmd.append(f"{self._host}:{self._port}")
 
         try:

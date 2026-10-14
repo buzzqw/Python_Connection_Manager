@@ -845,6 +845,9 @@ class WinScpWidget(Gtk.Box):
 
             GLib.idle_add(self._on_connesso)
         except Exception as e:
+            # Se una delle due connessioni è già riuscita e l'altra fallisce,
+            # senza questo le sessioni SSH/SFTP restano aperte (orfane).
+            self.chiudi_processo()
             GLib.idle_add(self._mostra_errore_init, str(e))
 
     def _on_connesso(self):

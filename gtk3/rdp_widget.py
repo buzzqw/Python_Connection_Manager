@@ -24,6 +24,7 @@ import signal
 import subprocess
 import shutil
 import datetime
+import threading
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -417,6 +418,7 @@ class RdpEmbedWidget(Gtk.Box):
         # Timeout 180s (360 × 500ms)
         if self._poll_attempts > 360:
             self._mostra_errore(t("rdp.embed.reparent_failed"))
+            self._poll_source = None   # la sorgente si auto-rimuove: niente id stantio
             return False  # stop
 
         # Processo morto: aspetta ancora qualche ciclo (finestra può comparire dopo)
@@ -424,19 +426,42 @@ class RdpEmbedWidget(Gtk.Box):
             if not hasattr(self, "_processo_morto_al"):
                 self._processo_morto_al = self._poll_attempts
             elif self._poll_attempts - self._processo_morto_al > 20:
+                self._poll_source = None
                 return False  # stop
 
-        wid = self._trova_finestra()
-        if not wid:
-            dots = "." * (self._poll_attempts % 4)
-            sec  = int(self._poll_attempts * 0.5)
-            self._lbl_attesa.set_text(f"{t('rdp.embed.waiting')}{dots}  ({sec}s)")
-            return True  # continua polling
+        # _trova_finestra() lancia fino a 3 xdotool search (timeout 2s ciascuno):
+        # eseguirla qui congelerebbe il main loop GTK fino a ~6s per tick.
+        # La spostiamo in un thread e riportiamo il risultato sul main loop.
+        if getattr(self, "_search_in_flight", False):
+            return True  # ricerca già in corso: ricontrolla al prossimo tick
 
-        # Finestra trovata
-        self._wid_rdp = wid
-        self._esegui_reparent(wid)
-        return False  # stop polling
+        self._search_in_flight = True
+
+        def _worker():
+            wid = self._trova_finestra()
+            GLib.idle_add(self._on_search_result, wid)
+
+        threading.Thread(target=_worker, daemon=True).start()
+        return True
+
+    def _on_search_result(self, wid) -> bool:
+        """Callback sul main loop con l'esito della ricerca xdotool."""
+        self._search_in_flight = False
+        # Polling annullato (widget chiuso) mentre la ricerca era in corso.
+        if not self._poll_source:
+            return False
+
+        if wid:
+            GLib.source_remove(self._poll_source)
+            self._poll_source = None
+            self._wid_rdp = wid
+            self._esegui_reparent(wid)
+            return False
+
+        dots = "." * (self._poll_attempts % 4)
+        sec  = int(self._poll_attempts * 0.5)
+        self._lbl_attesa.set_text(f"{t('rdp.embed.waiting')}{dots}  ({sec}s)")
+        return False
 
     def _trova_finestra(self) -> str | None:
         """
