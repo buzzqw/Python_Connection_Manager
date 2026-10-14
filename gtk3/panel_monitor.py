@@ -725,7 +725,10 @@ class InfoPanelWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _on_kill(self, pid: str):
-        if not self._ssh:
+        # Cattura la connessione ora: _ferma() potrebbe azzerarla prima che il
+        # thread parta (prima si leggeva self._ssh dentro il thread → crash).
+        ssh = self._ssh
+        if not ssh:
             return
         dlg = Gtk.MessageDialog(
             transient_for=self.get_toplevel(), modal=True,
@@ -738,10 +741,12 @@ class InfoPanelWidget(Gtk.Box):
                 cmd = f"taskkill /PID {pid} /F"
             else:
                 cmd = f"kill -15 {pid} 2>/dev/null || kill -9 {pid}"
-            threading.Thread(
-                target=lambda: self._ssh.exec_command(cmd),
-                daemon=True
-            ).start()
+            def _run_kill(cmd=cmd, ssh=ssh):
+                try:
+                    ssh.exec_command(cmd)
+                except Exception as e:
+                    _get_log(__name__).debug("Kill remoto fallito: %s", e)
+            threading.Thread(target=_run_kill, daemon=True).start()
         dlg.destroy()
 
     # ------------------------------------------------------------------
@@ -779,6 +784,12 @@ class InfoPanelWidget(Gtk.Box):
 
             # Se nel frattempo il profilo è cambiato (tab switch rapido), abbandona
             if self._profilo is not p:
+                ssh.close()
+                return
+
+            # Se il monitor è stato fermato/chiuso mentre connettevamo,
+            # chiudi subito: evita un canale orfano su un transport chiuso.
+            if not self._attivo or self._profilo is not p:
                 ssh.close()
                 return
 
@@ -865,6 +876,8 @@ class InfoPanelWidget(Gtk.Box):
 
     def _dispatch(self, sec: dict, dt: float):
         """Aggiorna le sezioni UI con i dati del tick. Chiamato sul thread GTK."""
+        if not self._attivo:
+            return
         p = self._profilo
         if not p:
             return
