@@ -89,7 +89,10 @@
 ### 🔐 Security — above average
 
 - **Password never on command line**: PCM types the password directly into the terminal when the server asks for it, just like a user would. No `sshpass`, nothing visible in `ps aux`.
-- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: the helper script is created in `~/.cache/pcm/` (permissions `0700`, not in `/tmp`) and deleted after 5 seconds. The password is passed via environment variable only, never written to the file.
+- **SSH_ASKPASS fallback** for OpenSSH ≥ 8.4: the helper script is created in `~/.cache/pcm/` (permissions `0700`, not in `/tmp`) and deleted as soon as the connection process ends. The password is passed via environment variable only, never written to the file.
+- **RDP / VNC credentials**: the external RDP password is passed through the environment (never on the command line), and VNC password files live in `~/.cache/pcm/` (`0600`), never in `/tmp`.
+- **`known_hosts` is preserved**: accepting a new SSH host key appends it to `~/.ssh/known_hosts` without overwriting the existing entries.
+- **Safer exports**: JSON backups omit passwords *and* TOTP secrets by default, and the exported file is written `0600`.
 - **Command injection protection**: all profile parameters (host, port, user, device, etc.) are sanitised with `shlex.quote()` before use in shell commands. Pre-commands run with `shell=False`.
 - **Protected credential files** (`connections.json`, `pcm_settings.json`, `audit_log.json`): written with permissions `0600` — readable only by the owner.
 - **SSH host key verification is opt-in**: new profiles leave strict host key checking disabled by default; it can be enabled globally or per profile when verification against `known_hosts` is desired. The SFTP browser uses Paramiko `RejectPolicy` when enabled.
@@ -339,6 +342,14 @@ python3 PCM.py
 bash setup.sh --check
 ```
 
+### Development — tests & lint
+
+```bash
+cd gtk3
+python3 -m pytest -q          # test suite (on a headless server: xvfb-run --auto-servernum ...)
+ruff check .                  # lint (config: ruff.toml at the repo root)
+```
+
 ### Manual install by distribution
 
 <details>
@@ -445,7 +456,7 @@ The `gtk-vnc` VNC viewer works natively on Wayland.
 | `gtk3/plugins/builtins/` | Built-in protocol plugins (AWS SSM, kubectl, Docker, SPICE) |
 | `~/.local/share/pcm/plugins/` | User-installed community plugins |
 | `~/.local/share/pcm/logs/` | Terminal output logs (default), path configurable |
-| `~/.cache/pcm/` | SSH_ASKPASS temp files (dir `0700`, deleted after 5s) |
+| `~/.cache/pcm/` | Private temp dir (`0700`): SSH_ASKPASS helper scripts (no secret inside — the password is passed via the environment), VNC password files and SFTP editor temp files. Helpers are deleted after use and stale leftovers are swept on startup |
 
 > **AppImage**: when running as AppImage, the three JSON files above are stored in `~/.config/pcm/` (the AppImage filesystem is read-only). Configuration persists across AppImage updates.
 
@@ -552,7 +563,10 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 ### 🔐 Sicurezza — sopra la media
 
 - **Password mai sulla command line**: PCM digita la password direttamente nel terminale quando il server la richiede, esattamente come farebbe un utente. Nessun `sshpass`, nessun argomento visibile in `ps aux`.
-- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: lo script helper è creato in `~/.cache/pcm/` (permessi `0700`, non in `/tmp`) ed eliminato dopo 5 secondi. La password è passata solo via variabile d'ambiente, mai scritta nel file.
+- **Fallback SSH_ASKPASS** per OpenSSH ≥ 8.4: lo script helper è creato in `~/.cache/pcm/` (permessi `0700`, non in `/tmp`) ed eliminato appena il processo di connessione termina. La password è passata solo via variabile d'ambiente, mai scritta nel file.
+- **Credenziali RDP / VNC**: la password RDP esterna è passata via ambiente (mai sulla command line) e i file password VNC risiedono in `~/.cache/pcm/` (`0600`), mai in `/tmp`.
+- **`known_hosts` preservato**: accettando una nuova host key SSH viene aggiunta a `~/.ssh/known_hosts` senza sovrascrivere le voci esistenti.
+- **Export più sicuri**: i backup JSON escludono password *e* segreti TOTP per impostazione predefinita; il file esportato è scritto `0600`.
 - **Protezione command injection**: tutti i parametri dei profili (host, porta, utente, device, ecc.) sono sanificati con `shlex.quote()` prima di essere usati nei comandi shell. Il pre-comando è eseguito con `shell=False`.
 - **File credenziali protetti** (`connections.json`, `pcm_settings.json`, `audit_log.json`): scritti con permessi `0600` — leggibili solo dal proprietario.
 - **Verifica host key SSH opzionale**: nelle nuove connessioni `StrictHostKeyChecking` è disabilitato per impostazione predefinita; può essere abilitato globalmente o per singolo profilo per verificare gli host tramite `known_hosts`. Il browser SFTP usa `RejectPolicy` di paramiko quando l'opzione è attiva.
@@ -791,6 +805,14 @@ Lo script rileva la distribuzione (Debian/Ubuntu, Arch, Fedora, openSUSE, FreeBS
 bash setup.sh --check
 ```
 
+#### Sviluppo — test e lint
+
+```bash
+cd gtk3
+python3 -m pytest -q          # suite di test (su server headless: xvfb-run --auto-servernum ...)
+ruff check .                  # lint (config: ruff.toml nella root del repo)
+```
+
 #### Avvio (da sorgente)
 
 ```bash
@@ -906,7 +928,7 @@ Il viewer VNC `gtk-vnc` funziona nativamente su Wayland.
 | `gtk3/plugins/builtins/` | Plugin di protocollo built-in (AWS SSM, kubectl, Docker, SPICE) |
 | `~/.local/share/pcm/plugins/` | Plugin community installati dall'utente |
 | `~/.local/share/pcm/logs/` | Log output terminali (default), percorso configurabile |
-| `~/.cache/pcm/` | File temporanei SSH_ASKPASS (dir `0700`, file eliminati dopo 5s) |
+| `~/.cache/pcm/` | Directory temporanea privata (`0700`): script helper SSH_ASKPASS (nessun segreto dentro — la password passa via ambiente), file password VNC e file temporanei dell'editor SFTP. Gli helper vengono eliminati dopo l'uso e i residui vecchi ripuliti all'avvio |
 
 > **AppImage**: quando si usa l'AppImage i tre file JSON sopra vengono scritti in `~/.config/pcm/` (il filesystem dell'AppImage è in sola lettura). La configurazione persiste tra un aggiornamento e l'altro.
 

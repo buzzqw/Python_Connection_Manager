@@ -188,17 +188,27 @@ enabled.
 :   Terminal session output logs (path configurable per session).
 
 `~/.cache/pcm/`
-:   Temporary SSH_ASKPASS helper scripts (directory 0700, files deleted
-    after 5 seconds).
+:   Private temporary directory (0700): SSH_ASKPASS helper scripts (no
+    secret inside — the password is passed via the environment), VNC
+    password files and SFTP editor temp files. Helpers are deleted once
+    the connection process ends; stale leftovers are swept on startup.
 
 `~/.local/share/applications/pcm.desktop`
 :   Desktop launcher created by setup.sh.
 
 # ENVIRONMENT
 
-`PCM_ASKPASS_PASSWORD`
+`PCM_ASKPASS_PW`
 :   Used internally to pass the session password to the SSH_ASKPASS
     helper. Never set this variable manually.
+
+`PCM_KEYPASS_PW`
+:   Used internally by ssh-keygen to read the new key passphrase via
+    SSH_ASKPASS (so it never appears on the command line).
+
+`PCM_RDP_PW`
+:   Used internally to feed the external RDP client's password through
+    stdin (not on the command line).
 
 `SSH_AUTH_SOCK`
 :   If set, PCM uses the running ssh-agent for authentication.
@@ -210,7 +220,11 @@ enabled.
   or uses SSH_ASKPASS_REQUIRE=force for OpenSSH ≥ 8.4.
 - All profile parameters are sanitised with **shlex.quote()** before
   shell use. Pre-commands run with shell=False.
-- Credential files are written with permissions **0600**.
+- Credential files are written with permissions **0600**. Accepting a new
+  SSH host key appends it to `~/.ssh/known_hosts` without overwriting the
+  existing entries.
+- JSON exports omit passwords and TOTP secrets by default and are written
+  with permissions **0600**.
 - SSH host key checking is disabled by default and can be enabled globally or per profile.
 - Optional AES-128 encryption (Fernet + PBKDF2-SHA256, 480 k iterations)
   of usernames and passwords with a master password.

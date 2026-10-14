@@ -718,7 +718,7 @@ Le sessioni sono salvate in <code>connections.json</code> nella cartella di PCM 
 <h3>Password</h3>
 <p>Puoi salvare la password nel profilo o lasciarla vuota — PCM la chiederà con un dialog dedicato a ogni connessione.</p>
 <div class="warn">
-  ⚠️ Le password salvate in <code>connections.json</code> sono in chiaro. Per macchine di produzione o condivise, preferisci le chiavi SSH.
+  ⚠️ Se la cifratura delle credenziali non è attiva, le password salvate in <code>connections.json</code> sono in chiaro. PCM può cifrarle (vedi <b>Cifratura credenziali</b> più sotto); per macchine di produzione o condivise, preferisci le chiavi SSH.
 </div>
 
 <h3>Chiave privata SSH (consigliata)</h3>
@@ -1081,7 +1081,7 @@ Permette di salvare comandi riutilizzabili globali con nome e categoria.</p>
 </ul>
 
 <h3>Cifratura credenziali</h3>
-<p>PCM può proteggere utenti e password salvati in <code>connections.json</code> con cifratura <b>AES-128</b> (Fernet). La chiave viene derivata dalla password master con PBKDF2-HMAC-SHA256 (480.000 iterazioni) e non viene mai scritta su disco.</p>
+<p>PCM può proteggere utenti, password e segreti TOTP salvati in <code>connections.json</code> con cifratura <b>AES-128</b> (Fernet). La chiave viene derivata dalla password master con PBKDF2-HMAC-SHA256 (480.000 iterazioni) e non viene mai scritta su disco.</p>
 <p>Al primo avvio assoluto, se <code>connections.json</code> non esiste ancora, PCM chiede se abilitare la protezione delle credenziali. Agli avvii successivi con cifratura attiva, PCM mostra un dialog di sblocco prima di aprire la finestra principale (3 tentativi massimi).</p>
 <p>Da <b>Strumenti → Imposta password globale…</b> puoi:</p>
 <ul>
@@ -1089,7 +1089,7 @@ Permette di salvare comandi riutilizzabili globali con nome e categoria.</p>
   <li><b>Cambiare la password</b> — inserisci quella vecchia e quella nuova; tutti i profili vengono ricifrati</li>
   <li><b>Disabilitare la cifratura</b> — inserisci la password attuale; le credenziali tornano in chiaro nel JSON</li>
 </ul>
-<p>I campi <code>user</code> e <code>password</code> di ogni profilo in <code>connections.json</code> vengono cifrati con prefisso <code>ENC:</code> seguito dal token Fernet base64. Tutti gli altri campi restano in chiaro.</p>
+<p>I campi <code>user</code>, <code>password</code> e <code>totp_secret</code> di ogni profilo in <code>connections.json</code> vengono cifrati con prefisso <code>ENC:</code> seguito dal token Fernet base64. Tutti gli altri campi restano in chiaro.</p>
 <div class="warn">⚠️ Se dimentichi la password master non è possibile recuperare le credenziali. Tieni una copia sicura della password. Per resettare: elimina <code>connections.json</code> e la sezione <code>crypto</code> da <code>pcm_settings.json</code>.</div>
 
 <h3>Wake-on-LAN</h3>
@@ -1473,10 +1473,10 @@ Se manca: <code>.venv/bin/pip install paramiko</code> dalla cartella gtk3.</p>
 
 <h4>Dove sono salvate le impostazioni?</h4>
 <ul>
-  <li><code>connections.json</code> — tutte le sessioni (in chiaro, JSON modificabile)</li>
+  <li><code>connections.json</code> — tutte le sessioni (JSON modificabile; le credenziali sono in chiaro salvo cifratura attiva)</li>
   <li><code>pcm_settings.json</code> — impostazioni globali, scorciatoie, sessioni recenti</li>
   <li><code>audit_log.json</code> — log audit connessioni (metadata, no password)</li>
-  <li><code>/tmp/pcm_logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
+  <li><code>~/.local/share/pcm/logs/</code> — log dei terminali (se abilitato, percorso configurabile)</li>
 </ul>
 
 <h4>KeePassXC non viene trovato / "non in esecuzione"</h4>

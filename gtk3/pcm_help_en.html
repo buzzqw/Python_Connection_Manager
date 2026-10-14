@@ -668,7 +668,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
 
 <h3>Password</h3>
 <p>You can save the password in the profile or leave it blank — PCM will ask with a dedicated dialog at each connection.</p>
-<div class="warn">⚠️ Passwords saved in <code>connections.json</code> are stored in plaintext. For production or shared machines, prefer SSH keys.</div>
+<div class="warn">⚠️ If credential encryption is not enabled, passwords saved in <code>connections.json</code> are stored in plaintext. PCM can encrypt them (see <b>Credential encryption</b> below); for production or shared machines, prefer SSH keys.</div>
 
 <h3>SSH Private Key (recommended)</h3>
 
@@ -921,7 +921,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
 <div class="tip">💡 Use <b>Tools → Check dependencies</b> to see the full list of all clients and terminals detected on the system. The check also runs automatically at startup.</div>
 
 <h3>Credential encryption</h3>
-<p>PCM can protect users and passwords saved in <code>connections.json</code> with <b>AES-128</b> encryption (Fernet). The key is derived from the master password using PBKDF2-HMAC-SHA256 (480,000 iterations) and is never written to disk.</p>
+<p>PCM can protect the usernames, passwords and TOTP secrets saved in <code>connections.json</code> with <b>AES-128</b> encryption (Fernet). The key is derived from the master password using PBKDF2-HMAC-SHA256 (480,000 iterations) and is never written to disk.</p>
 <p>At the very first launch, if <code>connections.json</code> does not yet exist, PCM asks whether to enable credential protection. On subsequent launches with encryption active, PCM shows an unlock dialog before opening the main window (3 attempts maximum).</p>
 <p>From <b>Tools → Set global password…</b> you can:</p>
 <ul>
@@ -929,7 +929,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   <li><b>Change the password</b> — enter the old one and the new one; all profiles are re-encrypted</li>
   <li><b>Disable encryption</b> — enter the current password; credentials return to plaintext in JSON</li>
 </ul>
-<p>The <code>user</code> and <code>password</code> fields of each profile in <code>connections.json</code> are encrypted with the <code>ENC:</code> prefix followed by a Fernet base64 token. All other fields remain in plaintext.</p>
+<p>The <code>user</code>, <code>password</code> and <code>totp_secret</code> fields of each profile in <code>connections.json</code> are encrypted with the <code>ENC:</code> prefix followed by a Fernet base64 token. All other fields remain in plaintext.</p>
 <div class="warn">⚠️ If you forget the master password, credentials cannot be recovered. Keep a secure copy. To reset: delete <code>connections.json</code> and the <code>crypto</code> section from <code>pcm_settings.json</code>.</div>
 
 <h3>Wake-on-LAN</h3>
@@ -1287,7 +1287,7 @@ sudo dnf install freerdp
 sudo pacman -S freerdp</pre>
 
 <h3>VNC exits immediately</h3>
-<p>Check the log at <code>/tmp/pcm_vnc.log</code> for details. Common causes:</p>
+<p>Run your VNC viewer (e.g. <code>vncviewer</code>) directly from a terminal to see the exact error. Common causes:</p>
 <ul>
   <li>VNC client not installed (tigervnc, gvncviewer)</li>
   <li>Wrong port (default VNC is 5900)</li>
@@ -1360,10 +1360,10 @@ If missing: <code>.venv/bin/pip install paramiko</code> from the gtk3 folder.</p
 
 <h4>Where are settings and sessions saved?</h4>
 <ul>
-  <li><code>connections.json</code> — all sessions (plaintext, editable JSON)</li>
+  <li><code>connections.json</code> — all sessions (editable JSON; credentials are plaintext unless credential encryption is enabled)</li>
   <li><code>pcm_settings.json</code> — global settings, shortcuts, recent sessions</li>
   <li><code>audit_log.json</code> — connection audit log (metadata, no passwords)</li>
-  <li><code>/tmp/pcm_logs/</code> — terminal logs (if enabled, path configurable)</li>
+  <li><code>~/.local/share/pcm/logs/</code> — terminal logs (if enabled, path configurable)</li>
 </ul>
 
 <h4>How do I connect to a server with a non-standard SSH port?</h4>
