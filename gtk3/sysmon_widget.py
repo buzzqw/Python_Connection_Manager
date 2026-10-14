@@ -302,12 +302,19 @@ class SysMonitorWidget(Gtk.Box):
 
     def _fetch(self):
         try:
-            _, stdout, _ = self._ssh.exec_command(_CMD, timeout=5)
+            ssh = self._ssh
+            if not self._attivo or ssh is None:
+                return
+            _, stdout, _ = ssh.exec_command(_CMD, timeout=5)
             out  = stdout.read().decode("utf-8", errors="replace")
             dati = _parse(out)
-            GLib.idle_add(self._aggiorna, dati)
+            # Il widget può essere stato chiuso durante il fetch: non
+            # schedulare aggiornamenti su oggetti distrutti.
+            if self._attivo:
+                GLib.idle_add(self._aggiorna, dati)
         except Exception as e:
-            GLib.idle_add(self._set_status, f"✖ {e}")
+            if getattr(self, "_attivo", False):
+                GLib.idle_add(self._set_status, f"✖ {e}")
         finally:
             self._fetch_running = False
 
@@ -316,6 +323,8 @@ class SysMonitorWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _aggiorna(self, d: dict):
+        if not getattr(self, "_attivo", False):
+            return
         now = time.monotonic()
 
         # CPU — delta tra due letture
@@ -384,6 +393,7 @@ class SysMonitorWidget(Gtk.Box):
                 self._ssh.close()
             except Exception:
                 pass
+            self._ssh = None
 
     def chiudi_processo(self):
         self._ferma()

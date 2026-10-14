@@ -15,6 +15,7 @@ Dipendenze:
 
 import os
 import signal
+import contextlib
 from datetime import datetime
 
 import gi
@@ -311,6 +312,10 @@ class TerminalWidget(Gtk.Box):
 
     def _setup_expect_watcher(self, rules: list[dict]):
         import re as _re
+        # Se un watcher precedente è ancora attivo, rimuovilo (evita handler
+        # "contents-changed" duplicati e l'invio doppio della password).
+        if getattr(self, "_expect_cleanup", None):
+            self._expect_cleanup()
         compiled = []
         for r in rules:
             pat = r.get("pattern", "")
@@ -332,10 +337,26 @@ class TerminalWidget(Gtk.Box):
 
         _timer_id = [None]
         _conn_id  = [None]
+        _done     = [False]
         _debounce = 80  # ms
+
+        def _cleanup():
+            _done[0] = True
+            if _timer_id[0] is not None:
+                with contextlib.suppress(Exception):
+                    GLib.source_remove(_timer_id[0])
+                _timer_id[0] = None
+            if _conn_id[0] is not None:
+                with contextlib.suppress(Exception):
+                    self._vte.disconnect(_conn_id[0])
+                _conn_id[0] = None
+
+        self._expect_cleanup = _cleanup
 
         def _do_check():
             _timer_id[0] = None
+            if _done[0]:
+                return False
             active = any(c["sent"] < c["max_trigger"] for c in compiled)
             if not active:
                 if _conn_id[0] is not None:
@@ -505,6 +526,9 @@ class TerminalWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def chiudi_processo(self):
+        if getattr(self, "_expect_cleanup", None):
+            self._expect_cleanup()
+            self._expect_cleanup = None
         if self._keepalive_source:
             GLib.source_remove(self._keepalive_source)
             self._keepalive_source = None
