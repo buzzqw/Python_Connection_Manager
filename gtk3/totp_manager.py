@@ -88,23 +88,57 @@ def _decode_base32(text: str) -> bytes:
     return base64.b32decode(text)
 
 
+def parse_otpauth(uri: str) -> Optional[dict]:
+    """Parse an otpauth:// URI into secret + optional generator parameters.
+
+    Ritorna {"secret": str} più, se presenti e validi, "digits", "period" e
+    "algorithm" (parametri standard usati da Google Authenticator, Authy & co.).
+    Ritorna None se la URI non è valida o manca il secret.
+    """
+    if not uri or not uri.strip().startswith("otpauth://"):
+        return None
+    from urllib.parse import urlparse, parse_qs, unquote
+    try:
+        parsed = urlparse(uri.strip())
+        params = parse_qs(parsed.query)
+    except ValueError:
+        return None
+
+    secrets = params.get("secret") or []
+    if not secrets or not secrets[0]:
+        return None
+    result: dict = {"secret": unquote(secrets[0]).strip()}
+
+    digits = (params.get("digits") or [""])[0]
+    try:
+        d = int(digits)
+        if 6 <= d <= 10:
+            result["digits"] = d
+    except (TypeError, ValueError):
+        pass
+
+    period = (params.get("period") or [""])[0]
+    try:
+        p = int(period)
+        if p > 0:
+            result["period"] = p
+    except (TypeError, ValueError):
+        pass
+
+    algorithm = (params.get("algorithm") or [""])[0].lower()
+    if algorithm in ("sha1", "sha256", "sha512"):
+        result["algorithm"] = algorithm
+
+    return result
+
+
 def extract_otp_from_uri(uri: str) -> Optional[str]:
     """Extract TOTP secret from an otpauth:// URI.
 
     Example: otpauth://totp/Example:user@host?secret=JBSWY3DPEHPK3PXP&issuer=Example
     """
-    if not uri.startswith("otpauth://"):
-        return None
-    try:
-        from urllib.parse import urlparse, parse_qs
-        parsed = urlparse(uri)
-        params = parse_qs(parsed.query)
-        secrets = params.get("secret", [])
-        if secrets:
-            return secrets[0]
-    except Exception:
-        pass
-    return None
+    parsed = parse_otpauth(uri)
+    return parsed["secret"] if parsed else None
 
 
 def render_uri_to_secret(text: str) -> str:

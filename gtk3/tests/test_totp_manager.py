@@ -7,6 +7,7 @@ from totp_manager import (
     validate_secret,
     extract_otp_from_uri,
     render_uri_to_secret,
+    parse_otpauth,
     _decode_base32,
 )
 
@@ -133,6 +134,33 @@ class TestExtractOtpFromUri:
     def test_empty(self):
         assert extract_otp_from_uri("") is None
         assert extract_otp_from_uri("otpauth://") is None
+
+
+class TestParseOtpauth:
+    def test_defaults_only(self):
+        uri = "otpauth://totp/Example:user@host?secret=JBSWY3DPEHPK3PXP&issuer=Example"
+        assert parse_otpauth(uri) == {"secret": "JBSWY3DPEHPK3PXP"}
+
+    def test_full_params(self):
+        uri = ("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP"
+               "&digits=8&period=60&algorithm=SHA256")
+        p = parse_otpauth(uri)
+        assert p["secret"] == "JBSWY3DPEHPK3PXP"
+        assert p["digits"] == 8
+        assert p["period"] == 60
+        assert p["algorithm"] == "sha256"
+
+    def test_invalid_or_missing_secret(self):
+        assert parse_otpauth("") is None
+        assert parse_otpauth("not-a-uri") is None
+        assert parse_otpauth("otpauth://totp/x") is None
+
+    def test_generator_honours_digits(self):
+        p = parse_otpauth("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP&digits=8")
+        code = generate_totp(p["secret"], p.get("digits", 6),
+                             p.get("period", 30), p.get("algorithm", "sha1"))
+        assert code is not None
+        assert len(code) == 8
 
 
 class TestRenderUriToSecret:
