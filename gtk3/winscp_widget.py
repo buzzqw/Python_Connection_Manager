@@ -20,6 +20,7 @@ import stat
 import shutil
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from datetime import datetime
 
@@ -743,6 +744,9 @@ class WinScpWidget(Gtk.Box):
         self._ssh     = None
         self._ssh_transfer = None   # Connessione SSH separata per i trasferimenti
         self._worker_thread = None
+        # Il canale SFTP non è thread-safe: un solo worker, coda condivisa.
+        self._pending_jobs = deque()
+        self._jobs_lock = threading.Lock()
 
         self._init_ui()
 
@@ -1081,36 +1085,48 @@ class WinScpWidget(Gtk.Box):
         return jobs
 
     def _esegui_jobs(self, jobs: list):
+        """Accoda i job e avvia un solo worker. Se un trasferimento è già in
+        corso i nuovi job vengono drenati dallo stesso worker: il canale SFTP
+        di paramiko non è thread-safe e due worker paralleli lo corrompono."""
         if not jobs:
             return
-        idxs = [self._coda.aggiungi_job(j) for j in jobs]
+        with self._jobs_lock:
+            for job in jobs:
+                idx = self._coda.aggiungi_job(job)
+                self._pending_jobs.append((job, idx))
 
-        def run():
-            _annullato = t("winscp.status_cancelled")
-            for job, idx in zip(jobs, idxs):
-                while self._coda.is_in_pausa():
-                    time.sleep(0.3)
-                if job.annulla or job.stato == _annullato:
-                    continue
-                job.stato = t("winscp.status_running")
-                job.t_inizio = time.time()
-                try:
-                    self._trasferisci_chunk(job, idx)
-                    if job.annulla:
-                        job.stato = _annullato
-                        GLib.idle_add(self._coda.segna_completato, idx, False, _annullato)
-                    else:
-                        job.stato = t("winscp.status_done")
-                        GLib.idle_add(self._coda.segna_completato, idx, True, "")
-                except Exception as e:
-                    job.stato = t("winscp.status_err")
-                    job.errore = str(e)
-                    GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
-
-            GLib.idle_add(self._aggiorna_tutto)
-
-        self._worker_thread = threading.Thread(target=run, daemon=True)
+        if self._worker_thread and self._worker_thread.is_alive():
+            return  # il worker attivo drenerà anche questi
+        self._worker_thread = threading.Thread(target=self._run_jobs, daemon=True)
         self._worker_thread.start()
+
+    def _run_jobs(self):
+        _annullato = t("winscp.status_cancelled")
+        while True:
+            with self._jobs_lock:
+                if not self._pending_jobs:
+                    break
+                job, idx = self._pending_jobs.popleft()
+            while self._coda.is_in_pausa():
+                time.sleep(0.3)
+            if job.annulla or job.stato == _annullato:
+                continue
+            job.stato = t("winscp.status_running")
+            job.t_inizio = time.time()
+            try:
+                self._trasferisci_chunk(job, idx)
+                if job.annulla:
+                    job.stato = _annullato
+                    GLib.idle_add(self._coda.segna_completato, idx, False, _annullato)
+                else:
+                    job.stato = t("winscp.status_done")
+                    GLib.idle_add(self._coda.segna_completato, idx, True, "")
+            except Exception as e:
+                job.stato = t("winscp.status_err")
+                job.errore = str(e)
+                GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
+
+        GLib.idle_add(self._aggiorna_tutto)
 
     # ------------------------------------------------------------------
     # Trasferimento a chunk (permette pausa/annulla)
