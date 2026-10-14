@@ -86,6 +86,24 @@ class TestSettings:
         merged = config_manager._deep_merge(base, override)
         assert merged == {"a": 1, "b": {"x": 10, "y": 20}, "c": 3}
 
+    def test_deep_merge_does_not_alias_base(self, temp_files):
+        base = {"b": {"x": 10}}
+        merged = config_manager._deep_merge(base, {"a": 1})
+        merged["b"]["x"] = 999
+        assert base["b"]["x"] == 10
+
+    def test_default_settings_not_mutated_by_load(self, temp_files):
+        s = config_manager.load_settings()
+        s["general"]["language"] = "XX"
+        s["terminal"]["default_font"] = "Hacked"
+        assert config_manager.DEFAULT_SETTINGS["general"]["language"] == "it"
+        assert config_manager.DEFAULT_SETTINGS["terminal"]["default_font"] == "Monospace"
+
+    def test_read_json_default_is_independent_copy(self, temp_files):
+        a = config_manager._read_json("/nonexistent/x.json", config_manager.DEFAULT_SETTINGS)
+        a["general"]["language"] = "ZZ"
+        assert config_manager.DEFAULT_SETTINGS["general"]["language"] == "it"
+
 
 class TestVariables:
     def test_expand_variables(self, temp_files):
@@ -160,6 +178,25 @@ class TestAuditLog:
             json.dump(log, f)
         assert not config_manager.audit_verify()
 
+    def test_audit_verify_false_on_corrupt_file(self, temp_files):
+        s = config_manager.load_settings()
+        s["general"]["audit_log_enabled"] = True
+        config_manager.save_settings(s)
+        config_manager.audit_append({"ts": "2025-01-01"})
+        with open(config_manager._AUDIT_FILE, "w", encoding="utf-8") as f:
+            f.write("{not valid json")
+        assert config_manager.audit_verify() is False
+        assert config_manager.audit_load() == []
+
+    def test_audit_write_is_atomic(self, temp_files):
+        s = config_manager.load_settings()
+        s["general"]["audit_log_enabled"] = True
+        config_manager.save_settings(s)
+        config_manager.audit_append({"ts": "2025-01-01"})
+        d = os.path.dirname(config_manager._AUDIT_FILE)
+        assert not any(n.startswith(".tmp_") for n in os.listdir(d))
+        assert config_manager.audit_load()[0]["ts"] == "2025-01-01"
+
     def test_audit_clear(self, temp_files):
         s = config_manager.load_settings()
         s["general"]["audit_log_enabled"] = True
@@ -167,6 +204,24 @@ class TestAuditLog:
         config_manager.audit_append({"ts": "test"})
         config_manager.audit_clear()
         assert len(config_manager.audit_load()) == 0
+
+
+class TestCredentialProfiles:
+    def test_roundtrip_without_crypto(self, temp_files):
+        crypto_manager.lock()
+        s = config_manager.load_settings()
+        s.pop("crypto", None)
+        config_manager.save_settings(s)
+        profiles = [{"name": "p", "password": "pw"}]
+        assert config_manager.save_credential_profiles(profiles)
+        assert config_manager.load_credential_profiles() == profiles
+
+    def test_save_refused_while_locked(self, temp_files):
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        crypto_manager.lock()
+        assert config_manager.save_credential_profiles(
+            [{"name": "p", "password": "x"}]) is False
 
 
 class TestCryptoTransitions:

@@ -2,11 +2,13 @@
 config_manager.py - Gestione profili sessioni e impostazioni globali PCM
 """
 
+import copy
 import hashlib
 import json
 import os
 import glob
 import shutil
+import tempfile
 from datetime import datetime
 
 from pcm_logging import get_logger as _get_log
@@ -377,8 +379,8 @@ def load_settings() -> dict:
     _recover_crypto_transaction()
     if not os.path.exists(SETTINGS_FILE):
         save_settings(DEFAULT_SETTINGS)
-        _cache_settings = dict(DEFAULT_SETTINGS)
-        return dict(DEFAULT_SETTINGS)
+        _cache_settings = copy.deepcopy(DEFAULT_SETTINGS)
+        return copy.deepcopy(DEFAULT_SETTINGS)
     try:
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             saved = json.load(f)
@@ -388,20 +390,33 @@ def load_settings() -> dict:
     except Exception as e:
         _get_log(__name__).error("Errore lettura settings: %s", e)
         _cache_settings = None
-        return dict(DEFAULT_SETTINGS)
+        return copy.deepcopy(DEFAULT_SETTINGS)
 
 
 def _write_json_secure(path: str, data: dict):
-    """Scrive JSON atomicamente con permessi 0600 (solo proprietario)."""
+    """Scrive JSON atomicamente con permessi 0600 (solo proprietario).
+
+    Usa un file temporaneo a nome unico nella stessa directory (due writer
+    concorrenti non si pestano), fa fsync prima della rename e fsync della
+    directory, così un crash non lascia un file troncato o una rename persa."""
     dirname = os.path.dirname(path) or "."
     os.makedirs(dirname, mode=0o700, exist_ok=True)
-    tmp = path + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    fd, tmp = tempfile.mkstemp(prefix=".tmp_", suffix=".json", dir=dirname)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
         os.chmod(tmp, 0o600)
         os.replace(tmp, path)
+        try:
+            dir_fd = os.open(dirname, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except Exception:
         try:
             os.unlink(tmp)
@@ -492,9 +507,9 @@ def _read_json(path: str, default: dict) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return data if isinstance(data, dict) else default
+        return data if isinstance(data, dict) else copy.deepcopy(default)
     except (OSError, json.JSONDecodeError):
-        return default
+        return copy.deepcopy(default)
 
 
 def _recover_crypto_transaction():
@@ -538,7 +553,10 @@ def replace_crypto_state(profiles: dict, settings: dict) -> bool:
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
-    result = dict(base)
+    # deepcopy: senza di esso i sottodict non sovrascritti resterebbero alias
+    # dell'oggetto base (spesso DEFAULT_SETTINGS) e le mutazioni a valle
+    # sporcherebbero i default globali per tutta la sessione.
+    result = copy.deepcopy(base)
     for k, v in override.items():
         if k in result and isinstance(result[k], dict) and isinstance(v, dict):
             result[k] = _deep_merge(result[k], v)
@@ -793,26 +811,41 @@ def audit_append(entry: dict):
         prev_hash = log[-1].get("_hash", "") if log else ""
         safe_entry["_hash"] = _audit_hash(safe_entry, prev_hash)
         log.append(safe_entry)
-        fd = os.open(_AUDIT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(log, f, indent=2, ensure_ascii=False)
+        # Scrittura atomica: un crash a metà non tronca più l'intero log.
+        _write_json_secure(_AUDIT_FILE, log)
     except Exception as e:
         _get_log(__name__).error("Errore scrittura audit_log: %s", e)
 
 
 def audit_load() -> list:
+    if not os.path.exists(_AUDIT_FILE):
+        return []
     try:
-        if not os.path.exists(_AUDIT_FILE):
-            return []
         with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except json.JSONDecodeError as e:
+        _get_log(__name__).warning("audit_log.json corrotto o troncato: %s", e)
+        return []
+    except Exception as e:
+        _get_log(__name__).warning("Errore lettura audit_log: %s", e)
         return []
 
 
 def audit_verify() -> bool:
-    """Verify the on-disk audit hash chain without trusting stored hashes."""
-    log = audit_load()
+    """Verify the on-disk audit hash chain without trusting stored hashes.
+
+    Un log corrotto o illeggibile è considerato NON integro (un [] silenzioso
+    farebbe passare la verifica per buona)."""
+    if not os.path.exists(_AUDIT_FILE):
+        return True
+    try:
+        with open(_AUDIT_FILE, "r", encoding="utf-8") as f:
+            log = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(log, list):
+        return False
     prev_hash = ""
     for entry in log:
         if not isinstance(entry, dict):
@@ -836,22 +869,35 @@ def audit_clear():
 
 def load_credential_profiles() -> list:
     """Load credential profiles with passwords decrypted."""
-    import crypto_manager
+    cm = _crypto()
     profiles = load_settings().get("credential_profiles", [])
-    return [
-        {**p, "password": crypto_manager.decrypt_field(p.get("password", ""))}
-        for p in profiles
-    ]
+    if not cm:
+        return list(profiles)
+    out = []
+    for p in profiles:
+        try:
+            out.append({**p, "password": cm.decrypt_field(p.get("password", ""))})
+        except (cm.CryptoError, cm.InvalidTokenError):
+            # Token corrotto o crypto bloccato: non far fallire l'intera lista.
+            out.append(dict(p))
+    return out
 
 
 def save_credential_profiles(profiles: list) -> bool:
     """Save credential profiles encrypting passwords if crypto is active."""
-    import crypto_manager
+    cm = _crypto()
     s = load_settings()
-    s["credential_profiles"] = [
-        {**p, "password": crypto_manager.encrypt_field(p.get("password", ""))}
-        for p in profiles
-    ]
+    if not cm:
+        s["credential_profiles"] = list(profiles)
+        return save_settings(s)
+    try:
+        s["credential_profiles"] = [
+            {**p, "password": cm.encrypt_field(p.get("password", ""))}
+            for p in profiles
+        ]
+    except cm.CryptoError as e:
+        _get_log(__name__).error("Cifratura profili credenziali fallita: %s", e)
+        return False
     return save_settings(s)
 
 
