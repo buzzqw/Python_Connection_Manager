@@ -206,6 +206,25 @@ class TestAuditLog:
         assert len(config_manager.audit_load()) == 0
 
 
+class TestCleanupTempFiles:
+    def test_removes_old_keeps_recent(self, tmp_path, monkeypatch):
+        import time
+        monkeypatch.setenv("HOME", str(tmp_path))
+        cache = tmp_path / ".cache" / "pcm"
+        cache.mkdir(parents=True)
+        old = cache / ".pcm_ask_old.sh"
+        new = cache / "pcm_vnc_new.passwd"
+        old.write_text("x")
+        new.write_text("x")
+        old_ts = time.time() - 2 * 86400
+        os.utime(old, (old_ts, old_ts))
+
+        removed = config_manager.cleanup_stale_temp_files(86400)
+        assert not old.exists()
+        assert new.exists()
+        assert removed == 1
+
+
 class TestImporterMerge:
     def test_overwrite_preserves_existing_credentials(self, temp_files):
         import importer

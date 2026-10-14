@@ -215,6 +215,9 @@ class MainWindow(Gtk.ApplicationWindow):
         _tr.init_from_settings()
         self._settings = config_manager.load_settings()
         config_manager._fix_permissions()
+        # Ripulisci eventuali file temporanei residui di un crash precedente.
+        with contextlib.suppress(Exception):
+            config_manager.cleanup_stale_temp_files()
         self._profili:  dict = {}
 
         # Icona finestra
@@ -2631,12 +2634,16 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _notifica_tunnel_avvio(self) -> bool:
-        """Chiamato 1s dopo l'avvio: riagganicia i tunnel con PID persistito e mostra notifica."""
-        reattach_tunnels()  # popola _active_procs dai PID salvati nella config
-        attivi = get_active_tunnels()
-        if attivi:
-            nomi = ", ".join(tun.get("nome", "?") for tun in attivi)
-            self._status(t("tunnel.startup_found").format(n=len(attivi)) + f": {nomi}")
+        """Chiamato 1s dopo l'avvio: riaggancia i tunnel con PID persistito e mostra notifica."""
+        def _worker():
+            # reattach_tunnels() scansiona /proc: eseguilo fuori dal main loop.
+            reattach_tunnels()  # popola _active_procs dai PID salvati nella config
+            attivi = get_active_tunnels()
+            if attivi:
+                nomi = ", ".join(tun.get("nome", "?") for tun in attivi)
+                msg = t("tunnel.startup_found").format(n=len(attivi)) + f": {nomi}"
+                GLib.idle_add(self._status, msg)
+        threading.Thread(target=_worker, daemon=True).start()
         return False  # esegui una volta sola
 
     def _aggiorna_tun_indicator(self) -> bool:
@@ -2838,63 +2845,62 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
 
         def _esegui(b):
-            import importer as _imp
+            # Legge i widget sul thread GTK, poi importa in background: i file
+            # di import (PuTTY/RDM/MobaXterm) possono essere grandi e bloccare
+            # la UI se letti nel main loop.
             src = combo_src.get_active()
-            try:
-                _moba_warn = False
-                if src == 0:  # Remmina
-                    percorso = fc.get_filename()
-                    if not percorso:
-                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
-                        return
-                    nuovi = _imp.importa_remmina(percorso)
-                elif src == 1:  # RDM
-                    percorso = fc.get_filename()
-                    if not percorso:
-                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
-                        return
-                    nuovi = _imp.importa_rdm(percorso)
-                elif src == 2:  # mRemoteNG
-                    percorso = fc.get_filename()
-                    if not percorso:
-                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
-                        return
-                    nuovi = _imp.importa_mremoteng(percorso)
-                    if not nuovi:
-                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.mrng_none')}</span>")
-                        return
-                elif src == 3:  # PuTTY
-                    nuovi = _imp.importa_putty()
-                    if not nuovi:
-                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.putty_none')}</span>")
-                        return
-                elif src == 4:  # SSH Config
-                    nuovi = _imp.importa_ssh_config()
-                    if not nuovi:
-                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.ssh_cfg_none')}</span>")
-                        return
-                else:  # MobaXterm
-                    percorso = fc.get_filename()
-                    if not percorso:
-                        lbl_result.set_markup(f"<span foreground='red'>{t('import.no_file')}</span>")
-                        return
-                    nuovi = _imp.importa_mobaxterm(percorso)
-                    if not nuovi:
-                        lbl_result.set_markup(f"<span foreground='orange'>{t('importer.moba_none')}</span>")
-                        return
-                    _moba_warn = True
+            sostituzione = chk_sost.get_active()
+            percorso = fc.get_filename()
 
-                aggiunti, saltati = _imp.unisci_in_pcm(nuovi, chk_sost.get_active())
-                _skipped_str = t("import.skipped", n=saltati) if saltati else ""
-                _res = t("import.result", n=aggiunti, skipped=_skipped_str)
-                if _moba_warn:
-                    _res += f"\n{t('importer.moba_warn')}"
-                lbl_result.set_markup(
-                    f"<span foreground='green'>{_res}</span>"
-                )
-                self._pannello.aggiorna()
-            except Exception as e:
-                lbl_result.set_markup(f"<span foreground='red'>{t('import.error', e=e)}</span>")
+            def _msg(inner, color="red"):
+                GLib.idle_add(lbl_result.set_markup,
+                              f"<span foreground='{color}'>{inner}</span>")
+
+            def _worker():
+                import importer as _imp
+                try:
+                    _moba_warn = False
+                    if src == 0:  # Remmina
+                        if not percorso:
+                            _msg(t("import.no_file")); return
+                        nuovi = _imp.importa_remmina(percorso)
+                    elif src == 1:  # RDM
+                        if not percorso:
+                            _msg(t("import.no_file")); return
+                        nuovi = _imp.importa_rdm(percorso)
+                    elif src == 2:  # mRemoteNG
+                        if not percorso:
+                            _msg(t("import.no_file")); return
+                        nuovi = _imp.importa_mremoteng(percorso)
+                        if not nuovi:
+                            _msg(t("importer.mrng_none"), "orange"); return
+                    elif src == 3:  # PuTTY
+                        nuovi = _imp.importa_putty()
+                        if not nuovi:
+                            _msg(t("importer.putty_none"), "orange"); return
+                    elif src == 4:  # SSH Config
+                        nuovi = _imp.importa_ssh_config()
+                        if not nuovi:
+                            _msg(t("importer.ssh_cfg_none"), "orange"); return
+                    else:  # MobaXterm
+                        if not percorso:
+                            _msg(t("import.no_file")); return
+                        nuovi = _imp.importa_mobaxterm(percorso)
+                        if not nuovi:
+                            _msg(t("importer.moba_none"), "orange"); return
+                        _moba_warn = True
+
+                    aggiunti, saltati = _imp.unisci_in_pcm(nuovi, sostituzione)
+                    _skipped_str = t("import.skipped", n=saltati) if saltati else ""
+                    _res = t("import.result", n=aggiunti, skipped=_skipped_str)
+                    if _moba_warn:
+                        _res += f"\n{t('importer.moba_warn')}"
+                    _msg(_res, "green")
+                    GLib.idle_add(self._pannello.aggiorna)
+                except Exception as e:
+                    _msg(t("import.error", e=e))
+
+            threading.Thread(target=_worker, daemon=True).start()
 
         btn_import.connect("clicked", _esegui)
         dlg.show_all()

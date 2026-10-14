@@ -9,6 +9,7 @@ import os
 import glob
 import shutil
 import tempfile
+import time
 from datetime import datetime
 
 from pcm_logging import get_logger as _get_log
@@ -444,6 +445,36 @@ def _fix_permissions():
         if st.st_mode & 0o077:
             os.chmod(audit, 0o600)
             _log.info("Permessi corretti per %s", audit)
+
+
+def cleanup_stale_temp_files(max_age_seconds: int = 86400) -> int:
+    """Rimuove i file temporanei residui (script askpass, file VNC/SFTP) dalla
+    cache ~/.cache/pcm più vecchi di max_age_seconds.
+
+    Serve a ripulire i residui di un crash/kill; NON tocca i file recenti, così
+    i processi/tunnel ancora in corso non vengono disturbati. Ritorna il numero
+    di file rimossi."""
+    cache = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+    if not os.path.isdir(cache):
+        return 0
+    now = time.time()
+    removed = 0
+    prefixes = (".pcm_ask_", "pcm_vnc_", "pcm_sftp_")
+    try:
+        names = os.listdir(cache)
+    except OSError:
+        return 0
+    for name in names:
+        if not name.startswith(prefixes):
+            continue
+        path = os.path.join(cache, name)
+        try:
+            if os.path.isfile(path) and now - os.path.getmtime(path) > max_age_seconds:
+                os.unlink(path)
+                removed += 1
+        except OSError:
+            pass
+    return removed
 
 
 def save_settings(settings: dict) -> bool:
