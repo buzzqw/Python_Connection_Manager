@@ -60,7 +60,16 @@ def _write_private_script(contents: str, prefix: str) -> str:
     /proc/<pid>/cmdline per tutta la durata del processo."""
     import tempfile
     _dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
-    os.makedirs(_dir, mode=0o700, exist_ok=True)
+    try:
+        os.makedirs(_dir, mode=0o700, exist_ok=True)
+        st = os.stat(_dir)
+        if st.st_uid != os.getuid():
+            raise PermissionError(_dir)
+        if st.st_mode & 0o077:
+            os.chmod(_dir, 0o700)
+    except (OSError, PermissionError):
+        # Directory non sicura/di altri: usa una directory privata temporanea.
+        _dir = tempfile.mkdtemp(prefix="pcm_private_")
     fd, path = tempfile.mkstemp(prefix=prefix, suffix=".tmp", dir=_dir)
     with os.fdopen(fd, "w") as f:
         f.write(contents)

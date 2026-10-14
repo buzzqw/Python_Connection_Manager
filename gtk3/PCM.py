@@ -320,9 +320,13 @@ class MainWindow(Gtk.ApplicationWindow):
             # --- Scenario B: ENC: trovati ma settings incompleto ---
             # Controlla se connections.json ha valori cifrati
             profili = _cm.load_profiles()
+            # load_profiles() può restituire voci non-dict su errore/corruzione
+            # ({"_corrupted": True} / {"_error": ...}): non assumere che lo siano.
             ha_enc = any(
-                str(v.get("user","")).startswith("ENC:") or
-                str(v.get("password","")).startswith("ENC:")
+                isinstance(v, dict) and (
+                    str(v.get("user", "")).startswith("ENC:") or
+                    str(v.get("password", "")).startswith("ENC:")
+                )
                 for v in profili.values()
             )
             if not ha_enc:
