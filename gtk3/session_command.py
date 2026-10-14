@@ -379,7 +379,10 @@ def _build_vnc(p: dict) -> str:
             # il formato offuscato di vncpasswd(1), non testo semplice.
             # Il client chiederà la password in modo interattivo.
             return f"{_q(exe)} {extra}{_q(endpoint)}"
-        fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
+        # Directory privata (non /tmp condivisa).
+        _vnc_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+        os.makedirs(_vnc_dir, mode=0o700, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd", dir=_vnc_dir)
         os.chmod(tmp_path, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(contents)

@@ -257,7 +257,11 @@ class SftpEditorWidget(Gtk.Box):
         fname = os.path.basename(self._remote_path)
         # Mantieni l'estensione originale così l'editor rileva il tipo
         suffix = os.path.splitext(fname)[1] or ".txt"
-        fd, tmp = tempfile.mkstemp(suffix=suffix, prefix="pcm_sftp_")
+        # Directory privata (non /tmp condivisa): il file scaricato può
+        # contenere segreti.
+        tmp_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+        os.makedirs(tmp_dir, mode=0o700, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(suffix=suffix, prefix="pcm_sftp_", dir=tmp_dir)
         os.close(fd)
         self._sftp.get(self._remote_path, tmp)
         self._tmp_path = tmp
