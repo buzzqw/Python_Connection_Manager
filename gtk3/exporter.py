@@ -153,6 +153,9 @@ def esporta_json(profili: dict, gruppo: str | None = None, include_passwords: bo
         copia.pop("_sorgente", None)
         if not include_passwords:
             copia["password"] = ""
+            # TOTP è una credenziale a tutti gli effetti: va escluso come la
+            # password, altrimenti finirebbe in chiaro nel backup esportato.
+            copia["totp_secret"] = ""
         puliti[nome] = copia
         conteggio += 1
 
@@ -218,7 +221,14 @@ def esporta_mremoteng(profili: dict, gruppo: str | None = None) -> tuple[str, in
 
 
 def esporta_su_file(contenuto: str, percorso: str | Path) -> None:
-    """Scrive il contenuto esportato su disco con codifica UTF-8."""
+    """Scrive il contenuto esportato su disco con codifica UTF-8.
+
+    Il file può contenere credenziali: viene creato/forzato a 0600 in modo
+    che non sia leggibile da altri utenti del sistema."""
     p = Path(percorso)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(contenuto, encoding="utf-8")
+    try:
+        p.chmod(0o600)
+    except OSError:
+        pass
