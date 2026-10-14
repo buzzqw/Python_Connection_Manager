@@ -186,6 +186,24 @@ class TestCryptoTransitions:
         assert not crypto_manager.is_enabled()
         assert config_manager.load_profiles() == profiles
 
+    def test_save_profiles_refused_while_locked(self, temp_files):
+        """Con cifratura attiva ma bloccata, save_profiles non deve mai
+        scrivere in chiaro i profili (bypass della cifratura)."""
+        crypto_manager.lock()
+        crypto_manager.setup("master-pass")
+        profiles = {"s": {"protocol": "ssh", "user": "alice", "password": "secret"}}
+        assert config_manager.save_profiles(profiles)
+
+        crypto_manager.lock()
+        # Profilo in chiaro in ingresso: il salvataggio deve essere rifiutato.
+        assert config_manager.save_profiles(
+            {"s": {"protocol": "ssh", "user": "bob", "password": "pw"}}) is False
+
+        with open(config_manager.SESSIONS_FILE, encoding="utf-8") as f:
+            raw = json.load(f)
+        assert raw["s"]["user"].startswith("ENC:")
+        assert raw["s"]["password"].startswith("ENC:")
+
     def test_unlock_refreshes_profiles_cached_while_locked(self, temp_files):
         """Se load_profiles() viene chiamato mentre il crypto è ancora bloccato
         (es. durante la costruzione della UI, prima del dialog di sblocco),

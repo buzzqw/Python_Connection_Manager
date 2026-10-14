@@ -185,7 +185,16 @@ def save_profiles(profiles: dict) -> bool:
             clean_profiles[nome] = p
 
     cm = _crypto()
-    if cm and cm.is_enabled() and cm.is_unlocked():
+    if cm and cm.is_enabled():
+        # Cifratura attiva ma bloccata: i profili in ingresso possono essere in
+        # chiaro (es. riferimento tenuto prima del lock). Non scrivere mai in
+        # chiaro: annulla il salvataggio finché l'app non è di nuovo sbloccata.
+        if not cm.is_unlocked():
+            _get_log(__name__).error(
+                "Cifratura attiva ma bloccata: salvataggio sessioni annullato "
+                "per evitare di riscrivere le credenziali in chiaro"
+            )
+            return False
         try:
             to_save = {nome: cm.encrypt_profile(p) for nome, p in clean_profiles.items()}
         except Exception as e:
@@ -557,15 +566,21 @@ def load_tunnels() -> list:
     return tunnels
 
 
-def save_tunnels(tunnels: list):
+def save_tunnels(tunnels: list) -> bool:
     s = load_settings()
     cm = _crypto()
-    if cm and cm.is_enabled() and cm.is_unlocked():
+    if cm and cm.is_enabled():
+        if not cm.is_unlocked():
+            _get_log(__name__).error(
+                "Cifratura attiva ma bloccata: salvataggio tunnel annullato "
+                "per evitare di riscrivere le credenziali in chiaro"
+            )
+            return False
         to_save = [cm.encrypt_profile(t) for t in tunnels]
     else:
         to_save = tunnels
     s["tunnels"] = to_save
-    save_settings(s)
+    return save_settings(s)
 
 
 # ---------------------------------------------------------------------------

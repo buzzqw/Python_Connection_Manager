@@ -217,10 +217,17 @@ def unlock(password: str) -> bool:
 
 
 def lock():
-    """Rimuove la chiave dalla memoria (blocca l'app)."""
+    """Rimuove la chiave dalla memoria (blocca l'app).
+
+    Invalida anche le cache dei profili: senza questo la cache continuerebbe a
+    contenere i valori in chiaro già decifrati e un successivo save_profiles()
+    potrebbe riscriverli in chiaro su disco (bypass della cifratura)."""
     global _KEY
     with _lock:
         _KEY = None
+    # Import lazy per evitare cicli a livello di modulo.
+    import config_manager
+    config_manager._invalidate_caches()
 
 
 def change_password(old_password: str, new_password: str) -> bool:
