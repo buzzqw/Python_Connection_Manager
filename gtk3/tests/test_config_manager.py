@@ -206,6 +206,27 @@ class TestAuditLog:
         assert len(config_manager.audit_load()) == 0
 
 
+class TestImporterMerge:
+    def test_overwrite_preserves_existing_credentials(self, temp_files):
+        import importer
+        crypto_manager.lock()
+        s = config_manager.load_settings()
+        s.pop("crypto", None)
+        config_manager.save_settings(s)
+        config_manager.save_profiles({
+            "server": {"protocol": "ssh", "host": "h", "user": "u",
+                       "password": "secret", "totp_secret": "TOTP"},
+        })
+        # L'import porta lo stesso profilo ma senza credenziali.
+        importer.unisci_in_pcm(
+            {"server": {"protocol": "ssh", "host": "h", "user": "u", "password": ""}},
+            sostituzione=True,
+        )
+        p = config_manager.load_profiles()["server"]
+        assert p["password"] == "secret"
+        assert p["totp_secret"] == "TOTP"
+
+
 class TestCredentialProfiles:
     def test_roundtrip_without_crypto(self, temp_files):
         crypto_manager.lock()

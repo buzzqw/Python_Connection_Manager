@@ -540,12 +540,26 @@ def _univoco(nome: str, profili: dict) -> str:
     return f"{nome} ({i})"
 
 
+# Campi che gli importatori non riportano mai: se un profilo viene
+# sovrascritto non vanno persi (altrimenti l'import cancella credenziali).
+_CREDENZIALI = ("password", "totp_secret", "private_key")
+
+
 def unisci_in_pcm(nuovi: dict, sostituzione: bool = False) -> tuple[int, int]:
     esistenti = config_manager.load_profiles()
     aggiunti = ignorati = 0
     for nome, dati in nuovi.items():
         if nome in esistenti and not sostituzione:
             esistenti[_univoco(nome, esistenti)] = dati
+        elif nome in esistenti and isinstance(esistenti[nome], dict) and isinstance(dati, dict):
+            # Sovrascrittura: mantieni le credenziali già salvate se l'import
+            # non ne porta di nuove.
+            vecchio = esistenti[nome]
+            merged = dict(dati)
+            for campo in _CREDENZIALI:
+                if not dati.get(campo) and vecchio.get(campo):
+                    merged[campo] = vecchio[campo]
+            esistenti[nome] = merged
         else:
             esistenti[nome] = dati
         aggiunti += 1
