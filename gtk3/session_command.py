@@ -551,10 +551,24 @@ def make_ssh_client(profile: dict, confirm_host_key=None):
             if self._confirm is None or not self._confirm(hostname, key):
                 raise paramiko.SSHException(
                     f"Verifica host key fallita per '{hostname}'")
+            # Registra la chiave nella sessione corrente...
             try:
-                host_keys = client.get_host_keys()
+                client.get_host_keys().add(hostname, key.get_name(), key)
+            except Exception:
+                pass
+            # ...e la persiste in known_hosts SENZA azzerare le chiavi già
+            # presenti. HostKeys.save() apre il file in "w": salvare solo
+            # client.get_host_keys() (che è vuoto finché si usa
+            # load_system_host_keys()) troncherebbe l'intero known_hosts
+            # dell'utente. Va quindi ricaricato il file prima di riscriverlo.
+            try:
+                path = os.path.expanduser("~/.ssh/known_hosts")
+                host_keys = type(client.get_host_keys())()
+                if os.path.exists(path):
+                    host_keys.load(path)
                 host_keys.add(hostname, key.get_name(), key)
-                host_keys.save(os.path.expanduser("~/.ssh/known_hosts"))
+                os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+                host_keys.save(path)
             except Exception:
                 pass
 
