@@ -56,7 +56,21 @@ def _find_socket() -> str | None:
 def _load_assoc() -> dict:
     try:
         import config_manager
-        return config_manager.load_settings().get(_ASSOC_KEY, {})
+        assoc = config_manager.load_settings().get(_ASSOC_KEY, {})
+        if not isinstance(assoc, dict):
+            return {}
+        # L'idKey è un segreto condiviso: se è cifrato, decifralo.
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and str(assoc.get("idKey", "")).startswith("ENC:"):
+                assoc = dict(assoc)
+                assoc["idKey"] = crypto_manager.decrypt_field(assoc["idKey"])
+        except ImportError:
+            pass
+        except Exception as e:
+            from pcm_logging import get_logger
+            get_logger(__name__).debug("idKey KeePassXC non decifrabile: %s", e)
+        return assoc
     except Exception:
         return {}
 
@@ -64,6 +78,18 @@ def _load_assoc() -> dict:
 def _save_assoc(assoc: dict):
     try:
         import config_manager
+        assoc = dict(assoc)
+        # Cifra l'idKey a riposo, come le altre credenziali.
+        try:
+            import crypto_manager
+            if crypto_manager.is_enabled() and crypto_manager.is_unlocked() and assoc.get("idKey"):
+                assoc["idKey"] = crypto_manager.encrypt_field(assoc["idKey"])
+        except ImportError:
+            pass
+        except Exception:
+            from pcm_logging import get_logger
+            get_logger(__name__).warning(
+                "Impossibile cifrare l'idKey KeePassXC: salvato in chiaro")
         s = config_manager.load_settings()
         s[_ASSOC_KEY] = assoc
         config_manager.save_settings(s)

@@ -4,9 +4,11 @@ session_dialog.py - Dialog creazione/modifica sessione PCM (GTK3)
 Gtk.Dialog con Gtk.Notebook. Adatta i widget visibili al protocollo scelto.
 """
 
+import contextlib
 import os
 import shutil
 import subprocess
+import tempfile
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -1294,12 +1296,33 @@ class SessionDialog(Gtk.Dialog):
         if passphrase is None:
             return
 
-        cmd = ["ssh-keygen", "-t", tipo, "-f", percorso, "-C", commento, "-N", passphrase or ""]
+        cmd = ["ssh-keygen", "-t", tipo, "-f", percorso, "-C", commento]
         if bits:
             cmd += ["-b", bits]
 
+        # La passphrase non va in argv (visibile con ps): se non è vuota
+        # ssh-keygen la legge via SSH_ASKPASS, che a sua volta la prende
+        # dall'ambiente (nessun segreto scritto su disco).
+        env = dict(os.environ)
+        askpass = None
+        if passphrase:
+            cache = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(cache, mode=0o700, exist_ok=True)
+            fd, askpass = tempfile.mkstemp(prefix=".pcm_ask_", suffix=".sh", dir=cache, text=True)
+            with os.fdopen(fd, "w") as f:
+                f.write('#!/bin/sh\nprintf \'%s\' "$PCM_KEYPASS_PW"\n')
+            os.chmod(askpass, 0o700)
+            env["SSH_ASKPASS"] = askpass
+            env["SSH_ASKPASS_REQUIRE"] = "force"
+            env["PCM_KEYPASS_PW"] = passphrase
+        else:
+            cmd += ["-N", ""]
+
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=15,
+                stdin=subprocess.DEVNULL, env=env,
+            )
             if result.returncode == 0:
                 os.chmod(percorso, 0o600)
                 self.entry_pkey.set_text(percorso)
@@ -1318,6 +1341,10 @@ class SessionDialog(Gtk.Dialog):
             self._alert("Timeout: ssh-keygen ha impiegato troppo.")
         except Exception as e:
             self._alert(str(e))
+        finally:
+            if askpass:
+                with contextlib.suppress(OSError):
+                    os.unlink(askpass)
 
     def _copia_chiave_server(self):
         if not shutil.which("ssh-copy-id"):
