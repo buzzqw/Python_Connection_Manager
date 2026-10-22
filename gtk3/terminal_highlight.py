@@ -95,6 +95,7 @@ class Highlighter:
         self._categories: dict[str, bool] = {}
         self._custom_patterns: list[dict] = []
         self._match_tags: list[int] = []
+        self._tag_categories: dict[int, str] = {}
         self._build()
 
     def _build(self):
@@ -131,11 +132,15 @@ class Highlighter:
                     )
                     tag = self._vte.match_add_gregex(gr, 0)
                 if tag >= 0:
+                    # Gli URL mostrano il cursore "pointer": il click è
+                    # gestito da TerminalWidget (Ctrl+clic).
+                    cursor = "pointer" if cat_name == "url" else "text"
                     if hasattr(self._vte, "match_set_cursor_name"):
-                        self._vte.match_set_cursor_name(tag, "text")
+                        self._vte.match_set_cursor_name(tag, cursor)
                     elif hasattr(self._vte, "match_set_cursor_type"):
                         self._vte.match_set_cursor_type(tag, Gdk.CursorType.XTERM)
                     self._match_tags.append(tag)
+                    self._tag_categories[tag] = cat_name
             except Exception as e:
                 _get_log(__name__).debug("Highlight regex fallito per '%s': %s", cat_name, e)
 
@@ -143,9 +148,14 @@ class Highlighter:
         for tag in self._match_tags:
             try:
                 self._vte.match_remove(tag)
-            except Exception:
-                pass
+            except Exception as e:
+                _get_log(__name__).debug("match_remove(%s) fallito: %s", tag, e)
         self._match_tags.clear()
+        self._tag_categories.clear()
+
+    def category_for_tag(self, tag: int) -> str | None:
+        """Categoria del match VTE, oppure None se il tag non è noto."""
+        return self._tag_categories.get(tag)
 
     def set_enabled(self, enabled: bool):
         self._enabled = enabled

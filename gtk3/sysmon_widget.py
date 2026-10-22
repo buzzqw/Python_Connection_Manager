@@ -391,8 +391,9 @@ class SysMonitorWidget(Gtk.Box):
         if self._ssh:
             try:
                 self._ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                from pcm_logging import get_logger
+                get_logger(__name__).debug("Chiusura SSH monitor fallita: %s", e)
             self._ssh = None
 
     def chiudi_processo(self):

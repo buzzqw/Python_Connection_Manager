@@ -1200,19 +1200,19 @@ class WinScpWidget(Gtk.Box):
     def chiudi_processo(self):
         if self._sftp:
             try: self._sftp.close()
-            except Exception: pass
+            except Exception as e: _get_log(__name__).debug("SFTP close: %s", e)
             self._sftp = None
         if self._ssh:
             try: self._ssh.close()
-            except Exception: pass
+            except Exception as e: _get_log(__name__).debug("SSH close: %s", e)
             self._ssh = None
         if self._sftp_transfer:
             try: self._sftp_transfer.close()
-            except Exception: pass
+            except Exception as e: _get_log(__name__).debug("SFTP transfer close: %s", e)
             self._sftp_transfer = None
         if self._ssh_transfer:
             try: self._ssh_transfer.close()
-            except Exception: pass
+            except Exception as e: _get_log(__name__).debug("SSH transfer close: %s", e)
             self._ssh_transfer = None
 
 

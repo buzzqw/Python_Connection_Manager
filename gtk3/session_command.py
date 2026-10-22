@@ -10,8 +10,11 @@ import subprocess
 from urllib.parse import quote
 from typing import Optional, Tuple
 import config_manager
+from pcm_logging import get_logger
 from protocols import (MODE_INTERNAL, MODE_EXTERNAL, MODE_BROWSER_INT,
                        MODE_BROWSER_EXT, MODE_TERM_INT, MODE_TERM_EXT, is_ftps)
+
+_log = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -566,8 +569,9 @@ def make_ssh_client(profile: dict, confirm_host_key=None):
             # Registra la chiave nella sessione corrente...
             try:
                 client.get_host_keys().add(hostname, key.get_name(), key)
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("Aggiunta host key in memoria fallita per %s: %s",
+                           hostname, e)
             # ...e la persiste in known_hosts SENZA azzerare le chiavi già
             # presenti. HostKeys.save() apre il file in "w": salvare solo
             # client.get_host_keys() (che è vuoto finché si usa
@@ -581,8 +585,8 @@ def make_ssh_client(profile: dict, confirm_host_key=None):
                 host_keys.add(hostname, key.get_name(), key)
                 os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
                 host_keys.save(path)
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("Impossibile aggiornare %s: %s", path, e)
 
     client = paramiko.SSHClient()
     client.load_system_host_keys()

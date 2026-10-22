@@ -2443,9 +2443,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self._on_connetti(None, nome, dati)
 
     def _on_terminale_locale(self):
+        # Usa tutte le impostazioni globali del terminale (tema, font,
+        # dimensione, scrollback, encoding, bell, warn_paste, paste destro).
         s = config_manager.load_settings().get("terminal", {})
-        paste_right = s.get("paste_on_right_click", False)
-        widget = TerminalWidget(paste_on_right_click=paste_right)
+        log_dir = s.get("log_dir", "") if s.get("log_output") else ""
+        widget = TerminalWidget.da_impostazioni(log_dir=log_dir)
         widget.show_all()
         self._append_tab(widget, "Locale", lambda: self._chiudi_tab(widget))
         widget.avvia_locale()

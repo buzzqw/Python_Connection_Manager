@@ -331,15 +331,17 @@ DEFAULT_SETTINGS = {
         "directory": "",
     },
     "terminal": {
-        "default_theme": "Scuro (Default)",
+        "default_theme": "Dark (Default)",
         "default_font": "Monospace",
         "default_font_size": 11,
         "scrollback_lines": 10000,
+        "infinite_scrollback": False,
         "confirm_on_close": True,
         "log_output": False,
         "log_dir": os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs"),
         "word_delimiters": "/~+-.&?$%",
         "warn_multiline_paste": True,
+        "paste_on_right_click": False,
     },
     "ssh": {
         "keepalive_interval": 60,

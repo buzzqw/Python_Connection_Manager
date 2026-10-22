@@ -235,6 +235,9 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_warn_paste = Gtk.CheckButton(label=t("settings.terminal.warn_paste"))
         grid.attach(self.chk_warn_paste, 0, row, 2, 1); row += 1
 
+        self.chk_paste_right = Gtk.CheckButton(label=t("settings.terminal.paste_right"))
+        grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
+
         self.chk_log = Gtk.CheckButton(label=t("settings.terminal.log_output"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
@@ -683,7 +686,9 @@ class SettingsDialog(Gtk.Dialog):
 
         # Terminal
         ts = self._settings.get("terminal", {})
-        self._set_combo_text(self.combo_tema, ts.get("default_theme", "Dark (Default)"))
+        from themes import migrate_theme_name
+        self._set_combo_text(self.combo_tema,
+                             migrate_theme_name(ts.get("default_theme", "Dark (Default)")))
         child_font = self.combo_font.get_child()
         if child_font:
             child_font.set_text(ts.get("default_font", "Monospace"))
@@ -694,6 +699,7 @@ class SettingsDialog(Gtk.Dialog):
         self.spin_scrollback.set_sensitive(not infinite_sb)
         self.chk_confirm_close.set_active(ts.get("confirm_on_close", True))
         self.chk_warn_paste.set_active(ts.get("warn_multiline_paste", True))
+        self.chk_paste_right.set_active(ts.get("paste_on_right_click", False))
         self.chk_log.set_active(ts.get("log_output", False))
         self.entry_log_dir.set_text(ts.get("log_dir", os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs")))
 
@@ -769,6 +775,7 @@ class SettingsDialog(Gtk.Dialog):
         s["terminal"]["scrollback_lines"] = int(self.spin_scrollback.get_value())
         s["terminal"]["confirm_on_close"] = self.chk_confirm_close.get_active()
         s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
+        s["terminal"]["paste_on_right_click"] = self.chk_paste_right.get_active()
         s["terminal"]["log_output"] = self.chk_log.get_active()
         s["terminal"]["log_dir"] = self.entry_log_dir.get_text().strip()
 

@@ -574,11 +574,21 @@ class _VncSocket(Gtk.Box):
             return None
         try:
             import tempfile
-            fd, path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd")
+            # Non /tmp: il file contiene una credenziale (offuscata ma
+            # reversibile) e potrebbe restare se PCM termina in modo anomalo.
+            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "pcm")
+            os.makedirs(cache_dir, mode=0o700, exist_ok=True)
+            if os.stat(cache_dir).st_uid != os.getuid():
+                return None
+            fd, path = tempfile.mkstemp(prefix="pcm_vnc_", suffix=".passwd",
+                                        dir=cache_dir)
             with os.fdopen(fd, 'wb') as f:
                 f.write(enc)
             return path
-        except Exception:
+        except Exception as e:
+            from pcm_logging import get_logger
+            get_logger(__name__).debug(
+                "Impossibile creare il file password VNC: %s", e)
             return None
 
     def _on_plug_added(self, s):

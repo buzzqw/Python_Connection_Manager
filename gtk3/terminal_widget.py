@@ -14,7 +14,9 @@ Dipendenze:
 """
 
 import os
+import shutil
 import signal
+import sys
 import contextlib
 from datetime import datetime
 
@@ -23,7 +25,26 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
 from gi.repository import Gtk, Gdk, GLib, Vte, GObject
 
+from pcm_logging import get_logger
 from translations import t
+
+_log = get_logger(__name__)
+
+# Prompt di shell riconosciuto a fine riga: usato per fermare il watcher
+# dell'auto-password una volta completato il login.
+_SHELL_PROMPT_RE = r"^[^\n]{0,160}[$#%]\s*$"
+
+# Prompt di autenticazione SSH noti. Il generico "Password:" è incluso perché
+# alcuni server non mostrano il formato user@host, ma il watcher è a colpo
+# singolo e limitato nel tempo (vedi imposta_auto_password).
+_SSH_PASSWORD_RE = (
+    r"\S+@\S+'s password:\s*$"
+    r"|(?:^|\n)[^\n]{0,80}[Pp]assword[^\n:]{0,40}:\s*$"
+    r"|(?:^|\n)[Pp]asswd:\s*$"
+    r"|(?:^|\n)[Ss]ecret[^\n:]{0,15}:\s*$"
+    r"|(?:^|\n)[Ee]nter .*[Pp]assword[^\n:]{0,20}:\s*$"
+    r"|(?:^|\n)[Aa]uthentication [Pp]assword:\s*$"
+)
 
 
 def _hex_to_rgba(hex_color: str) -> Gdk.RGBA:
@@ -45,7 +66,9 @@ class TerminalWidget(Gtk.Box):
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
                  font_size=11, log_dir="", paste_on_right_click=False,
-                 warn_paste=False, encoding="UTF-8", bell="none", parent=None):
+                 warn_paste=False, encoding="UTF-8", bell="none",
+                 scrollback_lines=10000, infinite_scrollback=False,
+                 word_char_exceptions=None, parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -58,9 +81,14 @@ class TerminalWidget(Gtk.Box):
         self._warn_paste = warn_paste
         self._encoding = encoding
         self._bell = bell
+        self._scrollback_lines = self._parse_int(scrollback_lines, 10000)
+        self._infinite_scrollback = bool(infinite_scrollback)
+        self._word_char_exceptions = word_char_exceptions
         self._pid = -1
         self._comando_corrente = ""
         self._keepalive_tick = 0
+        self._keepalive_source = None
+        self._expect_cleanup = None
         self._t_connessione = None
         self._char_inviati = 0
         self._comandi_inviati: list = []
@@ -69,8 +97,10 @@ class TerminalWidget(Gtk.Box):
 
         self._init_ui()
 
-        # Timer keepalive / statistiche ogni 3 secondi
-        self._keepalive_source = GLib.timeout_add(3000, self._controlla_processo)
+        # Timer keepalive / statistiche ogni 3 secondi. Viene riavviato da
+        # avvia() dopo un'eventuale riconnessione automatica.
+        self._avvia_keepalive()
+        self.connect("destroy", self._on_destroy)
 
     # ------------------------------------------------------------------
     # UI
@@ -78,9 +108,19 @@ class TerminalWidget(Gtk.Box):
 
     def _init_ui(self):
         self._vte = Vte.Terminal()
-        self._vte.set_scrollback_lines(10000)
+        self._vte.set_scrollback_lines(
+            -1 if self._infinite_scrollback else max(0, self._scrollback_lines))
         self._applica_tema()
         self._applica_font()
+
+        # Link OSC 8 e URL cliccabili (Ctrl+clic, vedi _apri_link_evento)
+        with contextlib.suppress(Exception):
+            self._vte.set_allow_hyperlink(True)
+
+        # Delimitatori di parola configurabili (Impostazioni → Terminale)
+        if self._word_char_exceptions:
+            with contextlib.suppress(Exception):
+                self._vte.set_word_char_exceptions(self._word_char_exceptions)
 
         self._highlighter = None
         self._init_highlighter()
@@ -89,8 +129,8 @@ class TerminalWidget(Gtk.Box):
         if self._encoding and self._encoding.upper() != "UTF-8":
             try:
                 self._vte.set_encoding(self._encoding)
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("Encoding %r non supportato: %s", self._encoding, e)
 
         # Bell
         self._vte.set_audible_bell(self._bell == "audible")
@@ -106,6 +146,12 @@ class TerminalWidget(Gtk.Box):
         self._vte.get_style_context().add_provider(
             _css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
+
+        # Provider unico riutilizzato dal visual bell (evita di crearne uno
+        # nuovo a ogni campanello).
+        self._bell_css = Gtk.CssProvider()
+        self._bell_css.load_from_data(
+            b"vte-terminal { background-color: #888888; }")
 
         # Cursore I-beam (testo) sull'intera area VTE
         self._vte.connect("realize", self._on_vte_realize)
@@ -173,9 +219,32 @@ class TerminalWidget(Gtk.Box):
         widget.get_window().set_cursor(cursor)
 
     def _on_selection_changed(self, terminal):
-        """Copia automaticamente il testo evidenziato nella clipboard principale."""
+        """Copia la selezione nella PRIMARY (selezione X11), non nella CLIPBOARD.
+
+        Il comportamento standard dei terminali è: selezione → PRIMARY,
+        Ctrl+Shift+C / menu → CLIPBOARD. Così selezionare per errore non
+        sovrascrive gli appunti espliciti dell'utente.
+        """
         if terminal.get_has_selection():
-            terminal.copy_clipboard()
+            with contextlib.suppress(Exception):
+                terminal.copy_primary()
+
+    def _avvia_keepalive(self):
+        """Attiva il timer di stato se non è già in esecuzione."""
+        if self._keepalive_source is None:
+            self._keepalive_source = GLib.timeout_add(
+                3000, self._controlla_processo)
+
+    def _on_destroy(self, _widget):
+        """Ferma timer e watcher quando il tab viene chiuso (evita leak)."""
+        if self._keepalive_source:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._keepalive_source)
+            self._keepalive_source = None
+        if self._expect_cleanup:
+            with contextlib.suppress(Exception):
+                self._expect_cleanup()
+            self._expect_cleanup = None
 
     def get_stato(self) -> tuple[str, bool]:
         """Restituisce (testo_stato, è_terminato) per la statusbar di PCM."""
@@ -198,23 +267,41 @@ class TerminalWidget(Gtk.Box):
         self._stato_testo = f"▶  {cmd_show}"
         self._stato_terminato = False
 
-        # Logging: redirige output su file tramite script(1) se richiesto
+        # Logging: redirige output su file tramite script(1) se richiesto.
+        # Se script(1) non è disponibile la sessione parte comunque, senza log.
+        argv = ["/bin/sh", "-c", comando]
         if self._log_dir:
-            os.makedirs(self._log_dir, mode=0o700, exist_ok=True)
-            st = os.stat(self._log_dir)
-            if st.st_uid != os.getuid():
+            try:
+                os.makedirs(self._log_dir, mode=0o700, exist_ok=True)
+                st = os.stat(self._log_dir)
+                if st.st_uid != os.getuid():
+                    self._log_dir = None
+                elif not shutil.which("script"):
+                    _log.warning(
+                        "Log output richiesto ma 'script(1)' non trovato: "
+                        "la sessione parte senza registrazione")
+                else:
+                    os.chmod(self._log_dir, 0o700)
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    log_file = os.path.join(self._log_dir, f"pcm_{ts}.log")
+                    with open(log_file, "a"):
+                        pass
+                    os.chmod(log_file, 0o600)
+                    if sys.platform.startswith(("freebsd", "openbsd",
+                                                "netbsd", "darwin")):
+                        # BSD/macOS: script [-q] file [command ...]
+                        argv = ["/bin/sh", "-c",
+                                f"script -q {_shell_quote(log_file)} "
+                                f"/bin/sh -c {_shell_quote(comando)}"]
+                    else:
+                        # util-linux: script -q -c command file
+                        argv = ["/bin/sh", "-c",
+                                f"script -q -c {_shell_quote(comando)} "
+                                f"{_shell_quote(log_file)}"]
+            except OSError as e:
+                _log.error("Impossibile preparare il log in %r: %s",
+                           self._log_dir, e)
                 self._log_dir = None
-            else:
-                os.chmod(self._log_dir, 0o700)
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                log_file = os.path.join(self._log_dir, f"pcm_{ts}.log")
-                with open(log_file, "a") as _:
-                    pass
-                os.chmod(log_file, 0o600)
-                argv = ["/bin/sh", "-c",
-                        f"script -q -c {_shell_quote(comando)} {_shell_quote(log_file)}"]
-        else:
-            argv = ["/bin/sh", "-c", comando]
 
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
@@ -227,7 +314,7 @@ class TerminalWidget(Gtk.Box):
                 None,          # working dir (None = home)
                 argv,
                 [f"{k}={v}" for k, v in env.items()],
-                GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+                GLib.SpawnFlags(0),   # VTE gestisce da sé il figlio
                 None, None,    # child setup
                 None           # cancellable
             )
@@ -244,6 +331,8 @@ class TerminalWidget(Gtk.Box):
 
         self._t_connessione = datetime.now()
         self._char_inviati = 0
+        # Avvia (o riavvia dopo auto-reconnect) il timer di stato.
+        self._avvia_keepalive()
 
         # Registra startup_cmd se presente nel comando SSH
         import re as _re
@@ -288,21 +377,27 @@ class TerminalWidget(Gtk.Box):
             "cmd":      testo,
             "sorgente": sorgente,
         })
+        # Evita crescita illimitata in sessioni di lunga durata.
+        if len(self._comandi_inviati) > 1000:
+            del self._comandi_inviati[:-1000]
 
     def imposta_auto_password(self, password: str):
+        """Invia automaticamente la password al prompt di autenticazione.
+
+        Sicurezza: il watcher è a colpo singolo e scade dopo 60 secondi,
+        inoltre si ferma quando compare il prompt della shell. In questo modo
+        la password SSH non viene più digitata in prompt successivi (sudo,
+        ssh verso altri host) nella stessa tab.
+        """
         if not password:
             return
         self._setup_expect_watcher([{
-            "pattern": (
-                r'[Pp]assword[^:\n]{0,40}:\s*$'
-                r'|[Pp]asswd:\s*$'
-                r'|[Ss]ecret[^:\n]{0,15}:\s*$'
-                r'|[Ee]nter .*[Pp]assword[^:\n]{0,20}:\s*$'
-                r'|[Aa]uthentication [Pp]assword:\s*$'
-            ),
+            "pattern": _SSH_PASSWORD_RE,
             "command": password,
-            "max_trigger": 3,
+            "max_trigger": 1,
             "delay": 0.08,
+            "timeout": 60,
+            "stop_on_prompt": True,
         }])
 
     def imposta_expect(self, rules: list[dict]):
@@ -310,13 +405,34 @@ class TerminalWidget(Gtk.Box):
             return
         self._setup_expect_watcher(rules)
 
+    def _testo_recente(self, righe: int = 20) -> str:
+        """Legge solo le ultime `righe` del buffer, non tutto lo scrollback.
+
+        Su scrollback enormi (100000 righe o illimitato) get_text() copiava
+        l'intero buffer a ogni contents-changed, causando lag della UI.
+        """
+        try:
+            col, row = self._vte.get_cursor_position()
+            start = max(0, row - max(1, int(righe)))
+            if hasattr(self._vte, "get_text_range_format"):
+                text, _attrs = self._vte.get_text_range_format(
+                    Vte.Format.TEXT, start, 0, row, col)
+                return text or ""
+            # Fallback per VTE molto vecchie prive di get_text_range_format.
+            return self._vte.get_text(lambda *_: True)[0] or ""
+        except Exception as e:
+            _log.debug("Lettura testo recente fallita: %s", e, exc_info=True)
+            return ""
+
     def _setup_expect_watcher(self, rules: list[dict]):
         import re as _re
+        import time as _time
         # Se un watcher precedente è ancora attivo, rimuovilo (evita handler
         # "contents-changed" duplicati e l'invio doppio della password).
-        if getattr(self, "_expect_cleanup", None):
+        if self._expect_cleanup:
             self._expect_cleanup()
         compiled = []
+        timeout_s = 0.0
         for r in rules:
             pat = r.get("pattern", "")
             cmd = r.get("command", "")
@@ -330,7 +446,9 @@ class TerminalWidget(Gtk.Box):
                     "delay": delay,
                     "sent": 0,
                     "last_prompt": None,
+                    "stop_on_prompt": bool(r.get("stop_on_prompt", False)),
                 })
+                timeout_s = max(timeout_s, float(r.get("timeout", 0) or 0))
 
         if not compiled:
             return
@@ -339,6 +457,8 @@ class TerminalWidget(Gtk.Box):
         _conn_id  = [None]
         _done     = [False]
         _debounce = 80  # ms
+        _start    = _time.monotonic()
+        _prompt_re = _re.compile(_SHELL_PROMPT_RE)
 
         def _cleanup():
             _done[0] = True
@@ -350,6 +470,8 @@ class TerminalWidget(Gtk.Box):
                 with contextlib.suppress(Exception):
                     self._vte.disconnect(_conn_id[0])
                 _conn_id[0] = None
+            if self._expect_cleanup is _cleanup:
+                self._expect_cleanup = None
 
         self._expect_cleanup = _cleanup
 
@@ -357,17 +479,31 @@ class TerminalWidget(Gtk.Box):
             _timer_id[0] = None
             if _done[0]:
                 return False
+            # Limite temporale: un prompt tardivo (sudo, ssh successivo) non
+            # deve più ricevere la credenziale della connessione.
+            if timeout_s and (_time.monotonic() - _start) > timeout_s:
+                _log.debug("Watcher expect scaduto dopo %.0fs", timeout_s)
+                _cleanup()
+                return False
             active = any(c["sent"] < c["max_trigger"] for c in compiled)
             if not active:
-                if _conn_id[0] is not None:
-                    self._vte.disconnect(_conn_id[0])
-                    _conn_id[0] = None
+                _cleanup()
                 return False
-            try:
-                text = self._vte.get_text(lambda *_: True)[0]
-            except Exception:
+
+            tail = self._testo_recente(righe=20).rstrip()[-600:]
+            if not tail:
                 return False
-            tail = (text or "").rstrip()[-600:]
+
+            # Login completato: la shell ha stampato il suo prompt.
+            # Si controlla solo l'ultima riga, altrimenti un banner che
+            # termina con '#' o '%' fermerebbe il watcher troppo presto.
+            ultima_riga = tail.rsplit("\n", 1)[-1]
+            if any(c["stop_on_prompt"] for c in compiled) \
+                    and _prompt_re.search(ultima_riga):
+                _log.debug("Prompt di shell rilevato: watcher expect fermato")
+                _cleanup()
+                return False
+
             for c in compiled:
                 if c["sent"] >= c["max_trigger"]:
                     continue
@@ -387,6 +523,10 @@ class TerminalWidget(Gtk.Box):
                 if not cmd.endswith("\n"):
                     cmd += "\n"
                 self._vte.feed_child(cmd.encode("utf-8"))
+            if not any(c["sent"] < c["max_trigger"] for c in compiled):
+                # Tutte le regole hanno raggiunto max_trigger: chiudi subito
+                # il watcher (niente invii su prompt successivi).
+                _cleanup()
             return False
 
         def _on_changed(_vte):
@@ -414,7 +554,8 @@ class TerminalWidget(Gtk.Box):
         try:
             from terminal_highlight import Highlighter
             self._highlighter = Highlighter(self._vte)
-        except Exception:
+        except Exception as e:
+            _log.debug("Highlighter non disponibile: %s", e, exc_info=True)
             self._highlighter = None
 
     def toggle_highlight(self, enabled: bool = None):
@@ -492,6 +633,11 @@ class TerminalWidget(Gtk.Box):
         if self._keepalive_source:
             GLib.source_remove(self._keepalive_source)
             self._keepalive_source = None
+        # Un eventuale watcher expect non deve sopravvivere al processo.
+        if self._expect_cleanup:
+            with contextlib.suppress(Exception):
+                self._expect_cleanup()
+            self._expect_cleanup = None
 
         if os.WIFEXITED(status):
             self._exit_code = os.WEXITSTATUS(status)
@@ -565,7 +711,10 @@ class TerminalWidget(Gtk.Box):
             return default
 
     def _on_button_press(self, terminal, event):
-        """Tasto destro → incolla o menu contestuale."""
+        """Tasto destro → incolla/menu; Ctrl+clic → apre URL."""
+        if event.button == 1 and (event.state & Gdk.ModifierType.CONTROL_MASK):
+            if self._apri_link_evento(event):
+                return True
         if event.button == 3:
             if self._paste_on_right_click:
                 self._incolla_clipboard()
@@ -574,12 +723,37 @@ class TerminalWidget(Gtk.Box):
             return True
         return False
 
+    def _apri_link_evento(self, event) -> bool:
+        """Apre nel browser l'URL o il link OSC 8 sotto il puntatore."""
+        uri = None
+        with contextlib.suppress(Exception):
+            uri = self._vte.hyperlink_check_event(event)
+        if not uri:
+            with contextlib.suppress(Exception):
+                testo, _tag = self._vte.match_check_event(event)
+                if testo and testo.lower().startswith(
+                        ("http://", "https://", "ftp://", "ftps://")):
+                    uri = testo
+        if not uri:
+            return False
+        if not uri.lower().startswith(("http://", "https://", "ftp://",
+                                       "ftps://")):
+            return False
+        try:
+            from gi.repository import Gio
+            Gio.AppInfo.launch_default_for_uri(uri, None)
+            return True
+        except Exception as e:
+            _log.warning("Impossibile aprire l'URL %r: %s", uri, e)
+            return False
+
     def _mostra_menu_contestuale(self, event):
         menu = Gtk.Menu()
 
         mi_copy = Gtk.MenuItem(label=t("term.context.copy"))
-        mi_copy.set_sensitive(self._vte.get_has_selection())
-        mi_copy.connect("activate", lambda _: self._vte.copy_clipboard())
+        ha_selezione = self._vte.get_has_selection()
+        mi_copy.set_sensitive(ha_selezione)
+        mi_copy.connect("activate", lambda _: self._copia_selezione())
 
         mi_paste = Gtk.MenuItem(label=t("term.context.paste"))
         mi_paste.connect("activate", lambda _: self._incolla_clipboard())
@@ -591,6 +765,13 @@ class TerminalWidget(Gtk.Box):
         mi_cerca.connect("activate", lambda _: self.mostra_cerca())
 
         menu.append(mi_copy)
+        if not ha_selezione:
+            # Mc/htop/vim/tmux catturano il mouse: il drag evidenzia nel
+            # programma remoto ma non crea una selezione VTE. Il suggerimento
+            # compare solo quando "Copia" è disabilitato, cioè quando serve.
+            mi_hint = Gtk.MenuItem(label=t("term.context.copy_hint"))
+            mi_hint.set_sensitive(False)
+            menu.append(mi_hint)
         menu.append(mi_paste)
         menu.append(Gtk.SeparatorMenuItem())
         menu.append(mi_snippet)
@@ -616,8 +797,9 @@ class TerminalWidget(Gtk.Box):
             )
             dlg.run()
             dlg.destroy()
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("Impossibile aprire lo snippet picker: %s", e,
+                       exc_info=True)
 
     def _on_scroll(self, terminal, event):
         """Ctrl+rotella → aumenta/diminuisce dimensione font."""
@@ -668,8 +850,8 @@ class TerminalWidget(Gtk.Box):
         return self._ZOOM_KEYS.get(nome.upper())
 
     def _on_key_press(self, terminal, event):
-        """Ctrl+Shift+V / Shift+Insert → incolla; Ctrl+F → search bar;
-        Ctrl+'+' / Ctrl+'-' / Ctrl+0 → zoom font."""
+        """Ctrl+Shift+C / Ctrl+Insert → copia; Ctrl+Shift+V / Shift+Insert → incolla;
+        Ctrl+F → search bar; Ctrl+'+' / Ctrl+'-' / Ctrl+0 → zoom font."""
         ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
         key   = (Gdk.keyval_name(event.keyval) or "").upper()
@@ -681,6 +863,12 @@ class TerminalWidget(Gtk.Box):
                 return True
         if ctrl and shift and key == "V":
             self._incolla_clipboard()
+            return True
+        if ctrl and shift and key == "C":
+            self._copia_selezione()
+            return True
+        if ctrl and key == "INSERT":
+            self._copia_selezione()
             return True
         if shift and key == "INSERT":
             self._incolla_primary()
@@ -744,27 +932,41 @@ class TerminalWidget(Gtk.Box):
             self._search_entry.get_style_context().remove_class("error")
 
     def _on_bell(self, terminal):
-        """Visual bell: flash breve del widget."""
-        css = Gtk.CssProvider()
-        css.load_from_data(b"vte-terminal { background-color: #888888; }")
+        """Visual bell: flash breve del widget (provider riutilizzato)."""
         ctx = self._vte.get_style_context()
-        ctx.add_provider(css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+        ctx.add_provider(self._bell_css,
+                         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
         def _ripristina():
-            ctx.remove_provider(css)
+            ctx.remove_provider(self._bell_css)
             return False
         GLib.timeout_add(120, _ripristina)
 
+    def _copia_selezione(self) -> bool:
+        """Copia la selezione VTE nella clipboard (Ctrl+Shift+C, Ctrl+Insert, menu).
+
+        Nei programmi a schermo intero che catturano il mouse (mc, htop, vim,
+        tmux) il drag NON crea una selezione VTE: l'evidenziazione è disegnata
+        dal programma remoto, quindi non c'è nulla da copiare. Per selezionare
+        davvero il testo occorre tenere premuto Shift mentre si trascina.
+        """
+        if self._vte.get_has_selection():
+            self._vte.copy_clipboard()
+            return True
+        return False
+
     def _incolla_clipboard(self):
-        """Incolla dalla CLIPBOARD (Ctrl+C/Ctrl+X) nel terminale."""
+        """Incolla dalla CLIPBOARD (Ctrl+Shift+V, menu contestuale)."""
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        testo = clipboard.wait_for_text()
-        if testo:
-            self._incolla_testo(testo)
+        # request_text è asincrono: wait_for_text() poteva bloccare la UI se
+        # il proprietario degli appunti non rispondeva.
+        clipboard.request_text(self._on_clipboard_testo, None)
 
     def _incolla_primary(self):
         """Incolla dalla PRIMARY selection (selezione mouse, Shift+Insert)."""
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
-        testo = clipboard.wait_for_text()
+        clipboard.request_text(self._on_clipboard_testo, None)
+
+    def _on_clipboard_testo(self, _clipboard, testo, _user_data=None):
         if testo:
             self._incolla_testo(testo)
 
@@ -845,14 +1047,38 @@ class TerminalWidget(Gtk.Box):
         bell        = profilo.get("term_bell", "none")
         scrollback = profilo.get("term_scrollback_lines", 10000)
         infinite_sb = profilo.get("term_infinite_scrollback", False)
-        widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
-                     paste_on_right_click=paste_right, warn_paste=warn_paste,
-                     encoding=encoding, bell=bell)
-        if infinite_sb:
-            widget.imposta_scrollback(-1)
-        else:
-            widget.imposta_scrollback(scrollback)
-        return widget
+        # word_delimiters è un'impostazione globale (non per-sessione).
+        try:
+            from config_manager import load_settings
+            word_chars = load_settings().get(
+                "terminal", {}).get("word_delimiters", "")
+        except Exception as e:
+            _log.debug("Impossibile leggere word_delimiters: %s", e)
+            word_chars = ""
+        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
+                   paste_on_right_click=paste_right, warn_paste=warn_paste,
+                   encoding=encoding, bell=bell,
+                   scrollback_lines=scrollback,
+                   infinite_scrollback=infinite_sb,
+                   word_char_exceptions=word_chars or None)
+
+    @classmethod
+    def da_impostazioni(cls, log_dir="") -> "TerminalWidget":
+        """Factory: terminale locale basato sulle impostazioni globali."""
+        from config_manager import load_settings
+        s = load_settings().get("terminal", {})
+        profilo = {
+            "term_theme": s.get("default_theme", "Dark (Default)"),
+            "term_font": s.get("default_font", "Monospace"),
+            "term_size": s.get("default_font_size", 11),
+            "term_scrollback_lines": s.get("scrollback_lines", 10000),
+            "term_infinite_scrollback": s.get("infinite_scrollback", False),
+            "term_warn_paste": s.get("warn_multiline_paste", True),
+            "paste_on_right_click": s.get("paste_on_right_click", False),
+            "term_encoding": "UTF-8",
+            "term_bell": "none",
+        }
+        return cls.da_profilo(profilo, log_dir=log_dir)
 
 
 # ---------------------------------------------------------------------------

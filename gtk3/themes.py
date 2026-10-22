@@ -405,8 +405,10 @@ def _get_current_css() -> str:
         s = config_manager.load_settings()
         if s.get("display", {}).get("dark_mode", False):
             return _merge_css(APP_CSS_BASE, APP_CSS_DARK)
-    except Exception:
-        pass
+    except Exception as e:
+        from pcm_logging import get_logger
+        get_logger(__name__).debug(
+            "Lettura impostazione dark_mode fallita: %s", e)
     return APP_CSS_BASE
 
 

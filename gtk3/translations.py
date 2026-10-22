@@ -1783,6 +1783,7 @@ _T: dict[str, dict[str, str]] = {
 
     # ── Terminal context menu ──────────────────────────────────────────────────
     "term.context.copy":        {"it": "Copia",                  "en": "Copy",                  "de": "Kopieren",              "fr": "Copier",                 "es": "Copiar"},
+    "term.context.copy_hint":   {"it": "Shift+trascina per selezionare (mc, htop, vim, tmux)", "en": "Shift+drag to select (mc, htop, vim, tmux)", "de": "Shift+Ziehen zum Auswählen (mc, htop, vim, tmux)", "fr": "Maj+glisser pour sélectionner (mc, htop, vim, tmux)", "es": "Mayús+arrastrar para seleccionar (mc, htop, vim, tmux)"},
     "term.context.paste":       {"it": "Incolla",                "en": "Paste",                 "de": "Einfügen",              "fr": "Coller",                 "es": "Pegar"},
     "term.context.snippet":     {"it": "Inserisci snippet…",     "en": "Insert snippet…",       "de": "Snippet einfügen…",     "fr": "Insérer snippet…",       "es": "Insertar fragmento…"},
     "term.context.search":      {"it": "Cerca…  (Ctrl+F)",       "en": "Search…  (Ctrl+F)",     "de": "Suchen…  (Strg+F)",     "fr": "Rechercher…  (Ctrl+F)",  "es": "Buscar…  (Ctrl+F)"},

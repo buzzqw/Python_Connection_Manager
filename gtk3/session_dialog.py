@@ -16,7 +16,7 @@ from gi.repository import Gtk, Gdk, GLib
 
 import config_manager
 import protocols
-from themes import TERMINAL_THEMES
+from themes import TERMINAL_THEMES, migrate_theme_name
 from translations import t
 from pcm_logging import get_logger as _get_log
 from plugins.plugin_base import pcm_dialog_pages as _plugin_dialog_pages, pcm_has_protocol as _has_plugin
@@ -511,7 +511,7 @@ class SessionDialog(Gtk.Dialog):
         _ts = config_manager.load_settings().get('terminal', {})
         self.combo_tema = _combo(*TERMINAL_THEMES.keys())
         self.combo_tema.set_tooltip_text(t("tt.term_theme"))
-        _def = _ts.get("default_theme", "")
+        _def = migrate_theme_name(_ts.get("default_theme", ""))
         if _def:
             self._set_combo_active_text(self.combo_tema, _def)
         grid.attach(_lbl(t("sd.term.theme")), 0, row, 1, 1)
@@ -1941,21 +1941,31 @@ class SessionDialog(Gtk.Dialog):
         self.entry_tags.set_text(tags_raw if isinstance(tags_raw, str) else "")
         self._carica_chiavi_esistenti()
 
-        # Terminale
-        self._set_combo_active_text(self.combo_tema, dati.get("term_theme", "Dark (Default)"))
+        # Terminale — per le sessioni nuove (_popola è usata anche lì) i
+        # valori mancanti devono cadere sulle impostazioni globali, non su
+        # costanti hardcoded che le ignoravano.
+        _ts = config_manager.load_settings().get("terminal", {})
+        _tema = migrate_theme_name(
+            dati.get("term_theme", _ts.get("default_theme", "Dark (Default)")))
+        self._set_combo_active_text(self.combo_tema, _tema)
         font_child = self.combo_font.get_child()
         if font_child:
-            font_child.set_text(dati.get("term_font", "Monospace"))
-        self.spin_font_size.set_value(int(dati.get("term_size", 11)))
-        self.spin_scrollback_lines.set_value(int(dati.get("term_scrollback_lines", 10000)))
-        _inf_sb = dati.get("term_infinite_scrollback", False)
+            font_child.set_text(dati.get("term_font", _ts.get("default_font", "Monospace")))
+        self.spin_font_size.set_value(int(dati.get(
+            "term_size", _ts.get("default_font_size", 11))))
+        self.spin_scrollback_lines.set_value(int(dati.get(
+            "term_scrollback_lines", _ts.get("scrollback_lines", 10000))))
+        _inf_sb = dati.get("term_infinite_scrollback",
+                           _ts.get("infinite_scrollback", False))
         self.chk_infinite_scrollback.set_active(_inf_sb)
         self.spin_scrollback_lines.set_sensitive(not _inf_sb)
         self._lbl_scrollback.set_sensitive(not _inf_sb)
         self._set_combo_active_text(self.combo_encoding, dati.get("term_encoding", "UTF-8"))
         self.combo_bell.set_active({"none": 0, "audible": 1, "visual": 2}.get(dati.get("term_bell", "none"), 0))
-        self.chk_confirm_close.set_active(dati.get("term_confirm_close", True))
-        self.chk_warn_paste.set_active(dati.get("term_warn_paste", True))
+        self.chk_confirm_close.set_active(dati.get(
+            "term_confirm_close", _ts.get("confirm_on_close", True)))
+        self.chk_warn_paste.set_active(dati.get(
+            "term_warn_paste", _ts.get("warn_multiline_paste", True)))
         _auto_rec = dati.get("auto_reconnect", False)
         self.chk_auto_reconnect.set_active(_auto_rec)
         self.spin_reconnect_delay.set_value(int(dati.get("reconnect_delay", 5)))
@@ -2046,7 +2056,9 @@ class SessionDialog(Gtk.Dialog):
         if raw_log in ("/tmp/pcm_logs", ""):
             raw_log = _default_log
         self.entry_log_dir.set_text(raw_log)
-        self.chk_paste_right.set_active(dati.get("paste_on_right_click", False))
+        _ts = config_manager.load_settings().get("terminal", {})
+        self.chk_paste_right.set_active(dati.get(
+            "paste_on_right_click", _ts.get("paste_on_right_click", False)))
 
         # Pre-cmd
         self.entry_pre_cmd.set_text(dati.get("pre_cmd", ""))
