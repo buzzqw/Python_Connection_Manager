@@ -238,6 +238,10 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_paste_right = Gtk.CheckButton(label=t("settings.terminal.paste_right"))
         grid.attach(self.chk_paste_right, 0, row, 2, 1); row += 1
 
+        self.chk_copy_on_select = Gtk.CheckButton(label=t("settings.terminal.copy_on_select"))
+        self.chk_copy_on_select.set_tooltip_text(t("tt.term_copy_on_select"))
+        grid.attach(self.chk_copy_on_select, 0, row, 2, 1); row += 1
+
         self.chk_log = Gtk.CheckButton(label=t("settings.terminal.log_output"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
@@ -700,6 +704,7 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_confirm_close.set_active(ts.get("confirm_on_close", True))
         self.chk_warn_paste.set_active(ts.get("warn_multiline_paste", True))
         self.chk_paste_right.set_active(ts.get("paste_on_right_click", False))
+        self.chk_copy_on_select.set_active(ts.get("copy_on_select", False))
         self.chk_log.set_active(ts.get("log_output", False))
         self.entry_log_dir.set_text(ts.get("log_dir", os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs")))
 
@@ -776,6 +781,7 @@ class SettingsDialog(Gtk.Dialog):
         s["terminal"]["confirm_on_close"] = self.chk_confirm_close.get_active()
         s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
         s["terminal"]["paste_on_right_click"] = self.chk_paste_right.get_active()
+        s["terminal"]["copy_on_select"] = self.chk_copy_on_select.get_active()
         s["terminal"]["log_output"] = self.chk_log.get_active()
         s["terminal"]["log_dir"] = self.entry_log_dir.get_text().strip()
 

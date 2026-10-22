@@ -2796,8 +2796,24 @@ class MainWindow(Gtk.ApplicationWindow):
             self._settings = config_manager.load_settings()
             self._riapplica_accels()
             _tr.init_from_settings()
+            self._propaga_copy_on_select(
+                self._settings.get("terminal", {}).get("copy_on_select", False))
             if hasattr(self, "_menu_btn") and self._menu_btn is not None:
                 self._menu_btn.set_popup(self._build_menu())
+
+    def _propaga_copy_on_select(self, attivo: bool):
+        """Applica subito l'opzione ai terminali già aperti (anche annidati)."""
+        def _cammina(widget):
+            if isinstance(widget, TerminalWidget):
+                widget.imposta_copia_selezione(attivo)
+                return
+            if isinstance(widget, Gtk.Container):
+                for figlio in widget.get_children():
+                    _cammina(figlio)
+
+        for nb in (self._notebook, self._notebook2):
+            for i in range(nb.get_n_pages()):
+                _cammina(nb.get_nth_page(i))
 
     def _riapplica_accels(self):
         """Riapplica gli acceleratori dopo un salvataggio impostazioni."""

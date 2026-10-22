@@ -342,6 +342,7 @@ DEFAULT_SETTINGS = {
         "word_delimiters": "/~+-.&?$%",
         "warn_multiline_paste": True,
         "paste_on_right_click": False,
+        "copy_on_select": False,
     },
     "ssh": {
         "keepalive_interval": 60,

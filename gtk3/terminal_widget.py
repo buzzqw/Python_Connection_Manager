@@ -74,7 +74,7 @@ class TerminalWidget(Gtk.Box):
                  font_size=11, log_dir="", paste_on_right_click=False,
                  warn_paste=False, encoding="UTF-8", bell="none",
                  scrollback_lines=10000, infinite_scrollback=False,
-                 word_char_exceptions=None, parent=None):
+                 word_char_exceptions=None, copy_on_select=False, parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -85,6 +85,7 @@ class TerminalWidget(Gtk.Box):
         self._log_dir = log_dir
         self._paste_on_right_click = paste_on_right_click
         self._warn_paste = warn_paste
+        self._copy_on_select = bool(copy_on_select)
         self._encoding = encoding
         self._bell = bell
         self._scrollback_lines = self._parse_int(scrollback_lines, 10000)
@@ -337,10 +338,19 @@ class TerminalWidget(Gtk.Box):
         Il comportamento standard dei terminali è: selezione → PRIMARY,
         Ctrl+Shift+C / menu → CLIPBOARD. Così selezionare per errore non
         sovrascrive gli appunti espliciti dell'utente.
+
+        Se l'opzione *copy_on_select* è attiva la selezione viene copiata
+        anche nella CLIPBOARD, così è subito disponibile con Ctrl+V.
         """
         if terminal.get_has_selection():
             with contextlib.suppress(Exception):
                 terminal.copy_primary()
+                if self._copy_on_select:
+                    terminal.copy_clipboard()
+
+    def imposta_copia_selezione(self, attivo: bool):
+        """Abilita/disabilita la copia automatica della selezione in CLIPBOARD."""
+        self._copy_on_select = bool(attivo)
 
     def _avvia_keepalive(self):
         """Attiva il timer di stato se non è già in esecuzione."""
@@ -1537,20 +1547,24 @@ class TerminalWidget(Gtk.Box):
         bell        = profilo.get("term_bell", "none")
         scrollback = profilo.get("term_scrollback_lines", 10000)
         infinite_sb = profilo.get("term_infinite_scrollback", False)
-        # word_delimiters è un'impostazione globale (non per-sessione).
+        # word_delimiters e copy_on_select sono impostazioni globali
+        # (non per-sessione).
         try:
             from config_manager import load_settings
-            word_chars = load_settings().get(
-                "terminal", {}).get("word_delimiters", "")
+            st_terminal = load_settings().get("terminal", {})
+            word_chars = st_terminal.get("word_delimiters", "")
+            copy_on_select = bool(st_terminal.get("copy_on_select", False))
         except Exception as e:
-            _log.debug("Impossibile leggere word_delimiters: %s", e)
+            _log.debug("Impossibile leggere le impostazioni del terminale: %s", e)
             word_chars = ""
+            copy_on_select = False
         widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
                      paste_on_right_click=paste_right, warn_paste=warn_paste,
                      encoding=encoding, bell=bell,
                      scrollback_lines=scrollback,
                      infinite_scrollback=infinite_sb,
-                     word_char_exceptions=word_chars or None)
+                     word_char_exceptions=word_chars or None,
+                     copy_on_select=copy_on_select)
         widget._ssh_host = str(profilo.get("host", "") or "").strip()
         widget._ssh_protocol = str(profilo.get("protocol", "") or "").lower()
         with contextlib.suppress(TypeError, ValueError):

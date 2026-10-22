@@ -141,6 +141,7 @@ Each section can be individually enabled or disabled per session.
 - **Command history per session** — filterable list of commands sent in the tab, with one-click resend
 - **Regex search** — optional regular expressions, match counter and debounced search
 - **Bracketed paste** — multi-line pastes are inserted without being executed immediately
+- **Copy-on-select (optional)** — selecting text with the mouse also copies it to the system clipboard (Settings → Terminal), so it is immediately available with <kbd>Ctrl+V</kbd> in other applications
 - **SSH latency monitor** — round-trip time in the status bar; uses the real SSH channel of the SFTP panel when available, otherwise a TCP probe. Toggle from the terminal context menu
 - **Drag & drop upload** — drop local files on the terminal to upload them to the remote directory of the side SFTP panel; drag remote files from the panel to insert their path; drop files directly on the SFTP panel to upload
 - **Path and link actions** — <kbd>Ctrl</kbd>+click URLs to open the browser, remote paths to open the SFTP editor, local paths in the file manager; copy or open the current remote directory (OSC 7)
@@ -626,6 +627,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Cronologia comandi per sessione** — elenco filtrabile dei comandi inviati nel tab, con reinvio in un clic
 - **Ricerca regex** — espressioni regolari opzionali, contatore risultati e ricerca con debounce
 - **Bracketed paste** — gli incolli multi-riga vengono inseriti senza essere eseguiti subito
+- **Copia su selezione (opzionale)** — selezionando col mouse il testo viene copiato anche nella clipboard di sistema (Impostazioni → Terminale), così è subito disponibile con <kbd>Ctrl+V</kbd> nelle altre applicazioni
 - **Monitor latenza SSH** — round-trip nella statusbar; usa il canale SSH reale del pannello SFTP quando disponibile, altrimenti un probe TCP. Attivabile dal menu contestuale del terminale
 - **Upload via drag & drop** — trascina file locali sul terminale per caricarli nella directory remota del pannello SFTP; trascina file remoti dal pannello per inserirne il percorso; puoi anche trascinare file locali direttamente sul pannello SFTP
 - **Azioni su percorsi e link** — <kbd>Ctrl</kbd>+clic sugli URL per aprire il browser, sui percorsi remoti per aprire l'editor SFTP, sui percorsi locali nel file manager; copia o apri la directory remota corrente (OSC 7)
