@@ -504,6 +504,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # page_widget → Gtk.Label dentro la box del tab (per leggere/scrivere il nome)
         self._tab_labels: dict = {}
+        # page_widget → pallino di attività (output/campanello su tab non attiva)
+        self._tab_dots: dict = {}
 
         # page_widget → Gtk.Notebook (lookup O(1) per _trova_in_notebook)
         self._widget_nb_map: dict = {}
@@ -706,6 +708,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pannello.connect("apri-cluster", lambda _p, n, d: self._apri_cluster(n, d))
         self._pannello.connect("apri-tools",  lambda _p, n, d: self._apri_external_tools(n, d))
         self.connect("delete-event", self._on_close)
+        # Tornando sulla finestra l'urgenza non serve più (i pallini restano).
+        self.connect("focus-in-event",
+                     lambda *_: (self.set_urgency_hint(False), False)[1])
 
     def _accel_to_gtk(self, shortcut):
         shortcut = (shortcut or "").strip()
@@ -1932,9 +1937,15 @@ class MainWindow(Gtk.ApplicationWindow):
     # Helper label tab
     # ------------------------------------------------------------------
 
-    def _make_tab_label(self, nome: str, on_close) -> "tuple[Gtk.Box, Gtk.Label, Gtk.Button]":
-        """Crea la box label di un tab con nome + pulsante X."""
+    def _make_tab_label(self, nome: str,
+                        on_close) -> "tuple[Gtk.Box, Gtk.Label, Gtk.Button, Gtk.Label]":
+        """Crea la box label di un tab con pallino attività + nome + pulsante X."""
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        dot = Gtk.Label(label="●")
+        dot.get_style_context().add_class("tab-attention")
+        dot.set_tooltip_text(t("tab.activity_tooltip"))
+        dot.set_no_show_all(True)
+        dot.hide()
         lbl = Gtk.Label(label=nome)
         btn = Gtk.Button()
         btn.set_relief(Gtk.ReliefStyle.NONE)
@@ -1943,10 +1954,12 @@ class MainWindow(Gtk.ApplicationWindow):
         img = Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU)
         btn.add(img)
         btn.connect("clicked", lambda _b: on_close())
+        box.pack_start(dot, False, False, 0)
         box.pack_start(lbl, True, True, 0)
         box.pack_start(btn, False, False, 0)
         box.show_all()
-        return box, lbl, btn
+        dot.hide()
+        return box, lbl, btn, dot
 
     def _get_tab_nome(self, widget) -> str:
         """Legge il nome del tab da _tab_labels (o stringa vuota per la Home)."""
@@ -2013,11 +2026,33 @@ class MainWindow(Gtk.ApplicationWindow):
                     names.add(nome)
         return names
 
+    def _widget_terminale(self, widget):
+        """Restituisce il TerminalWidget contenuto nel page widget, se c'è."""
+        if isinstance(widget, TerminalWidget):
+            return widget
+        if hasattr(widget, "get_child1"):
+            c1 = widget.get_child1()
+            if isinstance(c1, TerminalWidget):
+                return c1
+        return None
+
+    def _collega_segnali_terminale(self, widget):
+        """Collega attività/campanello/titolo remoto di un TerminalWidget."""
+        tw = self._widget_terminale(widget)
+        if tw is None or getattr(tw, "_pcm_segnali_collegati", False):
+            return
+        tw._pcm_segnali_collegati = True
+        tw.connect("attivita", self._on_terminale_attivita)
+        tw.connect("campanello", self._on_terminale_campanello)
+        tw.connect("titolo-cambiato", self._on_terminale_titolo)
+
     def _append_tab(self, widget, nome: str, on_close=None):
         """Aggiunge un tab con label personalizzata (nome + pulsante X)."""
         cb = on_close or (lambda: self._chiudi_tab(widget))
-        lbl_box, lbl, btn = self._make_tab_label(nome, cb)
+        self._collega_segnali_terminale(widget)
+        lbl_box, lbl, btn, dot = self._make_tab_label(nome, cb)
         self._tab_labels[widget] = lbl
+        self._tab_dots[widget] = dot
         widget._tab_close_btn = btn
         widget._pcm_tab_nome = nome
         self._widget_nb_map[widget] = self._notebook
@@ -2093,8 +2128,11 @@ class MainWindow(Gtk.ApplicationWindow):
         nome   = self._get_tab_nome(widget)
         sorgente.remove_page(idx)
         # Ricrea la label custom per il notebook di destinazione
-        lbl_box, lbl, btn = self._make_tab_label(nome, lambda: self._chiudi_tab(widget))
+        lbl_box, lbl, btn, dot = self._make_tab_label(
+            nome, lambda: self._chiudi_tab(widget))
         self._tab_labels[widget] = lbl
+        self._tab_dots[widget] = dot
+        dot.set_visible(getattr(widget, "_pcm_attivita", False))
         widget._tab_close_btn = btn
         if getattr(widget, "_pcm_pinned", False):
             btn.set_visible(False)
@@ -2380,7 +2418,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 _log.debug("Rimozione timer riconnessione fallita: %s", e)
         nb.remove_page(idx)
         self._tab_labels.pop(widget, None)
+        self._tab_dots.pop(widget, None)
         self._widget_nb_map.pop(widget, None)
+        if not any(d.get_visible() for d in self._tab_dots.values()):
+            self.set_urgency_hint(False)
         if nb is self._notebook2 and nb.get_n_pages() == 0:
             self._notebook2.hide()
             self._notebook_attivo = self._notebook
@@ -3134,6 +3175,8 @@ class MainWindow(Gtk.ApplicationWindow):
             n_inviati = 0
             for chk, tw in checks:
                 if chk.get_active():
+                    if getattr(tw, "_sola_lettura", False):
+                        continue
                     try:
                         tw._vte.feed_child(payload)
                         n_inviati += 1
@@ -3507,9 +3550,69 @@ class MainWindow(Gtk.ApplicationWindow):
     # Utility
     # ------------------------------------------------------------------
 
+    def _imposta_attivita_tab(self, page, attivo: bool):
+        """Mostra/nasconde il pallino di attività sul tab."""
+        page._pcm_attivita = bool(attivo)
+        dot = self._tab_dots.get(page)
+        if dot is not None:
+            dot.set_visible(bool(attivo))
+
+    def _on_terminale_attivita(self, tw):
+        """Output arrivato: segnala il tab se non è quello attivo."""
+        for nb in (self._notebook, self._notebook2):
+            idx, page = self._trova_in_notebook(nb, tw)
+            if idx < 0:
+                continue
+            if nb is self._notebook_attivo and nb.get_current_page() == idx:
+                return
+            self._imposta_attivita_tab(page, True)
+            return
+
+    def _on_terminale_campanello(self, tw):
+        """Campanello: urgenza finestra e notifica desktop se non è attiva."""
+        nome = ""
+        for nb in (self._notebook, self._notebook2):
+            idx, page = self._trova_in_notebook(nb, tw)
+            if idx >= 0:
+                nome = self._get_tab_nome(page)
+                break
+        if self.is_active():
+            return
+        self.set_urgency_hint(True)
+        # Evita raffiche di notifiche.
+        import time as _time
+        adesso = _time.monotonic()
+        if adesso - getattr(self, "_ultima_notifica_bell", 0.0) < 2.0:
+            return
+        self._ultima_notifica_bell = adesso
+        try:
+            app = self.get_application()
+            if app is not None:
+                notifica = Gio.Notification.new(t("notify.bell.title"))
+                notifica.set_body(t("notify.bell.body", name=nome or "PCM"))
+                app.send_notification("pcm-bell", notifica)
+        except Exception as e:
+            _log.debug("Notifica campanello fallita: %s", e)
+
+    def _on_terminale_titolo(self, _tw, titolo: str):
+        """Titolo remoto (OSC 0/2): mostralo nel tooltip del tab."""
+        for nb in (self._notebook, self._notebook2):
+            idx, page = self._trova_in_notebook(nb, _tw)
+            if idx < 0:
+                continue
+            page._pcm_titolo_remoto = titolo
+            lbl = self._tab_labels.get(page)
+            if lbl is not None:
+                lbl.set_tooltip_text(titolo or None)
+            return
+
     def _on_switch_tab(self, notebook, page, page_num):
         """Aggiorna statusbar e pannello info al cambio tab."""
         self._notebook_attivo = notebook
+        # Il tab selezionato non ha più bisogno del pallino di attività.
+        self._imposta_attivita_tab(page, False)
+        if not any(d.get_visible() for d in self._tab_dots.values()):
+            self.set_urgency_hint(False)
         is_home = page not in self._tab_labels
         if is_home:
             self._status(t("status.ready"))

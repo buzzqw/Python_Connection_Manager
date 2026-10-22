@@ -831,7 +831,19 @@ ssh altro-server                           <span class="cm"># autenticazione tra
   <li><b>Programmi a schermo intero</b> (mc, htop, vim, tmux con mouse attivo) — il mouse è controllato dal programma remoto e il drag non crea una selezione del terminale: tieni premuto <kbd>Shift</kbd> mentre trascini per selezionare il testo</li>
   <li><b>Incolla</b> — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> oppure tasto centrale del mouse</li>
   <li><b>Incolla con tasto destro</b> — abilitabile per singola sessione nel tab Terminale, oppure globalmente in <i>Impostazioni → Terminale</i></li>
-  <li><b>Link</b> — <kbd>Ctrl</kbd>+clic su un URL (o su un link OSC 8) per aprirlo nel browser predefinito</li>
+  <li><b>Link</b> — <kbd>Ctrl</kbd>+clic su un URL (o su un link OSC 8) per aprirlo nel browser predefinito; <kbd>Ctrl</kbd>+clic su un percorso lo apre nell'editor SFTP (remoto) o nel file manager (locale)</li>
+  <li><b>Menu contestuale</b> — copia/incolla, seleziona tutto, copia tutto lo scrollback, salva output su file, cronologia comandi, pulisci/reset, modalità sola lettura</li>
+  <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> — seleziona tutto, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> — salva output, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> — pulisci schermo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> — reset terminale</li>
+  <li><b>Incolla multi-riga</b> — usa il bracketed paste: le righe vengono inserite senza essere eseguite subito</li>
+  <li><b>Drag &amp; drop</b> — trascina un file locale o del testo sul terminale per inserire il percorso quotato o il testo</li>
+  <li><b>Directory corrente</b> — con OSC 7 il menu contestuale mostra il percorso remoto: copialo o aprilo nel pannello SFTP laterale</li>
+</ul>
+
+<h3>Attività e notifiche</h3>
+<ul>
+  <li>Un pallino appare sui tab che ricevono output in background e scompare quando selezioni il tab</li>
+  <li>Al campanello del terminale PCM segnala la finestra e invia una notifica desktop se non è attiva</li>
+  <li>Il titolo remoto della finestra (OSC 0/2) è mostrato come tooltip sul tab</li>
 </ul>
 
 <h3>Temi colore disponibili</h3>

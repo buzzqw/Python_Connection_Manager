@@ -62,6 +62,9 @@ class TerminalWidget(Gtk.Box):
 
     __gsignals__ = {
         "processo-terminato": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "attivita": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "campanello": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "titolo-cambiato": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
     }
 
     def __init__(self, bg="#1e1e1e", fg="#cccccc", font="Monospace",
@@ -94,6 +97,11 @@ class TerminalWidget(Gtk.Box):
         self._comandi_inviati: list = []
         self._tipo_sessione = "locale"
         self._exit_code: int | None = None
+        self._sola_lettura = False
+        self._cwd_uri = ""
+        self._titolo_remoto = ""
+        self._ultimo_segnale_attivita = 0
+        self._search_timer = None
 
         self._init_ui()
 
@@ -132,12 +140,9 @@ class TerminalWidget(Gtk.Box):
             except Exception as e:
                 _log.debug("Encoding %r non supportato: %s", self._encoding, e)
 
-        # Bell
+        # Bell (il segnale serve anche per l'indicatore di attività/notifica)
         self._vte.set_audible_bell(self._bell == "audible")
-        if self._bell == "visual":
-            self._vte.connect("bell", self._on_bell)
-        else:
-            self._vte.set_audible_bell(self._bell == "audible")
+        self._vte.connect("bell", self._on_bell)
 
         # Padding sinistro: impedisce che il primo carattere finisca
         # sotto il cursore di resize del Paned
@@ -172,6 +177,14 @@ class TerminalWidget(Gtk.Box):
         self._vte.connect("child-exited", self._on_child_exited)
         self._vte.connect("selection-changed", self._on_selection_changed)
 
+        # Attività, titolo remoto e directory corrente (OSC 7)
+        self._vte.connect("contents-changed", self._on_contents_changed)
+        self._vte.connect("window-title-changed", self._on_window_title_changed)
+        self._vte.connect("current-directory-uri-changed",
+                          self._on_cwd_changed)
+        self._vte.connect("hyperlink-hover-uri-changed",
+                          self._on_hyperlink_hover)
+
         # Clic destro → incolla; Ctrl+Shift+V → incolla esplicito
         self._vte.connect("button-press-event", self._on_button_press)
         self._vte.connect("key-press-event", self._on_key_press)
@@ -179,6 +192,9 @@ class TerminalWidget(Gtk.Box):
         # Ctrl+rotella → zoom font
         self._vte.add_events(Gdk.EventMask.SCROLL_MASK)
         self._vte.connect("scroll-event", self._on_scroll)
+
+        # Drag & drop: testo o file locali → percorso quotato nel terminale
+        self._init_drag_drop()
 
     def _init_search_bar(self):
         self._search_bar = Gtk.SearchBar()
@@ -189,10 +205,16 @@ class TerminalWidget(Gtk.Box):
         self._search_entry = Gtk.SearchEntry()
         self._search_entry.set_placeholder_text(t("term.search.placeholder"))
         self._search_entry.set_width_chars(35)
-        self._search_entry.connect("search-changed", lambda _: self._aggiorna_ricerca())
+        self._search_entry.connect("search-changed",
+                                   lambda _: self._programma_ricerca())
         self._search_entry.connect("activate", lambda _: self._cerca_avanti())
         self._search_entry.connect("key-press-event", self._on_search_key_press)
         box.pack_start(self._search_entry, True, True, 0)
+
+        self._lbl_count = Gtk.Label(label="")
+        self._lbl_count.set_width_chars(9)
+        self._lbl_count.get_style_context().add_class("dim-label")
+        box.pack_start(self._lbl_count, False, False, 0)
 
         btn_prev = Gtk.Button.new_from_icon_name("go-up-symbolic", Gtk.IconSize.BUTTON)
         btn_prev.set_tooltip_text(t("term.search.prev_tt"))
@@ -206,8 +228,13 @@ class TerminalWidget(Gtk.Box):
 
         self._chk_case = Gtk.CheckButton(label="Aa")
         self._chk_case.set_tooltip_text(t("term.search.case_tt"))
-        self._chk_case.connect("toggled", lambda _: self._aggiorna_ricerca())
+        self._chk_case.connect("toggled", lambda _: self._programma_ricerca())
         box.pack_start(self._chk_case, False, False, 0)
+
+        self._chk_regex = Gtk.CheckButton(label=".*")
+        self._chk_regex.set_tooltip_text(t("term.search.regex_tt"))
+        self._chk_regex.connect("toggled", lambda _: self._programma_ricerca())
+        box.pack_start(self._chk_regex, False, False, 0)
 
         self._search_bar.add(box)
         self._search_bar.connect_entry(self._search_entry)
@@ -217,6 +244,59 @@ class TerminalWidget(Gtk.Box):
     def _on_vte_realize(self, widget):
         cursor = Gdk.Cursor.new_for_display(widget.get_display(), Gdk.CursorType.XTERM)
         widget.get_window().set_cursor(cursor)
+
+    def _init_drag_drop(self):
+        """Accetta file locali o testo trascinati sul terminale."""
+        targets = [
+            Gtk.TargetEntry.new("text/uri-list", 0, 0),
+            Gtk.TargetEntry.new("text/plain;charset=utf-8", 0, 1),
+            Gtk.TargetEntry.new("text/plain", 0, 2),
+        ]
+        self._vte.drag_dest_set(
+            Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY)
+        self._vte.connect("drag-data-received", self._on_drag_data_received)
+
+    def _on_drag_data_received(self, _widget, context, _x, _y, data,
+                               _info, _time):
+        if self._sola_lettura:
+            Gtk.drag_finish(context, False, False, _time)
+            return
+        from urllib.parse import unquote, urlparse
+        testo = ""
+        if _info == 0:
+            percorsi = []
+            for uri in data.get_uris():
+                parsed = urlparse(uri)
+                if parsed.scheme == "file":
+                    percorsi.append(_shell_quote(unquote(parsed.path)))
+                else:
+                    percorsi.append(uri)
+            testo = " ".join(percorsi)
+        else:
+            raw = data.get_data()
+            if raw:
+                testo = raw.decode("utf-8", errors="replace")
+        if testo:
+            self._vte.paste_text(testo)
+        Gtk.drag_finish(context, bool(testo), False, _time)
+
+    def _on_contents_changed(self, _terminal):
+        """Emette 'attivita' con throttle (max ~3 volte al secondo)."""
+        adesso = GLib.get_monotonic_time() // 1000
+        if adesso - self._ultimo_segnale_attivita >= 350:
+            self._ultimo_segnale_attivita = adesso
+            self.emit("attivita")
+
+    def _on_window_title_changed(self, terminal):
+        titolo = (terminal.get_window_title() or "").strip()
+        self._titolo_remoto = titolo
+        self.emit("titolo-cambiato", titolo)
+
+    def _on_cwd_changed(self, terminal):
+        self._cwd_uri = terminal.get_current_directory_uri() or ""
+
+    def _on_hyperlink_hover(self, _terminal, uri, _bbox=None):
+        self._vte.set_tooltip_text(uri or None)
 
     def _on_selection_changed(self, terminal):
         """Copia la selezione nella PRIMARY (selezione X11), non nella CLIPBOARD.
@@ -245,6 +325,10 @@ class TerminalWidget(Gtk.Box):
             with contextlib.suppress(Exception):
                 self._expect_cleanup()
             self._expect_cleanup = None
+        if self._search_timer:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._search_timer)
+            self._search_timer = None
 
     def get_stato(self) -> tuple[str, bool]:
         """Restituisce (testo_stato, è_terminato) per la statusbar di PCM."""
@@ -354,6 +438,8 @@ class TerminalWidget(Gtk.Box):
         Invia testo direttamente al processo VTE tramite feed_child().
         Molto più pulito e affidabile rispetto a xdotool.
         """
+        if self._sola_lettura:
+            return
         self._char_inviati += len(testo)
         self._registra_comando(testo, sorgente=sorgente)
 
@@ -404,6 +490,20 @@ class TerminalWidget(Gtk.Box):
         if not rules:
             return
         self._setup_expect_watcher(rules)
+
+    def _testo_completo(self, max_righe: int | None = None) -> str:
+        """Restituisce il testo del buffer (o delle ultime `max_righe`)."""
+        try:
+            col, row = self._vte.get_cursor_position()
+            start = 0 if not max_righe else max(0, row - int(max_righe))
+            if hasattr(self._vte, "get_text_range_format"):
+                text, _attrs = self._vte.get_text_range_format(
+                    Vte.Format.TEXT, start, 0, row, col)
+                return text or ""
+            return self._vte.get_text(lambda *_: True)[0] or ""
+        except Exception as e:
+            _log.debug("Lettura buffer fallita: %s", e, exc_info=True)
+            return ""
 
     def _testo_recente(self, righe: int = 20) -> str:
         """Legge solo le ultime `righe` del buffer, non tutto lo scrollback.
@@ -724,59 +824,118 @@ class TerminalWidget(Gtk.Box):
         return False
 
     def _apri_link_evento(self, event) -> bool:
-        """Apre nel browser l'URL o il link OSC 8 sotto il puntatore."""
+        """Apre URL, link OSC 8 o percorsi sotto il puntatore.
+
+        Ctrl+clic su un URL → browser; su un path → editor SFTP remoto
+        (se il pannello è aperto) oppure file manager locale.
+        """
         uri = None
+        testo_match = ""
+        tag_match = -1
         with contextlib.suppress(Exception):
             uri = self._vte.hyperlink_check_event(event)
         if not uri:
             with contextlib.suppress(Exception):
-                testo, _tag = self._vte.match_check_event(event)
-                if testo and testo.lower().startswith(
-                        ("http://", "https://", "ftp://", "ftps://")):
-                    uri = testo
-        if not uri:
+                testo_match, tag_match = self._vte.match_check_event(event)
+        if uri and uri.lower().startswith(
+                ("http://", "https://", "ftp://", "ftps://")):
+            try:
+                from gi.repository import Gio
+                Gio.AppInfo.launch_default_for_uri(uri, None)
+                return True
+            except Exception as e:
+                _log.warning("Impossibile aprire l'URL %r: %s", uri, e)
+                return False
+
+        # Path (categoria dell'highlighter) → editor/file manager
+        if not testo_match:
             return False
-        if not uri.lower().startswith(("http://", "https://", "ftp://",
-                                       "ftps://")):
+        categoria = (self._highlighter.category_for_tag(tag_match)
+                     if self._highlighter is not None else None)
+        if categoria != "path":
             return False
-        try:
-            from gi.repository import Gio
-            Gio.AppInfo.launch_default_for_uri(uri, None)
-            return True
-        except Exception as e:
-            _log.warning("Impossibile aprire l'URL %r: %s", uri, e)
+        percorso = testo_match.strip()
+        if not percorso:
             return False
+        if percorso.startswith("~"):
+            percorso = os.path.expanduser(percorso)
+        elif not percorso.startswith("/") and self._percorso_corrente():
+            percorso = os.path.join(self._percorso_corrente(), percorso)
+        if self._cwd_uri.startswith("file:") or self._tipo_sessione == "locale":
+            try:
+                from gi.repository import Gio
+                gfile = Gio.File.new_for_path(percorso)
+                Gio.AppInfo.launch_default_for_uri(gfile.get_uri(), None)
+                return True
+            except Exception as e:
+                _log.debug("Apertura percorso locale %r fallita: %s",
+                           percorso, e)
+            return False
+        browser = self._browser_sftp()
+        if browser is not None:
+            try:
+                cb = getattr(browser, "_on_apri_editor", None)
+                if callable(cb):
+                    cb(getattr(browser, "_sftp", None), percorso)
+                else:
+                    browser._naviga(percorso)
+                return True
+            except Exception as e:
+                _log.debug("Apertura percorso remoto %r fallita: %s",
+                           percorso, e)
+        return False
 
     def _mostra_menu_contestuale(self, event):
         menu = Gtk.Menu()
 
-        mi_copy = Gtk.MenuItem(label=t("term.context.copy"))
+        def _voce(label, callback, sensitive=True):
+            mi = Gtk.MenuItem(label=label)
+            mi.set_sensitive(sensitive)
+            mi.connect("activate", lambda _: callback())
+            menu.append(mi)
+            return mi
+
         ha_selezione = self._vte.get_has_selection()
-        mi_copy.set_sensitive(ha_selezione)
-        mi_copy.connect("activate", lambda _: self._copia_selezione())
-
-        mi_paste = Gtk.MenuItem(label=t("term.context.paste"))
-        mi_paste.connect("activate", lambda _: self._incolla_clipboard())
-
-        mi_snippet = Gtk.MenuItem(label=t("term.context.snippet"))
-        mi_snippet.connect("activate", lambda _: self._apri_snippet_picker())
-
-        mi_cerca = Gtk.MenuItem(label=t("term.context.search"))
-        mi_cerca.connect("activate", lambda _: self.mostra_cerca())
-
-        menu.append(mi_copy)
+        _voce(t("term.context.copy"), self._copia_selezione, ha_selezione)
         if not ha_selezione:
             # Mc/htop/vim/tmux catturano il mouse: il drag evidenzia nel
             # programma remoto ma non crea una selezione VTE. Il suggerimento
             # compare solo quando "Copia" è disabilitato, cioè quando serve.
-            mi_hint = Gtk.MenuItem(label=t("term.context.copy_hint"))
-            mi_hint.set_sensitive(False)
-            menu.append(mi_hint)
-        menu.append(mi_paste)
+            hint = Gtk.MenuItem(label=t("term.context.copy_hint"))
+            hint.set_sensitive(False)
+            menu.append(hint)
+        _voce(t("term.context.paste"), self._incolla_clipboard,
+              not self._sola_lettura)
         menu.append(Gtk.SeparatorMenuItem())
-        menu.append(mi_snippet)
+        _voce(t("term.context.select_all"), self._seleziona_tutto)
+        _voce(t("term.context.copy_all"), self._copia_tutto)
+        _voce(t("term.context.save_output"), self._salva_scrollback)
         menu.append(Gtk.SeparatorMenuItem())
-        menu.append(mi_cerca)
+        _voce(t("term.context.snippet"), self._apri_snippet_picker,
+              not self._sola_lettura)
+        _voce(t("term.context.history"), self._mostra_cronologia,
+              not self._sola_lettura)
+        _voce(t("term.context.search"), self.mostra_cerca)
+
+        percorso = self._percorso_corrente()
+        if percorso:
+            menu.append(Gtk.SeparatorMenuItem())
+            _voce(t("term.context.copy_path"),
+                  lambda: self._copia_testo(percorso))
+            puo_aprire = (self._cwd_uri.startswith("file:")
+                          or self._browser_sftp() is not None)
+            _voce(t("term.context.open_dir"), self._apri_directory_corrente,
+                  puo_aprire)
+
+        menu.append(Gtk.SeparatorMenuItem())
+        _voce(t("term.context.clear"), self._pulisci_schermo)
+        _voce(t("term.context.reset"), self._reset_terminale)
+
+        mi_ro = Gtk.CheckMenuItem(label=t("term.context.read_only"))
+        mi_ro.set_active(self._sola_lettura)
+        mi_ro.connect("toggled",
+                      lambda w: self._imposta_sola_lettura(w.get_active()))
+        menu.append(mi_ro)
 
         if self._highlighter is not None:
             menu.append(Gtk.SeparatorMenuItem())
@@ -787,6 +946,173 @@ class TerminalWidget(Gtk.Box):
 
         menu.show_all()
         menu.popup_at_pointer(event)
+
+    # ------------------------------------------------------------------
+    # Azioni del menu contestuale
+    # ------------------------------------------------------------------
+
+    def _seleziona_tutto(self):
+        self._vte.select_all()
+
+    def _copia_tutto(self):
+        testo = self._testo_completo()
+        if testo:
+            self._copia_testo(testo)
+
+    def _copia_testo(self, testo: str):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_text(testo, -1)
+        clipboard.store()
+
+    def _salva_scrollback(self):
+        testo = self._testo_completo()
+        if not testo:
+            return
+        parent = self.get_toplevel()
+        if not isinstance(parent, Gtk.Window):
+            parent = None
+        dlg = Gtk.FileChooserDialog(
+            title=t("term.save.title"), transient_for=parent,
+            action=Gtk.FileChooserAction.SAVE)
+        dlg.add_button(t("sd.cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("sd.ok"), Gtk.ResponseType.OK)
+        dlg.set_do_overwrite_confirmation(True)
+        dlg.set_current_name(
+            f"pcm_scrollback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        filtro = Gtk.FileFilter()
+        filtro.set_name(t("term.save.filter"))
+        filtro.add_pattern("*.txt")
+        filtro.add_pattern("*.log")
+        dlg.add_filter(filtro)
+        try:
+            if dlg.run() == Gtk.ResponseType.OK:
+                with open(dlg.get_filename(), "w", encoding="utf-8") as f:
+                    f.write(testo)
+        except OSError as e:
+            _log.error("Salvataggio scrollback fallito: %s", e)
+            err = Gtk.MessageDialog(
+                transient_for=parent, modal=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.CLOSE,
+                text=t("term.save.error", error=str(e)))
+            err.run()
+            err.destroy()
+        finally:
+            dlg.destroy()
+
+    def _pulisci_schermo(self):
+        # Sequenza ANSI equivalente a `clear`: svuota lo schermo visibile
+        # lasciando intatto lo scrollback.
+        self._vte.feed(b"\x1b[H\x1b[2J")
+
+    def _reset_terminale(self):
+        self._vte.reset(True, True)
+
+    def _imposta_sola_lettura(self, attivo: bool):
+        self._sola_lettura = bool(attivo)
+        self._vte.set_input_enabled(not self._sola_lettura)
+        self._vte.set_tooltip_text(
+            t("term.read_only_tooltip") if self._sola_lettura else None)
+
+    def _percorso_corrente(self) -> str:
+        if not self._cwd_uri:
+            return ""
+        from urllib.parse import unquote, urlparse
+        parsed = urlparse(self._cwd_uri)
+        return unquote(parsed.path) or self._cwd_uri
+
+    def _browser_sftp(self):
+        """Restituisce il browser SFTP/FTP affiancato al terminale, se c'è."""
+        parent = self.get_parent()
+        if isinstance(parent, Gtk.Paned):
+            altro = (parent.get_child2() if parent.get_child1() is self
+                     else parent.get_child1())
+            if hasattr(altro, "_naviga"):
+                return altro
+        return None
+
+    def _apri_directory_corrente(self):
+        percorso = self._percorso_corrente()
+        if not percorso:
+            return
+        if self._cwd_uri.startswith("file:"):
+            try:
+                from gi.repository import Gio
+                Gio.AppInfo.launch_default_for_uri(self._cwd_uri, None)
+            except Exception as e:
+                _log.warning("Apertura directory locale fallita: %s", e)
+            return
+        browser = self._browser_sftp()
+        if browser is not None:
+            with contextlib.suppress(Exception):
+                browser._naviga(percorso)
+
+    def _mostra_cronologia(self):
+        """Finestra con i comandi inviati nella sessione, filtrabili."""
+        voci = list(reversed(self._comandi_inviati))
+        parent = self.get_toplevel()
+        if not isinstance(parent, Gtk.Window):
+            parent = None
+        dlg = Gtk.Dialog(title=t("term.history.title"), transient_for=parent,
+                         modal=True, destroy_with_parent=True)
+        dlg.set_default_size(620, 420)
+        area = dlg.get_content_area()
+        area.set_margin_start(10)
+        area.set_margin_end(10)
+        area.set_margin_top(8)
+        area.set_margin_bottom(8)
+
+        filtro = Gtk.SearchEntry()
+        filtro.set_placeholder_text(t("term.history.filter"))
+        area.pack_start(filtro, False, False, 0)
+
+        store = Gtk.ListStore(str, str, str)
+        view = Gtk.TreeView(model=store)
+        for idx, titolo in enumerate((t("term.history.col_time"),
+                                      t("term.history.col_source"),
+                                      t("term.history.col_command"))):
+            renderer = Gtk.CellRendererText()
+            renderer.set_property("ellipsize", 3)  # Pango.EllipsizeMode.END
+            colonna = Gtk.TreeViewColumn(titolo, renderer, text=idx)
+            colonna.set_resizable(True)
+            view.append_column(colonna)
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(view)
+        area.pack_start(sw, True, True, 0)
+
+        def _popola():
+            q = filtro.get_text().strip().lower()
+            store.clear()
+            for v in voci:
+                cmd = v.get("cmd", "")
+                if q and q not in cmd.lower():
+                    continue
+                store.append([v.get("ts", ""), v.get("sorgente", ""), cmd])
+
+        def _invia(_view=None, path=None, _col=None):
+            model, it = view.get_selection().get_selected()
+            if it is None:
+                return
+            cmd = model[it][2]
+            if cmd:
+                self.invia_testo(cmd, invio=True, sorgente="history")
+
+        filtro.connect("search-changed", lambda _: _popola())
+        view.connect("row-activated", _invia)
+        _popola()
+        area.show_all()
+
+        dlg.add_button(t("dialog.close"), Gtk.ResponseType.CLOSE)
+        btn = dlg.add_button(t("term.history.send"), Gtk.ResponseType.OK)
+        btn.get_style_context().add_class("suggested-action")
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        while True:
+            resp = dlg.run()
+            if resp != Gtk.ResponseType.OK:
+                break
+            _invia()
+        dlg.destroy()
 
     def _apri_snippet_picker(self):
         try:
@@ -850,8 +1176,8 @@ class TerminalWidget(Gtk.Box):
         return self._ZOOM_KEYS.get(nome.upper())
 
     def _on_key_press(self, terminal, event):
-        """Ctrl+Shift+C / Ctrl+Insert → copia; Ctrl+Shift+V / Shift+Insert → incolla;
-        Ctrl+F → search bar; Ctrl+'+' / Ctrl+'-' / Ctrl+0 → zoom font."""
+        """Scorciatoie: copia/incolla, seleziona tutto, salva output,
+        pulisci/reset, ricerca e zoom font."""
         ctrl  = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
         key   = (Gdk.keyval_name(event.keyval) or "").upper()
@@ -873,6 +1199,19 @@ class TerminalWidget(Gtk.Box):
         if shift and key == "INSERT":
             self._incolla_primary()
             return True
+        if ctrl and shift and not alt:
+            if key == "A":
+                self._seleziona_tutto()
+                return True
+            if key == "S":
+                self._salva_scrollback()
+                return True
+            if key == "K":
+                self._pulisci_schermo()
+                return True
+            if key == "R":
+                self._reset_terminale()
+                return True
         if ctrl and not shift and key == "F":
             self.mostra_cerca()
             return True
@@ -901,16 +1240,33 @@ class TerminalWidget(Gtk.Box):
             self._vte.search_set_regex(None, 0)
             self._vte.grab_focus()
 
+    def _programma_ricerca(self):
+        """Debounce della ricerca: evita di scansionare il buffer a ogni tasto."""
+        if self._search_timer:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._search_timer)
+        self._search_timer = GLib.timeout_add(180, self._ricerca_debounce)
+
+    def _ricerca_debounce(self):
+        self._search_timer = None
+        self._aggiorna_ricerca()
+        return False
+
     def _aggiorna_ricerca(self):
         pattern = self._search_entry.get_text()
+        self._lbl_count.set_text("")
         if not pattern:
             self._vte.search_set_regex(None, 0)
             self._search_entry.get_style_context().remove_class("error")
             return
         import re as _re
-        escaped = _re.escape(pattern)
+        regex_mode = self._chk_regex.get_active()
+        escaped = pattern if regex_mode else _re.escape(pattern)
         PCRE2_CASELESS = 0x00000008
-        flags = 0 if self._chk_case.get_active() else PCRE2_CASELESS
+        PCRE2_MULTILINE = 0x00000400
+        flags = PCRE2_MULTILINE
+        if not self._chk_case.get_active():
+            flags |= PCRE2_CASELESS
         try:
             regex = Vte.Regex.new_for_search(escaped, len(escaped.encode("utf-8")), flags)
             self._vte.search_set_regex(regex, 0)
@@ -918,6 +1274,22 @@ class TerminalWidget(Gtk.Box):
             self._search_entry.get_style_context().remove_class("error")
         except Exception:
             self._search_entry.get_style_context().add_class("error")
+            self._lbl_count.set_text(t("term.search.invalid"))
+            return
+
+        # Conteggio risultati (limite per non bloccare la UI su buffer enormi)
+        try:
+            testo = self._testo_completo(max_righe=5000)
+            py_flags = 0 if self._chk_case.get_active() else _re.IGNORECASE
+            n = sum(1 for _ in _re.finditer(pattern, testo, py_flags))
+            if n:
+                self._lbl_count.set_text(t("term.search.count", n=n))
+            else:
+                self._lbl_count.set_text(t("term.search.no_match"))
+        except _re.error:
+            self._lbl_count.set_text(t("term.search.invalid"))
+        except Exception as e:
+            _log.debug("Conteggio risultati ricerca fallito: %s", e)
 
     def _cerca_avanti(self):
         if not self._vte.search_find_next():
@@ -932,7 +1304,11 @@ class TerminalWidget(Gtk.Box):
             self._search_entry.get_style_context().remove_class("error")
 
     def _on_bell(self, terminal):
-        """Visual bell: flash breve del widget (provider riutilizzato)."""
+        """Bell: flash visivo se configurato + notifica di attenzione."""
+        self.emit("campanello")
+        self.emit("attivita")
+        if self._bell != "visual":
+            return
         ctx = self._vte.get_style_context()
         ctx.add_provider(self._bell_css,
                          Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
@@ -972,10 +1348,14 @@ class TerminalWidget(Gtk.Box):
 
     def _incolla_testo(self, testo: str):
         """Punto di ingresso unico per ogni incolla: applica warn_paste se attivo."""
+        if self._sola_lettura:
+            return
         if self._warn_paste and len(testo.splitlines()) > 1:
             if not self._conferma_incolla(testo):
                 return
-        self._vte.feed_child(testo.encode("utf-8"))
+        # paste_text() rispetta il bracketed paste mode: incollando più righe
+        # la shell non le esegue immediatamente.
+        self._vte.paste_text(testo)
 
     def _conferma_incolla(self, testo: str) -> bool:
         righe = testo.splitlines()

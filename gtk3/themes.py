@@ -132,6 +132,10 @@ notebook > header > tabs > tab:checked {
     color: #111111;
     font-weight: bold;
 }
+.tab-attention {
+    color: #d98200;
+    font-weight: bold;
+}
 
 entry, spinbutton, combobox {
     background-color: #ffffff;

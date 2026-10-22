@@ -751,7 +751,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
 <ul>
   <li>ANSI/xterm-256color/truecolor colors</li>
   <li>Unicode and emoji</li>
-  <li>Clickable URLs — <kbd>Ctrl</kbd>+click on a link (or an OSC 8 hyperlink) opens it in the default browser</li>
+  <li>Clickable URLs — <kbd>Ctrl</kbd>+click on a link (or an OSC 8 hyperlink) opens it in the default browser; <kbd>Ctrl</kbd>+click on a path opens it in the SFTP editor (remote) or file manager (local)</li>
   <li>Configurable scrollback (Settings → Terminal)</li>
   <li>Monospace font selectable per session</li>
   <li><kbd>Ctrl++</kbd> / <kbd>Ctrl+-</kbd> or <kbd>Ctrl</kbd>+wheel — zoom font, <kbd>Ctrl+0</kbd> — reset to the session size</li>
@@ -763,7 +763,18 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   <li>Full-screen programs (mc, htop, vim, tmux with mouse enabled) grab the mouse: hold <kbd>Shift</kbd> while dragging to make a real terminal selection</li>
   <li><kbd>Ctrl+Shift+V</kbd> — paste</li>
   <li>Middle-click — paste X11 selection</li>
-  <li>Right-click → context menu with copy/paste</li>
+  <li>Right-click → context menu with copy/paste, select all, copy all scrollback, save output, command history, clear/reset, read-only mode</li>
+  <li><kbd>Ctrl+Shift+A</kbd> — select all, <kbd>Ctrl+Shift+S</kbd> — save output to file, <kbd>Ctrl+Shift+K</kbd> — clear screen, <kbd>Ctrl+Shift+R</kbd> — reset terminal</li>
+  <li>Multi-line pastes use bracketed paste: lines are inserted without being executed immediately</li>
+  <li>Drag a local file or text onto the terminal to insert its quoted path/text</li>
+  <li>The context menu shows the current remote directory (OSC 7): copy it or open it in the side SFTP panel</li>
+</ul>
+
+<h3>Activity and notifications</h3>
+<ul>
+  <li>A dot appears on tabs that receive output while in the background; it disappears when you select the tab</li>
+  <li>On a terminal bell PCM raises the window and sends a desktop notification if the window is not active</li>
+  <li>The remote window title (OSC 0/2) is shown as a tooltip on the tab</li>
 </ul>
 
 <h3>Available color themes</h3>
