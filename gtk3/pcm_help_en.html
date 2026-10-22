@@ -766,7 +766,8 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   <li>Right-click → context menu with copy/paste, select all, copy all scrollback, save output, command history, clear/reset, read-only mode</li>
   <li><kbd>Ctrl+Shift+A</kbd> — select all, <kbd>Ctrl+Shift+S</kbd> — save output to file, <kbd>Ctrl+Shift+K</kbd> — clear screen, <kbd>Ctrl+Shift+R</kbd> — reset terminal</li>
   <li>Multi-line pastes use bracketed paste: lines are inserted without being executed immediately</li>
-  <li>Drag a local file or text onto the terminal to insert its quoted path/text</li>
+  <li>Drag a local file onto the terminal to upload it to the remote directory of the side SFTP panel (or insert its quoted path if no panel is open); drag a remote file from the SFTP panel to insert its path</li>
+  <li>You can also drop local files directly onto the SFTP panel to upload them</li>
   <li>The context menu shows the current remote directory (OSC 7): copy it or open it in the side SFTP panel</li>
 </ul>
 
@@ -775,6 +776,7 @@ Sessions are saved in <code>connections.json</code> in the PCM folder — editab
   <li>A dot appears on tabs that receive output while in the background; it disappears when you select the tab</li>
   <li>On a terminal bell PCM raises the window and sends a desktop notification if the window is not active</li>
   <li>The remote window title (OSC 0/2) is shown as a tooltip on the tab</li>
+  <li>The status bar shows the SSH round-trip latency (reusing the SFTP connection when available, otherwise a TCP probe). Toggle it from the terminal context menu</li>
 </ul>
 
 <h3>Available color themes</h3>

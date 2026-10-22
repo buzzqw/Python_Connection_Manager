@@ -16,7 +16,10 @@ Dipendenze:
 import os
 import shutil
 import signal
+import socket
 import sys
+import threading
+import time
 import contextlib
 from datetime import datetime
 
@@ -102,6 +105,17 @@ class TerminalWidget(Gtk.Box):
         self._titolo_remoto = ""
         self._ultimo_segnale_attivita = 0
         self._search_timer = None
+        # Monitor latenza (SSH/Mosh): host/porta impostati da da_profilo,
+        # eventuale probe preferito (SFTP via paramiko) impostato da PCM.
+        self._ssh_host = ""
+        self._ssh_port = 22
+        self._ssh_protocol = ""
+        self._ssh_jump = False
+        self._latency_probe = None
+        self._latenza_ms = None
+        self._latenza_attiva = True
+        self._latency_timer = None
+        self._latency_in_corso = False
 
         self._init_ui()
 
@@ -251,6 +265,7 @@ class TerminalWidget(Gtk.Box):
             Gtk.TargetEntry.new("text/uri-list", 0, 0),
             Gtk.TargetEntry.new("text/plain;charset=utf-8", 0, 1),
             Gtk.TargetEntry.new("text/plain", 0, 2),
+            Gtk.TargetEntry.new("application/x-pcm-remote-path", 0, 3),
         ]
         self._vte.drag_dest_set(
             Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY)
@@ -263,22 +278,40 @@ class TerminalWidget(Gtk.Box):
             return
         from urllib.parse import unquote, urlparse
         testo = ""
+        upload_avviato = False
+        browser = self._browser_sftp()
         if _info == 0:
             percorsi = []
             for uri in data.get_uris():
                 parsed = urlparse(uri)
-                if parsed.scheme == "file":
-                    percorsi.append(_shell_quote(unquote(parsed.path)))
-                else:
+                if parsed.scheme != "file":
                     percorsi.append(uri)
+                    continue
+                locale = unquote(parsed.path)
+                # File locale trascinato sul terminale SSH: se c'è il
+                # pannello SFTP/FTP affiancato, caricalo nella cwd remota.
+                if (os.path.isfile(locale) and browser is not None
+                        and hasattr(browser, "carica_file")):
+                    try:
+                        if browser.carica_file(locale):
+                            upload_avviato = True
+                            continue
+                    except Exception as e:
+                        _log.debug("Upload via drag fallito per %r: %s",
+                                   locale, e)
+                percorsi.append(_shell_quote(locale))
             testo = " ".join(percorsi)
+        elif _info == 3:
+            raw = data.get_data()
+            if raw:
+                testo = _shell_quote(raw.decode("utf-8", errors="replace"))
         else:
             raw = data.get_data()
             if raw:
                 testo = raw.decode("utf-8", errors="replace")
         if testo:
             self._vte.paste_text(testo)
-        Gtk.drag_finish(context, bool(testo), False, _time)
+        Gtk.drag_finish(context, bool(testo) or upload_avviato, False, _time)
 
     def _on_contents_changed(self, _terminal):
         """Emette 'attivita' con throttle (max ~3 volte al secondo)."""
@@ -329,6 +362,70 @@ class TerminalWidget(Gtk.Box):
             with contextlib.suppress(Exception):
                 GLib.source_remove(self._search_timer)
             self._search_timer = None
+        self._ferma_latenza()
+
+    # ------------------------------------------------------------------
+    # Monitor latenza SSH
+    # ------------------------------------------------------------------
+
+    def _avvia_latenza(self):
+        if (not self._latenza_attiva or self._latency_timer is not None
+                or self._ssh_protocol not in ("ssh", "mosh")
+                or not self._ssh_host):
+            return
+        # Primo campione subito, poi ogni 10 secondi.
+        self._latency_tick()
+        self._latency_timer = GLib.timeout_add(10000, self._latency_tick)
+
+    def _ferma_latenza(self):
+        if self._latency_timer is not None:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._latency_timer)
+            self._latency_timer = None
+        self._latenza_ms = None
+
+    def _latency_tick(self) -> bool:
+        if (not self._latenza_attiva or self._stato_terminato
+                or self._latency_in_corso):
+            return True
+        self._latency_in_corso = True
+        threading.Thread(target=self._misura_latenza_worker,
+                         daemon=True).start()
+        return True
+
+    def _misura_latenza_worker(self):
+        """Misura RTT: usa la connessione SSH del pannello SFTP se c'è,
+        altrimenti un connect TCP verso la porta SSH."""
+        ms = None
+        probe = self._latency_probe
+        if callable(probe):
+            try:
+                ms = probe()
+            except Exception as e:
+                _log.debug("Probe latenza SSH (SFTP) fallito: %s", e)
+        if ms is None and not self._ssh_jump:
+            try:
+                t0 = time.monotonic()
+                with socket.create_connection(
+                        (self._ssh_host, int(self._ssh_port)), timeout=3):
+                    pass
+                ms = int((time.monotonic() - t0) * 1000)
+            except OSError as e:
+                _log.debug("Probe latenza TCP fallito per %s:%s: %s",
+                           self._ssh_host, self._ssh_port, e)
+        GLib.idle_add(self._aggiorna_latenza, ms)
+
+    def _aggiorna_latenza(self, ms):
+        self._latency_in_corso = False
+        self._latenza_ms = None if ms is None else max(0, int(ms))
+        return False
+
+    def _imposta_latenza(self, attivo: bool):
+        self._latenza_attiva = bool(attivo)
+        if self._latenza_attiva:
+            self._avvia_latenza()
+        else:
+            self._ferma_latenza()
 
     def get_stato(self) -> tuple[str, bool]:
         """Restituisce (testo_stato, è_terminato) per la statusbar di PCM."""
@@ -417,6 +514,8 @@ class TerminalWidget(Gtk.Box):
         self._char_inviati = 0
         # Avvia (o riavvia dopo auto-reconnect) il timer di stato.
         self._avvia_keepalive()
+        self._latenza_ms = None
+        self._avvia_latenza()
 
         # Registra startup_cmd se presente nel comando SSH
         import re as _re
@@ -724,7 +823,9 @@ class TerminalWidget(Gtk.Box):
         cmd_show = getattr(self, "comando_display",
                    getattr(self, "comando_originale", self._comando_corrente))
         stat = f"  ⏱ {durata}{chars}" if durata else ""
-        self._stato_testo = f"{dot}  {cmd_show}{stat}"
+        lat = (f"  ↔ {self._latenza_ms}ms"
+               if self._latenza_ms is not None else "")
+        self._stato_testo = f"{dot}  {cmd_show}{stat}{lat}"
         return True  # continua il timer
 
     def _on_child_exited(self, terminal, status):
@@ -733,6 +834,7 @@ class TerminalWidget(Gtk.Box):
         if self._keepalive_source:
             GLib.source_remove(self._keepalive_source)
             self._keepalive_source = None
+        self._ferma_latenza()
         # Un eventuale watcher expect non deve sopravvivere al processo.
         if self._expect_cleanup:
             with contextlib.suppress(Exception):
@@ -778,6 +880,7 @@ class TerminalWidget(Gtk.Box):
         if self._keepalive_source:
             GLib.source_remove(self._keepalive_source)
             self._keepalive_source = None
+        self._ferma_latenza()
         if self._pid > 0:
             try:
                 pgid = os.getpgid(self._pid)
@@ -936,6 +1039,13 @@ class TerminalWidget(Gtk.Box):
         mi_ro.connect("toggled",
                       lambda w: self._imposta_sola_lettura(w.get_active()))
         menu.append(mi_ro)
+
+        if self._ssh_protocol in ("ssh", "mosh") and self._ssh_host:
+            mi_lat = Gtk.CheckMenuItem(label=t("term.context.latency"))
+            mi_lat.set_active(self._latenza_attiva)
+            mi_lat.connect("toggled",
+                           lambda w: self._imposta_latenza(w.get_active()))
+            menu.append(mi_lat)
 
         if self._highlighter is not None:
             menu.append(Gtk.SeparatorMenuItem())
@@ -1435,12 +1545,18 @@ class TerminalWidget(Gtk.Box):
         except Exception as e:
             _log.debug("Impossibile leggere word_delimiters: %s", e)
             word_chars = ""
-        return cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
-                   paste_on_right_click=paste_right, warn_paste=warn_paste,
-                   encoding=encoding, bell=bell,
-                   scrollback_lines=scrollback,
-                   infinite_scrollback=infinite_sb,
-                   word_char_exceptions=word_chars or None)
+        widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
+                     paste_on_right_click=paste_right, warn_paste=warn_paste,
+                     encoding=encoding, bell=bell,
+                     scrollback_lines=scrollback,
+                     infinite_scrollback=infinite_sb,
+                     word_char_exceptions=word_chars or None)
+        widget._ssh_host = str(profilo.get("host", "") or "").strip()
+        widget._ssh_protocol = str(profilo.get("protocol", "") or "").lower()
+        with contextlib.suppress(TypeError, ValueError):
+            widget._ssh_port = int(profilo.get("port", 22) or 22)
+        widget._ssh_jump = bool(profilo.get("jump_host"))
+        return widget
 
     @classmethod
     def da_impostazioni(cls, log_dir="") -> "TerminalWidget":

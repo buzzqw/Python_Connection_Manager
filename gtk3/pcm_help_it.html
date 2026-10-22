@@ -835,7 +835,8 @@ ssh altro-server                           <span class="cm"># autenticazione tra
   <li><b>Menu contestuale</b> — copia/incolla, seleziona tutto, copia tutto lo scrollback, salva output su file, cronologia comandi, pulisci/reset, modalità sola lettura</li>
   <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> — seleziona tutto, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> — salva output, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> — pulisci schermo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> — reset terminale</li>
   <li><b>Incolla multi-riga</b> — usa il bracketed paste: le righe vengono inserite senza essere eseguite subito</li>
-  <li><b>Drag &amp; drop</b> — trascina un file locale o del testo sul terminale per inserire il percorso quotato o il testo</li>
+  <li><b>Drag &amp; drop</b> — trascina un file locale sul terminale per caricarlo nella directory remota del pannello SFTP (o inserirne il percorso quotato se il pannello non è aperto); trascina un file remoto dal pannello SFTP per inserirne il percorso</li>
+  <li><b>Upload diretto</b> — puoi anche trascinare file locali direttamente sul pannello SFTP</li>
   <li><b>Directory corrente</b> — con OSC 7 il menu contestuale mostra il percorso remoto: copialo o aprilo nel pannello SFTP laterale</li>
 </ul>
 
@@ -844,6 +845,7 @@ ssh altro-server                           <span class="cm"># autenticazione tra
   <li>Un pallino appare sui tab che ricevono output in background e scompare quando selezioni il tab</li>
   <li>Al campanello del terminale PCM segnala la finestra e invia una notifica desktop se non è attiva</li>
   <li>Il titolo remoto della finestra (OSC 0/2) è mostrato come tooltip sul tab</li>
+  <li>La statusbar mostra la latenza round-trip SSH (riusando la connessione SFTP quando disponibile, altrimenti un probe TCP). Attivabile/disattivabile dal menu contestuale del terminale</li>
 </ul>
 
 <h3>Temi colore disponibili</h3>

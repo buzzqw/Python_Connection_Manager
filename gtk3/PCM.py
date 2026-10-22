@@ -1308,6 +1308,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 dati,
                 on_apri_editor=lambda sftp_c, path, n=nome: self._apri_sftp_editor(sftp_c, path, n),
             )
+            # Latenza SSH reale riusando la connessione del pannello SFTP.
+            widget._latency_probe = sftp.misura_latenza
             paned.pack1(widget, True, True)
             paned.pack2(sftp, False, False)
             paned.set_position(700)
@@ -1699,6 +1701,8 @@ class MainWindow(Gtk.ApplicationWindow):
             sftp_dati,
             on_apri_editor=lambda sftp_c, path: self._apri_sftp_editor(sftp_c, path),
         )
+        if hasattr(widget, "_latency_probe"):
+            widget._latency_probe = sftp.misura_latenza
         paned.pack1(widget, True, True)
         paned.pack2(sftp, False, False)
         paned.set_position(700)

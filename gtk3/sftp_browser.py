@@ -6,14 +6,17 @@ I thread bloccanti usano GLib.idle_add() per aggiornare la UI
 in modo Wayland-safe (dal thread principale).
 """
 
+import contextlib
 import os
+import posixpath
 import stat
 import threading
+import time
 from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, GdkPixbuf, Pango
+from gi.repository import Gtk, GLib, Gdk, GdkPixbuf, Pango
 
 try:
     import paramiko
@@ -142,6 +145,7 @@ class SftpBrowserWidget(Gtk.Box):
 
         self._view.connect("row-activated", self._on_row_activated)
         self._view.connect("button-press-event", self._on_button_press)
+        self._setup_drag_drop(self._view)
 
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -467,6 +471,53 @@ class SftpBrowserWidget(Gtk.Box):
     # Operazioni file
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Drag & drop
+    # ------------------------------------------------------------------
+
+    def _setup_drag_drop(self, view):
+        """Trascina un file remoto (path nel terminale) o droppa file locali."""
+        view.enable_model_drag_source(
+            Gdk.ModifierType.BUTTON1_MASK,
+            [Gtk.TargetEntry.new("application/x-pcm-remote-path", 0, 0),
+             Gtk.TargetEntry.new("text/plain", 0, 1)],
+            Gdk.DragAction.COPY)
+        view.connect("drag-data-get", self._on_drag_data_get)
+        view.drag_dest_set(
+            Gtk.DestDefaults.ALL,
+            [Gtk.TargetEntry.new("text/uri-list", 0, 0)],
+            Gdk.DragAction.COPY)
+        view.connect("drag-data-received", self._on_drag_data_received)
+
+    def _on_drag_data_get(self, _view, _context, data, info, _time):
+        model, it = self._view.get_selection().get_selected()
+        if it is None:
+            return
+        remoto = posixpath.join(self._cwd.rstrip("/") or "/",
+                                model.get_value(it, 1))
+        if info == 0:
+            data.set(data.get_target(), 8, remoto.encode("utf-8"))
+        else:
+            data.set_text(remoto, -1)
+
+    def _on_drag_data_received(self, _view, context, _x, _y, data,
+                               _info, _time):
+        import urllib.parse
+        avviati = 0
+        cartelle = 0
+        for uri in data.get_uris():
+            parsed = urllib.parse.urlparse(uri)
+            if parsed.scheme != "file":
+                continue
+            locale = urllib.parse.unquote(parsed.path)
+            if os.path.isdir(locale):
+                cartelle += 1
+            elif self.carica_file(locale):
+                avviati += 1
+        if cartelle:
+            GLib.idle_add(self._set_status, t("sftp.drop_files_only"))
+        Gtk.drag_finish(context, bool(avviati), False, _time)
+
     def _on_upload(self):
         if not self._sftp:
             return
@@ -495,6 +546,49 @@ class SftpBrowserWidget(Gtk.Box):
             GLib.idle_add(self._naviga, self._cwd)
         except Exception as e:
             GLib.idle_add(self._nascondi_progress, t("sftp.upload_err") + f": {e}")
+
+    def carica_file(self, local: str, remote_dir: str | None = None) -> bool:
+        """Upload di un file locale nella directory remota corrente.
+
+        Usato dal drag & drop sul terminale o sul pannello stesso.
+        Ritorna True se il trasferimento è stato avviato.
+        """
+        if not self._sftp or not os.path.isfile(local):
+            return False
+        remota = remote_dir or self._cwd
+        remote = posixpath.join(remota.rstrip("/") or "/",
+                                os.path.basename(local))
+        self._mostra_progress(os.path.basename(local))
+        threading.Thread(target=self._upload_file,
+                         args=(local, remote), daemon=True).start()
+        return True
+
+    def misura_latenza(self, timeout: float = 3.0) -> int | None:
+        """RTT SSH reale (exec di 'true' sulla connessione già aperta).
+
+        Sicuro da chiamare da un thread: apre un canale sulla transport
+        esistente, senza nuove autenticazioni.
+        """
+        ssh = self._ssh
+        if ssh is None:
+            return None
+        transport = ssh.get_transport()
+        if transport is None or not transport.is_active():
+            return None
+        canale = None
+        try:
+            t0 = time.monotonic()
+            canale = transport.open_session(timeout=timeout)
+            canale.exec_command("true")
+            canale.recv_exit_status()
+            return max(0, int((time.monotonic() - t0) * 1000))
+        except Exception as e:
+            _get_log(__name__).debug("Misura latenza SSH fallita: %s", e)
+            return None
+        finally:
+            if canale is not None:
+                with contextlib.suppress(Exception):
+                    canale.close()
 
     def _on_download(self, nome: str | None = None):
         if not self._sftp:
@@ -783,6 +877,7 @@ class FtpBrowserWidget(Gtk.Box):
 
         self._view.connect("row-activated",      self._on_row_activated)
         self._view.connect("button-press-event", self._on_button_press)
+        self._setup_drag_drop(self._view)
 
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -967,6 +1062,52 @@ class FtpBrowserWidget(Gtk.Box):
     # Operazioni file
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Drag & drop
+    # ------------------------------------------------------------------
+
+    def _setup_drag_drop(self, view):
+        view.enable_model_drag_source(
+            Gdk.ModifierType.BUTTON1_MASK,
+            [Gtk.TargetEntry.new("application/x-pcm-remote-path", 0, 0),
+             Gtk.TargetEntry.new("text/plain", 0, 1)],
+            Gdk.DragAction.COPY)
+        view.connect("drag-data-get", self._on_drag_data_get)
+        view.drag_dest_set(
+            Gtk.DestDefaults.ALL,
+            [Gtk.TargetEntry.new("text/uri-list", 0, 0)],
+            Gdk.DragAction.COPY)
+        view.connect("drag-data-received", self._on_drag_data_received)
+
+    def _on_drag_data_get(self, _view, _context, data, info, _time):
+        model, it = self._view.get_selection().get_selected()
+        if it is None:
+            return
+        remoto = posixpath.join(self._cwd.rstrip("/") or "/",
+                                model.get_value(it, 1))
+        if info == 0:
+            data.set(data.get_target(), 8, remoto.encode("utf-8"))
+        else:
+            data.set_text(remoto, -1)
+
+    def _on_drag_data_received(self, _view, context, _x, _y, data,
+                               _info, _time):
+        import urllib.parse
+        avviati = 0
+        cartelle = 0
+        for uri in data.get_uris():
+            parsed = urllib.parse.urlparse(uri)
+            if parsed.scheme != "file":
+                continue
+            locale = urllib.parse.unquote(parsed.path)
+            if os.path.isdir(locale):
+                cartelle += 1
+            elif self.carica_file(locale):
+                avviati += 1
+        if cartelle:
+            GLib.idle_add(self._set_status, t("sftp.drop_files_only"))
+        Gtk.drag_finish(context, bool(avviati), False, _time)
+
     def _on_upload(self):
         if not self._ftp:
             return
@@ -991,6 +1132,17 @@ class FtpBrowserWidget(Gtk.Box):
             GLib.idle_add(self._set_status, t("sftp.upload_done").format(name=os.path.basename(local)))
         except Exception as e:
             GLib.idle_add(self._set_status, t("sftp.upload_err_detail").format(e=e))
+
+    def carica_file(self, local: str, remote_dir: str | None = None) -> bool:
+        """Upload FTP di un file locale nella directory remota corrente."""
+        if not self._ftp or not os.path.isfile(local):
+            return False
+        remota = remote_dir or self._cwd
+        remote = posixpath.join(remota.rstrip("/") or "/",
+                                os.path.basename(local))
+        threading.Thread(target=self._upload_file,
+                         args=(local, remote), daemon=True).start()
+        return True
 
     def _on_download(self, nome: str | None = None):
         if not self._ftp:

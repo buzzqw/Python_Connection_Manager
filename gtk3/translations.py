@@ -1238,6 +1238,7 @@ _T: dict[str, dict[str, str]] = {
     "sftp.ftp_dir_summary": {"it": "{dirs} cartelle, {files} file — {path}", "en": "{dirs} folders, {files} files — {path}", "de": "{dirs} Ordner, {files} Dateien — {path}", "fr": "{dirs} dossiers, {files} fichiers — {path}", "es": "{dirs} carpetas, {files} archivos — {path}"},
     "sftp.upload_done":     {"it": "✔ Caricato: {name}",                "en": "✔ Uploaded: {name}",              "de": "✔ Hochgeladen: {name}",           "fr": "✔ Téléversé : {name}",             "es": "✔ Subido: {name}"},
     "sftp.upload_err_detail":{"it":"✖ Errore upload: {e}",              "en": "✖ Upload error: {e}",             "de": "✖ Hochladefehler: {e}",           "fr": "✖ Erreur de téléversement : {e}", "es": "✖ Error de subida: {e}"},
+    "sftp.drop_files_only": {"it": "Trascina solo file (le cartelle non sono supportate)", "en": "Drop files only (folders are not supported)", "de": "Nur Dateien ablegen (Ordner werden nicht unterstützt)", "fr": "Déposez uniquement des fichiers (les dossiers ne sont pas pris en charge)", "es": "Suelta solo archivos (las carpetas no son compatibles)"},
     "sftp.download_done_name":{"it":"✔ Scaricato: {name}",              "en": "✔ Downloaded: {name}",            "de": "✔ Heruntergeladen: {name}",       "fr": "✔ Téléchargé : {name}",            "es": "✔ Descargado: {name}"},
     "sftp.download_err_detail":{"it":"✖ Errore download: {e}",          "en": "✖ Download error: {e}",           "de": "✖ Downloadfehler: {e}",           "fr": "✖ Erreur de téléchargement : {e}","es": "✖ Error de descarga: {e}"},
     "sftp.refresh":         {"it": "Aggiorna",                          "en": "Refresh",                         "de": "Aktualisieren",                   "fr": "Actualiser",                       "es": "Actualizar"},
@@ -1797,6 +1798,7 @@ _T: dict[str, dict[str, str]] = {
     "term.context.clear":       {"it": "Pulisci schermo  (Ctrl+Shift+K)", "en": "Clear screen  (Ctrl+Shift+K)", "de": "Bildschirm leeren  (Strg+Shift+K)", "fr": "Effacer l'écran  (Ctrl+Shift+K)", "es": "Limpiar pantalla  (Ctrl+Shift+K)"},
     "term.context.reset":       {"it": "Reset terminale  (Ctrl+Shift+R)", "en": "Reset terminal  (Ctrl+Shift+R)", "de": "Terminal zurücksetzen  (Strg+Shift+R)", "fr": "Réinitialiser le terminal  (Ctrl+Shift+R)", "es": "Reiniciar terminal  (Ctrl+Shift+R)"},
     "term.context.read_only":   {"it": "Sola lettura (blocca input)", "en": "Read-only (block input)", "de": "Nur Lesen (Eingabe sperren)", "fr": "Lecture seule (bloquer l'entrée)", "es": "Solo lectura (bloquear entrada)"},
+    "term.context.latency":     {"it": "Monitor latenza SSH",     "en": "SSH latency monitor",   "de": "SSH-Latenzmonitor",     "fr": "Moniteur de latence SSH", "es": "Monitor de latencia SSH"},
     "term.read_only_tooltip":   {"it": "🔒 Terminale in sola lettura", "en": "🔒 Terminal in read-only mode", "de": "🔒 Terminal schreibgeschützt", "fr": "🔒 Terminal en lecture seule", "es": "🔒 Terminal en solo lectura"},
 
     # ── Terminal: cronologia, salvataggio, ricerca ─────────────────────────────
