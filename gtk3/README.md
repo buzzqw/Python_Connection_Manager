@@ -26,7 +26,12 @@ cd gtk3 && python3 PCM.py
 - External tools configurabili con placeholder, eseguiti senza shell.
 - Port scan TCP limitato con importazione selettiva dei profili.
 - Backup rotazionali configurabili di `connections.json` e `pcm_settings.json`.
-- Terminale VTE nativo, split, browser SFTP dual-pane, monitoraggio e tunnel SSH.
+- Terminale VTE nativo con split, ricerca regex, cronologia comandi, menu contestuale completo, modalità sola lettura e bracketed paste.
+- Monitor latenza SSH nella statusbar (RTT reale via canale SFTP o probe TCP).
+- Drag & drop: file locali sul terminale per upload nella cwd remota, file remoti dal pannello SFTP al terminale per inserire il percorso.
+- Indicatori di attività sui tab, notifiche desktop al campanello, titolo remoto (OSC 0/2) nel tooltip.
+- Directory corrente remota via OSC 7: copia percorso, apertura nel pannello SFTP, Ctrl+clic su percorsi per editor/file manager.
+- Browser SFTP dual-pane, monitoraggio risorse e tunnel SSH.
 
 ## Documentazione
 

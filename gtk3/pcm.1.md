@@ -108,7 +108,80 @@ The main window is divided into:
 
 **Tab area**
 :   Each connection opens in a tab. Tabs can be reordered, split
-    vertically or horizontally, and moved between panels.
+    vertically or horizontally, and moved between panels. Tabs receiving
+    output in the background show an activity dot; the remote window title
+    (OSC 0/2) is available as a tooltip.
+
+# TERMINAL
+
+The integrated terminal is based on VTE and works natively on X11 and
+Wayland.
+
+## Copy, paste and context menu
+
+- **Ctrl+Shift+C** / **Ctrl+Insert** copy the selection to CLIPBOARD.
+- **Ctrl+Shift+V** pastes from CLIPBOARD; middle-click and **Shift+Insert**
+  paste the PRIMARY selection.
+- Selecting text copies it to the X11 PRIMARY selection, without
+  overwriting CLIPBOARD.
+- The right-click menu provides copy/paste, select all, copy all scrollback,
+  save output to file, command history, clear screen, reset terminal and a
+  read-only mode that blocks keyboard input, paste and broadcast.
+- Multi-line pastes use bracketed paste, so lines are not executed
+  immediately.
+
+## Search and shortcuts
+
+- **Ctrl+F** opens the search bar; **Ctrl+Shift+F** is the configurable
+  global shortcut. Search supports literal text or regular expressions,
+  case sensitivity and displays the match count.
+- **Ctrl+Shift+A** select all, **Ctrl+Shift+S** save the scrollback,
+  **Ctrl+Shift+K** clear the screen, **Ctrl+Shift+R** reset the terminal.
+- **Ctrl+Wheel**, **Ctrl++** / **Ctrl+-** change the font size;
+  **Ctrl+0** restores the session size.
+
+## Paths, links and remote state
+
+- **Ctrl+click** an URL or an OSC 8 hyperlink to open it in the default
+  browser.
+- **Ctrl+click** a path to open it in the SFTP editor (remote session) or
+  in the file manager (local session).
+- Shells emitting OSC 7 let PCM know the current remote directory. The
+  context menu can copy it or open it in the side SFTP panel.
+- The window title sent with OSC 0/2 is shown as a tab tooltip.
+
+## SSH latency monitor
+
+For SSH and Mosh sessions the status bar shows the round-trip latency
+(for example `↔ 18ms`), refreshed every 10 seconds. PCM prefers a real
+SSH round trip on the connection already opened by the side SFTP panel;
+when that connection is not available it falls back to a TCP probe on the
+SSH port. The monitor can be toggled from the terminal context menu and is
+suspended while the session is closed.
+
+## Drag and drop
+
+- Drop one or more **local files** on an SSH terminal to upload them to the
+  current remote directory of the side SFTP panel. Without an SFTP panel
+  the quoted local path is inserted at the prompt.
+- Drag a **remote file** from the SFTP panel to the terminal to insert its
+  quoted remote path.
+- Drop **local files** directly on the SFTP/FTP panel to upload them.
+- Dropping text inserts it at the prompt. Directories are not supported by
+  the drag-and-drop upload.
+
+## Activity and notifications
+
+A dot marks background tabs that receive output and is cleared when the
+tab is selected. A terminal bell raises the window and sends a desktop
+notification when the window is not active.
+
+## Logging and scrollback
+
+Output logging uses `script(1)` when available; if the tool is missing the
+session still starts without logging. Scrollback is configurable per
+session or unlimited. Logs are written with mode 0600 in the configured
+log directory.
 
 # TOOLS
 

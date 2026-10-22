@@ -33,6 +33,8 @@
 | RDP + VNC + SSH + FTP + Cloud in one tool | ✅ | ✅ | partial | ✅ | ✅ |
 | Integrated SFTP/FTP browser | ✅ dual-pane | ✅ dual-pane | ❌ | partial | ❌ |
 | Directory sync local↔remote | ✅ | ✅ | ❌ | ❌ | ❌ |
+| SSH latency monitor in status bar | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Drag & drop upload to terminal | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Graphical SSH tunnels | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Broadcast to multiple terminals | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
 | Live system monitor panel | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -135,6 +137,15 @@ Each section can be individually enabled or disabled per session.
 - **Terminal broadcast** — send the same text to all selected terminals simultaneously (ideal for clusters)
 - **Multi-exec** — run a command across multiple sessions in sequence
 - **Ctrl+Wheel** or **Ctrl+`+`** / **Ctrl+`-`** to change font size in the VTE terminal, **Ctrl+`0`** to reset it
+- **Rich context menu** — select all, copy all scrollback, save output to file, command history, clear/reset terminal, read-only mode
+- **Command history per session** — filterable list of commands sent in the tab, with one-click resend
+- **Regex search** — optional regular expressions, match counter and debounced search
+- **Bracketed paste** — multi-line pastes are inserted without being executed immediately
+- **SSH latency monitor** — round-trip time in the status bar; uses the real SSH channel of the SFTP panel when available, otherwise a TCP probe. Toggle from the terminal context menu
+- **Drag & drop upload** — drop local files on the terminal to upload them to the remote directory of the side SFTP panel; drag remote files from the panel to insert their path; drop files directly on the SFTP panel to upload
+- **Path and link actions** — <kbd>Ctrl</kbd>+click URLs to open the browser, remote paths to open the SFTP editor, local paths in the file manager; copy or open the current remote directory (OSC 7)
+- **Activity indicators and notifications** — dot on tabs receiving output in the background, desktop notification on terminal bell when the window is not focused, remote window title (OSC 0/2) in the tab tooltip
+- **Shortcuts** — <kbd>Ctrl+Shift+A</kbd> select all, <kbd>Ctrl+Shift+S</kbd> save output, <kbd>Ctrl+Shift+K</kbd> clear screen, <kbd>Ctrl+Shift+R</kbd> reset
 - File output logging per session (via `script(1)`)
 - Configurable or infinite scrollback per session
 - Local pre-command: activate VPN or mount volume before opening the connection
@@ -507,6 +518,8 @@ If you find PCM useful and want to thank the developer, you can buy him a coffee
 | RDP + VNC + SSH + FTP + Cloud in un tool | ✅ | ✅ | parziale | ✅ | ✅ |
 | Browser SFTP/FTP integrato | ✅ dual-pane | ✅ dual-pane | ❌ | parziale | ❌ |
 | Sincronizzazione directory locale↔remota | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Monitor latenza SSH nella statusbar | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Upload via drag & drop nel terminale | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Tunnel SSH grafici | ✅ | ✅ | ❌ | ✅ | ❌ |
 | Broadcast a più terminali | ✅ | ✅ MultiExec | ❌ | ✅ cluster | ❌ |
 | Pannello monitor sistema live | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -609,6 +622,15 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Broadcast terminali** — invia lo stesso testo a tutti i terminali selezionati contemporaneamente (ideale per cluster)
 - **Multi-exec** — esegui un comando su più sessioni in sequenza
 - **Ctrl+Rotella** oppure **Ctrl+`+`** / **Ctrl+`-`** per cambiare la dimensione del font nel terminale VTE, **Ctrl+`0`** per ripristinarla
+- **Menu contestuale completo** — seleziona tutto, copia tutto lo scrollback, salva output su file, cronologia comandi, pulisci/reset terminale, modalità sola lettura
+- **Cronologia comandi per sessione** — elenco filtrabile dei comandi inviati nel tab, con reinvio in un clic
+- **Ricerca regex** — espressioni regolari opzionali, contatore risultati e ricerca con debounce
+- **Bracketed paste** — gli incolli multi-riga vengono inseriti senza essere eseguiti subito
+- **Monitor latenza SSH** — round-trip nella statusbar; usa il canale SSH reale del pannello SFTP quando disponibile, altrimenti un probe TCP. Attivabile dal menu contestuale del terminale
+- **Upload via drag & drop** — trascina file locali sul terminale per caricarli nella directory remota del pannello SFTP; trascina file remoti dal pannello per inserirne il percorso; puoi anche trascinare file locali direttamente sul pannello SFTP
+- **Azioni su percorsi e link** — <kbd>Ctrl</kbd>+clic sugli URL per aprire il browser, sui percorsi remoti per aprire l'editor SFTP, sui percorsi locali nel file manager; copia o apri la directory remota corrente (OSC 7)
+- **Indicatori di attività e notifiche** — pallino sui tab che ricevono output in background, notifica desktop al campanello quando la finestra non è attiva, titolo remoto (OSC 0/2) nel tooltip del tab
+- **Scorciatoie** — <kbd>Ctrl+Shift+A</kbd> seleziona tutto, <kbd>Ctrl+Shift+S</kbd> salva output, <kbd>Ctrl+Shift+K</kbd> pulisci schermo, <kbd>Ctrl+Shift+R</kbd> reset
 - Log output su file per ogni sessione (con `script(1)`)
 - Scrollback configurabile o infinito per sessione
 - Pre-comando locale: attiva VPN o monta volume prima di aprire la connessione
