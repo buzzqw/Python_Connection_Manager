@@ -11,8 +11,10 @@
 #   bash setup.sh
 #
 # Lo script rileva automaticamente la distribuzione e installa tutte le
-# dipendenze. Su Debian e Fedora crea un venv Python per isolare le
-# dipendenze pip (evita il blocco PEP-668); su Arch e FreeBSD usa i pacchetti di sistema.
+# dipendenze. Su Debian, Fedora e AlmaLinux/RHEL crea un venv Python per
+# isolare le dipendenze pip (evita il blocco PEP-668); su Arch e FreeBSD
+# usa i pacchetti di sistema. Su AlmaLinux/RHEL abilita EPEL e CRB e salta
+# automaticamente i pacchetti facoltativi non presenti nei repository.
 #
 # Verifica senza installare:
 #   bash setup.sh --check
@@ -64,15 +66,34 @@
 # ===========================================================================
 #
 #   sudo dnf install \
-#       python3 python3-devel curl \
-#       python3-gobject gtk3 \
-#       vte291 gtk-vnc2 \
-#       openssh-clients mosh freerdp tigervnc \
-#       xdotool xdg-utils wol
+#       python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+#       curl openssh-clients xdg-utils
+#   sudo dnf install \
+#       freerdp mosh tigervnc xdotool gtksourceview3   # facoltativi
 #
 # Pacchetti Python (tramite venv):
 #   python3 -m venv --system-site-packages .venv
 #   .venv/bin/pip install "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5"
+
+# ===========================================================================
+# AlmaLinux / RHEL / Rocky Linux / CentOS Stream
+# ===========================================================================
+#
+#   sudo dnf install -y epel-release
+#   sudo dnf config-manager --set-enabled crb
+#   sudo dnf install \
+#       python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+#       curl openssh-clients freerdp xdg-utils
+#   sudo dnf install \
+#       mosh lftp picocom gtksourceview3   # facoltativi (da EPEL)
+#
+# Nota: su EL10 tigervnc e xdotool non sono disponibili nei repository.
+# VNC resta utilizzabile tramite gtk-vnc2 (integrato), RDP tramite freerdp.
+#
+# Pacchetti Python (tramite venv):
+#   python3 -m venv --system-site-packages .venv
+#   .venv/bin/pip install "cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" \
+#       "pyopenssl>=23.0" "pynacl>=1.5"
 
 # ===========================================================================
 # openSUSE

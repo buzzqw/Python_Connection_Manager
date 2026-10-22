@@ -7,6 +7,7 @@
 #   bash setup.sh --deps    # installa/aggiorna solo le dipendenze
 #
 # Variante unica: GTK3 + PyGObject
+# Distro: Debian/Ubuntu, Fedora, AlmaLinux/RHEL/Rocky, Arch, openSUSE, FreeBSD
 
 set -euo pipefail
 
@@ -28,12 +29,31 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALLED_MARKER="${PROJECT_DIR}/.pcm_installed"
 
 # ── Rileva distribuzione ──────────────────────────────────────────────────
+os_release_field() {
+    # Legge un campo di /etc/os-release senza eseguirlo nella shell corrente.
+    [[ -r /etc/os-release ]] || return 0
+    ( . /etc/os-release; echo "${!1:-}" )
+}
+
 detect_distro() {
     if   [[ "$(uname -s)" == "FreeBSD" ]]; then echo "freebsd"
     elif command -v zypper   &>/dev/null; then echo "opensuse"
     elif command -v apt-get  &>/dev/null; then echo "debian"
     elif command -v pacman   &>/dev/null; then echo "arch"
-    elif command -v dnf      &>/dev/null; then echo "fedora"
+    elif command -v dnf      &>/dev/null; then
+        # Fedora e la famiglia RHEL/EL (AlmaLinux, Rocky, CentOS, Oracle…)
+        # usano lo stesso package manager ma nomi/insiemi di pacchetti diversi.
+        local _id _like
+        _id="$(os_release_field ID)"
+        _like="$(os_release_field ID_LIKE)"
+        if [[ "$_id" == "fedora" ]]; then
+            echo "fedora"
+        elif [[ "$_id" =~ ^(rhel|centos|almalinux|rocky|ol|oracle|cloudlinux)$ ]] \
+             || [[ "$_like" == *rhel* || "$_like" == *centos* ]]; then
+            echo "rhel"
+        else
+            echo "fedora"
+        fi
     else echo "unknown"
     fi
 }
@@ -114,9 +134,12 @@ if [[ "$DISTRO" == "debian" ]]; then
     OPT_PKGS="gir1.2-gtksource-3.0"
     PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5")
     USE_VENV=true
-elif [[ "$DISTRO" == "fedora" ]]; then
-    SYS_PKGS="python3 python3-devel python3-gobject curl gtk3 vte291 gtk-vnc2 openssh-clients mosh freerdp tigervnc xdotool xdg-utils telnet lftp picocom"
-    OPT_PKGS="gtksourceview3"
+elif [[ "$DISTRO" == "fedora" || "$DISTRO" == "rhel" ]]; then
+    # Solo i pacchetti indispensabili all'avvio dell'applicazione: se uno
+    # degli strumenti opzionali non esiste nei repository (es. tigervnc su
+    # AlmaLinux 10) l'installazione non deve interrompersi.
+    SYS_PKGS="python3 python3-gobject gtk3 vte291 gtk-vnc2 curl openssh-clients xdg-utils"
+    OPT_PKGS="freerdp python3-devel mosh lftp telnet picocom tigervnc xdotool gtksourceview3"
     PIP_PACKAGES=("cryptography>=41.0" "paramiko>=3.0" "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5")
     USE_VENV=true
 elif [[ "$DISTRO" == "arch" ]]; then
@@ -148,15 +171,80 @@ CHECK_LABEL="GTK3 / GObject Introspection"
 
 # ── Funzioni ──────────────────────────────────────────────────────────────
 
+# True se il pacchetto è già installato oppure è disponibile nei repository.
+dnf_pkg_available() {
+    rpm -q "$1" &>/dev/null && return 0
+    dnf -q repoquery --available --latest-limit 1 --qf '%{name}' "$1" 2>/dev/null \
+        | grep -qx "$1"
+}
+
+# Su RHEL/AlmaLinux/Rocky i pacchetti extra (mosh, picocom, GtkSource…)
+# arrivano da EPEL, che a sua volta può richiedere CRB.
+enable_dnf_repos() {
+    hdr "Repository aggiuntivi (EPEL / CRB)"
+    local enabled
+    enabled="$(dnf -q repolist --enabled 2>/dev/null | awk '{print $1}')"
+
+    if ! grep -qx crb <<<"$enabled"; then
+        sudo dnf config-manager --set-enabled crb &>/dev/null \
+            || sudo dnf config-manager --set-enabled powertools &>/dev/null \
+            || true
+        enabled="$(dnf -q repolist --enabled 2>/dev/null | awk '{print $1}')"
+    fi
+
+    if grep -qx epel <<<"$enabled"; then
+        ok "EPEL già abilitato"
+    elif sudo dnf install -y epel-release &>/dev/null; then
+        ok "EPEL abilitato"
+    else
+        warn "EPEL non disponibile: mosh, picocom e GtkSource 3 resteranno assenti."
+    fi
+}
+
+# Installa solo i pacchetti facoltativi realmente presenti nei repo,
+# così un nome assente (es. tigervnc su AlmaLinux 10) non blocca tutto.
+install_dnf_optional() {
+    local pkg available=() missing=()
+    for pkg in $OPT_PKGS; do
+        if dnf_pkg_available "$pkg"; then
+            available+=("$pkg")
+        else
+            missing+=("$pkg")
+        fi
+    done
+
+    if [[ ${#available[@]} -gt 0 ]]; then
+        if sudo dnf install -y "${available[@]}"; then
+            ok "Pacchetti facoltativi installati: ${available[*]}"
+        else
+            warn "Alcuni pacchetti facoltativi non sono stati installati."
+        fi
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        warn "Non disponibili nei repository: ${missing[*]}"
+        warn "Le funzionalità collegate resteranno disabilitate (il resto funziona)."
+    fi
+}
+
 install_system_deps() {
     hdr "Dipendenze di sistema ($DISTRO)"
     if [[ -z "$SYS_PKGS" ]]; then
         warn "Distribuzione non riconosciuta. Installa dipendenze di sistema a mano."
         return
     fi
+
+    if [[ "$DISTRO" == "fedora" || "$DISTRO" == "rhel" ]]; then
+        if [[ "$DISTRO" == "rhel" ]]; then
+            enable_dnf_repos
+        fi
+        sudo dnf install -y $SYS_PKGS
+        install_dnf_optional
+        return
+    fi
+
     case "$DISTRO" in
         debian)   sudo apt-get update -qq && sudo apt-get install -y $SYS_PKGS ;;
-        fedora)   sudo dnf install -y $SYS_PKGS ;;
         arch)     sudo pacman -Sy --noconfirm --needed $SYS_PKGS ;;
         opensuse) sudo zypper install -y $SYS_PKGS ;;
         freebsd)  sudo pkg update && sudo pkg install -y $SYS_PKGS ;;
@@ -167,7 +255,6 @@ install_system_deps() {
         local rc=0
         case "$DISTRO" in
             debian)   sudo apt-get install -y $OPT_PKGS || rc=$? ;;
-            fedora)   sudo dnf install -y $OPT_PKGS || rc=$? ;;
             arch)     sudo pacman -S --noconfirm --needed $OPT_PKGS || rc=$? ;;
             opensuse) sudo zypper install -y $OPT_PKGS || rc=$? ;;
             freebsd)  sudo pkg install -y $OPT_PKGS || rc=$? ;;

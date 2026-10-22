@@ -394,11 +394,37 @@ sudo pacman -Sy --needed \
 
 ```bash
 sudo dnf install \
-    python3-gobject gtk3 vte291 gtk-vnc2 \
-    openssh-clients mosh freerdp tigervnc xdotool xdg-utils
+    python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+    curl openssh-clients xdg-utils
 
-pip install --user cryptography paramiko pyftpdlib
+# Facoltativi
+sudo dnf install freerdp mosh tigervnc xdotool gtksourceview3
+
+pip install --user cryptography paramiko pyftpdlib pyopenssl pynacl
 ```
+</details>
+
+<details>
+<summary><b>AlmaLinux / RHEL / Rocky Linux / CentOS Stream</b></summary>
+
+```bash
+sudo dnf install -y epel-release
+sudo dnf config-manager --set-enabled crb
+
+sudo dnf install \
+    python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+    curl openssh-clients freerdp xdg-utils
+
+# Facoltativi (da EPEL; non tutti disponibili su EL10)
+sudo dnf install mosh lftp picocom gtksourceview3
+
+python3 -m venv --system-site-packages .venv
+.venv/bin/pip install "cryptography>=41.0" "paramiko>=3.0" \
+    "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5"
+```
+
+Su EL10 `tigervnc` e `xdotool` non sono nei repository: VNC funziona
+comunque tramite `gtk-vnc2` (integrato) e RDP tramite `freerdp`.
 </details>
 
 <details>
@@ -822,7 +848,7 @@ cd Python_Connection_Manager
 bash setup.sh
 ```
 
-Lo script rileva la distribuzione (Debian/Ubuntu, Arch, Fedora, openSUSE, FreeBSD) e installa tutte le dipendenze di sistema e Python. Crea anche un launcher `.desktop` nel menu applicazioni.
+Lo script rileva la distribuzione (Debian/Ubuntu, Arch, Fedora, AlmaLinux/RHEL, openSUSE, FreeBSD) e installa tutte le dipendenze di sistema e Python. Crea anche un launcher `.desktop` nel menu applicazioni. Su AlmaLinux/RHEL abilita EPEL e CRB e salta i pacchetti facoltativi non presenti nei repository.
 
 ```bash
 # Solo verifica dipendenze, senza installare:
@@ -878,11 +904,37 @@ sudo pacman -Sy --needed \
 
 ```bash
 sudo dnf install \
-    python3-gobject gtk3 vte291 gtk-vnc2 \
-    openssh-clients mosh freerdp tigervnc xdotool xdg-utils
+    python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+    curl openssh-clients xdg-utils
 
-pip install --user cryptography paramiko pyftpdlib
+# Facoltativi
+sudo dnf install freerdp mosh tigervnc xdotool gtksourceview3
+
+pip install --user cryptography paramiko pyftpdlib pyopenssl pynacl
 ```
+</details>
+
+<details>
+<summary><b>AlmaLinux / RHEL / Rocky Linux / CentOS Stream</b></summary>
+
+```bash
+sudo dnf install -y epel-release
+sudo dnf config-manager --set-enabled crb
+
+sudo dnf install \
+    python3 python3-gobject gtk3 vte291 gtk-vnc2 \
+    curl openssh-clients freerdp xdg-utils
+
+# Facoltativi (da EPEL; non tutti disponibili su EL10)
+sudo dnf install mosh lftp picocom gtksourceview3
+
+python3 -m venv --system-site-packages .venv
+.venv/bin/pip install "cryptography>=41.0" "paramiko>=3.0" \
+    "pyftpdlib>=1.5" "pyopenssl>=23.0" "pynacl>=1.5"
+```
+
+Su EL10 `tigervnc` e `xdotool` non sono nei repository: VNC funziona
+comunque tramite `gtk-vnc2` (integrato) e RDP tramite `freerdp`.
 </details>
 
 <details>
