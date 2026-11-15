@@ -319,6 +319,7 @@ DEFAULT_SETTINGS = {
         "home_dir": os.path.expanduser("~"),
         "default_editor": "nano",
         "confirm_on_exit": True,
+        "tray_enabled": True,
         "language": "it",
         "protected_mode": False,
         "audit_log_enabled": False,

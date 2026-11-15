@@ -139,6 +139,7 @@ from sftp_editor import SftpEditorWidget
 from snippets_dialog import SnippetsDialog
 from welcome_widget import WelcomeWidget
 from quick_connect_dialog import QuickConnectDialog
+from tray_icon import TrayIcon, session_menu_entries
 from external_tools_dialog import ExternalToolsDialog
 from port_scan_dialog import PortScanDialog
 import port_scanner
@@ -228,6 +229,19 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_ui()
         self._connect_signals()
         self._setup_accels()
+
+        # System tray: icona e menu con le sessioni disponibili.
+        self._tray = None
+        self._tray_menu = None
+        self._tray_sessions_submenu = None
+        self._tray_signature = None
+        self._timer_tray = 0
+        self._forza_chiusura = False
+        self._setup_tray()
+        # Rimuove l'icona anche quando l'app termina senza passare da _on_close
+        # (es. annullamento dello sblocco credenziali).
+        app.connect("shutdown", lambda *_: self._disattiva_tray())
+
         self._pannello.aggiorna()
 
         self._auto_lock_timer = 0
@@ -711,6 +725,254 @@ class MainWindow(Gtk.ApplicationWindow):
         # Tornando sulla finestra l'urgenza non serve più (i pallini restano).
         self.connect("focus-in-event",
                      lambda *_: (self.set_urgency_hint(False), False)[1])
+
+    # ------------------------------------------------------------------
+    # System tray
+    # ------------------------------------------------------------------
+
+    def _tray_abilitato(self) -> bool:
+        return bool(self._settings.get("general", {}).get("tray_enabled", True))
+
+    def _setup_tray(self):
+        """Crea l'icona nel tray (se abilitata e disponibile)."""
+        if not self._tray_abilitato() or self._tray is not None:
+            return
+        icon_path = _icon_path("pcm_icon.png")
+        if not os.path.isfile(icon_path):
+            _log.warning("Tray: icona non trovata: %s", icon_path)
+            return
+        try:
+            tray = TrayIcon(icon_path, t("app.title"))
+        except Exception as e:
+            _log.warning("Tray non disponibile: %s", e)
+            return
+        tray.set_activate_callback(self._mostra_finestra)
+        self._tray = tray
+        self._aggiorna_tray_sessioni(force=True)
+        if not self._timer_tray:
+            self._timer_tray = GLib.timeout_add_seconds(5, self._tray_refresh_tick)
+        _log.info("System tray attivo (%s)", tray.backend)
+
+    def _disattiva_tray(self):
+        """Rimuove icona e timer del tray."""
+        if self._timer_tray:
+            GLib.source_remove(self._timer_tray)
+            self._timer_tray = 0
+        if self._tray is not None:
+            try:
+                self._tray.destroy()
+            except Exception as e:
+                _log.debug("Distruzione tray fallita: %s", e)
+        self._tray = None
+        self._tray_menu = None
+        self._tray_sessions_submenu = None
+        self._tray_signature = None
+
+    def _applica_impostazioni_tray(self):
+        if self._tray_abilitato():
+            self._setup_tray()
+        else:
+            self._disattiva_tray()
+
+    def _tray_refresh_tick(self) -> bool:
+        if self._tray is None:
+            self._timer_tray = 0
+            return False
+        self._aggiorna_tray_sessioni()
+        return True
+
+    def _tray_signature_corrente(self):
+        profili = config_manager.load_profiles()
+        nomi = tuple(sorted(
+            (n, str(p.get("protocol", "")), str(p.get("host", "")))
+            for n, p in profili.items()
+            if isinstance(p, dict) and not str(n).startswith("_")
+        ))
+        recenti = tuple(
+            r.get("name", "") for r in config_manager.load_recent()
+            if isinstance(r, dict)
+        )
+        return nomi, recenti
+
+    def _aggiorna_tray_sessioni(self, force: bool = False):
+        """Rigenera il menu del tray solo quando l'elenco sessioni cambia."""
+        if self._tray is None:
+            return
+        firma = self._tray_signature_corrente()
+        if not force and firma == self._tray_signature:
+            return
+        self._tray_signature = firma
+        self._build_tray_menu()
+
+    def _build_tray_menu(self):
+        menu = Gtk.Menu()
+
+        def _aggiungi(label, callback, attivo=True):
+            item = Gtk.MenuItem(label=label)
+            item.set_use_underline(False)
+            if attivo:
+                item.connect("activate", lambda _w: GLib.idle_add(callback))
+            else:
+                item.set_sensitive(False)
+            menu.append(item)
+            return item
+
+        _aggiungi(t("tray.show"), self._mostra_finestra)
+
+        menu.append(Gtk.SeparatorMenuItem())
+        submenu = Gtk.Menu()
+        self._popola_tray_sessioni(submenu)
+        item_sess = Gtk.MenuItem(label=t("tray.connect_to"))
+        item_sess.set_submenu(submenu)
+        menu.append(item_sess)
+        self._tray_sessions_submenu = submenu
+
+        menu.append(Gtk.SeparatorMenuItem())
+        _aggiungi(t("tray.new_session"),
+                  lambda: self._mostra_e_esegui(self._on_nuova_sessione))
+        _aggiungi(t("tray.local_terminal"),
+                  lambda: self._mostra_e_esegui(self._on_terminale_locale))
+
+        menu.append(Gtk.SeparatorMenuItem())
+        _aggiungi(t("tray.quit"), self._esci_definitivo)
+
+        menu.show_all()
+        self._tray.set_menu(menu)
+        self._tray_menu = menu
+
+    def _popola_tray_sessioni(self, submenu: Gtk.Menu):
+        profili = config_manager.load_profiles()
+        recenti = [
+            r.get("name", "") for r in config_manager.load_recent()
+            if isinstance(r, dict)
+        ]
+        voci = session_menu_entries(profili, recenti)
+        if not voci:
+            item = Gtk.MenuItem(label=t("tray.no_sessions"))
+            item.set_sensitive(False)
+            submenu.append(item)
+            return
+
+        for tipo, valore in voci:
+            if tipo == "separator":
+                submenu.append(Gtk.SeparatorMenuItem())
+            elif tipo == "more":
+                item = Gtk.MenuItem(label=t("tray.more_sessions", n=valore))
+                item.set_sensitive(False)
+                submenu.append(item)
+            else:
+                dati = profili.get(valore, {})
+                proto = str(dati.get("protocol", "ssh")).upper()
+                host = str(dati.get("host", ""))
+                label = f"{valore}  ({proto} {host})".rstrip()
+                item = Gtk.MenuItem(label=label)
+                item.set_use_underline(False)
+                item.connect(
+                    "activate",
+                    lambda _w, n=valore: GLib.idle_add(self._apri_dal_tray, n),
+                )
+                submenu.append(item)
+
+    def _mostra_e_esegui(self, callback):
+        self._mostra_finestra()
+        callback()
+
+    def _apri_dal_tray(self, nome: str):
+        """Apre una sessione scelta dal menu del tray."""
+        self._mostra_finestra()
+        profili = config_manager.load_profiles()
+        dati = profili.get(nome)
+        if not isinstance(dati, dict):
+            self._warn(t("tray.session_missing", name=nome))
+            self._pannello.aggiorna()
+            return
+        if self._seleziona_tab_sessione(nome):
+            return
+        self._on_connetti(None, nome, dict(dati))
+
+    def _seleziona_tab_sessione(self, nome: str) -> bool:
+        """Porta in primo piano una tab già aperta per la sessione indicata."""
+        for nb in (self._notebook, self._notebook2):
+            for i in range(nb.get_n_pages()):
+                page = nb.get_nth_page(i)
+                testo = self._get_tab_nome(page)
+                if not testo:
+                    continue
+                pulito = testo.lstrip("📌 ")
+                # Una tab terminata (✖) non è una connessione attiva: aprine una nuova.
+                if pulito.startswith("✖"):
+                    continue
+                # Tab in riconnessione: "↻ nome (5s)".
+                if pulito.startswith("↻ "):
+                    pulito = pulito[2:].rsplit(" (", 1)[0]
+                if pulito == nome:
+                    self._notebook_attivo = nb
+                    nb.set_current_page(i)
+                    return True
+        return False
+
+    def _mostra_finestra(self, *_args):
+        self.set_urgency_hint(False)
+        self.show_all()
+        self.deiconify()
+        self.present()
+        return False
+
+    def _minimizza_nel_tray(self):
+        self.hide()
+        self._notifica_tray(t("app.title"), t("tray.running_msg"))
+
+    def _notifica_tray(self, titolo: str, corpo: str):
+        try:
+            app = self.get_application()
+            if app is None:
+                return
+            notifica = Gio.Notification.new(titolo)
+            notifica.set_body(corpo)
+            icon_path = _icon_path("pcm_icon.png")
+            if os.path.isfile(icon_path):
+                with contextlib.suppress(Exception):
+                    notifica.set_icon(
+                        Gio.FileIcon.new(Gio.File.new_for_path(icon_path)))
+            app.send_notification("pcm-tray", notifica)
+        except Exception as e:
+            _log.debug("Notifica tray fallita: %s", e)
+
+    def _esci_definitivo(self):
+        """Esce davvero, ignorando la minimizzazione nel tray."""
+        self._forza_chiusura = True
+        self.close()
+
+    def _dialog_chiusura_tray(self, n_sessioni: int) -> str:
+        """Dialog a tre scelte: tray, chiudi tutto, annulla."""
+        _RESP_TRAY = 1
+        _RESP_CLOSE = 2
+
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.NONE,
+            text=t("close.title"),
+        )
+        dlg.format_secondary_markup(
+            f"{t('close.active_sessions', n=n_sessioni)}\n"
+            f"{t('close.what_to_do')}"
+        )
+        dlg.add_button(t("close.cancel"), Gtk.ResponseType.CANCEL)
+        dlg.add_button(t("close.close_all_btn"), _RESP_CLOSE)
+        btn_tray = dlg.add_button(t("close.minimize_tray"), _RESP_TRAY)
+        dlg.set_default_response(_RESP_TRAY)
+        if btn_tray is not None:
+            btn_tray.grab_focus()
+        resp = dlg.run()
+        dlg.destroy()
+
+        if resp == _RESP_TRAY:
+            return "tray"
+        if resp == _RESP_CLOSE:
+            return "close"
+        return "cancel"
 
     def _accel_to_gtk(self, shortcut):
         shortcut = (shortcut or "").strip()
@@ -2448,6 +2710,11 @@ class MainWindow(Gtk.ApplicationWindow):
                     if nome and not nome.startswith("✖"):
                         self._set_tab_nome(page, f"✖ {nome}")
                 self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
+                if nome and not self.get_visible():
+                    self._notifica_tray(
+                        t("tray.session_ended_title"),
+                        t("tray.session_ended_msg", name=nome.lstrip("📌↻✖ ")),
+                    )
                 return
 
     # ------------------------------------------------------------------
@@ -2795,6 +3062,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if resp == Gtk.ResponseType.OK:
             self._settings = config_manager.load_settings()
             self._riapplica_accels()
+            self._applica_impostazioni_tray()
             _tr.init_from_settings()
             self._propaga_copy_on_select(
                 self._settings.get("terminal", {}).get("copy_on_select", False))
@@ -3417,7 +3685,7 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _on_esci(self):
-        self.get_application().quit()
+        self._esci_definitivo()
 
     # ------------------------------------------------------------------
     # Chiusura finestra
@@ -3425,25 +3693,50 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_close(self, window, event):
         settings = config_manager.load_settings()
-        if settings.get("general", {}).get("confirm_on_exit", True):
-            # Conta tab aperte (escludi la tab benvenuto)
-            n_tabs = self._notebook.get_n_pages() - 1
-            if n_tabs > 0:
-                dlg = Gtk.MessageDialog(
-                    transient_for=self,
-                    modal=True,
-                    message_type=Gtk.MessageType.QUESTION,
-                    buttons=Gtk.ButtonsType.YES_NO,
-                    text=t("close.title"),
-                )
-                dlg.format_secondary_text(t("close.confirm_msg"))
-                resp = dlg.run()
-                dlg.destroy()
-                if resp != Gtk.ResponseType.YES:
-                    return True  # blocca la chiusura
+        confirm = settings.get("general", {}).get("confirm_on_exit", True)
+        # Conta tab aperte (escludi la tab benvenuto)
+        n_tabs = (max(0, self._notebook.get_n_pages() - 1) +
+                  self._notebook2.get_n_pages())
+
+        forza = getattr(self, "_forza_chiusura", False)
+        self._forza_chiusura = False
+
+        # Con il tray attivo la X nasconde la finestra invece di terminare
+        # le sessioni. "Esci" (menu o tray) imposta _forza_chiusura e chiude.
+        chiusura_confermata = False
+        if not forza and self._tray is not None:
+            if confirm and n_tabs > 0:
+                scelta = self._dialog_chiusura_tray(n_tabs)
+                if scelta == "cancel":
+                    return True
+                if scelta == "tray":
+                    self._minimizza_nel_tray()
+                    return True
+                chiusura_confermata = True
+            else:
+                self._minimizza_nel_tray()
+                return True
+
+        if confirm and n_tabs > 0 and not chiusura_confermata:
+            if not self.get_visible():
+                self._mostra_finestra()
+            dlg = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text=t("close.title"),
+            )
+            dlg.format_secondary_text(t("close.confirm_msg"))
+            resp = dlg.run()
+            dlg.destroy()
+            if resp != Gtk.ResponseType.YES:
+                return True  # blocca la chiusura
         # Controlla tunnel SSH attivi
         tunnel_attivi = get_active_tunnels()
         if tunnel_attivi:
+            if not self.get_visible():
+                self._mostra_finestra()
             nomi = "\n".join(f"  • {tun.get('nome', '?')}" for tun in tunnel_attivi)
             dlg = Gtk.Dialog(
                 title=t("tunnel.close_warning_title"),
@@ -3531,6 +3824,7 @@ class MainWindow(Gtk.ApplicationWindow):
             GLib.source_remove(self._timer_stato_live)
         if hasattr(self, "_timer_tun_ind") and self._timer_tun_ind:
             GLib.source_remove(self._timer_tun_ind)
+        self._disattiva_tray()
         return False  # permetti chiusura
 
     # ------------------------------------------------------------------

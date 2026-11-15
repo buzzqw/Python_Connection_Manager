@@ -471,6 +471,20 @@ _T: dict[str, dict[str, str]] = {
     "settings.general.home_dir":      {"it": "Home directory:", "en": "Home directory:", "de": "Home-Verzeichnis:", "fr": "Répertoire personnel :", "es": "Directorio home:"},
     "settings.general.editor":        {"it": "Editor di testo:", "en": "Text editor:", "de": "Texteditor:", "fr": "Éditeur de texte :", "es": "Editor de texto:"},
     "settings.general.confirm_exit":  {"it": "Chiedi conferma alla chiusura", "en": "Ask for confirmation on exit", "de": "Beim Beenden bestätigen", "fr": "Demander confirmation à la fermeture", "es": "Pedir confirmación al salir"},
+    "settings.general.tray_enabled": {
+        "it": "Abilita system tray e chiusura nella tray",
+        "en": "Enable system tray and close to tray",
+        "de": "System-Tray aktivieren und beim Schließen minimieren",
+        "fr": "Activer la zone de notification et réduire à la fermeture",
+        "es": "Activar la bandeja del sistema y minimizar al cerrar",
+    },
+    "settings.general.tray_enabled_tt": {
+        "it": "Con l'icona nel tray, chiudere la finestra nasconde PCM e mantiene le connessioni attive. Dal menu dell'icona puoi scegliere la sessione a cui connetterti.",
+        "en": "With the tray icon, closing the window hides PCM and keeps connections alive. From the tray menu you can choose which session to connect to.",
+        "de": "Mit dem Tray-Symbol wird PCM beim Schließen des Fensters ausgeblendet und Verbindungen bleiben aktiv. Über das Menü des Symbols kann die gewünschte Sitzung gewählt werden.",
+        "fr": "Avec l'icône dans la zone de notification, fermer la fenêtre masque PCM et conserve les connexions. Le menu de l'icône permet de choisir la session à ouvrir.",
+        "es": "Con el icono en la bandeja, cerrar la ventana oculta PCM y mantiene las conexiones activas. Desde el menú del icono puedes elegir la sesión a la que conectarte.",
+    },
     "settings.general.audit_log":     {"it": "Abilita registro audit connessioni", "en": "Enable connection audit log", "de": "Verbindungs-Auditprotokoll aktivieren", "fr": "Activer le journal d'audit des connexions", "es": "Habilitar registro de auditoría de conexiones"},
     "settings.general.backups":        {"it": "Crea backup automatici della configurazione", "en": "Create automatic configuration backups", "de": "Automatische Konfigurationssicherungen erstellen", "fr": "Créer des sauvegardes automatiques de la configuration", "es": "Crear copias de seguridad automáticas de la configuración"},
     "settings.general.backup_count":   {"it": "Numero backup da conservare:", "en": "Backups to keep:", "de": "Aufbewahrte Sicherungen:", "fr": "Sauvegardes à conserver :", "es": "Copias a conservar:"},
@@ -529,6 +543,7 @@ _T: dict[str, dict[str, str]] = {
     "tray.quit":                {"it": "✖  Esci",            "en": "✖  Quit",             "de": "✖  Beenden",           "fr": "✖  Quitter",              "es": "✖  Salir"},
     "tray.no_sessions":         {"it": "(nessuna sessione)", "en": "(no sessions)",        "de": "(keine Sitzungen)",    "fr": "(aucune session)",         "es": "(sin sesiones)"},
     "tray.more_sessions":       {"it": "... e altre {n} sessioni (apri PCM)", "en": "... and {n} more sessions (open PCM)", "de": "... und {n} weitere Sitzungen (PCM öffnen)", "fr": "... et {n} autres sessions (ouvrir PCM)", "es": "... y {n} sesiones más (abrir PCM)"},
+    "tray.session_missing":     {"it": "La sessione '{name}' non esiste più.", "en": "Session '{name}' no longer exists.", "de": "Die Sitzung '{name}' existiert nicht mehr.", "fr": "La session '{name}' n'existe plus.", "es": "La sesión '{name}' ya no existe."},
     "tray.session_ended_title": {"it": "PCM — Sessione terminata", "en": "PCM — Session ended", "de": "PCM — Sitzung beendet", "fr": "PCM — Session terminée", "es": "PCM — Sesión terminada"},
     "tray.session_ended_msg":   {"it": "La sessione '{name}' si è disconnessa.", "en": "Session '{name}' has disconnected.", "de": "Sitzung '{name}' wurde getrennt.", "fr": "La session '{name}' s'est déconnectée.", "es": "La sesión '{name}' se ha desconectado."},
 

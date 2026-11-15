@@ -221,6 +221,20 @@ protocol fingerprint.
 
 Only scan networks you own or are explicitly authorised to test.
 
+# SYSTEM TRAY
+
+When the tray icon is enabled (**Settings > General > Enable system tray and
+close to tray**), closing the main window hides PCM instead of terminating its
+connections. The tray menu lists the last eight used sessions followed by the
+remaining ones in alphabetical order; choosing a session reopens the window and
+opens it (or brings its tab to the front if already active). The menu also
+offers a local terminal, a new session and a definitive Quit action.
+
+PCM uses AppIndicator/AyatanaAppIndicator when available. On GNOME this requires
+the corresponding shell extension. The legacy `Gtk.StatusIcon` fallback is only
+used on classic X11 desktops; when no usable backend exists the tray is not
+created and closing the window quits PCM normally.
+
 # CONFIGURATION
 
 ## Backups

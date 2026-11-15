@@ -450,10 +450,13 @@
 </ul>
 
 <h3>System Tray</h3>
-<p>With active sessions, closing the window minimizes PCM to the system tray instead of terminating connections.</p>
+<p>With the tray icon enabled, closing the window hides PCM and keeps connections alive instead of terminating them.</p>
 <ul>
-  <li><b>Double-click</b> on the icon — reopens the main window</li>
-  <li><b>Right-click</b> on the icon — menu with quick access to the last 8 used sessions and Quit option</li>
+  <li><b>Click</b> the icon — opens the menu with <b>Show PCM</b>, <b>Connect to…</b>, local terminal, new session and Quit (with the Gtk.StatusIcon backend a single click reopens the window directly)</li>
+  <li>The <b>Connect to…</b> submenu shows the <b>last 8 used sessions</b> first, then the rest in alphabetical order; picking one reopens the window and starts the session (or brings it to front if already open)</li>
+  <li>With active sessions and close confirmation enabled, the X button offers <b>Minimize to tray</b>, <b>Close and terminate all</b> or <b>Cancel</b></li>
+  <li>Disable it in <b>Settings → General → Enable system tray and close to tray</b></li>
+  <li>On GNOME the tray requires the AppIndicator/KStatusNotifierItem extension; on Wayland without AppIndicator the icon is not created and closing quits PCM as usual</li>
 </ul>
 
 <!-- ══════════════════════════════════════════════════ SESSIONS -->

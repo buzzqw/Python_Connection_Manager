@@ -470,11 +470,13 @@
 </ul>
 
 <h3>System Tray</h3>
-<p>Con sessioni attive, chiudere la finestra minimizza PCM nel tray invece di terminare le connessioni.</p>
+<p>Con l'icona nel tray attiva, chiudere la finestra nasconde PCM e mantiene vive le connessioni invece di terminarle.</p>
 <ul>
-  <li><b>Doppio clic</b> sull'icona — riapre la finestra principale</li>
-  <li><b>Tasto destro</b> sull'icona — menu con accesso rapido alle ultime sessioni usate e opzione Esci</li>
-  <li>Il menu del tray mostra prima le <b>ultime 8 sessioni usate</b>, poi le restanti in ordine alfabetico</li>
+  <li><b>Clic</b> sull'icona — apre il menu con <b>Mostra PCM</b>, <b>Connetti a…</b>, terminale locale, nuova sessione ed Esci (con il backend Gtk.StatusIcon il clic singolo riapre direttamente la finestra)</li>
+  <li>Il sottomenu <b>Connetti a…</b> mostra prima le <b>ultime 8 sessioni usate</b>, poi le restanti in ordine alfabetico; scegliendo una voce la finestra si riapre e la sessione parte (o torna in primo piano se già aperta)</li>
+  <li>Con sessioni attive e la conferma di chiusura abilitata, la X propone <b>Minimizza nel tray</b>, <b>Chiudi e termina tutto</b> oppure <b>Annulla</b></li>
+  <li>L'opzione si disattiva in <b>Impostazioni → Generale → Abilita system tray e chiusura nella tray</b></li>
+  <li>Su GNOME il tray richiede l'estensione AppIndicator/KStatusNotifierItem; su Wayland senza AppIndicator l'icona non viene creata e la chiusura torna a terminare PCM</li>
 </ul>
 
 

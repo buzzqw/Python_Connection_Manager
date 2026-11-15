@@ -165,6 +165,7 @@ Each section can be individually enabled or disabled per session.
 - **TCP Ping** from the sidebar — checks reachability on the configured port (ms)
 - **SSH gateway** — configure a jump host for SFTP, Telnet, RDP, VNC or SPICE; PCM establishes an SSH tunnel automatically and forwards the connection through it
 - **Session restore** — optionally save open sessions on close and reopen them automatically at the next startup (Settings → General)
+- **System tray** — closing the window keeps PCM in the tray with all connections alive; the tray menu lists recent and available sessions to connect to with one click (AppIndicator on GNOME/KDE, `Gtk.StatusIcon` on classic desktops; toggle in Settings → General)
 - Duplicate, edit, delete, export `.sh` script to reopen from terminal
 - **Import** from: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
 
@@ -470,6 +471,7 @@ sudo pkg install \
 | `kubectl` | Kubectl Exec plugin |
 | `docker` | Docker Container plugin |
 | `spicy` / `remote-viewer` / `virt-viewer` | SPICE plugin (KVM/QEMU) |
+| `gir1.2-ayatanaappindicator3-0.1` / `libappindicator-gtk3` | System tray icon (AppIndicator); `Gtk.StatusIcon` is used as fallback on classic X11 desktops |
 
 ---
 
@@ -480,6 +482,8 @@ GTK3 + VTE work **natively on Wayland** without XWayland.
 The only exception is the **RDP internal panel** mode (embedding xfreerdp via xdotool), which requires XWayland. For pure Wayland use, set RDP to **"External window"**.
 
 The `gtk-vnc` VNC viewer works natively on Wayland.
+
+The **system tray** uses AppIndicator/AyatanaAppIndicator when available: on GNOME this requires the AppIndicator/KStatusNotifierItem shell extension. The legacy `Gtk.StatusIcon` fallback is used only on X11 desktops that support it, so PCM never hides the window where the icon could not be shown.
 
 ---
 
@@ -677,6 +681,7 @@ Ogni sezione è abilitabile o disabilitabile individualmente per sessione.
 - **Ping TCP** dalla sidebar — verifica raggiungibilità sulla porta configurata (ms)
 - **SSH gateway** — configura un jump host per SFTP, Telnet, RDP, VNC o SPICE; PCM stabilisce automaticamente un tunnel SSH e inoltra la connessione
 - **Ripristino sessioni** — salva opzionalmente le sessioni aperte alla chiusura e le riapre automaticamente al prossimo avvio (Impostazioni → Generale)
+- **System tray** — chiudendo la finestra PCM resta nel tray con tutte le connessioni attive; il menu dell'icona elenca le sessioni recenti e disponibili per connettersi con un clic (AppIndicator su GNOME/KDE, `Gtk.StatusIcon` sui desktop classici; attivabile in Impostazioni → Generale)
 - Duplica, modifica, elimina, esporta script `.sh` per riaprire da terminale
 - **Import** da: Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), `~/.ssh/config`, MobaXterm (`.mobaXterm`)
 
