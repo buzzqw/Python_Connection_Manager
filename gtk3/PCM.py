@@ -1584,11 +1584,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._append_tab(container, nome)
         GLib.idle_add(widget.grab_focus)
 
-        # Primario: feed_child digita la password quando il VTE mostra un prompt
-        if pwd and not pkey:
-            widget.imposta_auto_password(pwd)
-
-        # TOTP / 2FA: feed_child digita il codice OTP dopo la password
+        # Watcher unificato credenziali: password, TOTP 2FA ed expect rules (Bug P0 2.1 e 8.2)
+        pwd_to_send = pwd if (pwd and not pkey) else ""
+        otp_to_send = ""
         totp_secret = "" if _riusa_master else dati.get("totp_secret", "").strip()
         if totp_secret:
             try:
@@ -1597,22 +1595,24 @@ class MainWindow(Gtk.ApplicationWindow):
                 # altrimenti usa i default RFC 6238.
                 parsed_uri = parse_otpauth(totp_secret)
                 if parsed_uri:
-                    otp_code = generate_totp(
+                    otp_to_send = generate_totp(
                         parsed_uri["secret"],
                         parsed_uri.get("digits", 6),
                         parsed_uri.get("period", 30),
                         parsed_uri.get("algorithm", "sha1"),
-                    )
+                    ) or ""
                 else:
-                    otp_code = generate_totp(render_uri_to_secret(totp_secret))
-                if otp_code:
-                    widget.imposta_auto_password(otp_code)
+                    otp_to_send = generate_totp(render_uri_to_secret(totp_secret)) or ""
             except Exception as e:
                 _log.debug("TOTP fallito per '%s': %s", nome, e)
 
         expect_rules = dati.get("expect_rules", [])
-        if expect_rules:
-            widget.imposta_expect(expect_rules)
+        if pwd_to_send or otp_to_send or expect_rules:
+            widget.imposta_credenziali(
+                password=pwd_to_send,
+                otp_code=otp_to_send,
+                expect_rules=expect_rules,
+            )
 
         widget.avvia(cmd, env_extra=env_extra)
         if _initial_askpass:
@@ -1645,11 +1645,34 @@ class MainWindow(Gtk.ApplicationWindow):
                     _reconnect_env["SSH_ASKPASS_REQUIRE"] = "force"
                     _reconnect_env["PCM_ASKPASS_PW"] = _pwd
                     _askpass_autodelete(w, _askpass)
+                # Watcher credenziali unificato al reconnect
+                _rec_master = ssh_master_active(dati)
+                _rec_pwd = _pwd if (_pwd and not _pkey and not _rec_master) else ""
+                _rec_otp = ""
+                _rec_totp = "" if _rec_master else dati.get("totp_secret", "").strip()
+                if _rec_totp:
+                    try:
+                        from totp_manager import generate_totp, parse_otpauth, render_uri_to_secret
+                        parsed_uri = parse_otpauth(_rec_totp)
+                        if parsed_uri:
+                            _rec_otp = generate_totp(
+                                parsed_uri["secret"],
+                                parsed_uri.get("digits", 6),
+                                parsed_uri.get("period", 30),
+                                parsed_uri.get("algorithm", "sha1"),
+                            ) or ""
+                        else:
+                            _rec_otp = generate_totp(render_uri_to_secret(_rec_totp)) or ""
+                    except Exception as e:
+                        _log.debug("TOTP reconnect fallito per '%s': %s", _nome, e)
+
+                if _rec_pwd or _rec_otp or _erules:
+                    w.imposta_credenziali(
+                        password=_rec_pwd,
+                        otp_code=_rec_otp,
+                        expect_rules=_erules,
+                    )
                 w.avvia(_cmd, env_extra=_reconnect_env)
-                if _pwd and not _pkey and not ssh_master_active(dati):
-                    w.imposta_auto_password(_pwd)
-                if _erules:
-                    w.imposta_expect(_erules)
                 return False
 
             widget._pcm_reconnect = _do_reconnect
@@ -1686,7 +1709,7 @@ class MainWindow(Gtk.ApplicationWindow):
             pwd = dati.get("password", "")
             pkey = dati.get("private_key", "").strip()
             if pwd and not pkey:
-                widget.imposta_auto_password(pwd)
+                widget.imposta_credenziali(password=pwd)
             widget.avvia(cmd)
             widget.connect("processo-terminato",
                            lambda w: self._on_processo_terminato(w))

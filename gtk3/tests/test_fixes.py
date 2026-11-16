@@ -352,3 +352,43 @@ class TestFixes:
         assert nb2.get_visible() is False
         assert win._notebook_attivo is nb1
 
+    def test_terminal_widget_imposta_credenziali(self):
+        """Verifica che TerminalWidget compili password, TOTP ed expect in un unico watcher composito."""
+        from terminal_widget import TerminalWidget, _OTP_PROMPT_RE
+        import re
+
+        # 1. Verifica copertura prompt TOTP / 2FA
+        otp_rgx = re.compile(_OTP_PROMPT_RE, re.MULTILINE)
+        for prompt in [
+            "Verification code: ",
+            "verification code:",
+            "OTP: ",
+            "Enter OTP: ",
+            "Two-Factor Code: ",
+            "Two-factor authentication code: ",
+            "One-time password: ",
+            "Authenticator code: ",
+            "pam_google_authenticator: Verification code: ",
+        ]:
+            assert otp_rgx.search(prompt), f"Mancata corrispondenza per prompt: {prompt}"
+
+        # 2. Watcher composito
+        w = TerminalWidget()
+        w.imposta_credenziali(
+            password="test_password",
+            otp_code="123456",
+            expect_rules=[{"pattern": "Press key", "command": " "}]
+        )
+        assert w._expect_cleanup is not None
+        w.chiudi_processo()
+        assert w._expect_cleanup is None
+
+        # 3. Retrocompatibilità metodi singoli
+        w.imposta_auto_password("pwd_only")
+        assert w._expect_cleanup is not None
+        w.chiudi_processo()
+
+        w.imposta_expect([{"pattern": "p", "command": "c"}])
+        assert w._expect_cleanup is not None
+        w.chiudi_processo()
+

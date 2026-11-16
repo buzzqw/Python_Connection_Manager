@@ -49,6 +49,12 @@ _SSH_PASSWORD_RE = (
     r"|(?:^|\n)[Aa]uthentication [Pp]assword:\s*$"
 )
 
+# Prompt per codici monouso TOTP / 2FA / MFA (Google Authenticator, Duo, PAM, ecc.)
+_OTP_PROMPT_RE = (
+    r"(?:[Vv]erification|[Tt]wo-[Ff]actor|[Oo]ne-[Tt]ime|[Oo][Tt][Pp]|"
+    r"[Aa]uthenticat(?:or|ion))\s*(?:[Cc]ode|[Pp]asscode)?[^:\n]*:\s*$"
+)
+
 
 def _hex_to_rgba(hex_color: str) -> Gdk.RGBA:
     rgba = Gdk.RGBA()
@@ -577,6 +583,38 @@ class TerminalWidget(Gtk.Box):
         if len(self._comandi_inviati) > 1000:
             del self._comandi_inviati[:-1000]
 
+    def imposta_credenziali(self, password: str = "", otp_code: str = "",
+                            expect_rules: list | None = None):
+        """Configura un unico watcher composito per password, TOTP 2FA e regole expect.
+
+        Unifica tutte le regole in un unico watcher per evitare che chiamate successive
+        sovrascrivano i watcher precedenti (Bug P0 2.1 e 8.2).
+        """
+        rules = []
+        if password:
+            rules.append({
+                "pattern": _SSH_PASSWORD_RE,
+                "command": password,
+                "max_trigger": 1,
+                "delay": 0.08,
+                "timeout": 60,
+                "stop_on_prompt": True,
+            })
+        if otp_code:
+            rules.append({
+                "pattern": _OTP_PROMPT_RE,
+                "command": otp_code,
+                "max_trigger": 1,
+                "delay": 0.08,
+                "timeout": 60,
+                "stop_on_prompt": True,
+            })
+        if expect_rules:
+            rules.extend(expect_rules)
+
+        if rules:
+            self._setup_expect_watcher(rules)
+
     def imposta_auto_password(self, password: str):
         """Invia automaticamente la password al prompt di autenticazione.
 
@@ -587,19 +625,12 @@ class TerminalWidget(Gtk.Box):
         """
         if not password:
             return
-        self._setup_expect_watcher([{
-            "pattern": _SSH_PASSWORD_RE,
-            "command": password,
-            "max_trigger": 1,
-            "delay": 0.08,
-            "timeout": 60,
-            "stop_on_prompt": True,
-        }])
+        self.imposta_credenziali(password=password)
 
     def imposta_expect(self, rules: list[dict]):
         if not rules:
             return
-        self._setup_expect_watcher(rules)
+        self.imposta_credenziali(expect_rules=rules)
 
     def _testo_completo(self, max_righe: int | None = None) -> str:
         """Restituisce il testo del buffer (o delle ultime `max_righe`)."""
