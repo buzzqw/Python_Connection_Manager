@@ -392,3 +392,34 @@ class TestFixes:
         assert w._expect_cleanup is not None
         w.chiudi_processo()
 
+    def test_startup_chain_uses_idle_add(self, monkeypatch):
+        """Verifica che _startup_chain usi GLib.idle_add invece di GLib.timeout_add per gli step 0-3."""
+        from gi.repository import GLib
+        import PCM
+
+        idle_steps = []
+        timeout_calls = []
+
+        monkeypatch.setattr(GLib, "idle_add", lambda func, *args: (idle_steps.append(args[0]), 1)[1])
+        monkeypatch.setattr(GLib, "timeout_add", lambda ms, func, *args: (timeout_calls.append(ms), 2)[1])
+
+        class FakePCM:
+            _startup_chain = PCM.MainWindow._startup_chain
+            def _load_pcm_plugins(self): pass
+            def _check_crypto_unlock(self): pass
+            def _notifica_tunnel_avvio(self): pass
+            def _ripristina_sessioni(self): pass
+            def _aggiorna_stato_live(self): pass
+
+        p = FakePCM()
+        p._startup_chain(0)
+        assert 1 in idle_steps
+        p._startup_chain(1)
+        assert 2 in idle_steps
+        p._startup_chain(2)
+        assert 3 in idle_steps
+        p._startup_chain(3)
+        assert 4 in idle_steps
+        p._startup_chain(4)
+        assert 3000 in timeout_calls
+

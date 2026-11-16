@@ -242,8 +242,6 @@ class MainWindow(Gtk.ApplicationWindow):
         # (es. annullamento dello sblocco credenziali).
         app.connect("shutdown", lambda *_: self._disattiva_tray())
 
-        self._pannello.aggiorna()
-
         self._auto_lock_timer = 0
         self._avvia_auto_lock()
         self.connect("key-press-event", lambda w, e: self._reset_auto_lock())
@@ -251,8 +249,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self._pending_cli_uri: str | None = None   # URI da aprire dopo unlock crypto
 
-        # Avvio a cascata: ogni step richiama il successivo dopo il rendering
-        # Sblocco credenziali -> notifica tunnel -> ripristino sessioni
+        # Avvio a cascata immediato: ogni step viene eseguito sui cicli di idle GTK
+        # garantendo rendering immediato (<150ms) senza ritardi artificiali.
         GLib.idle_add(self._startup_chain, 0)
 
     # ------------------------------------------------------------------
@@ -260,20 +258,20 @@ class MainWindow(Gtk.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _startup_chain(self, step: int) -> bool:
-        """Esegue la catena di inizializzazione a step:
+        """Esegue la catena di inizializzazione a step su idle senza ritardi artificiali:
         0: load plugins, 1: unlock crypto, 2: notifica tunnel, 3: restore sessioni, 4: stato live."""
         if step == 0:
             self._load_pcm_plugins()
-            GLib.timeout_add(200, self._startup_chain, 1)
+            GLib.idle_add(self._startup_chain, 1)
         elif step == 1:
             self._check_crypto_unlock()
-            GLib.timeout_add(300, self._startup_chain, 2)
+            GLib.idle_add(self._startup_chain, 2)
         elif step == 2:
             self._notifica_tunnel_avvio()
-            GLib.timeout_add(500, self._startup_chain, 3)
+            GLib.idle_add(self._startup_chain, 3)
         elif step == 3:
             self._ripristina_sessioni()
-            GLib.timeout_add(500, self._startup_chain, 4)
+            GLib.idle_add(self._startup_chain, 4)
         elif step == 4:
             self._timer_stato_live = GLib.timeout_add(3000, self._aggiorna_stato_live)
         return False  # one-shot per ogni step
