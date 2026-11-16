@@ -372,6 +372,15 @@ class TestFixes:
         ]:
             assert otp_rgx.search(prompt), f"Mancata corrispondenza per prompt: {prompt}"
 
+        # I prompt di sola password non devono essere scambiati per OTP.
+        for prompt in [
+            "Password: ",
+            "Authentication password: ",
+            "root@host's password: ",
+            "Enter password: ",
+        ]:
+            assert not otp_rgx.search(prompt), f"Falso positivo OTP per prompt: {prompt}"
+
         # 2. Watcher composito
         w = TerminalWidget()
         w.imposta_credenziali(
@@ -422,4 +431,64 @@ class TestFixes:
         assert 4 in idle_steps
         p._startup_chain(4)
         assert 3000 in timeout_calls
+
+    def test_otp_prompt_does_not_receive_account_password(self, monkeypatch):
+        """Con password+TOTP attivi, "One-time password:" deve ricevere solo
+        l'OTP, mentre "Authentication password:" deve ricevere solo la password."""
+        from terminal_widget import TerminalWidget
+
+        sent = []
+
+        class FakeVte:
+            def connect(self, *args):
+                return 1
+            def disconnect(self, *args):
+                pass
+            def feed_child(self, data):
+                sent.append(data.decode().rstrip("\n"))
+
+        w = TerminalWidget()
+        w._vte = FakeVte()
+
+        monkeypatch.setattr(w, "_testo_recente",
+                            lambda righe=20: "One-time password: ")
+        w.imposta_credenziali(password="s3cret", otp_code="123456")
+        assert sent == ["123456"]
+        w.chiudi_processo()
+
+        sent.clear()
+        w._vte = FakeVte()
+        monkeypatch.setattr(w, "_testo_recente",
+                            lambda righe=20: "Authentication password: ")
+        w.imposta_credenziali(password="s3cret", otp_code="123456")
+        assert sent == ["s3cret"]
+        w.chiudi_processo()
+
+    def test_sftp_symlink_file_uses_target_size(self, tmp_path):
+        """Un symlink a file deve riportare la dimensione del target, non
+        quella del link, per una barra di avanzamento corretta."""
+        import stat as stat_mod
+        import winscp_widget as ww
+
+        class Attr:
+            def __init__(self, name, mode, size=0):
+                self.filename = name
+                self.st_mode = mode
+                self.st_size = size
+
+        class FakeSFTP:
+            def normalize(self, path):
+                return path
+            def listdir_attr(self, path):
+                return [Attr("link.txt", stat_mod.S_IFLNK | 0o777, 7)]
+            def stat(self, path):
+                return Attr("link.txt", stat_mod.S_IFREG | 0o644, 4321)
+
+        w = ww.WinScpWidget.__new__(ww.WinScpWidget)
+        w._sftp = FakeSFTP()
+        jobs = w._jobs_download_dir("/remote", str(tmp_path))
+
+        assert len(jobs) == 1
+        assert jobs[0].size == 4321
+        assert jobs[0].nome == "link.txt"
 

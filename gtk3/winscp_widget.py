@@ -1136,21 +1136,26 @@ class WinScpWidget(Gtk.Box):
                 continue
 
             is_dir = stat.S_ISDIR(attr.st_mode)
+            size = attr.st_size
             # Se è un symlink, controlla se punta a una directory
             if stat.S_ISLNK(attr.st_mode):
                 try:
                     target_stat = self._sftp.stat(rp)
-                    if stat.S_ISDIR(target_stat.st_mode):
-                        is_dir = True
                 except (IOError, OSError):
                     # Symlink rotto o non accessibile: salta
                     continue
+                if stat.S_ISDIR(target_stat.st_mode):
+                    is_dir = True
+                else:
+                    # Per un symlink a file attr.st_size è la dimensione del
+                    # link, non del target: usare quella reale per la barra.
+                    size = target_stat.st_size
 
             if is_dir:
                 jobs += self._jobs_download_dir(rp, lp, visited)
             else:
                 jobs.append(TransferJob("download", rp, lp,
-                                        size=attr.st_size, nome=safe_name))
+                                        size=size, nome=safe_name))
         return jobs
 
     def _esegui_jobs(self, jobs: list):

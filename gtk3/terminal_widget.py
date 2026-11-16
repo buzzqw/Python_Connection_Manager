@@ -50,9 +50,12 @@ _SSH_PASSWORD_RE = (
 )
 
 # Prompt per codici monouso TOTP / 2FA / MFA (Google Authenticator, Duo, PAM, ecc.)
+# Ancorata a inizio riga: senza ancoraggio un banner che termina con ':' poteva
+# far digitare l'OTP al prompt della shell. "Authentication" è escluso perché
+# "Authentication password:" è un prompt di password, non un codice OTP.
 _OTP_PROMPT_RE = (
-    r"(?:[Vv]erification|[Tt]wo-[Ff]actor|[Oo]ne-[Tt]ime|[Oo][Tt][Pp]|"
-    r"[Aa]uthenticat(?:or|ion))\s*(?:[Cc]ode|[Pp]asscode)?[^:\n]*:\s*$"
+    r"^[^\n]*(?:[Vv]erification|[Tt]wo-[Ff]actor|[Oo]ne-[Tt]ime|[Oo][Tt][Pp]|"
+    r"[Aa]uthenticator|[Pp]asscode)\s*(?:[Cc]ode|[Pp]asscode)?[^:\n]*:\s*$"
 )
 
 
@@ -591,15 +594,10 @@ class TerminalWidget(Gtk.Box):
         sovrascrivano i watcher precedenti (Bug P0 2.1 e 8.2).
         """
         rules = []
-        if password:
-            rules.append({
-                "pattern": _SSH_PASSWORD_RE,
-                "command": password,
-                "max_trigger": 1,
-                "delay": 0.08,
-                "timeout": 60,
-                "stop_on_prompt": True,
-            })
+        # L'OTP va valutato prima della password: alcuni prompt OTP contengono
+        # la parola "password" (es. "One-time password:") e la regola password
+        # generica li intercetterebbe, inviando la password dell'account nel
+        # campo sbagliato. La regola password ha quindi uno skip_pattern.
         if otp_code:
             rules.append({
                 "pattern": _OTP_PROMPT_RE,
@@ -608,6 +606,16 @@ class TerminalWidget(Gtk.Box):
                 "delay": 0.08,
                 "timeout": 60,
                 "stop_on_prompt": True,
+            })
+        if password:
+            rules.append({
+                "pattern": _SSH_PASSWORD_RE,
+                "command": password,
+                "max_trigger": 1,
+                "delay": 0.08,
+                "timeout": 60,
+                "stop_on_prompt": True,
+                "skip_pattern": _OTP_PROMPT_RE if otp_code else "",
             })
         if expect_rules:
             rules.extend(expect_rules)
@@ -682,6 +690,8 @@ class TerminalWidget(Gtk.Box):
             if pat and cmd:
                 compiled.append({
                     "re": _re.compile(pat, _re.MULTILINE),
+                    "skip_re": (_re.compile(r["skip_pattern"], _re.MULTILINE)
+                                if r.get("skip_pattern") else None),
                     "command": cmd,
                     "max_trigger": max_t,
                     "delay": delay,
@@ -747,6 +757,11 @@ class TerminalWidget(Gtk.Box):
 
             for c in compiled:
                 if c["sent"] >= c["max_trigger"]:
+                    continue
+                # Prompt già riconosciuto da una regola più specifica (es. OTP
+                # prima della password: "One-time password:" non deve ricevere
+                # anche la password dell'account).
+                if c["skip_re"] is not None and c["skip_re"].search(tail):
                     continue
                 match = c["re"].search(tail)
                 if not match:
