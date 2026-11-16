@@ -1401,7 +1401,7 @@ class TerminalWidget(Gtk.Box):
         try:
             testo = self._testo_completo(max_righe=5000)
             py_flags = 0 if self._chk_case.get_active() else _re.IGNORECASE
-            n = sum(1 for _ in _re.finditer(pattern, testo, py_flags))
+            n = sum(1 for _ in _re.finditer(escaped, testo, py_flags))
             if n:
                 self._lbl_count.set_text(t("term.search.count", n=n))
             else:
