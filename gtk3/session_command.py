@@ -233,7 +233,7 @@ def _build_ssh(p: dict) -> str:
     target = _q(f"{user}@{host}") if user else _q(host)
     ssh_exe = _get_tool("ssh")
 
-    base = f"\"{ssh_exe}\" {args_str} {target}"
+    base = f"\"{ssh_exe}\" {args_str} -- {target}"
 
     if scmd:
         base += f" -t '{_esc(scmd)}; exec $SHELL -l'"
@@ -332,7 +332,7 @@ def _build_sftp_cli(p: dict) -> str:
     sftp_exe = _get_tool("sftp")
 
     if pkey and os.path.exists(pkey):
-        return f"\"{sftp_exe}\" {args_str} {target}"
+        return f"\"{sftp_exe}\" {args_str} -- {target}"
 
     if pwd and _tool_exists("lftp"):
         uri_cred = (f"sftp://{quote(str(user), safe='')}:{quote(str(pwd), safe='')}@{host}:{port}"
@@ -341,7 +341,7 @@ def _build_sftp_cli(p: dict) -> str:
         return (f"{_q(_get_tool('lftp'))} -e {_q(f'source {script_path}')} {_q(host)}"
                 f"; _pcm_status=$?; rm -f -- {_q(script_path)}; (exit $_pcm_status)")
 
-    return f"\"{sftp_exe}\" {args_str} {target}"
+    return f"\"{sftp_exe}\" {args_str} -- {target}"
 
 
 def _build_rdp(p: dict) -> str:
@@ -503,7 +503,7 @@ def _build_mosh(p: dict) -> str:
     args = [f"--ssh={shlex.quote(' '.join(ssh_args))}"]
 
     target = _q(f"{user}@{host}") if user else _q(host)
-    return f"{_q(mosh_exe)} {' '.join(args)} {target}"
+    return f"{_q(mosh_exe)} {' '.join(args)} -- {target}"
 
 
 def _build_serial(p: dict) -> str:
