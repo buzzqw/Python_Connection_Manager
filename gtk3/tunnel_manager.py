@@ -808,6 +808,7 @@ class TunnelManagerDialog(Gtk.Dialog):
             "ssh", "-N",
             "-p", sport,
             "-o", f"StrictHostKeyChecking={'yes' if strict else 'accept-new'}",
+            "-o", "ExitOnForwardFailure=yes",
             "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=60"
         ]
@@ -815,14 +816,15 @@ class TunnelManagerDialog(Gtk.Dialog):
         if not pwd and t.get("batch_mode", True):
             cmd += ["-o", "BatchMode=yes"]
 
+        dest_host = rhost.strip() or "localhost"
         if "SOCKS" in tipo:
             cmd += ["-D", lport]
         elif "Locale" in tipo:
-            cmd += ["-L", f"{lport}:{rhost}:{rport}"]
+            cmd += ["-L", f"{lport}:{dest_host}:{rport}"]
         elif "Remoto" in tipo:
-            cmd += ["-R", f"{rport}:{rhost}:{lport}"]
+            cmd += ["-R", f"{rport}:{dest_host}:{lport}"]
 
-        cmd.append(target)
+        cmd += ["--", target]
         return cmd
 
     def _aggiorna_stati(self) -> bool:
