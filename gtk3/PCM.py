@@ -2686,6 +2686,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._tab_labels.pop(widget, None)
         self._tab_dots.pop(widget, None)
         self._widget_nb_map.pop(widget, None)
+        widget.destroy()
         if not any(d.get_visible() for d in self._tab_dots.values()):
             self.set_urgency_hint(False)
         if nb is self._notebook2 and nb.get_n_pages() == 0:
