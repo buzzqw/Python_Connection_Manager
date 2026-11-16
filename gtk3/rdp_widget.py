@@ -125,6 +125,8 @@ def build_rdp_args(p: dict, client: str, exe: str | None = None,
     ver = freerdp_ver if freerdp_ver is not None else _freerdp_major_version(exe)
     cert_flag = "/cert:tofu" if ver >= 3 else "/cert-tofu"
     args = [exe, f"/v:{host}:{port}", cert_flag]
+    if embed_xid:
+        args.append(f"/parent-window:{embed_xid}")
     if window_size:
         w, h = window_size
         args += [f"/w:{w}", f"/h:{h}"]
@@ -289,8 +291,18 @@ class RdpEmbedWidget(Gtk.Box):
             self._avvia_rdesktop(p)
             return False
 
-        # xfreerdp: avvia + polling + xdotool reparent
-        if self._open_mode == "internal" and not shutil.which("xdotool"):
+        embed_xid = None
+        if self._open_mode == "internal":
+            self._log_container.set_visible(False)
+            self._socket.set_visible(True)
+            self._socket.show()
+            self._socket.realize()
+            raw_xid = self._socket.get_id()
+            if raw_xid:
+                embed_xid = str(raw_xid)
+
+        # Se siamo in internal e non abbiamo embed_xid né xdotool per il fallback, errore
+        if self._open_mode == "internal" and not embed_xid and not shutil.which("xdotool"):
             self._mostra_errore(t("rdp.embed.reparent_failed"))
             return False
 
@@ -301,7 +313,7 @@ class RdpEmbedWidget(Gtk.Box):
         h_init = max(alloc.height - 30, 768)
 
         args = build_rdp_args(p, client, exe=exe, freerdp_ver=freerdp_ver,
-                               window_size=(w_init, h_init))
+                               window_size=(w_init, h_init), embed_xid=embed_xid)
 
         cmd_display = " ".join(args)
         if pwd:
@@ -354,7 +366,12 @@ class RdpEmbedWidget(Gtk.Box):
 
         self._poll_attempts = 0
         if self._open_mode == "internal":
-            self._poll_source = GLib.timeout_add(500, self._cerca_e_reparenta)
+            if not embed_xid:
+                # Fallback: polling e reparent con xdotool solo se non è stato possibile passare /parent-window
+                self._poll_source = GLib.timeout_add(500, self._cerca_e_reparenta)
+            else:
+                self._info.set_text(f"  ●  RDP → {host}")
+                self._info.get_style_context().add_class("rdp-connected")
 
         self._monitor_source = GLib.timeout_add(3000, self._monitor_proc)
         return False
@@ -646,12 +663,17 @@ class RdpEmbedWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _on_plug_added(self, socket):
+        self._reparented = True
+        plug_win = socket.get_plug_window()
+        if plug_win and hasattr(plug_win, "get_xid"):
+            self._wid_rdp = str(plug_win.get_xid())
         self._info.set_text(f"  ●  RDP → {self._rdp_host}")
-        # rdesktop usa XEMBED: appena il plug si connette, GTK può ricevere
-        # il focus e forwardarlo correttamente all'embedded window
+        self._info.get_style_context().add_class("rdp-connected")
         GLib.idle_add(self._socket.grab_focus)
 
     def _on_plug_removed(self, socket):
+        self._wid_rdp = None
+        self._reparented = False
         self._info.set_text(f"  ✖  RDP disconnesso")
         return True
 
