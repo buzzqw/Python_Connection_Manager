@@ -38,6 +38,8 @@ from translations import t
 from pcm_logging import get_logger as _get_log
 from protocols import is_ftps
 
+_log = _get_log(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Utility
@@ -66,7 +68,7 @@ def _fmt_attr(mode: int) -> str:
 # TransferJob — un singolo elemento di coda
 # ---------------------------------------------------------------------------
 
-CHUNK_SIZE = 32768  # 32 KB per chunk — permette controllo pausa/annulla
+CHUNK_SIZE = 262144  # 256 KB per chunk — pipelining/prefetch con controllo pausa/annulla
 
 class TransferJob:
     def __init__(self, op, src, dst, size=0, nome=""):
@@ -1142,6 +1144,11 @@ class WinScpWidget(Gtk.Box):
         if job.op == "download":
             remote_f = self._sftp_transfer.open(job.src, "rb")
             try:
+                if hasattr(remote_f, "prefetch"):
+                    try:
+                        remote_f.prefetch(job.size) if job.size else remote_f.prefetch()
+                    except Exception as e:
+                        _log.debug("SFTP prefetch non riuscito: %s", e)
                 with open(job.dst, "wb") as local_f:
                     tx = 0
                     last_dl_update = 0.0
@@ -1171,6 +1178,11 @@ class WinScpWidget(Gtk.Box):
             with open(job.src, "rb") as local_f:
                 remote_f = self._sftp_transfer.open(job.dst, "wb")
                 try:
+                    if hasattr(remote_f, "set_pipelined"):
+                        try:
+                            remote_f.set_pipelined(True)
+                        except Exception as e:
+                            _log.debug("SFTP set_pipelined non riuscito: %s", e)
                     tx = 0
                     last_update = 0.0
                     while True:
