@@ -192,7 +192,7 @@ def _resolve_sftp_ftp(p: dict, ft_sub: str) -> tuple:
 def _build_ssh(p: dict) -> str:
     host  = p.get("host", "")
     user  = p.get("user", "")
-    port  = p.get("port", "22")
+    port  = str(p.get("port") or "22").strip()
     pkey  = p.get("private_key", "")
     scmd  = p.get("startup_cmd", "")
 
@@ -242,7 +242,7 @@ def _build_ssh(p: dict) -> str:
 
 def _build_telnet(p: dict) -> str:
     host = p.get("host", "")
-    port = p.get("port", "23")
+    port = str(p.get("port") or "23").strip()
     user = p.get("user", "")
     telnet_exe = _get_tool("telnet")
 
@@ -257,14 +257,14 @@ def _build_telnet(p: dict) -> str:
 
 def _build_sftp(p: dict) -> str:
     host = p.get("host", "")
-    port = p.get("port", "22")
+    port = str(p.get("port") or "22").strip()
     user = p.get("user", "")
     return f"sftp://{quote(str(user), safe='')}@{host}:{port}"
 
 
 def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
     host   = p.get("host", "")
-    port   = p.get("port", "21")
+    port   = str(p.get("port") or "21").strip()
     user   = p.get("user", "")
     pwd    = p.get("password", "")
     tls    = is_ftps(p)
@@ -303,7 +303,7 @@ def _build_ftp(p: dict, modalita: str = "browser_int") -> str:
 
 def _build_sftp_uri(p: dict, modalita: str = "browser_ext") -> str:
     host = p.get("host", "")
-    port = p.get("port", "22")
+    port = str(p.get("port") or "22").strip()
     user = p.get("user", "")
     uri = (f"sftp://{quote(str(user), safe='')}@{host}:{port}"
            if user else f"sftp://{host}:{port}")
@@ -318,7 +318,7 @@ def _build_sftp_uri(p: dict, modalita: str = "browser_ext") -> str:
 
 def _build_sftp_cli(p: dict) -> str:
     host = p.get("host", "")
-    port = p.get("port", "22")
+    port = str(p.get("port") or "22").strip()
     user = p.get("user", "")
     pkey = p.get("private_key", "").strip()
     pwd  = p.get("password", "")
@@ -349,7 +349,7 @@ def _build_rdp(p: dict) -> str:
     rdp_widget.build_rdp_args, unica fonte di verità per gli argomenti."""
     client = p.get("rdp_client", "xfreerdp3")
     if client not in ("xfreerdp", "xfreerdp3", "rdesktop"):
-        host, port = p.get("host", ""), p.get("port", "3389")
+        host, port = p.get("host", ""), str(p.get("port") or "3389").strip()
         return f"{_q(_get_tool(client))} {_q(f'{host}:{port}')}"
 
     from rdp_widget import build_rdp_args
@@ -359,7 +359,7 @@ def _build_rdp(p: dict) -> str:
 
 def _build_vnc(p: dict) -> str:
     host   = p.get("host", "")
-    port   = p.get("port", "5900")
+    port   = str(p.get("port") or "5900").strip()
     pwd    = p.get("password", "")
     client = p.get("vnc_client", "vncviewer")
 
@@ -478,7 +478,7 @@ def _trova_realvnc() -> str:
 
 def _build_mosh(p: dict) -> str:
     host = p.get("host", "")
-    port = p.get("port", "22")
+    port = str(p.get("port") or "22").strip()
     user = p.get("user", "")
     pkey = p.get("private_key", "")
     mosh_exe = _get_tool("mosh")
@@ -633,7 +633,7 @@ def ssh_master_active(p: dict) -> bool:
     if not multiplex_args(p) or not p.get("host"):
         return False
     target = f"{p['user']}@{p['host']}" if p.get("user") else p["host"]
-    cmd = [_get_tool("ssh"), "-p", str(p.get("port", "22") or "22"),
+    cmd = [_get_tool("ssh"), "-p", str(p.get("port") or "22"),
            *multiplex_args(p), "-O", "check", target]
     try:
         return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
