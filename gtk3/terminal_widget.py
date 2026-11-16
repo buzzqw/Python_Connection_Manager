@@ -951,6 +951,12 @@ class TerminalWidget(Gtk.Box):
         if not uri:
             with contextlib.suppress(Exception):
                 testo_match, tag_match = self._vte.match_check_event(event)
+            if testo_match:
+                categoria = (self._highlighter.category_for_tag(tag_match)
+                             if self._highlighter is not None else None)
+                if categoria == "url" or testo_match.lower().startswith(
+                        ("http://", "https://", "ftp://", "ftps://")):
+                    uri = testo_match.strip()
         if uri and uri.lower().startswith(
                 ("http://", "https://", "ftp://", "ftps://")):
             try:
