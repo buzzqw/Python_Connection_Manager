@@ -93,12 +93,22 @@ class TestBuildCommand:
         })
         assert "mosh" in cmd.lower() or "echo" in cmd.lower()
 
-    def test_serial(self):
+    def test_serial(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "picocom")
+        monkeypatch.setattr(session_command, "_get_tool", lambda tool: f"/usr/bin/{tool}")
         cmd, mode = session_command.build_command({
             "protocol": "serial", "device": "/dev/ttyUSB0", "baud": "115200",
         })
         assert mode == "serial"
         assert "ttyUSB0" in cmd
+
+    def test_serial_no_client_fallback(self, monkeypatch):
+        monkeypatch.setattr(session_command, "_tool_exists", lambda tool: False)
+        cmd, mode = session_command.build_command({
+            "protocol": "serial", "device": "/dev/ttyUSB0", "baud": "115200",
+        })
+        assert mode == "serial"
+        assert "Nessun client seriale trovato" in cmd
 
     def test_serial_picocom_applies_all_line_settings(self, monkeypatch):
         monkeypatch.setattr(session_command, "_tool_exists", lambda tool: tool == "picocom")
