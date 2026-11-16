@@ -325,7 +325,7 @@ class RdpEmbedWidget(Gtk.Box):
         try:
             stdin_arg = subprocess.PIPE if pwd else None
             self._proc = subprocess.Popen(
-                args, preexec_fn=os.setsid,
+                args, start_new_session=True,
                 stdin=stdin_arg,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 env=env,
@@ -394,7 +394,7 @@ class RdpEmbedWidget(Gtk.Box):
 
         try:
             self._proc = subprocess.Popen(
-                args, preexec_fn=os.setsid,
+                args, start_new_session=True,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 env=env,
             )

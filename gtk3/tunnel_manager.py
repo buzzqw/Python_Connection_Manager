@@ -248,7 +248,7 @@ def start_tunnel(idx: int, wait: float = 0) -> tuple[bool, str]:
         errfd = os.open(errpath, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
             proc = subprocess.Popen(
-                cmd, preexec_fn=os.setsid, env=env,
+                cmd, start_new_session=True, env=env,
                 stdout=subprocess.DEVNULL, stderr=errfd,
             )
         finally:
@@ -726,7 +726,7 @@ class TunnelManagerDialog(Gtk.Dialog):
         try:
             proc = subprocess.Popen(
                 cmd,
-                preexec_fn=os.setsid,
+                start_new_session=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,
