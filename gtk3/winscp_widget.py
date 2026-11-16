@@ -931,12 +931,15 @@ class WinScpWidget(Gtk.Box):
             return
         jobs = []
         for v in sel:
-            lpath = os.path.join(self._local_panel.path, v["nome"])
+            safe_name = os.path.basename(v["nome"].rstrip("/\\"))
+            if not safe_name or safe_name in (".", ".."):
+                continue
+            lpath = os.path.abspath(os.path.join(self._local_panel.path, safe_name))
             if v["is_dir"]:
                 jobs += self._jobs_download_dir(v["path"], lpath)
             else:
                 jobs.append(TransferJob("download", v["path"], lpath,
-                                        size=v["size"], nome=v["nome"]))
+                                        size=v["size"], nome=safe_name))
         self._esegui_jobs(jobs)
 
     def _elimina_selezione(self):
@@ -960,14 +963,17 @@ class WinScpWidget(Gtk.Box):
         if not self._sftp or not self._remote_panel:
             return
         for v in sel:
-            lpath = os.path.join(self._local_panel.path, v["nome"])
+            safe_name = os.path.basename(v["nome"].rstrip("/\\"))
+            if not safe_name or safe_name in (".", ".."):
+                continue
+            lpath = os.path.abspath(os.path.join(self._local_panel.path, safe_name))
             if v["is_dir"]:
                 for job in self._jobs_download_dir(v["path"], lpath):
                     self._coda.aggiungi_in_attesa(job)
             else:
                 self._coda.aggiungi_in_attesa(
                     TransferJob("download", v["path"], lpath,
-                                size=v["size"], nome=v["nome"]))
+                                size=v["size"], nome=safe_name))
 
     def _accoda_upload(self, sel: list):
         """Aggiunge i file selezionati dal pannello locale alla coda senza avviarli."""
@@ -1069,21 +1075,82 @@ class WinScpWidget(Gtk.Box):
                                         size=sz, nome=entry.name))
         return jobs
 
-    def _jobs_download_dir(self, remote_dir: str, local_dir: str) -> list:
-        """Espande una cartella remota in lista di TransferJob ricorsivi."""
+    def _jobs_download_dir(self, remote_dir: str, local_dir: str,
+                           visited: set | None = None) -> list:
+        """Espande una cartella remota in lista di TransferJob ricorsivi,
+        con protezione contro cicli infiniti da symlink e path traversal."""
+        if visited is None:
+            visited = set()
+
         jobs = []
+
+        # Risolvi il percorso remoto normalizzato per rilevare loop di symlink
         try:
-            os.makedirs(local_dir, exist_ok=True)
+            canonical_remote = self._sftp.normalize(remote_dir)
+        except Exception:
+            canonical_remote = remote_dir.rstrip("/") or "/"
+
+        if canonical_remote in visited:
+            _get_log(__name__).warning("Ciclo symlink SFTP rilevato su '%s', download interrotto per questo ramo.", remote_dir)
+            return jobs
+        visited.add(canonical_remote)
+
+        real_local_dir = os.path.abspath(local_dir)
+        try:
+            os.makedirs(real_local_dir, exist_ok=True)
+            local_stat = os.stat(real_local_dir)
+            loc_key = (local_stat.st_ino, local_stat.st_dev)
+            if loc_key in visited:
+                _get_log(__name__).warning("Ciclo cartella locale rilevato su '%s', salto.", real_local_dir)
+                return jobs
+            visited.add(loc_key)
         except Exception as e:
-            _get_log(__name__).debug("makedirs fallito '%s': %s", local_dir, e)
-        for attr in self._sftp.listdir_attr(remote_dir):
-            rp = remote_dir.rstrip("/") + "/" + attr.filename
-            lp = os.path.join(local_dir, attr.filename)
-            if stat.S_ISDIR(attr.st_mode):
-                jobs += self._jobs_download_dir(rp, lp)
+            _get_log(__name__).debug("makedirs/stat fallito '%s': %s", real_local_dir, e)
+
+        try:
+            entries = self._sftp.listdir_attr(remote_dir)
+        except Exception as e:
+            _get_log(__name__).warning("listdir_attr fallito su '%s': %s", remote_dir, e)
+            return jobs
+
+        for attr in entries:
+            fname = attr.filename
+            # Protezione path traversal e directory correnti/genitore
+            if not fname or fname in (".", ".."):
+                continue
+
+            # Sanifica il nome file isolando solo il basename
+            safe_name = os.path.basename(fname.rstrip("/\\"))
+            if not safe_name or safe_name in (".", ".."):
+                continue
+
+            rp = remote_dir.rstrip("/") + "/" + safe_name
+            lp = os.path.abspath(os.path.join(real_local_dir, safe_name))
+
+            # Verifica di contenimento: lp deve risiedere rigorosamente dentro real_local_dir
+            try:
+                if os.path.commonpath([real_local_dir, lp]) != real_local_dir:
+                    _get_log(__name__).warning("Tentativo di path traversal rilevato per '%s', elemento saltato.", fname)
+                    continue
+            except ValueError:
+                continue
+
+            is_dir = stat.S_ISDIR(attr.st_mode)
+            # Se è un symlink, controlla se punta a una directory
+            if stat.S_ISLNK(attr.st_mode):
+                try:
+                    target_stat = self._sftp.stat(rp)
+                    if stat.S_ISDIR(target_stat.st_mode):
+                        is_dir = True
+                except (IOError, OSError):
+                    # Symlink rotto o non accessibile: salta
+                    continue
+
+            if is_dir:
+                jobs += self._jobs_download_dir(rp, lp, visited)
             else:
                 jobs.append(TransferJob("download", rp, lp,
-                                        size=attr.st_size, nome=attr.filename))
+                                        size=attr.st_size, nome=safe_name))
         return jobs
 
     def _esegui_jobs(self, jobs: list):
