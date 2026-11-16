@@ -230,6 +230,12 @@ def _build_ssh(p: dict) -> str:
     if p.get("legacy_pubkey"):
         args.append("-o PubkeyAcceptedAlgorithms=+ssh-rsa")
 
+    # -t deve stare tra le opzioni (prima di --): dopo il terminatore -- e la
+    # destinazione ssh la considera parte del comando remoto, che verrebbe
+    # eseguito come "-t '...'" causando l'errore bash "opzione non valida".
+    if scmd:
+        args.append("-t")
+
     args_str = " ".join(args)
     target = _q(f"{user}@{host}") if user else _q(host)
     ssh_exe = _get_tool("ssh")
@@ -237,7 +243,7 @@ def _build_ssh(p: dict) -> str:
     base = f"\"{ssh_exe}\" {args_str} -- {target}"
 
     if scmd:
-        base += f" -t '{_esc(scmd)}; exec $SHELL -l'"
+        base += f" '{_esc(scmd)}; exec $SHELL -l'"
     return base
 
 

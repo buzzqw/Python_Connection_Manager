@@ -28,6 +28,17 @@ class TestBuildCommand:
         })
         assert mode == "ssh_term_ext"
 
+    def test_ssh_startup_cmd_keeps_dash_t_before_delimiter(self, monkeypatch):
+        """-t deve precedere '--': dopo il terminatore ssh la considera parte
+        del comando remoto, che bash rifiuta con 'opzione non valida' (exit 2)."""
+        monkeypatch.setattr(session_command, "_get_tool", lambda cmd_id: f"/usr/bin/{cmd_id}")
+        cmd = session_command._build_ssh({
+            "host": "example.com", "user": "root", "startup_cmd": "cd /var/log",
+        })
+        argv = shlex.split(cmd)
+        assert argv[argv.index("-t") + 1] == "--"
+        assert argv[-2:] == ["root@example.com", "cd /var/log; exec $SHELL -l"]
+
     def test_ssh_strict_host_check_is_disabled_by_default(self, monkeypatch):
         monkeypatch.setattr(config_manager, "load_settings", lambda: {"ssh": {}})
         cmd = session_command._build_ssh({"host": "example.com"})
