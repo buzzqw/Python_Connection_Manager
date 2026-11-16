@@ -496,6 +496,7 @@ class TerminalWidget(Gtk.Box):
 
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
+        env["COLORTERM"] = "truecolor"
         if env_extra:
             env.update(env_extra)
 
