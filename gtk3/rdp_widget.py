@@ -123,7 +123,8 @@ def build_rdp_args(p: dict, client: str, exe: str | None = None,
 
     # xfreerdp / xfreerdp3
     ver = freerdp_ver if freerdp_ver is not None else _freerdp_major_version(exe)
-    args = [exe, f"/v:{host}:{port}", "/cert:tofu"]
+    cert_flag = "/cert:tofu" if ver >= 3 else "/cert-tofu"
+    args = [exe, f"/v:{host}:{port}", cert_flag]
     if window_size:
         w, h = window_size
         args += [f"/w:{w}", f"/h:{h}"]
