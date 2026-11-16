@@ -205,6 +205,7 @@ def _build_ssh(p: dict) -> str:
 
     if pkey and os.path.exists(pkey):
         args.append(f"-i {_q(pkey)}")
+        args.append("-o IdentitiesOnly=yes")
     if p.get("x11"): args.append("-X")
     if p.get("compression"): args.append("-C")
     if p.get("agent_forward"): args.append("-A")
@@ -327,6 +328,7 @@ def _build_sftp_cli(p: dict) -> str:
     args = [f"-P {_q(port)}", f"-o StrictHostKeyChecking={strict}"]
     if pkey and os.path.exists(pkey):
         args.append(f"-i {_q(pkey)}")
+        args.append("-o IdentitiesOnly=yes")
     args_str = " ".join(args)
     target = _q(f"{user}@{host}") if user else _q(host)
     sftp_exe = _get_tool("sftp")
