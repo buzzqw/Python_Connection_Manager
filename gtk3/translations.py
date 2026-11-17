@@ -1647,8 +1647,8 @@ _T: dict[str, dict[str, str]] = {
     # ── terminal: search bar ─────────────────────────────────────────────────
     "term.search.placeholder":  {"it": "Cerca nel terminale…",        "en": "Search in terminal…",          "de": "Im Terminal suchen…",           "fr": "Rechercher dans le terminal…",  "es": "Buscar en el terminal…"},
     "term.search.case_tt":      {"it": "Distingui maiuscole/minuscole","en": "Case sensitive",               "de": "Groß-/Kleinschreibung",         "fr": "Respecter la casse",            "es": "Distinguir mayúsculas"},
-    "term.search.next_tt":      {"it": "Successivo (Invio)",          "en": "Next (Enter)",                 "de": "Nächster (Enter)",              "fr": "Suivant (Entrée)",              "es": "Siguiente (Intro)"},
-    "term.search.prev_tt":      {"it": "Precedente (Shift+Invio)",    "en": "Previous (Shift+Enter)",       "de": "Vorheriger (Shift+Enter)",      "fr": "Précédent (Maj+Entrée)",        "es": "Anterior (Mayús+Intro)"},
+    "term.search.next_tt":      {"it": "Successivo (Invio / F3)",       "en": "Next (Enter / F3)",            "de": "Nächster (Enter / F3)",         "fr": "Suivant (Entrée / F3)",         "es": "Siguiente (Intro / F3)"},
+    "term.search.prev_tt":      {"it": "Precedente (Shift+Invio / Shift+F3)", "en": "Previous (Shift+Enter / Shift+F3)", "de": "Vorheriger (Shift+Enter / Shift+F3)", "fr": "Précédent (Maj+Entrée / Maj+F3)", "es": "Anterior (Mayús+Intro / Mayús+F3)"},
     "term.search.no_match":     {"it": "Nessun risultato",            "en": "No matches",                   "de": "Keine Treffer",                 "fr": "Aucun résultat",                "es": "Sin resultados"},
 
     # ── terminal: bell ────────────────────────────────────────────────────────

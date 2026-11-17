@@ -115,6 +115,7 @@ class TerminalWidget(Gtk.Box):
         self._titolo_remoto = ""
         self._ultimo_segnale_attivita = 0
         self._search_timer = None
+        self._ultima_ricerca = None
         # Monitor latenza (SSH/Mosh): host/porta impostati da da_profilo,
         # eventuale probe preferito (SFTP via paramiko) impostato da PCM.
         self._ssh_host = ""
@@ -217,6 +218,10 @@ class TerminalWidget(Gtk.Box):
         self._vte.add_events(Gdk.EventMask.SCROLL_MASK)
         self._vte.connect("scroll-event", self._on_scroll)
 
+        # F3/Shift+F3 raggiunge questo gestore anche quando il focus è sui
+        # pulsanti della barra di ricerca (es. "Aa"): la ricerca deve
+        # proseguire finché la barra è aperta.
+        self.connect("key-press-event", self._on_searchbar_key_press)
         # Drag & drop: testo o file locali → percorso quotato nel terminale
         self._init_drag_drop()
 
@@ -1385,17 +1390,50 @@ class TerminalWidget(Gtk.Box):
             if key == "R":
                 self._reset_terminale()
                 return True
+        # F3/Shift+F3 → successivo/precedente, solo a barra di ricerca aperta:
+        # altrimenti il tasto deve arrivare ai programmi nel terminale (es. mc).
+        if (key == "F3" and not ctrl and not alt
+                and self._search_bar.get_search_mode()):
+            if shift:
+                self._cerca_indietro()
+            else:
+                self._cerca_avanti()
+            return True
         if ctrl and not shift and key == "F":
             self.mostra_cerca()
             return True
         return False
 
+    def _on_searchbar_key_press(self, widget, event):
+        """F3/Shift+F3 con la barra di ricerca aperta: successivo/precedente,
+        qualunque sia il widget della barra che ha il focus. A barra chiusa
+        il tasto passa invariato (es. F3 in Midnight Commander)."""
+        if not self._search_bar.get_search_mode():
+            return False
+        ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        alt = bool(event.state & Gdk.ModifierType.MOD1_MASK)
+        key = (Gdk.keyval_name(event.keyval) or "").upper()
+        if key != "F3" or ctrl or alt:
+            return False
+        if event.state & Gdk.ModifierType.SHIFT_MASK:
+            self._cerca_indietro()
+        else:
+            self._cerca_avanti()
+        return True
+
     def _on_search_key_press(self, widget, event):
-        """Shift+Enter nella search entry → cerca indietro; Escape → chiudi."""
+        """Shift+Enter → cerca indietro; F3/Shift+F3 → successivo/precedente;
+        Escape → chiudi."""
         shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
-        key   = Gdk.keyval_name(event.keyval).upper()
+        key   = (Gdk.keyval_name(event.keyval) or "").upper()
         if key == "RETURN" and shift:
             self._cerca_indietro()
+            return True
+        if key == "F3":
+            if shift:
+                self._cerca_indietro()
+            else:
+                self._cerca_avanti()
             return True
         if key == "ESCAPE":
             self._search_bar.set_search_mode(False)
@@ -1410,6 +1448,11 @@ class TerminalWidget(Gtk.Box):
         if attiva:
             self._search_entry.grab_focus()
         else:
+            if self._search_timer:
+                with contextlib.suppress(Exception):
+                    GLib.source_remove(self._search_timer)
+                self._search_timer = None
+            self._ultima_ricerca = None
             self._vte.search_set_regex(None, 0)
             self._vte.grab_focus()
 
@@ -1429,6 +1472,7 @@ class TerminalWidget(Gtk.Box):
         pattern = self._search_entry.get_text()
         self._lbl_count.set_text("")
         if not pattern:
+            self._ultima_ricerca = None
             self._vte.search_set_regex(None, 0)
             self._search_entry.get_style_context().remove_class("error")
             return
@@ -1445,7 +1489,11 @@ class TerminalWidget(Gtk.Box):
             self._vte.search_set_regex(regex, 0)
             self._vte.search_set_wrap_around(True)
             self._search_entry.get_style_context().remove_class("error")
+            self._ultima_ricerca = (pattern,
+                                    self._chk_case.get_active(),
+                                    regex_mode)
         except Exception:
+            self._ultima_ricerca = None
             self._search_entry.get_style_context().add_class("error")
             self._lbl_count.set_text(t("term.search.invalid"))
             return
@@ -1464,13 +1512,29 @@ class TerminalWidget(Gtk.Box):
         except Exception as e:
             _log.debug("Conteggio risultati ricerca fallito: %s", e)
 
+    def _flush_ricerca(self):
+        """Applica subito la ricerca corrente (Invio/F3), senza attendere il
+        debounce. Gtk.SearchEntry emette 'search-changed' con ~150 ms di
+        ritardo: non basta annullare il timer, va confrontata la firma."""
+        if self._search_timer:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._search_timer)
+            self._search_timer = None
+        firma = (self._search_entry.get_text(),
+                 self._chk_case.get_active(),
+                 self._chk_regex.get_active())
+        if firma != self._ultima_ricerca:
+            self._aggiorna_ricerca()
+
     def _cerca_avanti(self):
+        self._flush_ricerca()
         if not self._vte.search_find_next():
             self._search_entry.get_style_context().add_class("error")
         else:
             self._search_entry.get_style_context().remove_class("error")
 
     def _cerca_indietro(self):
+        self._flush_ricerca()
         if not self._vte.search_find_previous():
             self._search_entry.get_style_context().add_class("error")
         else:
