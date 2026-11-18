@@ -35,7 +35,78 @@ _SORGENTI = [
     ("tail -f {file}",                      "tail -f <file>"),
 ]
 
+# Scansione unica: file di log leggibili, servizi systemd attivi, container
+# Docker. I marker sono su righe dedicate e non contengono virgolette.
+_DISCOVERY_SCRIPT = (
+    "echo ===FILES; "
+    "find /var/log -maxdepth 3 -type f \\( "
+    "-name '*.log' -o -name 'syslog' -o -name 'messages' -o -name 'auth.log' "
+    "\\) -readable -exec du -h {} + 2>/dev/null | head -50; "
+    "echo ===SYSTEMD; "
+    "if command -v journalctl >/dev/null 2>&1; then "
+    "systemctl list-units --type=service --state=running --no-pager --no-legend "
+    "2>/dev/null | awk '{print $1}' | head -30; fi; "
+    "echo ===DOCKER; "
+    "if command -v docker >/dev/null 2>&1; then "
+    "docker ps --format '{{.Names}}' 2>/dev/null | head -25; fi"
+)
+
 _MAX_LINES = 5000
+
+
+def parse_sorgenti_log(output: str) -> dict[str, list[tuple[str, str]]]:
+    """Interpreta l'output di _DISCOVERY_SCRIPT.
+
+    Ritorna {files: [(cmd, label)], systemd: [...], docker: [...]}.
+    Le chiavi mancanti restano liste vuote. I comandi sono già shell-quoted.
+    """
+    gruppi: dict[str, list[tuple[str, str]]] = {
+        "files": [], "systemd": [], "docker": [],
+    }
+    sezione = ""
+    for riga in output.splitlines():
+        riga = riga.strip()
+        if not riga:
+            continue
+        if riga == "===FILES":
+            sezione = "files"
+            continue
+        if riga == "===SYSTEMD":
+            sezione = "systemd"
+            continue
+        if riga == "===DOCKER":
+            sezione = "docker"
+            continue
+
+        if sezione == "files":
+            # du -h separa dimensione e percorso con TAB (spazi nei path ok)
+            if "\t" in riga:
+                size, path = riga.split("\t", 1)
+            else:
+                parti = riga.split(None, 1)
+                size, path = (parti[0], parti[1]) if len(parti) == 2 else ("", parti[0])
+            path = path.strip()
+            if not path.startswith("/"):
+                continue
+            nome = os.path.basename(path)
+            label = f"{nome} ({size})" if size else nome
+            gruppi["files"].append((f"tail -f -n 200 {shlex.quote(path)}", label))
+
+        elif sezione == "systemd":
+            svc = riga.split()[0]
+            if not svc or svc.endswith(")"):
+                continue
+            nome = svc[:-8] if svc.endswith(".service") else svc
+            gruppi["systemd"].append(
+                (f"journalctl -f -n 200 -u {shlex.quote(svc)}", nome))
+
+        elif sezione == "docker":
+            nome = riga.split()[0]
+            if nome:
+                gruppi["docker"].append(
+                    (f"docker logs -f --tail 200 {shlex.quote(nome)}", nome))
+
+    return gruppi
 
 
 class LogViewerWidget(Gtk.Box):
@@ -53,6 +124,20 @@ class LogViewerWidget(Gtk.Box):
         self._gen         = 0              # generation counter — invalida thread vecchi
         self._stopped     = False          # True dopo chiudi_processo() — blocca _connetti()
         self._filter_re   = None
+        self._scoperta_in_corso = False
+
+        # Sorgenti del combo: i 4 template statici + quelle scoperte sul server.
+        # Ogni voce: {"cmd": template o comando, "label": testo, "placeholder": str}
+        self._sorgenti: list[dict] = [
+            {
+                "cmd": cmd,
+                "label": label,
+                "placeholder": ("nome.service" if "{svc}" in cmd
+                                else "/var/log/syslog" if "{file}" in cmd
+                                else ""),
+            }
+            for cmd, label in _SORGENTI
+        ]
 
         self._init_ui()
         self.connect("destroy", lambda w: self._stop())
@@ -75,38 +160,44 @@ class LogViewerWidget(Gtk.Box):
         tb.set_margin_top(4);   tb.set_margin_bottom(4)
 
         self._combo = Gtk.ComboBoxText()
-        for _, label in _SORGENTI:
-            self._combo.append_text(label)
+        for voce in self._sorgenti:
+            self._combo.append_text(voce["label"])
         self._combo.set_active(0)
-        self._combo.connect("changed", self._on_sorgente_cambiata)
+        self._combo_handler = self._combo.connect("changed",
+                                                  self._on_sorgente_cambiata)
         tb.pack_start(self._combo, False, False, 0)
 
+        self._btn_scopri = Gtk.Button(label="🔍")
+        self._btn_scopri.set_tooltip_text(t("log.discover_tooltip"))
+        self._btn_scopri.connect("clicked", lambda b: self._scopri_sorgenti())
+        tb.pack_start(self._btn_scopri, False, False, 0)
+
         self._extra = Gtk.Entry()
-        self._extra.set_placeholder_text("servizio o /path/file")
+        self._extra.set_placeholder_text(t("log.extra_ph"))
         self._extra.set_width_chars(22)
         self._extra.set_no_show_all(True)
         self._extra.hide()
         tb.pack_start(self._extra, False, False, 0)
 
-        btn = Gtk.Button(label="▶ Avvia")
+        btn = Gtk.Button(label=t("log.btn_start"))
         btn.connect("clicked", lambda b: self._riavvia())
         tb.pack_start(btn, False, False, 0)
 
         sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
         tb.pack_start(sep, False, False, 4)
-        tb.pack_start(Gtk.Label(label="Filtro:"), False, False, 0)
+        tb.pack_start(Gtk.Label(label=t("log.filter_label")), False, False, 0)
 
         self._filter_entry = Gtk.SearchEntry()
-        self._filter_entry.set_placeholder_text("regex…")
+        self._filter_entry.set_placeholder_text(t("log.filter_ph"))
         self._filter_entry.set_width_chars(18)
         self._filter_entry.connect("search-changed", self._on_filter_cambiato)
         tb.pack_start(self._filter_entry, False, False, 0)
 
-        self._chk_scroll = Gtk.CheckButton(label="Auto-scroll")
+        self._chk_scroll = Gtk.CheckButton(label=t("log.autoscroll"))
         self._chk_scroll.set_active(True)
         tb.pack_end(self._chk_scroll, False, False, 0)
 
-        btn_clear = Gtk.Button(label="Svuota")
+        btn_clear = Gtk.Button(label=t("log.btn_clear"))
         btn_clear.connect("clicked", lambda b: self._svuota())
         tb.pack_end(btn_clear, False, False, 0)
 
@@ -134,7 +225,7 @@ class LogViewerWidget(Gtk.Box):
         self._scroll.add(tv)
         self.pack_start(self._scroll, True, True, 0)
 
-        self._status = Gtk.Label(label="In attesa…")
+        self._status = Gtk.Label(label=t("log.waiting"))
         self._status.set_xalign(0.0)
         self._status.set_margin_start(6)
         self._status.set_margin_top(2)
@@ -146,9 +237,11 @@ class LogViewerWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _on_sorgente_cambiata(self, combo):
-        tmpl = _SORGENTI[combo.get_active()][0]
-        if "{svc}" in tmpl or "{file}" in tmpl:
-            ph = "nome.service" if "{svc}" in tmpl else "/var/log/syslog"
+        idx = combo.get_active()
+        if idx < 0 or idx >= len(self._sorgenti):
+            return
+        ph = self._sorgenti[idx].get("placeholder", "")
+        if ph:
             self._extra.set_placeholder_text(ph)
             self._extra.show()
         else:
@@ -164,8 +257,10 @@ class LogViewerWidget(Gtk.Box):
             entry.get_style_context().add_class("error")
 
     def _get_cmd(self) -> str:
-        idx  = self._combo.get_active()
-        tmpl = _SORGENTI[idx][0]
+        idx = self._combo.get_active()
+        if idx < 0 or idx >= len(self._sorgenti):
+            return ""
+        tmpl = self._sorgenti[idx]["cmd"]
         extra = self._extra.get_text().strip()
         if "{svc}" in tmpl:
             safe = shlex.quote(extra) if extra else "ssh"
@@ -174,6 +269,123 @@ class LogViewerWidget(Gtk.Box):
             safe = shlex.quote(extra) if extra else "/var/log/syslog"
             return tmpl.format(file=safe)
         return tmpl
+
+    # ------------------------------------------------------------------
+    # Auto-discovery sorgenti log (/var/log, systemd, docker)
+    # ------------------------------------------------------------------
+
+    def _scopri_sorgenti(self):
+        """Avvia la scansione remota (thread separato, un solo canale)."""
+        if self._scoperta_in_corso:
+            return
+        if not self._ssh:
+            self._set_status(t("log.discover_no_ssh"))
+            return
+        if self._stopped:
+            return
+        self._scoperta_in_corso = True
+        self._btn_scopri.set_sensitive(False)
+        self._set_status(t("log.discover_running"))
+        threading.Thread(target=self._scopri_worker, daemon=True).start()
+
+    def _scopri_worker(self):
+        output = ""
+        errore = ""
+        channel = None
+        try:
+            transport = self._ssh.get_transport() if self._ssh else None
+            if transport is None or not transport.is_active():
+                errore = t("log.discover_no_ssh")
+            else:
+                channel = transport.open_session()
+                channel.settimeout(8.0)
+                channel.exec_command(_DISCOVERY_SCRIPT)
+                pezzi = []
+                try:
+                    while True:
+                        data = channel.recv(4096)
+                        if not data:
+                            break
+                        pezzi.append(data.decode("utf-8", errors="replace"))
+                except Exception as e:
+                    # Timeout: usa comunque l'output già ricevuto (la scansione
+                    # può essere lenta su /var/log molto grandi).
+                    if not pezzi:
+                        raise
+                    _get_log(__name__).debug(
+                        "Discovery interrotta, uso output parziale: %s", e)
+                output = "".join(pezzi)
+        except Exception as e:
+            errore = str(e)
+        finally:
+            if channel:
+                try:
+                    channel.close()
+                except Exception as e:
+                    _get_log(__name__).debug("Canale discovery close fallito: %s", e)
+
+        if self._stopped:
+            return
+        if errore:
+            GLib.idle_add(self._scoperta_finita, None, errore)
+        else:
+            GLib.idle_add(self._scoperta_finita, parse_sorgenti_log(output), "")
+
+    def _scoperta_finita(self, gruppi, errore: str):
+        self._scoperta_in_corso = False
+        if self._stopped:
+            return
+        self._btn_scopri.set_sensitive(True)
+        if errore or gruppi is None:
+            self._set_status(t("log.discover_error", e=errore or "?"))
+            return
+        self._applica_sorgenti(gruppi)
+
+    def _applica_sorgenti(self, gruppi: dict):
+        """Ricostruisce il combo: template statici + sorgenti trovate."""
+        etichette = {
+            "files":   t("log.src_file"),
+            "systemd": t("log.src_systemd"),
+            "docker":  t("log.src_docker"),
+        }
+        selezione = self._get_cmd()
+        nuove = [dict(v) for v in self._sorgenti[:len(_SORGENTI)]]
+        viste = {v["cmd"] for v in nuove}
+        for chiave in ("files", "systemd", "docker"):
+            for cmd, label in gruppi.get(chiave, []):
+                if cmd in viste:
+                    continue
+                viste.add(cmd)
+                nuove.append({
+                    "cmd": cmd,
+                    "label": f"{etichette[chiave]} · {label}",
+                    "placeholder": "",
+                })
+
+        trovate = len(nuove) - len(_SORGENTI)
+        self._sorgenti = nuove
+
+        self._combo.handler_block(self._combo_handler)
+        try:
+            self._combo.remove_all()
+            for voce in self._sorgenti:
+                self._combo.append_text(voce["label"])
+            ripristinata = False
+            for i, voce in enumerate(self._sorgenti):
+                if voce["cmd"] == selezione:
+                    self._combo.set_active(i)
+                    ripristinata = True
+                    break
+            if not ripristinata:
+                self._combo.set_active(0)
+        finally:
+            self._combo.handler_unblock(self._combo_handler)
+
+        self._on_sorgente_cambiata(self._combo)
+        if trovate:
+            self._set_status(t("log.discover_done", n=trovate))
+        else:
+            self._set_status(t("log.discover_none"))
 
     # ------------------------------------------------------------------
     # Connessione SSH propria (usata solo se existing_ssh=None)

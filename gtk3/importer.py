@@ -40,10 +40,12 @@ Formato RDM JSON reale
 
 from __future__ import annotations
 import configparser
+import glob
 import json
 import os
 import sys
 import xml.etree.ElementTree as ET
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Optional
 
@@ -641,72 +643,295 @@ def importa_putty(percorso: Optional[str] = None) -> dict:
 # ===========================================================================
 # Import ~/.ssh/config
 # ===========================================================================
+#
+# Il parser segue la semantica di OpenSSH:
+#   • Include ricorsivi (glob, ~, percorsi relativi a ~/.ssh) con anti-ciclo
+#   • Host con alias multipli ("Host a b c") → una sessione per alias
+#   • Host con wildcard (*, ?) e negazioni (!): usati come default, non
+#     generano sessioni
+#   • "prima occorrenza vince" e default globali prima del primo Host
+#   • token %%, %h, %n, %p, %r, %u, %d e tilde
+#   • blocchi Match ignorati (non supportiamo i criteri condizionali)
+#
+# Limiti noti: ProxyCommand/ProxyJump a più salti vengono ridotti al primo
+# hop (PCM gestisce un solo jump host); le direttive non mappate sono scartate.
 
-def importa_ssh_config(percorso: Optional[str] = None) -> dict:
+_SSH_INCLUDE_MAX_DEPTH = 16
+
+
+def _ssh_unquote(valore: str) -> str:
+    """Rimuove le virgolette di apertura/chiusura usate da OpenSSH."""
+    if len(valore) >= 2 and valore[0] == valore[-1] and valore[0] in "\"'":
+        return valore[1:-1]
+    return valore
+
+
+def _ssh_dividi_direttiva(riga: str) -> "tuple[str, str]":
+    """Divide 'Key value' oppure 'Key=value' in (chiave_lower, valore)."""
+    riga = riga.strip()
+    if "=" in riga:
+        chiave, valore = riga.split("=", 1)
+        # Non confondere 'ProxyCommand ssh -o Foo=bar' con un 'Key=value'
+        if " " not in chiave.strip() and "\t" not in chiave.strip():
+            return chiave.strip().lower(), valore.strip()
+    parti = riga.split(None, 1)
+    chiave = parti[0].lower()
+    valore = parti[1].strip() if len(parti) > 1 else ""
+    return chiave, valore
+
+
+def _ssh_tokens(valore: str, alias: str, hostname: str, user: str,
+                port: str) -> str:
+    """Espande i token OpenSSH (%%, %h, %n, %p, %r, %u, %d) e la tilde.
+
+    I token sconosciuti (%C, %L, %i, ...) restano invariati.
     """
-    Legge ~/.ssh/config e crea una sessione SSH per ogni blocco Host
-    (esclude 'Host *' che è il blocco globale).
+    if not isinstance(valore, str) or not valore:
+        return valore
+    out: list[str] = []
+    i = 0
+    while i < len(valore):
+        ch = valore[i]
+        if ch != "%" or i + 1 >= len(valore):
+            out.append(ch)
+            i += 1
+            continue
+        tok = valore[i + 1]
+        i += 2
+        if tok == "%":
+            out.append("%")
+        elif tok == "h":
+            out.append(hostname)
+        elif tok == "n":
+            out.append(alias)
+        elif tok == "p":
+            out.append(str(port))
+        elif tok == "r":
+            out.append(user)
+        elif tok == "u":
+            out.append(os.environ.get("USER") or os.environ.get("LOGNAME") or "")
+        elif tok == "d":
+            out.append(os.path.expanduser("~"))
+        else:
+            out.append("%" + tok)
+    return os.path.expanduser("".join(out))
+
+
+def _ssh_righe_config(percorso: str, visitati: Optional[set] = None,
+                      depth: int = 0):
+    """Generatore di (chiave, valore) con gli Include espansi sul posto.
+
+    Un Include dentro un blocco Host continua quel blocco, esattamente come
+    se il contenuto fosse stato incollato nel file (semantica OpenSSH).
     """
-    cfg_path = percorso or os.path.expanduser("~/.ssh/config")
-    if not os.path.isfile(cfg_path):
-        return {}
+    if visitati is None:
+        visitati = set()
+    if depth > _SSH_INCLUDE_MAX_DEPTH:
+        return
 
-    profili: dict = {}
-    current_host: Optional[str] = None
-    current: dict = {}
-
-    def _flush():
-        nonlocal current_host, current
-        if current_host and current_host != "*" and not current_host.startswith("*"):
-            host     = current.get("hostname", current_host)
-            port     = current.get("port", "22")
-            user     = current.get("user", "")
-            pkey     = current.get("identityfile", "").replace("~", os.path.expanduser("~"))
-            jump_raw = current.get("proxyjump", "")
-            jump_host = jump_port = jump_user = ""
-            if jump_raw:
-                parts = jump_raw.split("@")
-                if len(parts) == 2:
-                    jump_user, jump_rest = parts
-                else:
-                    jump_rest = parts[0]
-                jp = jump_rest.split(":")
-                jump_host = jp[0]
-                jump_port = jp[1] if len(jp) > 1 else "22"
-
-            profili[current_host] = {
-                "protocol":    "ssh",
-                "host":        host,
-                "port":        port,
-                "user":        user,
-                "private_key": pkey,
-                "jump_host":   jump_host,
-                "jump_user":   jump_user,
-                "jump_port":   jump_port or "22",
-                "group":       "SSH Config",
-                "notes":       f"Importato da ~/.ssh/config (alias: {current_host})",
-            }
-        current_host = None
-        current = {}
+    reale = os.path.realpath(os.path.expanduser(percorso))
+    if reale in visitati:          # ciclo di Include
+        return
+    visitati.add(reale)
 
     try:
-        with open(cfg_path, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                parts = line.split(None, 1)
-                if len(parts) < 2:
-                    continue
-                key, val = parts[0].lower(), parts[1].strip()
-                if key == "host":
-                    _flush()
-                    current_host = val
-                elif current_host:
-                    current[key] = val
-        _flush()
-    except Exception as e:
-        _get_log(__name__).warning("Errore ssh_config: %s", e)
+        f = open(reale, "r", encoding="utf-8", errors="replace")
+    except OSError:
+        return
+
+    with f:
+        for riga in f:
+            riga = riga.strip()
+            if not riga or riga.startswith("#"):
+                continue
+            chiave, valore = _ssh_dividi_direttiva(riga)
+            if not chiave:
+                continue
+
+            if chiave == "include" and valore:
+                for pattern in valore.split():
+                    espanso = os.path.expanduser(_ssh_unquote(pattern))
+                    base_ssh = os.path.join(os.path.expanduser("~"), ".ssh")
+                    if not os.path.isabs(espanso):
+                        # OpenSSH risolve i percorsi relativi in ~/.ssh.
+                        # Se lì non esiste nulla, ripiega sulla cartella del
+                        # file che contiene l'Include (utile per import da
+                        # path arbitrari e per i test).
+                        candidato = os.path.join(base_ssh, espanso)
+                        if glob.glob(candidato):
+                            espanso = candidato
+                        else:
+                            espanso = os.path.join(
+                                os.path.dirname(reale), espanso)
+                    for incluso in sorted(glob.glob(espanso)):
+                        yield from _ssh_righe_config(
+                            incluso, visitati, depth + 1)
+                continue
+
+            yield chiave, _ssh_unquote(valore)
+
+
+def _ssh_pattern_match(pattern: str, alias: str) -> bool:
+    return fnmatchcase(alias.lower(), pattern.lower())
+
+
+def _ssh_host_matches(patterns: list[str], alias: str) -> bool:
+    """True se alias rientra nei pattern di un blocco Host (con negazioni)."""
+    positivo = False
+    for p in patterns:
+        if not p:
+            continue
+        if p.startswith("!"):
+            if _ssh_pattern_match(p[1:], alias):
+                return False
+        elif _ssh_pattern_match(p, alias):
+            positivo = True
+    return positivo
+
+
+def _ssh_blocchi(percorso: str) -> "list[tuple[list[str], dict]]":
+    """Legge la config in blocchi (patterns, opzioni) in ordine di apparizione.
+
+    Le direttive prima del primo Host valgono per tutti gli host e diventano
+    un blocco implicito ['*'].
+    """
+    blocchi: list[tuple[list[str], dict]] = []
+    patterns: Optional[list[str]] = None   # None = ancora in stato globale
+    opts: dict = {}
+    in_match = False
+
+    def _chiudi():
+        if patterns is not None and patterns:
+            blocchi.append((patterns, dict(opts)))
+        elif patterns is None and opts:
+            blocchi.append((["*"], dict(opts)))
+
+    for chiave, valore in _ssh_righe_config(percorso):
+        if chiave == "host":
+            _chiudi()
+            patterns = valore.split()
+            opts = {}
+            in_match = False
+        elif chiave == "match":
+            _chiudi()
+            patterns = None
+            opts = {}
+            in_match = True
+        elif in_match:
+            continue
+        else:
+            # Prima occorrenza vince (ssh usa il primo valore trovato)
+            opts.setdefault(chiave, valore)
+
+    _chiudi()
+    return blocchi
+
+
+def _ssh_scomponi_salto(valore: str) -> "tuple[str, str, str]":
+    """Divide un hop ProxyJump (host, utente, porta).
+
+    Supporta: host, user@host, host:porta, user@host:porta,
+    [user@host]:porta, ssh://user@host:porta.
+    """
+    v = valore.strip()
+    if v.lower().startswith("ssh://"):
+        v = v[6:]
+
+    # IPv6 tra parentesi quadre: [utente@host]:porta — va gestito prima
+    # dello split su '@', altrimenti l'utente resterebbe attaccato alla '['
+    if v.startswith("["):
+        fine = v.find("]")
+        if fine > 0:
+            interno = v[1:fine]
+            resto = v[fine + 1:]
+            utente = ""
+            if "@" in interno:
+                utente, interno = interno.rsplit("@", 1)
+            porta = resto[1:] if resto.startswith(":") else "22"
+            return interno, utente, porta or "22"
+
+    utente = ""
+    if "@" in v:
+        utente, v = v.rsplit("@", 1)
+    if ":" in v:
+        host, porta = v.rsplit(":", 1)
+        return host, utente, porta or "22"
+    return v, utente, "22"
+
+
+def _ssh_proxy_jump(raw: str, alias: str, hostname: str, user: str,
+                    port: str) -> "tuple[str, str, str, str]":
+    """Ritorna (jump_host, jump_user, jump_port, catena_completa)."""
+    if not raw:
+        return "", "", "22", ""
+    if raw.strip().lower() == "none":
+        return "", "", "22", ""
+    catena = [_ssh_tokens(h.strip(), alias, hostname, user, port)
+              for h in raw.split(",") if h.strip()]
+    if not catena:
+        return "", "", "22", ""
+    host, utente, porta = _ssh_scomponi_salto(catena[0])
+    return host, utente, porta or "22", ",".join(catena)
+
+
+def importa_ssh_config(percorso: Optional[str] = None) -> dict:
+    """Importa ~/.ssh/config creando una sessione SSH per ogni alias Host.
+
+    Gestisce Include, alias multipli, default globali/Host * e token OpenSSH.
+    Gli host con wildcard non generano sessioni (ma restano come default).
+    """
+    cfg_path = percorso or os.path.expanduser("~/.ssh/config")
+    if not os.path.isfile(os.path.expanduser(cfg_path)):
+        return {}
+
+    blocchi = _ssh_blocchi(cfg_path)
+
+    # Alias concreti nell'ordine di comparsa, senza duplicati
+    alias_list: list[str] = []
+    visti: set[str] = set()
+    for patterns, _ in blocchi:
+        for p in patterns:
+            if not p or p.startswith("!") or "*" in p or "?" in p:
+                continue
+            if p.lower() in visti:
+                continue
+            visti.add(p.lower())
+            alias_list.append(p)
+
+    profili: dict = {}
+    for alias in alias_list:
+        eff: dict = {}
+        for patterns, opts in blocchi:
+            if not _ssh_host_matches(patterns, alias):
+                continue
+            for k, v in opts.items():
+                eff.setdefault(k, v)
+
+        port = eff.get("port", "22") or "22"
+        user = eff.get("user", "")
+        hostname = _ssh_tokens(eff.get("hostname", "") or alias,
+                               alias, alias, user, port)
+        pkey = _ssh_tokens(eff.get("identityfile", ""),
+                           alias, hostname, user, port)
+        jump_host, jump_user, jump_port, catena = _ssh_proxy_jump(
+            eff.get("proxyjump", ""), alias, hostname, user, port)
+
+        note = f"Importato da {os.path.basename(cfg_path)} (alias: {alias})"
+        if catena and "," in catena:
+            note += f" — ProxyJump: {catena} (PCM usa il primo hop)"
+
+        profili[alias] = {
+            "protocol":    "ssh",
+            "host":        hostname,
+            "port":        port,
+            "user":        user,
+            "private_key": pkey,
+            "jump_host":   jump_host,
+            "jump_user":   jump_user,
+            "jump_port":   jump_port or "22",
+            "group":       "SSH Config",
+            "notes":       note,
+        }
 
     return profili
 

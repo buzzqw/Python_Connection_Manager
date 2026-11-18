@@ -83,7 +83,8 @@ class TerminalWidget(Gtk.Box):
                  font_size=11, log_dir="", paste_on_right_click=False,
                  warn_paste=False, encoding="UTF-8", bell="none",
                  scrollback_lines=10000, infinite_scrollback=False,
-                 word_char_exceptions=None, copy_on_select=False, parent=None):
+                 word_char_exceptions=None, copy_on_select=False,
+                 follow_cwd=False, parent=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
         self._bg = bg
@@ -95,6 +96,9 @@ class TerminalWidget(Gtk.Box):
         self._paste_on_right_click = paste_on_right_click
         self._warn_paste = warn_paste
         self._copy_on_select = bool(copy_on_select)
+        self._follow_cwd = bool(follow_cwd)
+        self._follow_timer = None
+        self._ultima_dir_seguita = ""
         self._encoding = encoding
         self._bell = bell
         self._scrollback_lines = self._parse_int(scrollback_lines, 10000)
@@ -342,6 +346,41 @@ class TerminalWidget(Gtk.Box):
 
     def _on_cwd_changed(self, terminal):
         self._cwd_uri = terminal.get_current_directory_uri() or ""
+        if self._follow_cwd:
+            self._programma_segui_cwd()
+
+    # ------------------------------------------------------------------
+    # Auto-follow della working directory (OSC 7) → pannello SFTP/FTP
+    # ------------------------------------------------------------------
+
+    def _programma_segui_cwd(self):
+        """Debounce: la shell può emettere OSC 7 più volte in raffica."""
+        if self._follow_timer:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._follow_timer)
+        self._follow_timer = GLib.timeout_add(500, self._segui_cwd)
+
+    def _segui_cwd(self):
+        self._follow_timer = None
+        if not self._cwd_uri.startswith("file:"):
+            return False
+        percorso = self._percorso_corrente()
+        if not percorso or percorso == self._ultima_dir_seguita:
+            return False
+        browser = self._browser_sftp()
+        if browser is None:
+            return False
+        try:
+            if hasattr(browser, "_naviga"):
+                browser._naviga(percorso)
+            elif getattr(browser, "_remote_panel", None) is not None:
+                browser._remote_panel.naviga(percorso)
+            else:
+                return False
+            self._ultima_dir_seguita = percorso
+        except Exception as e:
+            _log.debug("Auto-follow cwd fallito per %r: %s", percorso, e)
+        return False
 
     def _on_hyperlink_hover(self, _terminal, uri, _bbox=None):
         self._vte.set_tooltip_text(uri or None)
@@ -386,6 +425,10 @@ class TerminalWidget(Gtk.Box):
             with contextlib.suppress(Exception):
                 GLib.source_remove(self._search_timer)
             self._search_timer = None
+        if self._follow_timer:
+            with contextlib.suppress(Exception):
+                GLib.source_remove(self._follow_timer)
+            self._follow_timer = None
         self._ferma_latenza()
 
     # ------------------------------------------------------------------
@@ -1671,17 +1714,20 @@ class TerminalWidget(Gtk.Box):
             st_terminal = load_settings().get("terminal", {})
             word_chars = st_terminal.get("word_delimiters", "")
             copy_on_select = bool(st_terminal.get("copy_on_select", False))
+            follow_cwd = bool(st_terminal.get("follow_cwd", False))
         except Exception as e:
             _log.debug("Impossibile leggere le impostazioni del terminale: %s", e)
             word_chars = ""
             copy_on_select = False
+            follow_cwd = False
         widget = cls(bg=bg, fg=fg, font=font, font_size=size, log_dir=log_dir,
                      paste_on_right_click=paste_right, warn_paste=warn_paste,
                      encoding=encoding, bell=bell,
                      scrollback_lines=scrollback,
                      infinite_scrollback=infinite_sb,
                      word_char_exceptions=word_chars or None,
-                     copy_on_select=copy_on_select)
+                     copy_on_select=copy_on_select,
+                     follow_cwd=follow_cwd)
         widget._ssh_host = str(profilo.get("host", "") or "").strip()
         widget._ssh_protocol = str(profilo.get("protocol", "") or "").lower()
         with contextlib.suppress(TypeError, ValueError):

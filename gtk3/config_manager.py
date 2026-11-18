@@ -344,6 +344,7 @@ DEFAULT_SETTINGS = {
         "warn_multiline_paste": True,
         "paste_on_right_click": False,
         "copy_on_select": False,
+        "follow_cwd": False,
     },
     "ssh": {
         "keepalive_interval": 60,
@@ -368,6 +369,7 @@ DEFAULT_SETTINGS = {
         "next_tab": "Ctrl+Alt+Right",
         "new_session": "Ctrl+Shift+N",
         "toggle_sidebar": "Ctrl+Shift+B",
+        "toggle_zen": "Ctrl+Shift+Z",
         "find": "Ctrl+Shift+F",
         "quick_switcher": "Ctrl+Shift+P",
         "fullscreen": "F11",

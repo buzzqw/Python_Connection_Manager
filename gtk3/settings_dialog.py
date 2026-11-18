@@ -247,6 +247,10 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_copy_on_select.set_tooltip_text(t("tt.term_copy_on_select"))
         grid.attach(self.chk_copy_on_select, 0, row, 2, 1); row += 1
 
+        self.chk_follow_cwd = Gtk.CheckButton(label=t("settings.terminal.follow_cwd"))
+        self.chk_follow_cwd.set_tooltip_text(t("tt.term_follow_cwd"))
+        grid.attach(self.chk_follow_cwd, 0, row, 2, 1); row += 1
+
         self.chk_log = Gtk.CheckButton(label=t("settings.terminal.log_output"))
         grid.attach(self.chk_log, 0, row, 2, 1); row += 1
 
@@ -637,6 +641,7 @@ class SettingsDialog(Gtk.Dialog):
             "next_tab":       "settings.shortcuts.next_tab",
             "new_session":    "settings.shortcuts.new_session",
             "toggle_sidebar": "settings.shortcuts.toggle_sidebar",
+            "toggle_zen":     "settings.shortcuts.toggle_zen",
             "find":           "settings.shortcuts.find",
             "quick_switcher": "settings.shortcuts.quick_switcher",
             "fullscreen":     "settings.shortcuts.fullscreen",
@@ -711,6 +716,7 @@ class SettingsDialog(Gtk.Dialog):
         self.chk_warn_paste.set_active(ts.get("warn_multiline_paste", True))
         self.chk_paste_right.set_active(ts.get("paste_on_right_click", False))
         self.chk_copy_on_select.set_active(ts.get("copy_on_select", False))
+        self.chk_follow_cwd.set_active(ts.get("follow_cwd", False))
         self.chk_log.set_active(ts.get("log_output", False))
         self.entry_log_dir.set_text(ts.get("log_dir", os.path.join(os.path.expanduser("~"), ".local", "share", "pcm", "logs")))
 
@@ -789,6 +795,7 @@ class SettingsDialog(Gtk.Dialog):
         s["terminal"]["warn_multiline_paste"] = self.chk_warn_paste.get_active()
         s["terminal"]["paste_on_right_click"] = self.chk_paste_right.get_active()
         s["terminal"]["copy_on_select"] = self.chk_copy_on_select.get_active()
+        s["terminal"]["follow_cwd"] = self.chk_follow_cwd.get_active()
         s["terminal"]["log_output"] = self.chk_log.get_active()
         s["terminal"]["log_dir"] = self.entry_log_dir.get_text().strip()
 

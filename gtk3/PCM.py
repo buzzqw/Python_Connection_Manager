@@ -220,6 +220,10 @@ class MainWindow(Gtk.ApplicationWindow):
         with contextlib.suppress(Exception):
             config_manager.cleanup_stale_temp_files()
         self._profili:  dict = {}
+        self._zen_attivo = False
+        self._zen_stato: dict = {}
+        # Sessioni staccate: restano vive in background, fuori dal notebook.
+        self._parcheggiate: list[dict] = []
 
         # Icona finestra
         pb = _load_icon("app.png", 64)
@@ -227,6 +231,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.set_icon(pb)
 
         self._build_ui()
+        self._applica_visibilita_salvata()
         self._connect_signals()
         self._setup_accels()
 
@@ -525,6 +530,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Barra inferiore: toast notifications + statusbar
         bottom_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         bottom_bar.get_style_context().add_class("bottom-bar")
+        self._bottom_bar = bottom_bar
 
         self._toast_revealer = Gtk.Revealer()
         self._toast_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_UP)
@@ -653,6 +659,29 @@ class MainWindow(Gtk.ApplicationWindow):
         self._menu_btn.set_popup(self._build_menu())
         hb.pack_end(self._menu_btn)
 
+        # Sessioni parcheggiate (tab staccate ma vive in background)
+        self._btn_parcheggiate = Gtk.MenuButton()
+        self._btn_parcheggiate.set_tooltip_text(t("tab.parked_tooltip"))
+        _park_box = Gtk.Box(spacing=2)
+        _park_box.pack_start(
+            Gtk.Image.new_from_icon_name("media-playback-pause-symbolic", Gtk.IconSize.BUTTON),
+            False, False, 0)
+        self._lbl_parcheggiate = Gtk.Label(label="")
+        _park_box.pack_start(self._lbl_parcheggiate, False, False, 0)
+        self._btn_parcheggiate.add(_park_box)
+        self._pop_parcheggiate = Gtk.Popover()
+        self._pop_parcheggiate_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self._pop_parcheggiate_box.set_margin_start(8)
+        self._pop_parcheggiate_box.set_margin_end(8)
+        self._pop_parcheggiate_box.set_margin_top(8)
+        self._pop_parcheggiate_box.set_margin_bottom(8)
+        self._pop_parcheggiate.add(self._pop_parcheggiate_box)
+        self._pop_parcheggiate.connect("show", self._on_parked_popover_show)
+        self._btn_parcheggiate.set_popover(self._pop_parcheggiate)
+        self._btn_parcheggiate.set_no_show_all(True)
+        self._btn_parcheggiate.hide()
+        hb.pack_end(self._btn_parcheggiate)
+
         # Impostazioni (rotella ⚙)
         btn_set = Gtk.Button()
         btn_set.set_tooltip_text(t("toolbar.settings.tooltip"))
@@ -691,6 +720,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.help.guide"),        self._on_guida)
         _item(t("menu.help.about"),        self._on_about)
         menu.append(Gtk.SeparatorMenuItem())
+        _item(t("menu.view.zen"),          self._toggle_zen_mode)
         _item(t("menu.file.quit"),         self._on_esci)
 
         menu.show_all()
@@ -1005,11 +1035,47 @@ class MainWindow(Gtk.ApplicationWindow):
         return acceleratore, key, mod
 
     def _toggle_sidebar(self):
+        if self._zen_attivo:
+            # In modalità Zen il primo Ctrl+Shift+B ripristina il layout
+            self._toggle_zen_mode()
+            return True
         visibile = self._pannello.get_visible()
         self._pannello.set_visible(not visibile)
         s = config_manager.load_settings()
         s.setdefault("display", {})["sidebar_visible"] = not visibile
         config_manager.save_settings(s)
+        return True
+
+    def _applica_visibilita_salvata(self):
+        """Applica display.sidebar_visible / statusbar_visible all'avvio.
+
+        Le chiavi esistevano già nelle impostazioni ma non venivano mai lette.
+        """
+        display = self._settings.get("display", {})
+        self._pannello.set_visible(bool(display.get("sidebar_visible", True)))
+        self._bottom_bar.set_visible(bool(display.get("statusbar_visible", True)))
+
+    def _toggle_zen_mode(self):
+        """Modalità Zen: solo terminali, senza sidebar, info panel e statusbar.
+
+        L'headerbar resta visibile perché su Wayland è l'unico controllo
+        finestra (chiudi/riduci/trascina): nasconderlo renderebbe la finestra
+        difficile da gestire.
+        """
+        self._zen_attivo = not self._zen_attivo
+        if self._zen_attivo:
+            self._zen_stato = {
+                "sidebar": self._pannello.get_visible(),
+                "bottom":  self._bottom_bar.get_visible(),
+                "info":    self._info_panel.get_visible(),
+            }
+            self._pannello.set_visible(False)
+            self._bottom_bar.set_visible(False)
+            self._info_panel.set_visible(False)
+        else:
+            self._pannello.set_visible(self._zen_stato.get("sidebar", True))
+            self._bottom_bar.set_visible(self._zen_stato.get("bottom", True))
+            self._info_panel.set_visible(self._zen_stato.get("info", False))
         return True
 
     def _toggle_fullscreen(self):
@@ -1037,6 +1103,7 @@ class MainWindow(Gtk.ApplicationWindow):
             "find":           self._attiva_ricerca_terminale,
             "quick_switcher": self._on_quick_switcher,
             "toggle_sidebar": self._toggle_sidebar,
+            "toggle_zen":     self._toggle_zen_mode,
             "fullscreen":     self._toggle_fullscreen,
         }
 
@@ -1052,6 +1119,22 @@ class MainWindow(Gtk.ApplicationWindow):
             solo_ctrl = (mod & Gtk.accelerator_get_default_mod_mask()) == Gdk.ModifierType.CONTROL_MASK
             ag.connect(key, mod, Gtk.AccelFlags.VISIBLE,
                        lambda *a, cb=azione, sc=solo_ctrl: self._esegui_accel(cb, sc))
+
+        # Modalità Zen: shortcut fissa per le configurazioni che non la
+        # includono ancora (le impostazioni salvate hanno la precedenza).
+        if "toggle_zen" not in shortcuts:
+            key_zen, mod_zen = Gtk.accelerator_parse("<Primary><Shift>Z")
+            if key_zen:
+                ag.connect(key_zen, mod_zen, Gtk.AccelFlags.VISIBLE,
+                           lambda *_: self._toggle_zen_mode())
+
+        # Parcheggia la scheda corrente in background (session detach)
+        key_park, mod_park = Gtk.accelerator_parse("<Primary><Shift>H")
+        if key_park:
+            def _az_parcheggia(*_a):
+                self._parcheggia_tab()
+                return True
+            ag.connect(key_park, mod_park, Gtk.AccelFlags.VISIBLE, _az_parcheggia)
 
         key_fissa, mod_fissa = Gtk.accelerator_parse("<Primary><Shift>G")
         if key_fissa:
@@ -2303,7 +2386,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
 
     def _get_open_session_names(self) -> set:
-        """Nomi delle sessioni con tab aperta e processo ancora vivo (no ✖)."""
+        """Nomi delle sessioni con tab aperta o parcheggiata e processo vivo."""
         names = set()
         for nb in (self._notebook, self._notebook2):
             for i in range(nb.get_n_pages()):
@@ -2311,6 +2394,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 nome = self._get_tab_nome(page)
                 if nome and not nome.startswith("✖"):
                     names.add(nome)
+        for entry in getattr(self, "_parcheggiate", []):
+            nome = entry.get("nome", "")
+            if nome and not nome.startswith("✖"):
+                names.add(nome)
         return names
 
     def _widget_terminale(self, widget):
@@ -2434,6 +2521,153 @@ class MainWindow(Gtk.ApplicationWindow):
             self._notebook_attivo = self._notebook
             self._aggiorna_split_indicator("single")
 
+    # ------------------------------------------------------------------
+    # Session detach: "parcheggia" una scheda in background
+    # ------------------------------------------------------------------
+
+    def _pulisci_widget_tree(self, w):
+        """Chiude processi e socket di un widget (ricorsivo sui Paned)."""
+        if not w:
+            return
+        if hasattr(w, "chiudi_processo"):
+            try:
+                w.chiudi_processo()
+            except Exception as e:
+                _log.debug("chiudi_processo fallito su %s: %s", w, e)
+        elif hasattr(w, "chiudi"):
+            try:
+                w.chiudi()
+            except Exception as e:
+                _log.debug("chiudi fallito su %s: %s", w, e)
+        if hasattr(w, "get_child1"):
+            self._pulisci_widget_tree(w.get_child1())
+            self._pulisci_widget_tree(w.get_child2())
+
+    def _parcheggia_tab(self, notebook=None, idx: int = -1):
+        """Stacca la scheda dal notebook lasciando vivo il processo.
+
+        Il widget resta realizzato e referenziato in _parcheggiate: VTE e i
+        worker continuano a girare, il keepalive del terminale resta attivo.
+        """
+        nb = notebook or self._notebook_attivo
+        if idx < 0:
+            idx = nb.get_current_page()
+        page = nb.get_nth_page(idx)
+        if page is None or page not in self._tab_labels:
+            return False          # Home o pagina non valida
+
+        nome = self._get_tab_nome(page) or "?"
+        nb.remove_page(idx)
+        page._pcm_parked = True
+        self._widget_nb_map.pop(page, None)
+        self._parcheggiate.append({"widget": page, "nome": nome})
+
+        if nb is self._notebook2 and nb.get_n_pages() == 0:
+            self._notebook2.hide()
+            self._notebook_attivo = self._notebook
+            self._aggiorna_split_indicator("single")
+
+        self._aggiorna_parcheggiate()
+        self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
+        self._status(t("tab.parked_status", name=nome.lstrip("📌✖ ")))
+        return True
+
+    def _riprendi_parcheggiata(self, entry: dict):
+        """Rimette in un tab una sessione parcheggiata."""
+        if entry not in self._parcheggiate:
+            return False
+        self._parcheggiate.remove(entry)
+        w = entry["widget"]
+        nome = entry["nome"]
+        w._pcm_parked = False
+
+        lbl_box, lbl, btn, dot = self._make_tab_label(
+            nome, lambda: self._chiudi_tab(w))
+        self._tab_labels[w] = lbl
+        self._tab_dots[w] = dot
+        dot.set_visible(getattr(w, "_pcm_attivita", False))
+        w._tab_close_btn = btn
+        w._pcm_tab_nome = nome
+
+        nb = self._notebook
+        self._widget_nb_map[w] = nb
+        nb.append_page(w, lbl_box)
+        nb.set_tab_reorderable(w, True)
+        nb.set_current_page(nb.get_n_pages() - 1)
+        w.show()
+        GLib.idle_add(w.grab_focus)
+        self._aggiorna_parcheggiate()
+        self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
+        return False
+
+    def _chiudi_parcheggiata(self, entry: dict):
+        """Chiude definitivamente una sessione parcheggiata (con conferma)."""
+        if entry not in self._parcheggiate:
+            return False
+        nome = entry["nome"] or "?"
+        dlg = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=t("tab.close_confirm_title"),
+        )
+        dlg.format_secondary_text(
+            t("tab.close_confirm_msg", name=nome.lstrip("📌✖ ")))
+        resp = dlg.run()
+        dlg.destroy()
+        if resp != Gtk.ResponseType.YES:
+            return False
+
+        self._parcheggiate.remove(entry)
+        w = entry["widget"]
+        self._pulisci_widget_tree(w)
+        self._tab_labels.pop(w, None)
+        self._tab_dots.pop(w, None)
+        self._widget_nb_map.pop(w, None)
+        w.destroy()
+        self._aggiorna_parcheggiate()
+        self._pannello.aggiorna_sessioni_aperte(self._get_open_session_names())
+        return False
+
+    def _aggiorna_parcheggiate(self):
+        n = len(self._parcheggiate)
+        if not hasattr(self, "_btn_parcheggiate"):
+            return
+        self._lbl_parcheggiate.set_text(str(n) if n else "")
+        self._btn_parcheggiate.set_visible(n > 0)
+
+    def _on_parked_popover_show(self, _pop):
+        box = self._pop_parcheggiate_box
+        for child in list(box.get_children()):
+            box.remove(child)
+        if not self._parcheggiate:
+            box.pack_start(Gtk.Label(label=t("tab.parked_none")), False, False, 0)
+            box.show_all()
+            return
+        for entry in list(self._parcheggiate):
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            btn = Gtk.Button(label=f"▶  {entry['nome']}")
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            btn.set_halign(Gtk.Align.START)
+            btn.connect("clicked", lambda b, e=entry: self._riprendi_e_chiudi(e))
+            row.pack_start(btn, True, True, 0)
+            btn_x = Gtk.Button(label="✖")
+            btn_x.set_relief(Gtk.ReliefStyle.NONE)
+            btn_x.set_tooltip_text(t("tab.parked_close_tooltip"))
+            btn_x.connect("clicked", lambda b, e=entry: self._chiudi_e_chiudi_popover(e))
+            row.pack_end(btn_x, False, False, 0)
+            box.pack_start(row, False, False, 0)
+        box.show_all()
+
+    def _riprendi_e_chiudi(self, entry: dict):
+        self._riprendi_parcheggiata(entry)
+        self._pop_parcheggiate.popdown()
+
+    def _chiudi_e_chiudi_popover(self, entry: dict):
+        self._chiudi_parcheggiata(entry)
+        self._pop_parcheggiate.popdown()
+
     def _toggle_pin_tab(self, widget, notebook: Gtk.Notebook):
         """Fissa o sblocca la scheda selezionata (tab pinning)."""
         pinned = getattr(widget, "_pcm_pinned", False)
@@ -2470,6 +2704,12 @@ class MainWindow(Gtk.ApplicationWindow):
         mi_pin = Gtk.MenuItem(label=t("tab.unpin") if is_pinned else t("tab.pin"))
         mi_pin.connect("activate", lambda _: self._toggle_pin_tab(page, notebook))
         menu.append(mi_pin)
+
+        mi_park = Gtk.MenuItem(label=t("tab.park"))
+        mi_park.connect("activate",
+                        lambda _b, n=notebook, i=notebook.page_num(page):
+                        self._parcheggia_tab(n, i))
+        menu.append(mi_park)
 
         dati_tab = getattr(page, "_pcm_dati", None)
         if dati_tab and dati_tab.get("protocol") in ("ssh", "telnet", "mosh", "serial"):
@@ -2679,24 +2919,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 _log.debug("Terminazione gateway tunnel fallita: %s", e)
 
         # Cleanup processi
-        def _cleanup_widget(w):
-            if not w:
-                return
-            if hasattr(w, "chiudi_processo"):
-                try:
-                    w.chiudi_processo()
-                except Exception as e:
-                    _log.debug("chiudi_processo fallito su %s: %s", w, e)
-            elif hasattr(w, "chiudi"):
-                try:
-                    w.chiudi()
-                except Exception as e:
-                    _log.debug("chiudi fallito su %s: %s", w, e)
-            if hasattr(w, "get_child1"):
-                _cleanup_widget(w.get_child1())
-                _cleanup_widget(w.get_child2())
-
-        _cleanup_widget(widget)
+        self._pulisci_widget_tree(widget)
         # Cleanup timer di riconnessione
         if hasattr(widget, "_pcm_reconnect_timer"):
             try:
@@ -2718,6 +2941,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_processo_terminato(self, widget, tab_label=None):
         """Marca la tab come terminata. Se auto_reconnect, programma riconnessione."""
+        # Scheda parcheggiata: non è in nessun notebook, aggiorna solo il nome
+        for entry in getattr(self, "_parcheggiate", []):
+            if entry.get("widget") is widget:
+                nome = entry.get("nome", "")
+                if nome and not nome.startswith("✖"):
+                    entry["nome"] = f"✖ {nome}"
+                self._aggiorna_parcheggiate()
+                return
         for nb in (self._notebook, self._notebook2):
             idx, page = self._trova_in_notebook(nb, widget)
             if idx >= 0:
@@ -3840,6 +4071,9 @@ class MainWindow(Gtk.ApplicationWindow):
                 if page is None:
                     continue
                 _chiudi_ricorsivo(page)
+        # Sessioni parcheggiate: fuori dai notebook ma con processi attivi
+        for entry in self._parcheggiate:
+            _chiudi_ricorsivo(entry.get("widget"))
         if self._auto_lock_timer:
             GLib.source_remove(self._auto_lock_timer)
         if hasattr(self, "_timer_stato_live") and self._timer_stato_live:
@@ -3959,6 +4193,9 @@ class MainWindow(Gtk.ApplicationWindow):
             dati = getattr(page, "_pcm_dati", None)
             if dati and dati.get("protocol") in ("ssh", "mosh", "vnc", "rdp"):
                 self._info_panel.aggiorna_per_sessione(dati)
+                if self._zen_attivo:
+                    # In modalità Zen il monitor resta attivo ma invisibile
+                    self._info_panel.hide()
             else:
                 self._info_panel.nascondi()
 

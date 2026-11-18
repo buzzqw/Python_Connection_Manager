@@ -40,11 +40,21 @@ _SLEEP = 2   # secondi tra un tick e l'altro
 _REMOTE_LOOP = (
     "while true; do "
     "echo ===TICK; "
+    "if command -v nvidia-smi >/dev/null 2>&1; then HAS_GPU=1; else HAS_GPU=0; fi; "
     "echo ===CPU; cat /proc/stat | head -1; "
     "echo ===MEM; cat /proc/meminfo | grep -E '^(MemTotal|MemFree|MemAvailable):'; "
     "echo ===PROCS; ps -eo pid,pcpu,pmem,comm --sort=-%cpu --no-headers 2>/dev/null | head -12; "
     "echo ===DISK; df -h -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2; "
     "echo ===NET; cat /proc/net/dev | tail -n +3 | grep -v ' lo:'; "
+    "echo ===GPU; "
+    "if [ $HAS_GPU = 1 ]; then "
+    "if command -v timeout >/dev/null 2>&1; then "
+    "timeout 2 nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,"
+    "temperature.gpu,power.draw --format=csv,noheader,nounits 2>/dev/null; "
+    "else "
+    "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,"
+    "temperature.gpu,power.draw --format=csv,noheader,nounits 2>/dev/null; "
+    "fi; fi; "
     "echo ===END; "
     f"sleep {_SLEEP}; "
     "done"
@@ -419,6 +429,122 @@ class _DiskSection(Gtk.Box):
 
 
 # ---------------------------------------------------------------------------
+# Sezione: GPU (NVIDIA via nvidia-smi)
+# ---------------------------------------------------------------------------
+
+def _gpu_num(valore: str) -> "float | None":
+    """Converte un campo di nvidia-smi; [N/A]/Unknown → None."""
+    v = (valore or "").strip()
+    if not v or v.upper() in ("N/A", "[N/A]", "UNKNOWN", "NOT SUPPORTED"):
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
+def parse_gpu_line(line: str) -> "dict | None":
+    """Interpreta una riga CSV di nvidia-smi (noheader, nounits).
+
+    Ordine: index,name,utilization.gpu,memory.used,memory.total,
+    temperature.gpu,power.draw.
+    """
+    parti = [p.strip() for p in line.split(",")]
+    if len(parti) < 5:
+        return None
+    try:
+        idx = int(parti[0])
+    except ValueError:
+        return None
+    return {
+        "idx":           idx,
+        "nome":          parti[1],
+        "gpu_util":      _gpu_num(parti[2]) or 0.0,
+        "mem_used_mib":  _gpu_num(parti[3]) or 0.0,
+        "mem_total_mib": _gpu_num(parti[4]) or 0.0,
+        "temp_c":        _gpu_num(parti[5]) if len(parti) > 5 else None,
+        "power_w":       _gpu_num(parti[6]) if len(parti) > 6 else None,
+    }
+
+
+class _GpuSection(Gtk.Box):
+    """Card per GPU: VRAM, utilizzo, temperatura (soglie colorate), watt."""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.set_margin_start(8); self.set_margin_end(8)
+        self.set_margin_bottom(4)
+        self.set_no_show_all(True)   # appare solo se il server ha una GPU
+
+        hdr = Gtk.Label()
+        hdr.set_markup(f"<b>{t('mon.gpu')}</b>")
+        hdr.set_xalign(0.0)
+        hdr.set_margin_top(6)
+        hdr.set_margin_bottom(4)
+        self.pack_start(hdr, False, False, 0)
+
+        self._rows_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.pack_start(self._rows_box, False, False, 0)
+        self._righe: list[dict] = []
+
+    def _costruisci(self, schede: list[dict]):
+        for child in list(self._rows_box.get_children()):
+            self._rows_box.remove(child)
+        self._righe = []
+        for d in schede:
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+
+            nome = Gtk.Label(xalign=0.0)
+            nome.set_ellipsize(Pango.EllipsizeMode.END)
+            row.pack_start(nome, False, False, 0)
+
+            bar = Gtk.ProgressBar()
+            bar.set_show_text(True)
+            bar.set_hexpand(True)
+            row.pack_start(bar, False, False, 0)
+
+            info = Gtk.Label(xalign=0.0)
+            row.pack_start(info, False, False, 0)
+
+            self._rows_box.pack_start(row, False, False, 0)
+            self._righe.append({"nome": nome, "bar": bar, "info": info})
+        self._rows_box.show_all()
+
+    def aggiorna(self, lines: list[str]):
+        schede = [d for d in (parse_gpu_line(r) for r in lines if r.strip()) if d]
+        if not schede:
+            self.hide()
+            return
+
+        if len(schede) != len(self._righe):
+            self._costruisci(schede)
+
+        for riga, d in zip(self._righe, schede):
+            riga["nome"].set_text(d["nome"] or f"GPU {d['idx']}")
+            tot = d["mem_total_mib"]
+            usata = d["mem_used_mib"]
+            if tot > 0:
+                riga["bar"].set_fraction(min(usata / tot, 1.0))
+                riga["bar"].set_text(f"{usata:.0f} / {tot:.0f} MiB")
+            else:
+                riga["bar"].set_fraction(0.0)
+                riga["bar"].set_text("—")
+
+            parti = [f"Util {d['gpu_util']:.0f}%"]
+            temp = d["temp_c"]
+            if temp is not None:
+                colore = "#33d17a" if temp < 65 else "#f5c211" if temp < 80 else "#ff6b6b"
+                parti.append(f"<span foreground='{colore}'>{temp:.0f}°C</span>")
+            if d["power_w"]:
+                parti.append(f"{d['power_w']:.0f} W")
+            riga["info"].set_markup("  ·  ".join(parti))
+
+        if not self.get_visible():
+            self.show_all()
+            self.show()
+
+
+# ---------------------------------------------------------------------------
 # Sparkline doppia (download blu + upload rosso)
 # ---------------------------------------------------------------------------
 
@@ -603,6 +729,7 @@ class InfoPanelWidget(Gtk.Box):
 
         # ---------- Tab Monitor ----------
         self._sys   = _SysOverview()
+        self._gpu   = _GpuSection()
         self._procs = _ProcessSection(self._on_kill)
         self._disk  = _DiskSection()
         self._net   = _NetSection()
@@ -611,6 +738,7 @@ class InfoPanelWidget(Gtk.Box):
         def _sep():
             return Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         mon_box.pack_start(self._sys,   False, False, 0)
+        mon_box.pack_start(self._gpu,   False, False, 0)
         mon_box.pack_start(_sep(),      False, False, 0)
         mon_box.pack_start(self._procs, False, False, 0)
         mon_box.pack_start(_sep(),      False, False, 0)
@@ -666,6 +794,9 @@ class InfoPanelWidget(Gtk.Box):
 
         self._ferma()
         self._profilo = profilo
+
+        # Evita di mostrare i dati GPU del server precedente
+        self._gpu.hide()
 
         self._sys.set_visible(show_sys)
         self._procs.set_visible(show_procs)
@@ -860,6 +991,8 @@ class InfoPanelWidget(Gtk.Box):
                         cur = "disk";  sections[cur] = []
                     elif line == "===NET":
                         cur = "net";   sections[cur] = []
+                    elif line == "===GPU":
+                        cur = "gpu";   sections[cur] = []
                     elif line == "===END":
                         now = time.monotonic()
                         dt  = now - self._last_tick
@@ -905,6 +1038,11 @@ class InfoPanelWidget(Gtk.Box):
         if p.get("panel_network"):
             self._net.aggiorna(sec.get("net", []), dt if dt > 0 else _SLEEP)
 
+        # GPU: nessun flag di profilo, la sezione appare solo se il server
+        # espone nvidia-smi (altrimenti la lista è vuota e la card si nasconde).
+        if not self._is_windows:
+            self._gpu.aggiorna(sec.get("gpu", []))
+
         self._set_status(f"✔ {time.strftime('%H:%M:%S')}")
 
     # ------------------------------------------------------------------
@@ -925,6 +1063,7 @@ class InfoPanelWidget(Gtk.Box):
             except Exception as e:
                 _get_log(__name__).debug("SSH connection close failed: %s", e)
             self._ssh = None
+        self._gpu.hide()
         self._rimuovi_log()
         self._profilo = None
 

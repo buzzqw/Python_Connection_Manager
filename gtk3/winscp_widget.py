@@ -672,6 +672,14 @@ class CodaWidget(Gtk.Box):
 
     def _on_annulla(self, btn):
         """Annulla il job in corso e tutti quelli in attesa."""
+        self.annulla_tutti()
+
+    def annulla_tutti(self, aggiorna_ui: bool = True):
+        """Marca come annullati i job in corso e in attesa e sblocca la pausa.
+
+        Con aggiorna_ui=False è chiamabile anche da thread non GTK (chiusura
+        del widget): tocca solo flag Python, mai lo store Gtk.
+        """
         stato_in_corso  = t("winscp.status_running")
         stato_in_attesa = t("winscp.status_wait")
         stato_annullato = t("winscp.status_cancelled")
@@ -679,9 +687,13 @@ class CodaWidget(Gtk.Box):
             if job.stato in (stato_in_corso, stato_in_attesa):
                 job.annulla = True
                 job.stato   = stato_annullato
-                it = self._store.get_iter_from_string(str(i))
-                if it:
-                    self._store.set_value(it, 5, f"✖ {stato_annullato}")
+                if aggiorna_ui:
+                    it = self._store.get_iter_from_string(str(i))
+                    if it:
+                        self._store.set_value(it, 5, f"✖ {stato_annullato}")
+        self._in_pausa = False
+        if aggiorna_ui:
+            self._btn_pausa.set_label(t("winscp.btn_pause"))
 
     def _on_pulisci(self, btn):
         """Rimuove dalla coda tutti i job non in esecuzione (completati, errore, annullati, in attesa)."""
@@ -746,6 +758,9 @@ class WinScpWidget(Gtk.Box):
         self._ssh     = None
         self._ssh_transfer = None   # Connessione SSH separata per i trasferimenti
         self._worker_thread = None
+        # True dopo chiudi_processo(): i thread di trasferimento devono uscire
+        # e nessuna callback deve più toccare la UI (widget distrutto).
+        self._stopped = False
         # Il canale SFTP non è thread-safe: un solo worker, coda condivisa.
         self._pending_jobs = deque()
         self._jobs_lock = threading.Lock()
@@ -849,6 +864,9 @@ class WinScpWidget(Gtk.Box):
             self._ssh_transfer.connect(**kw)
             self._sftp_transfer = self._ssh_transfer.open_sftp()
 
+            if self._stopped:   # tab chiusa mentre connettevamo
+                self.chiudi_processo()
+                return
             GLib.idle_add(self._on_connesso)
         except Exception as e:
             # Se una delle due connessioni è già riuscita e l'altra fallisce,
@@ -858,6 +876,8 @@ class WinScpWidget(Gtk.Box):
 
     def _on_connesso(self):
         """Chiamato sul thread principale dopo connessione riuscita."""
+        if self._stopped:
+            return
         self._remote_panel = RemotePanel(self._sftp)
         self._dual_pane.pack2(self._remote_panel, True, True)
         self._dual_pane.set_position(500)
@@ -995,6 +1015,26 @@ class WinScpWidget(Gtk.Box):
     def _pulisci_coda(self):
         self._coda.pulisci()
 
+    def _ui_idle(self, fn, *args):
+        """Esegue fn(*args) sul thread GTK solo se il widget è ancora vivo.
+
+        I worker girano su thread separati e possono completare dopo la
+        chiusura del tab: senza questo guard aggiornerebbero store Gtk già
+        distrutti (eccezioni nei callback idle).
+        """
+        if self._stopped:
+            return
+        GLib.idle_add(self._ui_call, fn, args)
+
+    def _ui_call(self, fn, args):
+        if self._stopped:
+            return False
+        try:
+            fn(*args)
+        except Exception as e:
+            _log.debug("Callback UI trasferimento fallita: %s", e)
+        return False
+
     # ------------------------------------------------------------------
     # Sincronizzazione directory locale ↔ remota
     # ------------------------------------------------------------------
@@ -1019,6 +1059,8 @@ class WinScpWidget(Gtk.Box):
 
     def _avvia_coda_se_idle(self):
         """Avvia il worker solo se non è già in esecuzione."""
+        if self._stopped:
+            return
         if self._worker_thread and self._worker_thread.is_alive():
             return
         stato_attesa = t("winscp.status_wait")
@@ -1030,26 +1072,34 @@ class WinScpWidget(Gtk.Box):
         def run():
             _annullato = t("winscp.status_cancelled")
             for idx, job in jobs_in_attesa:
-                while self._coda.is_in_pausa():
+                if self._stopped:
+                    break
+                while self._coda.is_in_pausa() and not self._stopped:
                     time.sleep(0.3)
+                if self._stopped:
+                    break
                 if job.annulla or job.stato == _annullato:
                     continue
                 job.stato = t("winscp.status_running")
                 job.t_inizio = time.time()
                 try:
                     self._trasferisci_chunk(job, idx)
-                    if job.annulla:
+                    if job.annulla or self._stopped:
                         job.stato = _annullato
-                        GLib.idle_add(self._coda.segna_completato, idx, False, _annullato)
+                        self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
                     else:
                         job.stato = t("winscp.status_done")
-                        GLib.idle_add(self._coda.segna_completato, idx, True, "")
+                        self._ui_idle(self._coda.segna_completato, idx, True, "")
                 except Exception as e:
-                    job.stato = t("winscp.status_err")
-                    job.errore = str(e)
-                    GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
+                    if job.annulla or self._stopped:
+                        job.stato = _annullato
+                        self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
+                    else:
+                        job.stato = t("winscp.status_err")
+                        job.errore = str(e)
+                        self._ui_idle(self._coda.segna_completato, idx, False, str(e))
 
-            GLib.idle_add(self._aggiorna_tutto)
+            self._ui_idle(self._aggiorna_tutto)
 
         self._worker_thread = threading.Thread(target=run, daemon=True)
         self._worker_thread.start()
@@ -1162,7 +1212,7 @@ class WinScpWidget(Gtk.Box):
         """Accoda i job e avvia un solo worker. Se un trasferimento è già in
         corso i nuovi job vengono drenati dallo stesso worker: il canale SFTP
         di paramiko non è thread-safe e due worker paralleli lo corrompono."""
-        if not jobs:
+        if not jobs or self._stopped:
             return
         with self._jobs_lock:
             for job in jobs:
@@ -1176,31 +1226,40 @@ class WinScpWidget(Gtk.Box):
 
     def _run_jobs(self):
         _annullato = t("winscp.status_cancelled")
-        while True:
+        while not self._stopped:
             with self._jobs_lock:
                 if not self._pending_jobs:
                     break
                 job, idx = self._pending_jobs.popleft()
-            while self._coda.is_in_pausa():
+            while self._coda.is_in_pausa() and not self._stopped:
                 time.sleep(0.3)
+            if self._stopped:
+                break
             if job.annulla or job.stato == _annullato:
                 continue
             job.stato = t("winscp.status_running")
             job.t_inizio = time.time()
             try:
                 self._trasferisci_chunk(job, idx)
-                if job.annulla:
+                if job.annulla or self._stopped:
                     job.stato = _annullato
-                    GLib.idle_add(self._coda.segna_completato, idx, False, _annullato)
+                    self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
                 else:
                     job.stato = t("winscp.status_done")
-                    GLib.idle_add(self._coda.segna_completato, idx, True, "")
+                    self._ui_idle(self._coda.segna_completato, idx, True, "")
             except Exception as e:
-                job.stato = t("winscp.status_err")
-                job.errore = str(e)
-                GLib.idle_add(self._coda.segna_completato, idx, False, str(e))
+                # Un errore causato dalla chiusura volontaria (socket chiuso da
+                # chiudi_processo, pausa interrotta) NON è un errore del file:
+                # resta "Annullato" invece di diventare "Errore: socket closed".
+                if job.annulla or self._stopped:
+                    job.stato = _annullato
+                    self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
+                else:
+                    job.stato = t("winscp.status_err")
+                    job.errore = str(e)
+                    self._ui_idle(self._coda.segna_completato, idx, False, str(e))
 
-        GLib.idle_add(self._aggiorna_tutto)
+        self._ui_idle(self._aggiorna_tutto)
 
     # ------------------------------------------------------------------
     # Trasferimento a chunk (permette pausa/annulla)
@@ -1225,9 +1284,9 @@ class WinScpWidget(Gtk.Box):
                     tx = 0
                     last_dl_update = 0.0
                     while True:
-                        while self._coda.is_in_pausa():
+                        while self._coda.is_in_pausa() and not self._stopped:
                             time.sleep(0.3)
-                        if job.annulla:
+                        if job.annulla or self._stopped:
                             return
                         chunk = remote_f.read(CHUNK_SIZE)
                         if not chunk:
@@ -1239,7 +1298,7 @@ class WinScpWidget(Gtk.Box):
                         job.velocita = int(tx / dt) if dt > 0 else 0
                         now = time.monotonic()
                         if now - last_dl_update >= 0.1:
-                            GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            self._ui_idle(self._coda.aggiorna_progress, idx, tx, job.size or tx)
                             last_dl_update = now
             finally:
                 remote_f.close()
@@ -1258,9 +1317,9 @@ class WinScpWidget(Gtk.Box):
                     tx = 0
                     last_update = 0.0
                     while True:
-                        while self._coda.is_in_pausa():
+                        while self._coda.is_in_pausa() and not self._stopped:
                             time.sleep(0.3)
-                        if job.annulla:
+                        if job.annulla or self._stopped:
                             return
                         chunk = local_f.read(CHUNK_SIZE)
                         if not chunk:
@@ -1272,7 +1331,7 @@ class WinScpWidget(Gtk.Box):
                         job.velocita = int(tx / dt) if dt > 0 else 0
                         now = time.monotonic()
                         if now - last_update >= 0.1:
-                            GLib.idle_add(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            self._ui_idle(self._coda.aggiorna_progress, idx, tx, job.size or tx)
                             last_update = now
                 finally:
                     remote_f.close()
@@ -1282,6 +1341,20 @@ class WinScpWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def chiudi_processo(self):
+        # 1. Ferma i worker PRIMA di chiudere i socket: un errore di socket
+        #    chiuso non deve diventare "Errore" su un trasferimento che
+        #    l'utente ha annullato chiudendo la scheda.
+        self._stopped = True
+        with self._jobs_lock:
+            pendenti = [job for job, _ in self._pending_jobs]
+            self._pending_jobs.clear()
+        for job in pendenti:
+            job.annulla = True
+        if getattr(self, "_coda", None) is not None:
+            # aggiorna_ui=False: potremmo essere su un thread non GTK
+            self._coda.annulla_tutti(aggiorna_ui=False)
+
+        # 2. Chiudi i socket SFTP/SSH
         if self._sftp:
             try: self._sftp.close()
             except Exception as e: _get_log(__name__).debug("SFTP close: %s", e)
@@ -1355,15 +1428,21 @@ class FtpTransferWorker(threading.Thread):
                 else:
                     self._carica(ftp, job, idx)
 
-                if job.annulla:
+                if job.annulla or self._stop:
                     ok, msg = False, _annullato
                     job.stato = _annullato
                 else:
                     job.stato = t("winscp.status_done")
             except Exception as e:
-                ok, msg   = False, str(e)
-                job.stato = t("winscp.status_err")
-                job.errore = msg
+                if self._stop or job.annulla:
+                    # Socket abortito da stop()/chiudi_processo(): il file è
+                    # annullato, non "in errore".
+                    ok, msg   = False, _annullato
+                    job.stato = _annullato
+                else:
+                    ok, msg   = False, str(e)
+                    job.stato = t("winscp.status_err")
+                    job.errore = msg
 
             GLib.idle_add(self._cb_done, idx, ok, msg)
 
@@ -1714,6 +1793,7 @@ class FtpWinScpWidget(Gtk.Box):
         self._ftp          = None       # connessione navigazione
         self._worker       = None       # FtpTransferWorker attivo
         self._remote_panel = None
+        self._stopped      = False      # True dopo chiudi_processo()
 
         self._init_ui()
         threading.Thread(target=self._connetti, daemon=True).start()
@@ -1796,11 +1876,16 @@ class FtpWinScpWidget(Gtk.Box):
     def _connetti(self):
         try:
             self._ftp = self._ftp_factory()
+            if self._stopped:   # tab chiusa mentre connettevamo
+                self.chiudi_processo()
+                return
             GLib.idle_add(self._on_connesso)
         except Exception as e:
             GLib.idle_add(self._mostra_errore_init, str(e))
 
     def _on_connesso(self):
+        if self._stopped:
+            return
         self._remote_panel = FtpRemotePanel(self._ftp)
         self._dual_pane.pack2(self._remote_panel, True, True)
         self._dual_pane.set_position(500)
@@ -1879,16 +1964,30 @@ class FtpWinScpWidget(Gtk.Box):
 
     def _avvia_coda(self):
         """Avvia il FtpTransferWorker con i job in attesa."""
+        if self._stopped:
+            return
         if self._worker and self._worker.is_alive():
             return
         jobs_in_attesa = self._coda.prendi_jobs_in_attesa()
         if not jobs_in_attesa:
             return
+
+        def _cb(fn):
+            """Wrappizza una callback UI: dopo la chiusura del widget è no-op."""
+            def _guarded(*args):
+                if self._stopped:
+                    return
+                try:
+                    fn(*args)
+                except Exception as e:
+                    _get_log(__name__).debug("Callback UI FTP fallita: %s", e)
+            return _guarded
+
         self._worker = FtpTransferWorker(
             ftp_factory           = self._ftp_factory,
-            callback_progress     = self._coda.aggiorna_progress,
-            callback_done         = self._coda.segna_completato,
-            callback_tutti_finiti = self._aggiorna_tutto,
+            callback_progress     = _cb(self._coda.aggiorna_progress),
+            callback_done         = _cb(self._coda.segna_completato),
+            callback_tutti_finiti = _cb(self._aggiorna_tutto),
         )
         for idx, job in jobs_in_attesa:
             self._worker.aggiungi(idx, job)
@@ -1896,7 +1995,7 @@ class FtpWinScpWidget(Gtk.Box):
 
     def _esegui_jobs(self, jobs: list):
         """Aggiunge jobs alla coda e avvia subito il worker."""
-        if not jobs:
+        if not jobs or self._stopped:
             return
         for job in jobs:
             self._coda.aggiungi_in_attesa(job)
@@ -1974,13 +2073,17 @@ class FtpWinScpWidget(Gtk.Box):
     # ------------------------------------------------------------------
 
     def chiudi_processo(self):
+        self._stopped = True
         if self._worker and self._worker.is_alive():
             self._worker.stop()
+        if getattr(self, "_coda", None) is not None:
+            self._coda.annulla_tutti(aggiorna_ui=False)
         if self._ftp:
             try:
                 self._ftp.quit()
             except Exception as e:
                 _get_log(__name__).debug("FTP quit fallito: %s", e)
+            self._ftp = None
 
 
 # ---------------------------------------------------------------------------
