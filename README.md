@@ -271,6 +271,7 @@ Available for SSH, VNC (Linux) and RDP (Windows) sessions, configurable per-sess
 - **System Tray Integration**: Minimize to tray on close to keep active sessions alive; tray menu provides one-click access to recent and saved profiles (AppIndicator on GNOME/KDE, `Gtk.StatusIcon` fallback).
 - **One-Click Script Export**: Export any session profile as an executable standalone `.sh` shell script to reopen it directly from external terminals.
 - **Comprehensive Profile Importers**: Direct session import from Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), OpenSSH (`~/.ssh/config`), and MobaXterm (`.mobaXterm`).
+- **SSH Config Sync with Diff Preview**: Re-importing is non-destructive. Profiles imported from `~/.ssh/config` (recursive `Include` files included) are matched by alias and synchronized only on the SSH-owned fields (`HostName`, `Port`, `User`, `IdentityFile`, `ProxyJump`), while groups, tags, credentials and terminal preferences are preserved. A preview lists new, changed and removed hosts before applying the selected entries.
 
 ---
 
@@ -841,6 +842,7 @@ Disponibile per sessioni SSH, VNC (Linux) e RDP (Windows), configurabile per-ses
 - **Integrazione System Tray**: Riduzione a icona nella barra di sistema alla chiusura per mantenere attive le connessioni; menu tray per connettersi con un clic alle sessioni recenti o salvate (AppIndicator su GNOME/KDE, fallback `Gtk.StatusIcon`).
 - **Esportazione script shell**: Esporta qualsiasi sessione in uno script eseguibile autonomo `.sh` per avviarla direttamente dal terminale esterno.
 - **Importazione da altri client**: Importazione diretta da profili Remmina (`.remmina`), Remote Desktop Manager (`.rdm`/`.json`), PuTTY (`~/.putty/sessions/`), OpenSSH (`~/.ssh/config`) e MobaXterm (`.mobaXterm`).
+- **Sincronizzazione con SSH config e anteprima delle differenze**: Il re-import è non distruttivo. I profili importati da `~/.ssh/config` (inclusi i file `Include` ricorsivi) vengono abbinati per alias e riallineati solo sui campi gestiti da SSH (`HostName`, `Port`, `User`, `IdentityFile`, `ProxyJump`), preservando gruppo, tag, credenziali e preferenze del terminale. Un'anteprima elenca host nuovi, modificati e rimossi prima di applicare le voci selezionate.
 
 ---
 

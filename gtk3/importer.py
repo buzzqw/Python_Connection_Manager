@@ -557,11 +557,26 @@ def unisci_in_pcm(nuovi: dict, sostituzione: bool = False) -> tuple[int, int]:
             # Sovrascrittura: mantieni le credenziali già salvate se l'import
             # non ne porta di nuove.
             vecchio = esistenti[nome]
-            merged = dict(dati)
-            for campo in _CREDENZIALI:
-                if not dati.get(campo) and vecchio.get(campo):
-                    merged[campo] = vecchio[campo]
-            esistenti[nome] = merged
+            if _ssh_proviene_da_config(dati) and _ssh_proviene_da_config(vecchio):
+                # ~/.ssh/config non possiede l'intero profilo: aggiorna solo
+                # i campi SSH e lascia gruppo, tag e preferenze dell'utente.
+                merged = dict(vecchio)
+                for campo in _SSH_CAMPI_SYNC:
+                    if campo in dati:
+                        merged[campo] = dati[campo]
+                if dati.get("notes") and (
+                        not (vecchio.get("notes") or "").strip()
+                        or _ssh_nota_generata(vecchio.get("notes") or "")):
+                    merged["notes"] = dati["notes"]
+                merged["_sorgente"] = _SSH_CONFIG_SOURCE
+                merged["_ssh_alias"] = dati.get("_ssh_alias") or nome
+                esistenti[nome] = merged
+            else:
+                merged = dict(dati)
+                for campo in _CREDENZIALI:
+                    if not dati.get(campo) and vecchio.get(campo):
+                        merged[campo] = vecchio[campo]
+                esistenti[nome] = merged
         else:
             esistenti[nome] = dati
         aggiunti += 1
@@ -657,6 +672,16 @@ def importa_putty(percorso: Optional[str] = None) -> dict:
 # hop (PCM gestisce un solo jump host); le direttive non mappate sono scartate.
 
 _SSH_INCLUDE_MAX_DEPTH = 16
+_SSH_CONFIG_GROUP = "SSH Config"
+_SSH_CONFIG_SOURCE = "sshconfig"
+
+# Campi che ~/.ssh/config possiede. Durante la sincronizzazione vengono
+# riallineati solo questi: gruppo, tag, credenziali e preferenze del terminale
+# restano dell'utente.
+_SSH_CAMPI_SYNC: tuple[str, ...] = (
+    "protocol", "host", "port", "user", "private_key",
+    "jump_host", "jump_user", "jump_port",
+)
 
 
 def _ssh_unquote(valore: str) -> str:
@@ -929,11 +954,246 @@ def importa_ssh_config(percorso: Optional[str] = None) -> dict:
             "jump_host":   jump_host,
             "jump_user":   jump_user,
             "jump_port":   jump_port or "22",
-            "group":       "SSH Config",
+            "group":       _SSH_CONFIG_GROUP,
             "notes":       note,
+            "_sorgente":   _SSH_CONFIG_SOURCE,
+            "_ssh_alias":  alias,
         }
 
     return profili
+
+
+# ---------------------------------------------------------------------------
+# Sincronizzazione con ~/.ssh/config
+# ---------------------------------------------------------------------------
+
+def _ssh_nota_generata(nota: str) -> bool:
+    """True se la nota è quella scritta dall'importatore (non dall'utente)."""
+    n = (nota or "").strip()
+    return (n.startswith("Importato da ") and " (alias: " in n
+            and n.endswith(")"))
+
+
+def _ssh_proviene_da_config(profilo: dict) -> bool:
+    """True se il profilo è (o sembra) importato da ~/.ssh/config.
+
+    Il controllo sulla nota serve a riconoscere i profili creati prima
+    dell'introduzione del tag ``_sorgente``, così l'aggiornamento non
+    duplica le sessioni già esistenti.
+    """
+    if not isinstance(profilo, dict):
+        return False
+    sorgente = (profilo.get("_sorgente") or "").strip().lower()
+    if sorgente:
+        return sorgente == _SSH_CONFIG_SOURCE
+    return (profilo.get("group") == _SSH_CONFIG_GROUP
+            and _ssh_nota_generata(profilo.get("notes") or ""))
+
+
+def _ssh_confronta_valore(valore) -> str:
+    """Normalizza un valore per il confronto (porta int vs stringa, None)."""
+    if valore is None:
+        return ""
+    return str(valore).strip()
+
+
+def confronta_ssh_config(profili: dict, esistenti: Optional[dict] = None,
+                         percorso: Optional[str] = None) -> dict:
+    """Confronta l'import di ~/.ssh/config con i profili PCM esistenti.
+
+    Non modifica nulla: restituisce un piano con ``nuovi``, ``aggiornati``
+    (campo per campo), ``rimossi`` (solo profili di provenienza SSH) e
+    ``invariati``. Il piano viene applicato da
+    :func:`applica_piano_ssh_config`.
+    """
+    if esistenti is None:
+        esistenti = config_manager.load_profiles()
+
+    # Indice dei profili già riconducibili a ~/.ssh/config. Il match esatto ha
+    # la precedenza; il fallback case-insensitive evita doppioni quando
+    # l'alias cambia solo di maiuscole/minuscole.
+    per_nome: dict[str, str] = {}
+    per_case: dict[str, str] = {}
+    per_alias: dict[str, str] = {}
+    for nome, profilo in esistenti.items():
+        if not _ssh_proviene_da_config(profilo):
+            continue
+        per_nome.setdefault(nome, nome)
+        per_case.setdefault(nome.casefold(), nome)
+        # L'alias SSH è l'identità stabile: resta valido anche se la sessione
+        # è stata rinominata in PCM.
+        chiave_alias = (profilo.get("_ssh_alias") or "").strip().casefold()
+        if chiave_alias:
+            per_alias.setdefault(chiave_alias, nome)
+
+    piano: dict = {
+        "percorso": percorso or os.path.expanduser("~/.ssh/config"),
+        "nuovi": [],
+        "aggiornati": [],
+        "rimossi": [],
+        "invariati": [],
+    }
+    usati: set[str] = set()
+    nomi_occupati: set[str] = set(esistenti)
+
+    for alias, dati in profili.items():
+        esistente = (per_alias.get(alias.casefold())
+                     or per_nome.get(alias)
+                     or per_case.get(alias.casefold()))
+        if esistente is not None and esistente not in usati:
+            usati.add(esistente)
+            attuale = esistenti.get(esistente) or {}
+            campi: dict[str, tuple] = {}
+            for campo in _SSH_CAMPI_SYNC:
+                nuovo = dati.get(campo)
+                if _ssh_confronta_valore(nuovo) == \
+                        _ssh_confronta_valore(attuale.get(campo)):
+                    continue
+                campi[campo] = (attuale.get(campo), nuovo)
+
+            # La nota è solo provenienza: si aggiorna se è quella generata,
+            # altrimenti restano le note scritte dall'utente.
+            nota = dati.get("notes", "")
+            nota_attuale = attuale.get("notes") or ""
+            if nota and nota != nota_attuale and (
+                    not nota_attuale.strip() or _ssh_nota_generata(nota_attuale)):
+                campi["notes"] = (nota_attuale, nota)
+
+            unito = dict(attuale)
+            for campo in campi:
+                if campo in dati:
+                    unito[campo] = dati[campo]
+            unito["_sorgente"] = _SSH_CONFIG_SOURCE
+            unito["_ssh_alias"] = alias
+
+            if campi:
+                piano["aggiornati"].append({
+                    "alias": alias,
+                    "nome": esistente,
+                    "prima": attuale,
+                    "dati": unito,
+                    "campi": campi,
+                })
+            else:
+                piano["invariati"].append(
+                    {"nome": esistente, "alias": alias})
+            continue
+
+        # Host nuovo. Se il nome è già usato da un profilo di un'altra
+        # sorgente non lo si sovrascrive: viene creato con un suffisso.
+        nome = alias
+        if nome in nomi_occupati:
+            nome = _univoco(nome, nomi_occupati)
+        nomi_occupati.add(nome)
+        piano["nuovi"].append({
+            "alias": alias,
+            "nome": nome,
+            "dati": dict(dati),
+        })
+
+    for nome, profilo in esistenti.items():
+        if nome in usati:
+            continue
+        if _ssh_proviene_da_config(profilo):
+            piano["rimossi"].append({"nome": nome, "profilo": profilo})
+
+    return piano
+
+
+def applica_piano_ssh_config(piano: dict, rimuovi: bool = False) -> dict:
+    """Applica un piano prodotto da :func:`confronta_ssh_config`.
+
+    L'aggiornamento è per campo: solo i valori posseduti da ~/.ssh/config
+    vengono scritti, il resto del profilo (gruppo, tag, credenziali,
+    preferenze) resta intatto. ``rimuovi`` abilita la cancellazione dei
+    profili non più presenti nella config.
+    """
+    esistenti = config_manager.load_profiles()
+    aggiunti = aggiornati = rimossi = marcati = 0
+    rinominati: list[tuple[str, str]] = []
+
+    for voce in piano.get("nuovi", []):
+        alias = voce.get("alias") or voce.get("nome") or ""
+        nome = voce.get("nome") or alias
+        if not nome:
+            continue
+        if nome in esistenti:
+            nome = _univoco(nome, esistenti)
+        if nome != alias:
+            rinominati.append((alias, nome))
+        dati = dict(voce.get("dati") or {})
+        dati.setdefault("_sorgente", _SSH_CONFIG_SOURCE)
+        dati.setdefault("_ssh_alias", alias)
+        esistenti[nome] = dati
+        aggiunti += 1
+
+    for voce in piano.get("aggiornati", []):
+        nome = voce.get("nome")
+        attuale = esistenti.get(nome)
+        if not nome or not isinstance(attuale, dict):
+            continue
+        dati = voce.get("dati") or {}
+        for campo in voce.get("campi") or {}:
+            if campo == "notes":
+                if (not (attuale.get("notes") or "").strip()
+                        or _ssh_nota_generata(attuale.get("notes") or "")):
+                    attuale["notes"] = dati.get("notes", "")
+            elif campo in dati:
+                attuale[campo] = dati[campo]
+        attuale["_sorgente"] = _SSH_CONFIG_SOURCE
+        if voce.get("alias"):
+            attuale["_ssh_alias"] = voce["alias"]
+        aggiornati += 1
+
+    # I profili già allineati vengono solo etichettati, così i futuri
+    # confronti non dipendono più dall'euristica sulla nota.
+    for voce in piano.get("invariati", []):
+        nome = voce.get("nome") if isinstance(voce, dict) else voce
+        profilo = esistenti.get(nome)
+        if not isinstance(profilo, dict):
+            continue
+        etichettato = False
+        if profilo.get("_sorgente") != _SSH_CONFIG_SOURCE:
+            profilo["_sorgente"] = _SSH_CONFIG_SOURCE
+            etichettato = True
+        alias = voce.get("alias") if isinstance(voce, dict) else ""
+        if alias and profilo.get("_ssh_alias") != alias:
+            profilo["_ssh_alias"] = alias
+            etichettato = True
+        if etichettato:
+            marcati += 1
+
+    if rimuovi:
+        for voce in piano.get("rimossi", []):
+            nome = voce.get("nome")
+            profilo = esistenti.get(nome)
+            if profilo is None or not _ssh_proviene_da_config(profilo):
+                continue
+            del esistenti[nome]
+            rimossi += 1
+
+    modificato = bool(aggiunti or aggiornati or rimossi or marcati)
+    if modificato:
+        config_manager.save_profiles(esistenti)
+
+    return {
+        "aggiunti": aggiunti,
+        "aggiornati": aggiornati,
+        "rimossi": rimossi,
+        "marcati": marcati,
+        "rinominati": rinominati,
+        "salvato": modificato,
+    }
+
+
+def sincronizza_ssh_config(percorso: Optional[str] = None,
+                           rimuovi: bool = False) -> dict:
+    """Import + confronto + applicazione in un solo passaggio (CLI/test)."""
+    profili = importa_ssh_config(percorso)
+    piano = confronta_ssh_config(profili, percorso=percorso)
+    risultato = applica_piano_ssh_config(piano, rimuovi=rimuovi)
+    risultato["piano"] = piano
+    return risultato
 
 
 # ===========================================================================
@@ -1191,6 +1451,7 @@ def _uso():
     print("  python importer.py mremoteng confCons.xml")
     print("  python importer.py putty     [percorso]")
     print("  python importer.py sshconfig [percorso]")
+    print("  python importer.py sync      [percorso] [--remove]")
     print("  python importer.py mobaxterm file.mxtsessions|.mobaconf")
     print("  python importer.py test      file.xml|json   ← solo stampa, non salva")
     sys.exit(1)
@@ -1228,6 +1489,27 @@ if __name__ == "__main__":
         percorso = sys.argv[2] if len(sys.argv) > 2 else None
         print(f"[importer] SSH config: {percorso or '~/.ssh/config'}")
         profili = importa_ssh_config(percorso)
+    elif cmd == "sync":
+        percorso = next((a for a in sys.argv[2:] if not a.startswith("-")),
+                        None)
+        rimuovi = "--remove" in sys.argv[2:]
+        print(f"[importer] Sync SSH config: {percorso or '~/.ssh/config'}")
+        risultato = sincronizza_ssh_config(percorso, rimuovi=rimuovi)
+        piano = risultato.get("piano", {})
+        print(f"  nuovi: {len(piano.get('nuovi', []))}  "
+              f"aggiornati: {len(piano.get('aggiornati', []))}  "
+              f"rimossi: {len(piano.get('rimossi', []))}  "
+              f"invariati: {len(piano.get('invariati', []))}")
+        for voce in piano.get("nuovi", []):
+            print(f"  + {voce['nome']}  ({voce['alias']})")
+        for voce in piano.get("aggiornati", []):
+            campi = ", ".join(voce["campi"])
+            print(f"  ~ {voce['nome']}  [{campi}]")
+        for voce in piano.get("rimossi", []):
+            print(f"  - {voce['nome']}")
+        print("  ✓ Sincronizzazione applicata" if risultato.get("salvato")
+              else "  Nessuna modifica")
+        sys.exit(0)
     elif cmd == "mobaxterm":
         if len(sys.argv) < 3:
             _uso()

@@ -2390,6 +2390,13 @@ class SessionDialog(Gtk.Dialog):
                 if f in d:
                     pass
 
+        # Conserva i metadati interni non editabili nella UI (es. la
+        # provenienza "sshconfig"), altrimenti una modifica del profilo
+        # perderebbe il collegamento con ~/.ssh/config.
+        for chiave, valore in self._dati_originali.items():
+            if chiave.startswith("_") and not chiave.startswith("_inherits_"):
+                d.setdefault(chiave, valore)
+
         # Raccogli campi dai plugin
         try:
             from plugins.plugin_base import pcm_get_protocol_plugins

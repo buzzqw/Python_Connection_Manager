@@ -75,6 +75,9 @@ _COMMON_FIELDS = {
     "protocol", "group", "host", "port", "user", "password", "private_key",
     "notes", "credential_profile", "totp_secret",
     "is_template", "template_name", "tags", "favorite",
+    # Provenienza del profilo (es. "sshconfig"): metadato interno, non un
+    # campo di connessione, ma deve sopravvivere a load_profiles().
+    "_sorgente", "_ssh_alias",
 }
 
 _TERM_FIELDS = {

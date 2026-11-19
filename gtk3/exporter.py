@@ -43,6 +43,26 @@ def _filtra_profili(profili: dict, gruppo: str | None = None) -> dict:
     return risultato
 
 
+def _formatta_jump(dati: dict) -> str:
+    """Compone la specifica ProxyJump completa (utente, host, porta, IPv6)."""
+    host = (dati.get("jump_host") or "").strip()
+    if not host:
+        return ""
+    user = (dati.get("jump_user") or "").strip()
+    port = str(dati.get("jump_port") or "22").strip()
+
+    # Gli alias ssh_config non possono contenere spazi o slash
+    host = host.replace(" ", "_").replace("/", "-")
+    user = user.replace(" ", "_")
+    if ":" in host and not host.startswith("["):     # IPv6 letterale
+        host = f"[{host}]"
+
+    spec = f"{user}@{host}" if user else host
+    if port and port != "22":
+        spec += f":{port}"
+    return spec
+
+
 def esporta_ssh_config(profili: dict, gruppo: str | None = None) -> tuple[str, int]:
     """
     Esporta le sessioni SSH compatibili in formato ~/.ssh/config di OpenSSH.
@@ -71,7 +91,7 @@ def esporta_ssh_config(profili: dict, gruppo: str | None = None) -> tuple[str, i
         user = (dati.get("user") or "").strip()
         port = str(dati.get("port") or "22").strip()
         pkey = (dati.get("private_key") or "").strip()
-        jump = (dati.get("jump_host") or "").strip()
+        jump_spec = _formatta_jump(dati)
         notes = (dati.get("notes") or "").strip()
         compress = dati.get("compression", False)
         keepalive = dati.get("keepalive", False)
@@ -91,9 +111,8 @@ def esporta_ssh_config(profili: dict, gruppo: str | None = None) -> tuple[str, i
             righe.append(f"    Port {port}")
         if pkey:
             righe.append(f"    IdentityFile {pkey}")
-        if jump:
-            jump_clean = jump.replace(" ", "_").replace("/", "-")
-            righe.append(f"    ProxyJump {jump_clean}")
+        if jump_spec:
+            righe.append(f"    ProxyJump {jump_spec}")
         if compress:
             righe.append("    Compression yes")
         if keepalive:

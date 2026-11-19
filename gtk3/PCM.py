@@ -705,6 +705,7 @@ class MainWindow(Gtk.ApplicationWindow):
         _item(t("menu.tools.snippets"),    self._apri_snippet_dialog)
         _item(t("menu.tools.quick_switcher"), self._on_quick_switcher)
         _item(t("menu.tools.import_from"), self._on_importa_sessioni)
+        _item(t("sshsync.menu"),           self._on_sync_ssh_config)
         _item(t("menu.file.export_sessions"), self._on_esporta_sessioni)
         _item(t("menu.tools.port_scan"), self._on_port_scan)
         _item(t("menu.tools.audit"),       self._on_audit_log)
@@ -3051,6 +3052,9 @@ class MainWindow(Gtk.ApplicationWindow):
             nuovo_nome = f"{nome} (copia)"
             profili[nuovo_nome] = dict(profili[nome])
             profili[nuovo_nome].pop("favorite", None)
+            # Una copia non è più collegata all'alias di ~/.ssh/config.
+            profili[nuovo_nome].pop("_sorgente", None)
+            profili[nuovo_nome].pop("_ssh_alias", None)
             config_manager.save_profiles(profili)
             self._pannello.aggiorna(profili)
         else:
@@ -3060,6 +3064,8 @@ class MainWindow(Gtk.ApplicationWindow):
         nuovo_nome = f"{nome} (copia)"
         nuovi_dati = dict(dati)
         nuovi_dati.pop("favorite", None)
+        nuovi_dati.pop("_sorgente", None)
+        nuovi_dati.pop("_ssh_alias", None)
         dlg = SessionDialog(parent=self, nome=nuovo_nome, dati=nuovi_dati)
         resp = dlg.run()
         if resp == Gtk.ResponseType.CANCEL:
@@ -3382,6 +3388,14 @@ class MainWindow(Gtk.ApplicationWindow):
         sorgente_box.pack_start(combo_src, True, True, 0)
         area.pack_start(sorgente_box, False, False, 0)
 
+        # Suggerimento contestuale: per gli aggiornamenti c'è il dialogo di
+        # sincronizzazione con anteprima delle differenze.
+        lbl_hint = Gtk.Label(xalign=0.0)
+        lbl_hint.set_line_wrap(True)
+        lbl_hint.get_style_context().add_class("dim-label")
+        lbl_hint.set_no_show_all(True)
+        area.pack_start(lbl_hint, False, False, 0)
+
         # Selettore file (per sorgenti basate su file: Remmina, RDM, mRemoteNG, MobaXterm)
         fc = Gtk.FileChooserButton(title=t("import.file_chooser"),
                                    action=Gtk.FileChooserAction.OPEN)
@@ -3406,6 +3420,11 @@ class MainWindow(Gtk.ApplicationWindow):
             src = combo_src.get_active()
             file_based = src in (0, 1, 2, 5)
             fc.set_sensitive(file_based)
+            if src == 4:
+                lbl_hint.set_text(t("sshsync.import_hint"))
+                lbl_hint.show()
+            else:
+                lbl_hint.hide()
             if src == 0:
                 _set_filters(_filters_remmina)
             elif src == 1:
@@ -3490,6 +3509,17 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.show_all()
         dlg.run()
         dlg.destroy()
+
+    def _on_sync_ssh_config(self):
+        """Anteprima e sincronizzazione dei profili con ~/.ssh/config."""
+        from ssh_sync_dialog import SshSyncDialog
+
+        dlg = SshSyncDialog(
+            parent=self,
+            on_applied=lambda: self._pannello.aggiorna())
+        dlg.run()
+        dlg.destroy()
+        self._pannello.aggiorna()
 
     def _on_port_scan(self):
         def import_results(results, protocol):
