@@ -82,11 +82,11 @@
 | **Live system monitor panel** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **KeePassXC integration** | ✅ Browser Protocol v2 | ❌ | ❌ | ✅ keepassxc-cli | ❌ |
 | **Native Wayland (no XWayland)** | ✅ | ❌ Windows only | partial | ❌ | ❌ Linux |
-| **Password NEVER on command line** | ✅ autotyped into terminal | ✅ | ❌ | ⚠️ expect | — |
+| **Password NEVER on command line** | ✅ autotyped into terminal | ✅ | ✅ libssh | ⚠️ expect | — |
 | **Session restore on startup** | ✅ | ✅ | ❌ | partial | ✅ |
 | **TOTP / 2FA auto-type** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Template inheritance** | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | partial (RDP/VNC/SPICE) | partial (SSH/RDP/VNC/SFTP) | ❌ |
 | **Plugin architecture** | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | **Cloud protocols (AWS/k8s/Docker)** | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
 | **SPICE / KVM** | ✅ plugin | ❌ | ✅ plugin | ❌ | ❌ |
@@ -653,11 +653,11 @@ If you find PCM valuable for your daily workflow, sysadmin duties, or developmen
 | **Pannello monitor sistema live** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **KeePassXC integrato** | ✅ Browser Protocol v2 | ❌ | ❌ | ✅ keepassxc-cli | ❌ |
 | **Wayland nativo (no XWayland)** | ✅ | ❌ solo Windows | parziale | ❌ | ❌ Linux |
-| **Password MAI sulla command line** | ✅ digitata nel terminale | ✅ | ❌ | ⚠️ expect | — |
+| **Password MAI sulla command line** | ✅ digitata nel terminale | ✅ | ✅ libssh | ⚠️ expect | — |
 | **Ripristino sessioni all'avvio** | ✅ | ✅ | ❌ | parziale | ✅ |
 | **TOTP / 2FA auto-type** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Ereditarietà template** | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | partial (RDP/VNC/SPICE) | partial (SSH/RDP/VNC/SFTP) | ❌ |
 | **Architettura plugin** | ✅ | ✅ plugin | ✅ plugin | ❌ | ❌ |
 | **Protocolli cloud (AWS/k8s/Docker)** | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
 | **SPICE / KVM** | ✅ plugin | ❌ | ✅ plugin | ❌ | ❌ |
