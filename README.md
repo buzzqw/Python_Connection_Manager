@@ -71,9 +71,9 @@
 
 | Feature / Capability | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
 |---|---|---|---|---|---|
-| **SSH with integrated terminal** | ✅ Native VTE | ✅ | ❌ RDP/VNC only | ✅ xterm | ✅ |
+| **SSH with integrated terminal** | ✅ Native VTE | ✅ | ✅ VTE | ✅ xterm | ✅ |
 | **RDP + VNC + SSH + FTP + Cloud in one tool** | ✅ | ✅ | partial | ✅ | ✅ |
-| **Integrated SFTP/FTP browser** | ✅ dual-pane | ✅ dual-pane | ❌ | partial | ❌ |
+| **Integrated SFTP/FTP browser** | ✅ dual-pane | ✅ dual-pane | partial (SFTP, single pane) | partial | ❌ |
 | **Directory sync local↔remote** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **SSH latency monitor in status bar** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Drag & drop upload to terminal** | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -89,13 +89,15 @@
 | **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Plugin architecture** | ✅ | ✅ plugins | ✅ plugins | ❌ | ❌ |
 | **Cloud protocols (AWS/k8s/Docker)** | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
-| **SPICE / KVM** | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
+| **SPICE / KVM** | ✅ plugin | ❌ | ✅ plugin | ✅ | ❌ |
 | **Tags + filter** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Password generator** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Command line launch (URI)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Human-readable config** | ✅ JSON | ❌ proprietary | complex XML | YAML | XML |
+| **Command line launch (URI)** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Human-readable config** | ✅ JSON | ❌ proprietary | INI (.remmina) | YAML | XML |
 | **Target Platforms** | Linux / FreeBSD | Windows only | Linux | Linux | Windows |
 | **Software License** | EUPL-1.2 | Proprietary | GPL-2 | GPL-3 | GPL-2 |
+
+> The comparison reflects the built-in features of each tool as far as I know them, without third-party plugins or scripts. If something is wrong or outdated, please [open an issue](https://github.com/buzzqw/Python_Connection_Manager/issues) and I will fix it.
 
 ---
 
@@ -639,9 +641,9 @@ If you find PCM valuable for your daily workflow, sysadmin duties, or developmen
 
 | Funzionalità / Capacità | PCM | MobaXterm | Remmina | Asbru | mRemoteNG |
 |---|---|---|---|---|---|
-| **SSH con terminale integrato** | ✅ VTE nativo | ✅ | ❌ solo RDP/VNC | ✅ xterm | ✅ |
+| **SSH con terminale integrato** | ✅ VTE nativo | ✅ | ✅ VTE | ✅ xterm | ✅ |
 | **RDP + VNC + SSH + FTP + Cloud in un tool** | ✅ | ✅ | parziale | ✅ | ✅ |
-| **Browser SFTP/FTP integrato** | ✅ dual-pane | ✅ dual-pane | ❌ | parziale | ❌ |
+| **Browser SFTP/FTP integrato** | ✅ dual-pane | ✅ dual-pane | parziale (SFTP, pannello singolo) | parziale | ❌ |
 | **Sincronizzazione directory locale↔remota** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Monitor latenza SSH nella statusbar** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Upload via drag & drop nel terminale** | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -657,13 +659,15 @@ If you find PCM valuable for your daily workflow, sysadmin duties, or developmen
 | **SSH gateway (SFTP/Telnet/RDP/VNC/SPICE)** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Architettura plugin** | ✅ | ✅ plugin | ✅ plugin | ❌ | ❌ |
 | **Protocolli cloud (AWS/k8s/Docker)** | ✅ plugin | ❌ | ❌ | ❌ | ❌ |
-| **SPICE / KVM** | ✅ plugin | ❌ | ❌ | ✅ | ❌ |
+| **SPICE / KVM** | ✅ plugin | ❌ | ✅ plugin | ✅ | ❌ |
 | **Tag + filtro** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Generatore password** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Avvio da riga di comando (URI)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Configurazione leggibile** | ✅ JSON | ❌ proprietario | XML complesso | YAML | XML |
+| **Avvio da riga di comando (URI)** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Configurazione leggibile** | ✅ JSON | ❌ proprietario | INI (.remmina) | YAML | XML |
 | **Piattaforma di destinazione** | Linux / FreeBSD | solo Windows | Linux | Linux | Windows |
 | **Licenza software** | EUPL-1.2 | Proprietario | GPL-2 | GPL-3 | GPL-2 |
+
+> Il confronto riflette le funzionalità integrate di ciascun programma per quanto ne so, senza plugin o script di terze parti. Se qualcosa è sbagliato o non aggiornato, [apri una issue](https://github.com/buzzqw/Python_Connection_Manager/issues) e lo correggo.
 
 ---
 
