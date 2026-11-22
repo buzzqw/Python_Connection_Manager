@@ -161,6 +161,59 @@ class TestExporter:
         assert target.read_text(encoding="utf-8") == "Hello World"
 
 
+class TestExporterRegression:
+    def test_file_transfer_ftp_protocollo_mremoteng_corretto(self):
+        profili = {
+            "ftp": {"protocol": "file_transfer", "ft_protocol": "FTP", "host": "h"},
+            "ftps": {"protocol": "file_transfer", "ft_protocol": "FTPS", "host": "h"},
+            "sftp": {"protocol": "file_transfer", "ft_protocol": "SFTP", "host": "h"},
+        }
+        xml, n = exporter.esporta_mremoteng(profili)
+        assert n == 3
+        root = ET.fromstring(xml)
+        protocolli = {node.get("Name"): node.get("Protocol")
+                      for node in root.iter("Node") if node.get("Type") == "Connection"}
+        assert protocolli == {"ftp": "FTP", "ftps": "FTPS", "sftp": "SFTP"}
+
+    def test_sftp_config_export_dopo_normalizzazione(self):
+        """validate_profiles() trasforma sftp in file_transfer: va esportato lo stesso."""
+        profili = {
+            "sftp": {"protocol": "file_transfer", "ft_protocol": "SFTP",
+                     "host": "sftp.example.com", "port": "22"},
+            "ftp": {"protocol": "file_transfer", "ft_protocol": "FTP",
+                    "host": "ftp.example.com", "port": "21"},
+        }
+        testo, n = exporter.esporta_ssh_config(profili)
+        assert n == 1
+        assert "HostName sftp.example.com" in testo
+        assert "HostName ftp.example.com" not in testo
+
+    def test_json_non_include_alias_ssh(self):
+        profili = {"s": {"protocol": "ssh", "host": "h", "_ssh_alias": "s_alias"}}
+        testo, _ = exporter.esporta_json(profili)
+        assert "_ssh_alias" not in testo
+
+    def test_csv_note_non_stringa(self):
+        profili = {"s": {"protocol": "ssh", "host": "h", "notes": 123}}
+        testo, _ = exporter.esporta_csv(profili)
+        assert "123" in testo
+
+    def test_scrittura_atomica_preserva_file_esistente(self, tmp_path, monkeypatch):
+        target = tmp_path / "config"
+        target.write_text("CONFIG ORIGINALE", encoding="utf-8")
+
+        def _fake_replace(src, dst):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(exporter.os, "replace", _fake_replace)
+        try:
+            exporter.esporta_su_file("nuovo contenuto", target)
+        except OSError:
+            pass
+        assert target.read_text(encoding="utf-8") == "CONFIG ORIGINALE"
+        assert list(tmp_path.glob(".*pcm-*")) == []
+
+
 class TestGroupHealth:
     def test_trova_target(self, monkeypatch):
         # Create dialog instance with mocked profiles

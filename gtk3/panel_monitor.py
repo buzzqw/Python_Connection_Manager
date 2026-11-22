@@ -980,7 +980,6 @@ class InfoPanelWidget(Gtk.Box):
                     if line == "===TICK":
                         sections = {}
                         cur = None
-                        self._last_tick = time.monotonic()
                     elif line == "===CPU":
                         cur = "cpu";   sections[cur] = []
                     elif line == "===MEM":
@@ -995,7 +994,12 @@ class InfoPanelWidget(Gtk.Box):
                         cur = "gpu";   sections[cur] = []
                     elif line == "===END":
                         now = time.monotonic()
-                        dt  = now - self._last_tick
+                        # Il loop remoto esegue `sleep _SLEEP` DOPO ===END:
+                        # il tempo tra TICK e END è solo il tempo di esecuzione
+                        # dei comandi. Per velocità di rete corrette bisogna
+                        # misurare l'intervallo tra un ===END e il successivo.
+                        dt = now - self._last_tick
+                        self._last_tick = now
                         GLib.idle_add(self._dispatch, dict(sections), dt)
                         sections = {}
                         cur = None

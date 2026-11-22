@@ -294,6 +294,7 @@ class CronWidget(Gtk.Box):
         self._rows: list = []
         self._write_lock = threading.Lock()
         self._write_pending = False
+        self._write_dirty = False
 
         self._build_ui()
         self.connect("destroy", lambda _: self._chiudi())
@@ -439,9 +440,15 @@ class CronWidget(Gtk.Box):
 
     def _scrivi_crontab(self):
         with self._write_lock:
-            if not self._ssh or self._write_pending:
+            if not self._ssh:
+                return
+            if self._write_pending:
+                # Un'altra modifica è arrivata mentre scrivevamo: segnala
+                # che serve un secondo giro, altrimenti l'edit va perso.
+                self._write_dirty = True
                 return
             self._write_pending = True
+            self._write_dirty = False
         try:
             text = _rows_to_crontab(self._rows)
             stdin, stdout, stderr = self._ssh.exec_command("crontab -", timeout=10)
@@ -458,6 +465,10 @@ class CronWidget(Gtk.Box):
         finally:
             with self._write_lock:
                 self._write_pending = False
+                riscrivi = self._write_dirty
+                self._write_dirty = False
+            if riscrivi:
+                threading.Thread(target=self._scrivi_crontab, daemon=True).start()
 
     def _chiudi(self):
         if self._ssh:

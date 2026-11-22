@@ -52,6 +52,7 @@ class SftpBrowserWidget(Gtk.Box):
         self._sftp           = None
         self._ssh            = None
         self._cwd            = "/"
+        self._list_gen       = 0      # contatore: ignora listing obsoleti
         self._chiuso         = False   # True dopo chiudi(): stop aggiornamenti UI
         self._on_apri_editor = on_apri_editor  # callback(sftp, remote_path)
         self._init_ui()
@@ -216,7 +217,7 @@ class SftpBrowserWidget(Gtk.Box):
         GLib.idle_add(self._set_status, f"Connessione SSH {user}@{host}:{port}…")
         try:
             from session_command import make_ssh_client
-            self._ssh = make_ssh_client(self._profilo, confirm_host_key=self._conferma_host_key)
+            ssh = make_ssh_client(self._profilo, confirm_host_key=self._conferma_host_key)
 
             kwargs = {"hostname": host, "port": port, "username": user, "timeout": 10}
             if pkey and os.path.isfile(pkey):
@@ -224,11 +225,23 @@ class SftpBrowserWidget(Gtk.Box):
             elif pwd:
                 kwargs["password"] = pwd
 
-            self._ssh.connect(**kwargs)
-            self._sftp = self._ssh.open_sftp()
+            ssh.connect(**kwargs)
+            sftp = ssh.open_sftp()
+            if self._chiuso:
+                # Il pannello è stato chiuso mentre connect() era in corso:
+                # non pubblicare client che nessuno chiuderà più.
+                with contextlib.suppress(Exception):
+                    sftp.close()
+                with contextlib.suppress(Exception):
+                    ssh.close()
+                return
+            self._ssh = ssh
+            self._sftp = sftp
 
             _, stdout, _ = self._ssh.exec_command("echo $HOME")
             home = stdout.read().decode().strip() or "/"
+            if self._chiuso:
+                return
             self._cwd = home
 
             GLib.idle_add(self._naviga_ui, home)
@@ -332,9 +345,10 @@ class SftpBrowserWidget(Gtk.Box):
     def _naviga(self, path: str):
         if not self._sftp:
             return
+        self._list_gen += 1
         threading.Thread(
             target=self._list_dir,
-            args=(path,),
+            args=(path, self._list_gen),
             daemon=True
         ).start()
 
@@ -347,16 +361,18 @@ class SftpBrowserWidget(Gtk.Box):
         self._path_entry.set_text(path)
         self._naviga(path)
 
-    def _list_dir(self, path: str):
+    def _list_dir(self, path: str, gen: int = 0):
         try:
             entries = self._sftp.listdir_attr(path)
+            if self._chiuso or gen != self._list_gen:
+                return   # una navigazione più recente ha già sostituito questa
             self._cwd = path
-            GLib.idle_add(self._popola_lista, entries)
+            GLib.idle_add(self._popola_lista, entries, path, gen)
         except Exception as e:
             GLib.idle_add(self._set_status, t("sftp.err_connect").format(e=e))
 
-    def _popola_lista(self, entries):
-        if self._chiuso:
+    def _popola_lista(self, entries, path: str = "", gen: int = -1):
+        if self._chiuso or (gen >= 0 and gen != self._list_gen):
             return
         self._store.clear()
         folder_pb = _pb("folder.png", 16)
@@ -372,7 +388,7 @@ class SftpBrowserWidget(Gtk.Box):
             size = self._fmt_size(e.st_size)
             self._store.append([file_pb, e.filename, size, self._perms(e.st_mode), False])
 
-        self._path_entry.set_text(self._cwd)
+        self._path_entry.set_text(path or self._cwd)
         self._set_status(t("sftp.n_items").format(n=len(entries)))
 
     @staticmethod

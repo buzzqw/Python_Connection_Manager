@@ -15,6 +15,7 @@ Layout:
 Thread GTK-safe: tutti gli aggiornamenti UI via GLib.idle_add().
 """
 
+import contextlib
 import os
 import stat
 import shutil
@@ -641,8 +642,23 @@ class CodaWidget(Gtk.Box):
                             job.src, job.dst, "—", t("winscp.status_wait_lbl"), 0])
         return len(self._jobs) - 1
 
-    def aggiorna_progress(self, idx: int, tx: int, tot: int):
-        if idx >= len(self._store):
+    def _risolvi_idx(self, ref) -> int:
+        """Risolve il riferimento a una riga: indice memorizzato o job.
+
+        Passare il job è più sicuro: se la coda viene ripulita mentre un
+        trasferimento è in corso, gli indici delle righe cambiano e un indice
+        salvato all'inizio punterebbe al file sbagliato.
+        """
+        if isinstance(ref, TransferJob):
+            for i, job in enumerate(self._jobs):
+                if job is ref:
+                    return i
+            return -1
+        return ref
+
+    def aggiorna_progress(self, ref, tx: int, tot: int):
+        idx = self._risolvi_idx(ref)
+        if idx < 0 or idx >= len(self._store):
             return
         pct = int(tx * 100 / tot) if tot > 0 else 0
         it  = self._store.get_iter_from_string(str(idx))
@@ -656,8 +672,9 @@ class CodaWidget(Gtk.Box):
             vel = f"{_fmt_size(job.velocita)}/s  ETA {eta}s"
             self._store.set_value(it, 5, vel)
 
-    def segna_completato(self, idx: int, ok: bool, msg: str):
-        if idx >= len(self._store):
+    def segna_completato(self, ref, ok: bool, msg: str):
+        idx = self._risolvi_idx(ref)
+        if idx < 0 or idx >= len(self._store):
             return
         it = self._store.get_iter_from_string(str(idx))
         if it is None:
@@ -697,14 +714,7 @@ class CodaWidget(Gtk.Box):
 
     def _on_pulisci(self, btn):
         """Rimuove dalla coda tutti i job non in esecuzione (completati, errore, annullati, in attesa)."""
-        stato_running = t("winscp.status_running")
-        to_remove = [i for i, job in enumerate(self._jobs)
-                     if job.stato != stato_running]
-        for i in reversed(to_remove):
-            it = self._store.get_iter_from_string(str(i))
-            if it:
-                self._store.remove(it)
-            self._jobs.pop(i)
+        self.pulisci()
 
     def is_in_pausa(self) -> bool:
         return self._in_pausa
@@ -730,10 +740,21 @@ class CodaWidget(Gtk.Box):
         return sum(1 for j in self._jobs if j.stato == t("winscp.status_wait"))
 
     def pulisci(self):
-        """Rimuove dalla coda tutti i job non in esecuzione."""
+        """Rimuove dalla coda tutti i job non in esecuzione.
+
+        I job in attesa vengono marcati come annullati: altrimenti resterebbero
+        nei deque dei worker e verrebbero eseguiti (o peggio, scriverebbero il
+        progresso su righe altrui dopo lo spostamento degli indici).
+        """
         stato_running = t("winscp.status_running")
+        stato_wait = t("winscp.status_wait")
+        stato_annullato = t("winscp.status_cancelled")
         to_remove = [i for i, j in enumerate(self._jobs) if j.stato != stato_running]
         for i in reversed(to_remove):
+            job = self._jobs[i]
+            if job.stato == stato_wait:
+                job.annulla = True
+                job.stato = stato_annullato
             it = self._store.get_iter_from_string(str(i))
             if it:
                 self._store.remove(it)
@@ -1058,50 +1079,25 @@ class WinScpWidget(Gtk.Box):
         dlg.destroy()
 
     def _avvia_coda_se_idle(self):
-        """Avvia il worker solo se non è già in esecuzione."""
+        """Avvia i job in attesa usando lo stesso worker di _esegui_jobs.
+
+        In precedenza qui partiva un worker con uno snapshot dei job: quelli
+        accodati da _esegui_jobs mentre era in corso restavano bloccati in
+        _pending_jobs e non venivano mai trasferiti.
+        """
         if self._stopped:
             return
         if self._worker_thread and self._worker_thread.is_alive():
             return
         stato_attesa = t("winscp.status_wait")
-        jobs_in_attesa = [(i, j) for i, j in enumerate(self._coda._jobs)
-                          if j.stato == stato_attesa]
-        if not jobs_in_attesa:
-            return
-
-        def run():
-            _annullato = t("winscp.status_cancelled")
-            for idx, job in jobs_in_attesa:
-                if self._stopped:
-                    break
-                while self._coda.is_in_pausa() and not self._stopped:
-                    time.sleep(0.3)
-                if self._stopped:
-                    break
-                if job.annulla or job.stato == _annullato:
-                    continue
-                job.stato = t("winscp.status_running")
-                job.t_inizio = time.time()
-                try:
-                    self._trasferisci_chunk(job, idx)
-                    if job.annulla or self._stopped:
-                        job.stato = _annullato
-                        self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
-                    else:
-                        job.stato = t("winscp.status_done")
-                        self._ui_idle(self._coda.segna_completato, idx, True, "")
-                except Exception as e:
-                    if job.annulla or self._stopped:
-                        job.stato = _annullato
-                        self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
-                    else:
-                        job.stato = t("winscp.status_err")
-                        job.errore = str(e)
-                        self._ui_idle(self._coda.segna_completato, idx, False, str(e))
-
-            self._ui_idle(self._aggiorna_tutto)
-
-        self._worker_thread = threading.Thread(target=run, daemon=True)
+        with self._jobs_lock:
+            gia_pendenti = {id(j) for j, _ in self._pending_jobs}
+            nuovi = [(i, j) for i, j in enumerate(self._coda._jobs)
+                     if j.stato == stato_attesa and id(j) not in gia_pendenti]
+            if not nuovi:
+                return
+            self._pending_jobs.extend((j, i) for i, j in nuovi)
+        self._worker_thread = threading.Thread(target=self._run_jobs, daemon=True)
         self._worker_thread.start()
 
     # ------------------------------------------------------------------
@@ -1230,7 +1226,7 @@ class WinScpWidget(Gtk.Box):
             with self._jobs_lock:
                 if not self._pending_jobs:
                     break
-                job, idx = self._pending_jobs.popleft()
+                job, _idx = self._pending_jobs.popleft()
             while self._coda.is_in_pausa() and not self._stopped:
                 time.sleep(0.3)
             if self._stopped:
@@ -1240,24 +1236,24 @@ class WinScpWidget(Gtk.Box):
             job.stato = t("winscp.status_running")
             job.t_inizio = time.time()
             try:
-                self._trasferisci_chunk(job, idx)
+                self._trasferisci_chunk(job, job)
                 if job.annulla or self._stopped:
                     job.stato = _annullato
-                    self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
+                    self._ui_idle(self._coda.segna_completato, job, False, _annullato)
                 else:
                     job.stato = t("winscp.status_done")
-                    self._ui_idle(self._coda.segna_completato, idx, True, "")
+                    self._ui_idle(self._coda.segna_completato, job, True, "")
             except Exception as e:
                 # Un errore causato dalla chiusura volontaria (socket chiuso da
                 # chiudi_processo, pausa interrotta) NON è un errore del file:
                 # resta "Annullato" invece di diventare "Errore: socket closed".
                 if job.annulla or self._stopped:
                     job.stato = _annullato
-                    self._ui_idle(self._coda.segna_completato, idx, False, _annullato)
+                    self._ui_idle(self._coda.segna_completato, job, False, _annullato)
                 else:
                     job.stato = t("winscp.status_err")
                     job.errore = str(e)
-                    self._ui_idle(self._coda.segna_completato, idx, False, str(e))
+                    self._ui_idle(self._coda.segna_completato, job, False, str(e))
 
         self._ui_idle(self._aggiorna_tutto)
 
@@ -1265,7 +1261,7 @@ class WinScpWidget(Gtk.Box):
     # Trasferimento a chunk (permette pausa/annulla)
     # ------------------------------------------------------------------
 
-    def _trasferisci_chunk(self, job: TransferJob, idx: int):
+    def _trasferisci_chunk(self, job: TransferJob, ref):
         """
         Trasferisce un file a chunk di CHUNK_SIZE byte.
         Controlla job.annulla e _coda.is_in_pausa() ad ogni chunk,
@@ -1298,7 +1294,7 @@ class WinScpWidget(Gtk.Box):
                         job.velocita = int(tx / dt) if dt > 0 else 0
                         now = time.monotonic()
                         if now - last_dl_update >= 0.1:
-                            self._ui_idle(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            self._ui_idle(self._coda.aggiorna_progress, ref, tx, job.size or tx)
                             last_dl_update = now
             finally:
                 remote_f.close()
@@ -1331,7 +1327,7 @@ class WinScpWidget(Gtk.Box):
                         job.velocita = int(tx / dt) if dt > 0 else 0
                         now = time.monotonic()
                         if now - last_update >= 0.1:
-                            self._ui_idle(self._coda.aggiorna_progress, idx, tx, job.size or tx)
+                            self._ui_idle(self._coda.aggiorna_progress, ref, tx, job.size or tx)
                             last_update = now
                 finally:
                     remote_f.close()
@@ -1413,9 +1409,9 @@ class FtpTransferWorker(threading.Thread):
             return
 
         _annullato = t("winscp.status_cancelled")
-        for idx, job in self._jobs:
+        for _idx, job in self._jobs:
             if self._stop or job.annulla:
-                GLib.idle_add(self._cb_done, idx, False, _annullato)
+                GLib.idle_add(self._cb_done, job, False, _annullato)
                 continue
 
             job.stato    = t("winscp.status_running")
@@ -1424,9 +1420,9 @@ class FtpTransferWorker(threading.Thread):
             msg = ""
             try:
                 if job.op == "download":
-                    self._scarica(ftp, job, idx)
+                    self._scarica(ftp, job)
                 else:
-                    self._carica(ftp, job, idx)
+                    self._carica(ftp, job)
 
                 if job.annulla or self._stop:
                     ok, msg = False, _annullato
@@ -1439,12 +1435,17 @@ class FtpTransferWorker(threading.Thread):
                     # annullato, non "in errore".
                     ok, msg   = False, _annullato
                     job.stato = _annullato
+                    if job.op == "download":
+                        # Il file era stato troncato all'inizio: non lasciare
+                        # un download parziale che sembri completo.
+                        with contextlib.suppress(OSError):
+                            os.unlink(job.dst)
                 else:
                     ok, msg   = False, str(e)
                     job.stato = t("winscp.status_err")
                     job.errore = msg
 
-            GLib.idle_add(self._cb_done, idx, ok, msg)
+            GLib.idle_add(self._cb_done, job, ok, msg)
 
         try:
             ftp.quit()
@@ -1457,13 +1458,19 @@ class FtpTransferWorker(threading.Thread):
     # Trasferimento chunk-based
     # ------------------------------------------------------------------
 
-    def _scarica(self, ftp: ftplib.FTP, job: TransferJob, idx: int):
+    def _scarica(self, ftp: ftplib.FTP, job: TransferJob):
         """Download: RETR → file locale, a blocchi di CHUNK_SIZE."""
         os.makedirs(os.path.dirname(job.dst) or ".", exist_ok=True)
         tx = [0]
 
         def _cb(chunk):
             if self._stop or job.annulla:
+                # Sollevare dall'interno di retrbinary salta voidresp(): il
+                # reply "226 Transfer complete" resterebbe sul socket di
+                # controllo e disallineerebbe tutti i job successivi. abort()
+                # lo consuma e ripristina la sincronizzazione del protocollo.
+                with contextlib.suppress(Exception):
+                    ftp.abort()
                 raise ftplib.error_reply("annullato")
             with open(job.dst, "ab") as f:
                 f.write(chunk)
@@ -1471,13 +1478,13 @@ class FtpTransferWorker(threading.Thread):
             job.trasferito = tx[0]
             dt = time.time() - job.t_inizio
             job.velocita = int(tx[0] / dt) if dt > 0 else 0
-            GLib.idle_add(self._cb_progress, idx, tx[0], job.size or tx[0])
+            GLib.idle_add(self._cb_progress, job, tx[0], job.size or tx[0])
 
         # Assicura file vuoto prima di partire
         open(job.dst, "wb").close()
         ftp.retrbinary(f"RETR {job.src}", _cb, blocksize=CHUNK_SIZE)
 
-    def _carica(self, ftp: ftplib.FTP, job: TransferJob, idx: int):
+    def _carica(self, ftp: ftplib.FTP, job: TransferJob):
         """Upload: STOR → server FTP, a blocchi di CHUNK_SIZE."""
         size = job.size or os.path.getsize(job.src)
         job.size = size
@@ -1497,7 +1504,7 @@ class FtpTransferWorker(threading.Thread):
                     job.trasferito = tx[0]
                     dt = time.time() - job.t_inizio
                     job.velocita = int(tx[0] / dt) if dt > 0 else 0
-                    GLib.idle_add(self._cb_progress, idx, tx[0], size)
+                    GLib.idle_add(self._cb_progress, job, tx[0], size)
                 return chunk
 
         with open(job.src, "rb") as fp:

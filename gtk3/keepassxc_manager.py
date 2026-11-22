@@ -21,6 +21,7 @@ import subprocess
 import base64
 import secrets
 import threading
+import time
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
@@ -59,43 +60,64 @@ def _load_assoc() -> dict:
         assoc = config_manager.load_settings().get(_ASSOC_KEY, {})
         if not isinstance(assoc, dict):
             return {}
-        # L'idKey è un segreto condiviso: se è cifrato, decifralo.
+        # L'idKey è un segreto condiviso: se è cifrato, decifralo solo con
+        # PCM sbloccato. Con cifratura attiva ma bloccata il valore resta
+        # "ENC:..." e non va usato come chiave di associazione.
         try:
             import crypto_manager
-            if crypto_manager.is_enabled() and str(assoc.get("idKey", "")).startswith("ENC:"):
+            if (crypto_manager.is_enabled() and crypto_manager.is_unlocked()
+                    and str(assoc.get("idKey", "")).startswith("ENC:")):
                 assoc = dict(assoc)
                 assoc["idKey"] = crypto_manager.decrypt_field(assoc["idKey"])
         except ImportError:
             pass
         except Exception as e:
-            from pcm_logging import get_logger
-            get_logger(__name__).debug("idKey KeePassXC non decifrabile: %s", e)
+            _get_log(__name__).debug("idKey KeePassXC non decifrabile: %s", e)
         return assoc
     except Exception:
         return {}
+
+
+def _assoc_locked() -> bool:
+    """True se esiste un'associazione cifrata ma PCM non è sbloccato."""
+    try:
+        import config_manager
+        import crypto_manager
+        assoc = config_manager.load_settings().get(_ASSOC_KEY, {})
+        return bool(isinstance(assoc, dict) and crypto_manager.is_enabled()
+                    and not crypto_manager.is_unlocked()
+                    and str(assoc.get("idKey", "")).startswith("ENC:"))
+    except Exception:
+        return False
 
 
 def _save_assoc(assoc: dict):
     try:
         import config_manager
         assoc = dict(assoc)
-        # Cifra l'idKey a riposo, come le altre credenziali.
+        # Cifra l'idKey a riposo, come le altre credenziali. Se PCM è bloccato
+        # NON scrivere il segreto in chiaro: meglio non salvare l'associazione.
         try:
             import crypto_manager
-            if crypto_manager.is_enabled() and crypto_manager.is_unlocked() and assoc.get("idKey"):
-                assoc["idKey"] = crypto_manager.encrypt_field(assoc["idKey"])
+            id_key = assoc.get("idKey", "")
+            if (crypto_manager.is_enabled() and id_key
+                    and not str(id_key).startswith("ENC:")):
+                if not crypto_manager.is_unlocked():
+                    _get_log(__name__).warning(
+                        "Associazione KeePassXC non salvata: PCM bloccato")
+                    return
+                assoc["idKey"] = crypto_manager.encrypt_field(id_key)
         except ImportError:
             pass
         except Exception:
-            from pcm_logging import get_logger
-            get_logger(__name__).warning(
-                "Impossibile cifrare l'idKey KeePassXC: salvato in chiaro")
+            _get_log(__name__).warning(
+                "Impossibile cifrare l'idKey KeePassXC: associazione non salvata")
+            return
         s = config_manager.load_settings()
         s[_ASSOC_KEY] = assoc
         config_manager.save_settings(s)
     except Exception:
-        from pcm_logging import get_logger
-        get_logger(__name__).warning("Impossibile salvare associazioni KeePassXC", exc_info=True)
+        _get_log(__name__).warning("Impossibile salvare associazioni KeePassXC", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +155,28 @@ class KeePassXCClient:
             stderr=subprocess.DEVNULL,
         )
 
+    def _read_exact(self, count: int, deadline: float) -> bytes:
+        """Legge esattamente `count` byte entro la scadenza.
+
+        `stdout.read(n)` dei file buffered può bloccare finché n byte non
+        arrivano, anche dopo che select() ha segnalato leggibilità: un proxy
+        che invia un frame parziale farebbe hangare la ricerca per sempre.
+        """
+        chunks: list[bytes] = []
+        restante = count
+        while restante > 0:
+            rimasto = deadline - time.monotonic()
+            if rimasto <= 0:
+                raise ConnectionError("Timeout da keepassxc-proxy — database aperto?")
+            if not select.select([self._proc.stdout], [], [], rimasto)[0]:
+                raise ConnectionError("Timeout da keepassxc-proxy — database aperto?")
+            chunk = os.read(self._proc.stdout.fileno(), restante)
+            if not chunk:
+                raise ConnectionError("Risposta troncata da keepassxc-proxy")
+            chunks.append(chunk)
+            restante -= len(chunk)
+        return b"".join(chunks)
+
     def _send_raw(self, msg: dict, timeout: float = 5.0) -> dict:
         self._ensure_proc()
         data  = json.dumps(msg).encode()
@@ -140,20 +184,14 @@ class KeePassXCClient:
         self._proc.stdin.write(frame)
         self._proc.stdin.flush()
 
-        ready = select.select([self._proc.stdout], [], [], timeout)
-        if not ready[0]:
-            raise ConnectionError(f"Timeout ({timeout:.0f}s) da keepassxc-proxy — database aperto?")
-        raw_len = self._proc.stdout.read(4)
-        if len(raw_len) < 4:
-            raise ConnectionError("Risposta troncata da keepassxc-proxy")
+        deadline = time.monotonic() + timeout
+        raw_len = self._read_exact(4, deadline)
         length  = struct.unpack("<I", raw_len)[0]
         # Limite di sicurezza: un proxy/DB compromesso non deve poterci far
         # allocare/leggere una quantità arbitraria di dati.
         if length > 4 * 1024 * 1024:
             raise ConnectionError("Risposta keepassxc-proxy troppo grande")
-        payload = self._proc.stdout.read(length)
-        if len(payload) < length:
-            raise ConnectionError("Risposta troncata da keepassxc-proxy")
+        payload = self._read_exact(length, deadline)
         return json.loads(payload)
 
     # ── NaCl box ─────────────────────────────────────────────────────────
@@ -240,6 +278,8 @@ class KeePassXCClient:
         """
         if not _HAS_NACL:
             raise ConnectionError("PyNaCl non installato — pip install pynacl")
+        if _assoc_locked():
+            raise ConnectionError(t("keepass.locked"))
         if "://" not in url:
             url = f"ssh://{url}"
 

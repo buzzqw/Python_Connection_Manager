@@ -94,7 +94,9 @@ class ExportDialog(Gtk.Dialog):
 
     def _on_format_changed(self, combo: Gtk.ComboBoxText):
         idx = combo.get_active()
-        self._chk_pwd.set_sensitive(idx in (2, 3))
+        # Solo il backup JSON supporta l'inclusione delle credenziali:
+        # abilitare il checkbox per mRemoteNG (idx 3) ingannava l'utente.
+        self._chk_pwd.set_sensitive(idx == 2)
 
     def _esegui_esportazione(self, _btn):
         fmt_idx = self._combo_fmt.get_active()

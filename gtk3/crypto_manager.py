@@ -336,7 +336,10 @@ def decrypt_field(value: str) -> str:
         f = Fernet(key)
         token = value[len(_ENC_PREFIX):].encode("ascii")
         return f.decrypt(token).decode("utf-8")
-    except InvalidToken:
+    except (InvalidToken, UnicodeEncodeError, UnicodeDecodeError):
+        # Un valore non-ASCII dopo "ENC:" (file corrotto o modificato a mano)
+        # solleva UnicodeEncodeError in .encode("ascii"): va trattato come
+        # token corrotto, altrimenti interrompe load_profiles() intero.
         from pcm_logging import get_logger
         get_logger(__name__).warning("Token cifrato corrotto")
         raise InvalidTokenError("Token cifrato corrotto o password errata")

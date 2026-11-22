@@ -44,6 +44,16 @@ class TestBuildCommand:
         cmd = session_command._build_ssh({"host": "example.com"})
         assert "-o StrictHostKeyChecking=accept-new" in cmd
 
+    def test_ssh_port_is_shell_quoted(self, monkeypatch):
+        """Una porta non numerica non deve poter iniettare comandi nella shell."""
+        monkeypatch.setattr(session_command, "_get_tool", lambda cmd_id: f"/usr/bin/{cmd_id}")
+        cmd = session_command._build_ssh({"host": "example.com", "port": "22; touch /tmp/pcm_pwn"})
+        argv = shlex.split(cmd)
+        # Il valore resta un unico argomento di ssh, non un comando separato.
+        assert argv[argv.index("-p") + 1] == "22; touch /tmp/pcm_pwn"
+        assert "touch" not in argv
+        assert cmd.count("touch") == 1
+
     def test_ssh_keepalive_interval_from_session_is_honored(self):
         """Lo spinner 'keepalive_interval' nell'editor sessione (0 = disabilitato)
         deve incidere sul comando reale: prima veniva salvato nel profilo ma

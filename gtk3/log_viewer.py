@@ -9,9 +9,11 @@ controllano il proprio gen e escono se ne esiste uno più recente —
 evita canali orfani che causano "no more sessions".
 """
 
+import contextlib
 import os
 import re
 import shlex
+import socket
 import threading
 
 import gi
@@ -122,6 +124,7 @@ class LogViewerWidget(Gtk.Box):
         self._ssh         = existing_ssh   # None = crea connessione propria
         self._ssh_owned   = existing_ssh is None  # True = dobbiamo chiuderla noi
         self._gen         = 0              # generation counter — invalida thread vecchi
+        self._canale      = None           # canale attivo, chiuso subito al riavvio
         self._stopped     = False          # True dopo chiudi_processo() — blocca _connetti()
         self._filter_re   = None
         self._scoperta_in_corso = False
@@ -425,9 +428,15 @@ class LogViewerWidget(Gtk.Box):
 
     def _riavvia(self):
         """Avvia (o riavvia) lo streaming. Thread-safe tramite gen counter."""
-        # Invalida thread precedenti
+        # Invalida thread precedenti e chiude subito il loro canale: aspettare
+        # il timeout di recv() (3s) a ogni riavvio può esaurire i MaxSessions.
         self._gen += 1
         gen = self._gen
+        canale_vecchio = self._canale
+        self._canale = None
+        if canale_vecchio is not None:
+            with contextlib.suppress(Exception):
+                canale_vecchio.close()
 
         if not self._ssh:
             return
@@ -448,6 +457,12 @@ class LogViewerWidget(Gtk.Box):
             channel = transport.open_session()
             channel.exec_command(cmd)
             channel.settimeout(3.0)
+            if gen == self._gen:
+                self._canale = channel
+            else:
+                with contextlib.suppress(Exception):
+                    channel.close()
+                return
 
             buf = ""
             while gen == self._gen:
@@ -460,19 +475,25 @@ class LogViewerWidget(Gtk.Box):
                     buf = lines[-1]
                     for line in lines[:-1]:
                         GLib.idle_add(self._append, line + "\n")
-                except Exception:
-                    # timeout o canale chiuso — controlla se siamo ancora validi
+                except (socket.timeout, TimeoutError):
+                    # timeout di polling: controlla solo se siamo ancora validi
                     if gen != self._gen:
                         break
+                except Exception as e:
+                    # Un errore reale (socket rotto, canale chiuso) non deve
+                    # far girare il loop a 100% CPU: segnala e termina.
+                    if gen == self._gen:
+                        GLib.idle_add(self._append, f"\n✖ {e}\n")
+                    break
         except Exception as e:
             if gen == self._gen:
                 GLib.idle_add(self._append, f"\n✖ {e}\n")
         finally:
+            if self._canale is channel:
+                self._canale = None
             if channel:
-                try:
+                with contextlib.suppress(Exception):
                     channel.close()
-                except Exception as e:
-                    _get_log(__name__).debug("Log channel close failed: %s", e)
 
     # ------------------------------------------------------------------
     # Rendering testo

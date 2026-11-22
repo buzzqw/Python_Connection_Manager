@@ -43,6 +43,7 @@ import configparser
 import glob
 import json
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from fnmatch import fnmatchcase
@@ -140,9 +141,18 @@ def _parse_remmina_file(path: Path) -> Optional[dict]:
     sec   = cp["remmina"]
     proto = _REMMINA_PROTO.get(sec.get("protocol", "RDP").upper(), "rdp")
     nome  = sec.get("name", path.stem).strip() or path.stem
-    server = sec.get("server", "")
-    host   = server.split(":")[0].strip()
-    porta  = server.split(":", 1)[1].strip() if ":" in server else ""
+    server = sec.get("server", "").strip()
+    # Un endpoint IPv6 letterale è [2001:db8::1]:3389: dividere su ':'
+    # spezzerebbe l'indirizzo. Gestiamo prima i bracket, poi host:porta.
+    m = re.match(r"^\[([^\]]+)\](?::(\d+))?$", server)
+    if m:
+        host, porta = m.group(1), m.group(2) or ""
+    elif ":" in server:
+        host, porta = server.rsplit(":", 1)
+    else:
+        host, porta = server, ""
+    host = host.strip()
+    porta = porta.strip()
     if not porta:
         porta = _PORTE_DEFAULT.get(proto, "")
 
@@ -755,45 +765,52 @@ def _ssh_righe_config(percorso: str, visitati: Optional[set] = None,
         return
 
     reale = os.path.realpath(os.path.expanduser(percorso))
-    if reale in visitati:          # ciclo di Include
+    if reale in visitati:          # ciclo di Include (solo sulla catena corrente)
         return
     visitati.add(reale)
 
     try:
         f = open(reale, "r", encoding="utf-8", errors="replace")
     except OSError:
+        visitati.discard(reale)
         return
 
-    with f:
-        for riga in f:
-            riga = riga.strip()
-            if not riga or riga.startswith("#"):
-                continue
-            chiave, valore = _ssh_dividi_direttiva(riga)
-            if not chiave:
-                continue
+    try:
+        with f:
+            for riga in f:
+                riga = riga.strip()
+                if not riga or riga.startswith("#"):
+                    continue
+                chiave, valore = _ssh_dividi_direttiva(riga)
+                if not chiave:
+                    continue
 
-            if chiave == "include" and valore:
-                for pattern in valore.split():
-                    espanso = os.path.expanduser(_ssh_unquote(pattern))
-                    base_ssh = os.path.join(os.path.expanduser("~"), ".ssh")
-                    if not os.path.isabs(espanso):
-                        # OpenSSH risolve i percorsi relativi in ~/.ssh.
-                        # Se lì non esiste nulla, ripiega sulla cartella del
-                        # file che contiene l'Include (utile per import da
-                        # path arbitrari e per i test).
-                        candidato = os.path.join(base_ssh, espanso)
-                        if glob.glob(candidato):
-                            espanso = candidato
-                        else:
-                            espanso = os.path.join(
-                                os.path.dirname(reale), espanso)
-                    for incluso in sorted(glob.glob(espanso)):
-                        yield from _ssh_righe_config(
-                            incluso, visitati, depth + 1)
-                continue
+                if chiave == "include" and valore:
+                    for pattern in valore.split():
+                        espanso = os.path.expanduser(_ssh_unquote(pattern))
+                        base_ssh = os.path.join(os.path.expanduser("~"), ".ssh")
+                        if not os.path.isabs(espanso):
+                            # OpenSSH risolve i percorsi relativi in ~/.ssh.
+                            # Se lì non esiste nulla, ripiega sulla cartella del
+                            # file che contiene l'Include (utile per import da
+                            # path arbitrari e per i test).
+                            candidato = os.path.join(base_ssh, espanso)
+                            if glob.glob(candidato):
+                                espanso = candidato
+                            else:
+                                espanso = os.path.join(
+                                    os.path.dirname(reale), espanso)
+                        for incluso in sorted(glob.glob(espanso)):
+                            yield from _ssh_righe_config(
+                                incluso, visitati, depth + 1)
+                    continue
 
-            yield chiave, _ssh_unquote(valore)
+                yield chiave, _ssh_unquote(valore)
+    finally:
+        # Solo i file della catena corrente contano per il rilevamento cicli:
+        # un Include ripetuto in blocchi Host diversi è legittimo per OpenSSH
+        # e deve essere applicato ogni volta.
+        visitati.discard(reale)
 
 
 def _ssh_pattern_match(pattern: str, alias: str) -> bool:

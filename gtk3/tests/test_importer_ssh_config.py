@@ -7,6 +7,7 @@ occorrenza vince", token e ProxyJump.
 """
 import os
 import textwrap
+from pathlib import Path
 
 import importer
 
@@ -210,6 +211,27 @@ class TestInclude:
         assert "relativo" in p
         assert p["relativo"]["host"] == "rel.corp"
 
+    def test_include_ripetuto_in_blocchi_diversi(self, tmp_path):
+        """Lo stesso file Include dentro due Host va applicato a entrambi."""
+        comune = _write(tmp_path / "common.conf", """\
+            User foo
+            Port 4242
+        """)
+        cfg = _write(tmp_path / "config", f"""\
+            Host a
+                HostName a.example
+                Include {comune}
+
+            Host b
+                HostName b.example
+                Include {comune}
+        """)
+        p = importer.importa_ssh_config(cfg)
+        assert p["a"]["user"] == "foo"
+        assert p["a"]["port"] == "4242"
+        assert p["b"]["user"] == "foo"
+        assert p["b"]["port"] == "4242"
+
     def test_include_ciclico_non_va_in_loop(self, tmp_path):
         a = tmp_path / "a.conf"
         b = tmp_path / "b.conf"
@@ -322,3 +344,29 @@ class TestFormatoDirettive:
         """)
         p = importer.importa_ssh_config(cfg)
         assert p["srv"]["host"] == "srv.corp"
+
+
+class TestRemminaParser:
+    def test_server_ipv6_letterale_con_porta(self, tmp_path):
+        f = _write(tmp_path / "v6.remmina", """\
+            [remmina]
+            name=Server IPv6
+            protocol=SSH
+            server=[2001:db8::1]:2222
+            username=admin
+        """)
+        p = importer._parse_remmina_file(Path(f))
+        assert p["host"] == "2001:db8::1"
+        assert p["port"] == "2222"
+        assert p["user"] == "admin"
+
+    def test_server_ipv6_senza_porta(self, tmp_path):
+        f = _write(tmp_path / "v6.remmina", """\
+            [remmina]
+            name=Server IPv6
+            protocol=RDP
+            server=[2001:db8::1]
+        """)
+        p = importer._parse_remmina_file(Path(f))
+        assert p["host"] == "2001:db8::1"
+        assert p["port"] == "3389"

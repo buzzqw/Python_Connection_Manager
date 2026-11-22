@@ -1441,7 +1441,14 @@ class MainWindow(Gtk.ApplicationWindow):
             return
 
         host = parsed.hostname or ""
-        port = str(parsed.port) if parsed.port else ""
+        # urlparse().port solleva ValueError per porte non numeriche o fuori
+        # intervallo (es. ssh://host:abc): senza questa guardia una URI
+        # malformata passata da riga di comando interrompe l'apertura.
+        try:
+            port = str(parsed.port) if parsed.port else ""
+        except ValueError:
+            self._warn(f"Porta non valida nella URI: {uri}")
+            return
         user = parsed.username or ""
         password = parsed.password or ""
 

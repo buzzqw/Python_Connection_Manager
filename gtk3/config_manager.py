@@ -92,7 +92,10 @@ def load_profiles() -> dict:
         from pcm_logging import get_logger
         _log = get_logger(__name__)
         _log.warning("connections.json corrotto o illeggibile. Le sessioni non sono state caricate.")
-        return {"_corrupted": True}
+        # Un sentinella con valori non-dict (es. {"_corrupted": True}) fa
+        # crashare i consumatori che danno per scontato profili dict-format.
+        _invalidate_caches()
+        return {}
     except FileNotFoundError:
         _invalidate_caches()
         return {}
@@ -101,7 +104,7 @@ def load_profiles() -> dict:
         _log = get_logger(__name__)
         _log.warning("Errore lettura sessioni: %s", e)
         _invalidate_caches()
-        return {"_error": str(e)}
+        return {}
 
     cm = _crypto()
     if cm and cm.is_enabled() and cm.is_unlocked():
@@ -134,7 +137,8 @@ def load_profiles() -> dict:
 
 def _resolve_template_inheritance(profiles: dict) -> dict:
     """Resolve template inheritance, including chains, without mutating input."""
-    templates = {n: d for n, d in profiles.items() if d.get("is_template")}
+    templates = {n: d for n, d in profiles.items()
+                 if isinstance(d, dict) and d.get("is_template")}
     if not templates:
         return profiles
 
@@ -171,7 +175,8 @@ def _resolve_template_inheritance(profiles: dict) -> dict:
 def get_templates() -> dict:
     """Return all sessions marked as templates."""
     profili = load_profiles()
-    return {n: d for n, d in profili.items() if d.get("is_template")}
+    return {n: d for n, d in profili.items()
+            if isinstance(d, dict) and d.get("is_template")}
 
 
 def save_profiles(profiles: dict) -> bool:
@@ -562,6 +567,9 @@ def _recover_crypto_transaction():
         _write_json_secure(SESSIONS_FILE, old_profiles)
         _write_json_secure(SETTINGS_FILE, old_settings)
         os.unlink(CRYPTO_TRANSACTION_FILE)
+        # I file su disco sono cambiati: le cache in memoria (se già popolate)
+        # non devono più essere usate o verrebbero riscritte sul ripristino.
+        _invalidate_caches()
         _get_log(__name__).warning("Operazione di cifratura interrotta: ripristinato lo stato precedente")
     except Exception as e:
         _get_log(__name__).error("Impossibile recuperare la transazione crypto: %s", e)
@@ -669,7 +677,7 @@ def expand_variables(testo: str) -> str:
     """Sostituisce {NOME} con il valore dalla tabella variabili globali."""
     vars_ = load_variables()
     for nome, valore in vars_.items():
-        testo = testo.replace(f"{{{nome}}}", valore)
+        testo = testo.replace(f"{{{nome}}}", str(valore))
     return testo
 
 

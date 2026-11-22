@@ -211,13 +211,17 @@ def validate_profiles(profiles: dict) -> dict:
         dati["protocol"] = proto
 
         host = str(dati.get("host", ""))
-        port = str(dati.get("port", ""))
-        if host and any(c in host for c in ' ;|&$(){}[]`\'"\\!@#%^*'):
+        port = str(dati.get("port", "")).strip()
+        # '[' ']' e '%' servono per gli indirizzi IPv6 letterali ([::1],
+        # fe80::1%eth0): non sono pericolosi perché i builder quotano l'host.
+        if host and any(c in host for c in ' ;|&$(){}`\'"\\!@#^*'):
             issues.append((nome, f"host '{host}' contiene metacaratteri non consentiti"))
             continue
         if port and not port.isdigit():
             issues.append((nome, f"porta '{port}' non numerica"))
             continue
+        if port:
+            dati["port"] = port
 
         # Pulisci campi non pertinenti
         allowed = PROTO_FIELDS.get(proto, _COMMON_FIELDS)

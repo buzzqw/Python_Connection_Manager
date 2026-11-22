@@ -198,7 +198,10 @@ def _build_ssh(p: dict) -> str:
 
     strict = "ask" if _strict_host_check(p) else "accept-new"
 
-    args = [f"-p {_esc(port)}",
+    # La porta finisce in una stringa che verra' eseguita da una shell:
+    # _esc() protegge solo gli apostrofi, _q() (shlex.quote) neutralizza
+    # anche ';', '$()' e tutti gli altri metacaratteri.
+    args = [f"-p {_q(port)}",
             f"-o StrictHostKeyChecking={strict}",
             "-o ConnectTimeout=10",
             *_keepalive_args(p)]

@@ -9,9 +9,12 @@ Supporta:
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json
+import os
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -25,6 +28,25 @@ _PROTO_TO_MREMOTENG: dict[str, str] = {
     "file_transfer": "SFTP",
     "serial": "Serial",
 }
+
+
+def _protocollo_mremoteng(dati: dict) -> str:
+    """Risolve il protocollo reale di una sessione di trasferimento file.
+
+    In PCM i profili salvati usano ``file_transfer`` + ``ft_protocol``:
+    mRemoteNG deve ricevere FTP/FTPS/SFTP, non sempre SFTP.
+    """
+    proto = dati.get("protocol", "ssh")
+    if proto in ("file_transfer", "sftp", "ftp"):
+        ft = str(dati.get("ft_protocol") or "").strip().upper()
+        if ft in ("FTP", "FTPS", "SFTP"):
+            return ft
+        if proto == "sftp":
+            return "SFTP"
+        if proto == "ftp":
+            return "FTPS" if dati.get("ftp_tls") else "FTP"
+        return "SFTP"
+    return _PROTO_TO_MREMOTENG.get(proto, "SSH2")
 
 
 def _filtra_profili(profili: dict, gruppo: str | None = None) -> dict:
@@ -79,7 +101,12 @@ def esporta_ssh_config(profili: dict, gruppo: str | None = None) -> tuple[str, i
 
     for nome, dati in sorted(filtrati.items()):
         proto = dati.get("protocol", "ssh")
-        if proto not in ("ssh", "sftp", "mosh"):
+        # validate_profiles() normalizza "sftp" → "file_transfer": senza
+        # questo controllo le sessioni SFTP salvate non venivano esportate.
+        is_sftp = (proto == "sftp" or
+                   (proto == "file_transfer" and
+                    str(dati.get("ft_protocol") or "").strip().upper() == "SFTP"))
+        if proto not in ("ssh", "mosh") and not is_sftp:
             continue
 
         host = (dati.get("host") or "").strip()
@@ -148,7 +175,7 @@ def esporta_csv(profili: dict, gruppo: str | None = None) -> tuple[str, int]:
             tags_str = ", ".join(str(t).strip() for t in tags_raw if str(t).strip())
         else:
             tags_str = str(tags_raw).strip()
-        notes = (dati.get("notes") or "").replace("\r\n", " ").replace("\n", " ").strip()
+        notes = str(dati.get("notes") or "").replace("\r\n", " ").replace("\n", " ").strip()
 
         writer.writerow([nome, proto, host, port, user, grp, tags_str, notes])
         conteggio += 1
@@ -170,6 +197,7 @@ def esporta_json(profili: dict, gruppo: str | None = None, include_passwords: bo
         # Rimuove chiavi di runtime e metadati interni
         copia.pop("_inherits_from", None)
         copia.pop("_sorgente", None)
+        copia.pop("_ssh_alias", None)
         if not include_passwords:
             copia["password"] = ""
             # TOTP è una credenziale a tutti gli effetti: va escluso come la
@@ -194,7 +222,7 @@ def esporta_mremoteng(profili: dict, gruppo: str | None = None) -> tuple[str, in
     conteggio = 0
     for nome, dati in sorted(filtrati.items()):
         proto_pcm = dati.get("protocol", "ssh")
-        proto_mrng = _PROTO_TO_MREMOTENG.get(proto_pcm, "SSH2")
+        proto_mrng = _protocollo_mremoteng(dati)
         host = (dati.get("host") or "").strip()
         port = str(dati.get("port") or "22").strip()
         user = (dati.get("user") or "").strip()
@@ -242,12 +270,21 @@ def esporta_mremoteng(profili: dict, gruppo: str | None = None) -> tuple[str, in
 def esporta_su_file(contenuto: str, percorso: str | Path) -> None:
     """Scrive il contenuto esportato su disco con codifica UTF-8.
 
-    Il file può contenere credenziali: viene creato/forzato a 0600 in modo
-    che non sia leggibile da altri utenti del sistema."""
+    Il file può contenere credenziali o essere ~/.ssh/config: la scrittura è
+    atomica (temp file + os.replace) così un errore durante la scrittura non
+    lascia il file di destinazione troncato o vuoto. Il permesso finale è 0600.
+    """
     p = Path(percorso)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(contenuto, encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(prefix=f".{p.name}.pcm-", dir=str(p.parent))
     try:
-        p.chmod(0o600)
-    except OSError:
-        pass
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(contenuto)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, p)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
